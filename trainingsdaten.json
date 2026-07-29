@@ -1,6 +1,6 @@
 {
  "version": 12,
- "exportedAt": "2026-07-29T08:56:55.291Z",
+ "exportedAt": "2026-07-29T10:58:02.335Z",
  "profile": {
   "name": "Lars",
   "startHcp": 22.8,
@@ -6920,6 +6920,112 @@
     }
    ],
    "countHcp": false
+  },
+  {
+   "id": "R1785322674265",
+   "date": "2026-07-29",
+   "course": "GC Brodauer Mühle",
+   "tee": "Gelb",
+   "type": "18 Loch",
+   "side": "18 Loch",
+   "hi": 20,
+   "countHcp": false,
+   "conditions": {},
+   "holes": [
+    {
+     "hole": 1,
+     "score": 6,
+     "putts": 2
+    },
+    {
+     "hole": 2,
+     "score": 4,
+     "putts": 2
+    },
+    {
+     "hole": 3,
+     "score": 6,
+     "putts": 3
+    },
+    {
+     "hole": 4,
+     "score": 5,
+     "putts": 2
+    },
+    {
+     "hole": 5,
+     "score": 5,
+     "putts": 2
+    },
+    {
+     "hole": 6,
+     "score": 4,
+     "putts": 2
+    },
+    {
+     "hole": 7,
+     "score": 4,
+     "putts": 2
+    },
+    {
+     "hole": 8,
+     "score": 5,
+     "putts": 2
+    },
+    {
+     "hole": 9,
+     "score": 5,
+     "putts": 2
+    },
+    {
+     "hole": 10,
+     "score": 5,
+     "putts": 2,
+     "penN": 1,
+     "penType": "Water/Hazard"
+    },
+    {
+     "hole": 11,
+     "score": 4,
+     "putts": 2
+    },
+    {
+     "hole": 12,
+     "score": 7,
+     "penN": 1,
+     "penType": "Out of Bounds"
+    },
+    {
+     "hole": 13,
+     "score": 4,
+     "putts": 3
+    },
+    {
+     "hole": 14,
+     "score": 5,
+     "putts": 2
+    },
+    {
+     "hole": 15,
+     "score": 4,
+     "putts": 2
+    },
+    {
+     "hole": 16,
+     "score": 5,
+     "putts": 2
+    },
+    {
+     "hole": 17,
+     "score": 6,
+     "putts": 2
+    },
+    {
+     "hole": 18,
+     "score": 5,
+     "putts": 2
+    }
+   ]
   }
  ],
  "costWeights": {
