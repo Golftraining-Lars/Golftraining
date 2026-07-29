@@ -1,6 +1,6 @@
 {
  "version": 12,
- "exportedAt": "2026-07-29T10:59:03.031Z",
+ "exportedAt": "2026-07-29T13:16:53.939Z",
  "profile": {
   "name": "Lars",
   "startHcp": 22.8,
@@ -9692,12 +9692,6 @@
    "total": 211
   },
   {
-   "id": "C3",
-   "club": "5 Wood 18°",
-   "carry": 192,
-   "total": 204
-  },
-  {
    "id": "C4",
    "club": "2 Iron 17°",
    "carry": 187,
@@ -9708,12 +9702,6 @@
    "club": "7 Wood 21°",
    "carry": 172,
    "total": 181
-  },
-  {
-   "id": "C6",
-   "club": "4 Iron 20,5°",
-   "carry": 161,
-   "total": 171
   },
   {
    "id": "C7",
