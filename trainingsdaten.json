@@ -1,6 +1,6 @@
 {
  "version": 12,
- "exportedAt": "2026-07-29T08:29:58.502Z",
+ "exportedAt": "2026-07-29T08:56:55.291Z",
  "profile": {
   "name": "Lars",
   "startHcp": 22.8,
@@ -9504,63 +9504,212 @@
    "date": "2026-05-17",
    "priority": "B",
    "status": "geplant",
-   "prepWindow": 7
+   "prepWindow": 7,
+   "id": "T1x6469"
   },
   {
    "name": "ECO Day Südplatz / 9 Loch",
    "date": "2026-05-21",
    "priority": "C",
    "status": "geplant",
-   "prepWindow": 3
+   "prepWindow": 3,
+   "id": "T2x9312"
   },
   {
    "name": "BSV Quali Turnier Gut Waldshagen",
    "date": "2026-05-30",
    "priority": "A",
    "status": "geplant",
-   "prepWindow": 14
+   "prepWindow": 14,
+   "id": "T3x3600"
   },
   {
    "name": "BSV Quali Turnier Hamburg-Walddörfer (Sommerferien)",
    "date": "2026-07-05",
    "priority": "A",
    "status": "optional",
-   "prepWindow": 14
+   "prepWindow": 14,
+   "id": "T4x2852"
   },
   {
    "name": "BSV Quali Turnier St. Dionys (Sommerferien)",
    "date": "2026-07-25",
    "priority": "A",
    "status": "optional",
-   "prepWindow": 14
+   "prepWindow": 14,
+   "id": "T5x6182"
   },
   {
    "name": "BSV Turnier Gut Waldhof",
    "date": "2026-08-08",
    "priority": "B",
    "status": "optional",
-   "prepWindow": 7
+   "prepWindow": 7,
+   "id": "T6x3171"
   },
   {
    "name": "Clubmeisterschaften Timmendorfer Strand",
    "date": "2026-08-22",
    "priority": "A",
    "status": "geplant",
-   "prepWindow": 14
+   "prepWindow": 14,
+   "id": "T7x5168"
   },
   {
    "name": "BSV Turnier Bissenmoor",
    "date": "2026-09-13",
    "priority": "B",
    "status": "optional",
-   "prepWindow": 7
+   "prepWindow": 7,
+   "id": "T8x6182"
   },
   {
    "name": "Südplatz Monatscup",
    "date": "2026-09-27",
    "priority": "C",
    "status": "optional",
-   "prepWindow": 3
+   "prepWindow": 3,
+   "id": "T9x6488"
+  }
+ ],
+ "clubDistances": [
+  {
+   "id": "C1",
+   "club": "Driver 10,5°",
+   "carry": 211,
+   "total": 221
+  },
+  {
+   "id": "C2",
+   "club": "3 Wood 15°",
+   "carry": 201,
+   "total": 211
+  },
+  {
+   "id": "C3",
+   "club": "5 Wood 18°",
+   "carry": 192,
+   "total": 204
+  },
+  {
+   "id": "C4",
+   "club": "2 Iron 17°",
+   "carry": 187,
+   "total": 200
+  },
+  {
+   "id": "C5",
+   "club": "7 Wood 21°",
+   "carry": 172,
+   "total": 181
+  },
+  {
+   "id": "C6",
+   "club": "4 Iron 20,5°",
+   "carry": 161,
+   "total": 171
+  },
+  {
+   "id": "C7",
+   "club": "5 Iron 23,5°",
+   "carry": 155,
+   "total": 165
+  },
+  {
+   "id": "C8",
+   "club": "6 Iron 26,5°",
+   "carry": 146,
+   "total": 155
+  },
+  {
+   "id": "C9",
+   "club": "7 Iron 30°",
+   "carry": 140,
+   "total": 149
+  },
+  {
+   "id": "C10",
+   "club": "8 Iron 34,5°",
+   "carry": 133,
+   "total": 140
+  },
+  {
+   "id": "C11",
+   "club": "9 Iron 39,5°",
+   "carry": 119,
+   "total": 125
+  },
+  {
+   "id": "C12",
+   "club": "PW 44,5°",
+   "carry": 113,
+   "total": null
+  },
+  {
+   "id": "C13",
+   "club": "PW 44,5° · 105 m",
+   "carry": 105,
+   "total": null
+  },
+  {
+   "id": "C14",
+   "club": "PW 44,5° · 85–90 m",
+   "carry": 88,
+   "total": null
+  },
+  {
+   "id": "C15",
+   "club": "GW 50°",
+   "carry": 100,
+   "total": null
+  },
+  {
+   "id": "C16",
+   "club": "GW 50° · 90 m",
+   "carry": 90,
+   "total": null
+  },
+  {
+   "id": "C17",
+   "club": "GW 50° · 70 m",
+   "carry": 70,
+   "total": null
+  },
+  {
+   "id": "C18",
+   "club": "SW 54°",
+   "carry": 80,
+   "total": null
+  },
+  {
+   "id": "C19",
+   "club": "SW 54° · 75 m",
+   "carry": 75,
+   "total": null
+  },
+  {
+   "id": "C20",
+   "club": "SW 54° · 65 m",
+   "carry": 65,
+   "total": null
+  },
+  {
+   "id": "C21",
+   "club": "SW 54° · 45 m",
+   "carry": 45,
+   "total": null
+  },
+  {
+   "id": "C22",
+   "club": "SW 54° · 40 m",
+   "carry": 40,
+   "total": null
+  },
+  {
+   "id": "C23",
+   "club": "SW 54° · 35 m",
+   "carry": 35,
+   "total": null
   }
  ]
 }
