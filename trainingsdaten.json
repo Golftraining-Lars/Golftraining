@@ -1,6 +1,6 @@
 {
  "version": 12,
- "exportedAt": "2026-07-29T13:25:16.175Z",
+ "exportedAt": "2026-07-29T13:45:17.907Z",
  "profile": {
   "name": "Lars",
   "startHcp": 22.8,
@@ -9065,7 +9065,8 @@
    "start": 58,
    "target": 105,
    "note": "Hoch  ·  Schwerpunkt: Pitching & Putting",
-   "testKey": "pelz"
+   "testKey": "pelz",
+   "id": "G1x9549"
   },
   {
    "phase": "Phase 1",
@@ -9073,7 +9074,8 @@
    "start": 0.125,
    "target": 0.292,
    "note": "Hoch  ·  Effizienz-Kennzahl neben Rohscore",
-   "testKey": null
+   "testKey": null,
+   "id": "G2x1919"
   },
   {
    "phase": "Phase 1",
@@ -9081,7 +9083,8 @@
    "start": 0.22,
    "target": 0.33,
    "note": "Hoch  ·  Scrambling ist der wichtigste Scoring-Faktor bei Hcp 20+",
-   "testKey": "updown"
+   "testKey": "updown",
+   "id": "G3x3115"
   },
   {
    "phase": "Phase 1",
@@ -9089,7 +9092,8 @@
    "start": 12,
    "target": 15,
    "note": "Hoch  ·  Fokus: Rough & Vorgrün",
-   "testKey": "scrambling"
+   "testKey": "scrambling",
+   "id": "G4x6227"
   },
   {
    "phase": "Phase 1",
@@ -9097,7 +9101,8 @@
    "start": 40,
    "target": 70,
    "note": "Hoch  ·  GIR-Rate von Fairway steigern",
-   "testKey": "approach"
+   "testKey": "approach",
+   "id": "G5x3858"
   },
   {
    "phase": "Phase 1",
@@ -9105,7 +9110,8 @@
    "start": 14,
    "target": 22,
    "note": "Mittel  ·  3-Putts reduzieren",
-   "testKey": "lag"
+   "testKey": "lag",
+   "id": "G6x7682"
   },
   {
    "phase": "Phase 1",
@@ -9113,7 +9119,8 @@
    "start": 10,
    "target": 16,
    "note": "Mittel  ·  Wedge-Schärfe aus allen Lagen",
-   "testKey": "randomwedge"
+   "testKey": "randomwedge",
+   "id": "G7x8944"
   },
   {
    "phase": "Phase 1",
@@ -9121,7 +9128,8 @@
    "start": 2,
    "target": 4,
    "note": "Mittel  ·  Kurzputts unter Druck halten",
-   "testKey": "3ball"
+   "testKey": "3ball",
+   "id": "G8x4166"
   },
   {
    "phase": "Phase 1",
@@ -9129,7 +9137,8 @@
    "start": 4,
    "target": 5,
    "note": "Mittel  ·  50% als Mindest-Basis",
-   "testKey": "driverfw"
+   "testKey": "driverfw",
+   "id": "G9x8612"
   },
   {
    "phase": "Phase 1",
@@ -9137,7 +9146,8 @@
    "start": 22,
    "target": 30,
    "note": "Mittel  ·  Gate Drill nach Pelz – 1,0–3,0 m",
-   "testKey": "kurzputt"
+   "testKey": "kurzputt",
+   "id": "G10x2886"
   },
   {
    "phase": "Phase 1",
@@ -9145,7 +9155,8 @@
    "start": 0,
    "target": 90,
    "note": "Hoch  ·  Beweglichkeit = Schwung-Fundament",
-   "testKey": null
+   "testKey": null,
+   "id": "G11x4718"
   },
   {
    "phase": "Phase 2",
@@ -9153,7 +9164,8 @@
    "start": 70,
    "target": 140,
    "note": "Hoch  ·  Schwerpunkt: Bunker & Lag Putting",
-   "testKey": "pelz"
+   "testKey": "pelz",
+   "id": "G12x5579"
   },
   {
    "phase": "Phase 2",
@@ -9161,7 +9173,8 @@
    "start": 0.33,
    "target": 0.45,
    "note": "Hoch  ·  Definiert Hcp-10-Niveau",
-   "testKey": "updown"
+   "testKey": "updown",
+   "id": "G13x7628"
   },
   {
    "phase": "Phase 2",
@@ -9169,7 +9182,8 @@
    "start": 40,
    "target": 100,
    "note": "Hoch  ·  GIR-Rate auf ~30% steigern",
-   "testKey": "approach"
+   "testKey": "approach",
+   "id": "G14x4161"
   },
   {
    "phase": "Phase 2",
@@ -9177,7 +9191,8 @@
    "start": 0,
    "target": 30,
    "note": "Hoch  ·  3-Putt-Rate unter 10%",
-   "testKey": "lag"
+   "testKey": "lag",
+   "id": "G15x8295"
   },
   {
    "phase": "Phase 2",
@@ -9185,7 +9200,8 @@
    "start": 5,
    "target": 6,
    "note": "Mittel  ·  70% FW-Rate als Phase-2-Ziel",
-   "testKey": "driverfw"
+   "testKey": "driverfw",
+   "id": "G16x2814"
   },
   {
    "phase": "Phase 2",
@@ -9193,7 +9209,8 @@
    "start": 15,
    "target": 22,
    "note": "Mittel",
-   "testKey": "scrambling"
+   "testKey": "scrambling",
+   "id": "G17x1238"
   },
   {
    "phase": "Phase 2",
@@ -9201,7 +9218,8 @@
    "start": 0,
    "target": 28,
    "note": "Mittel  ·  Ballflugkontrolle für Hcp 8 notwendig",
-   "testKey": null
+   "testKey": null,
+   "id": "G18x8581"
   },
   {
    "phase": "Phase 2",
@@ -9209,7 +9227,8 @@
    "start": 30,
    "target": 18,
    "note": "Mittel  ·  Achtung: kleiner = besser!",
-   "testKey": null
+   "testKey": null,
+   "id": "G19x8445"
   },
   {
    "phase": "Phase 2",
@@ -9217,7 +9236,8 @@
    "start": 0,
    "target": 30,
    "note": "Mittel  ·  Scoring-Zone 50–100m präzisieren",
-   "testKey": null
+   "testKey": null,
+   "id": "G20x1696"
   },
   {
    "phase": "Phase 2",
@@ -9225,7 +9245,8 @@
    "start": 83,
    "target": 99,
    "note": "✅ Bereits übertroffen! Lars bei 96 mph (> HCP-8-Niveau). Fokus auf 99 mph (Phase 2).",
-   "testKey": null
+   "testKey": null,
+   "id": "G21x6513"
   },
   {
    "phase": "PHASE 3",
@@ -9233,7 +9254,8 @@
    "start": 90,
    "target": 190,
    "note": "Hoch",
-   "testKey": "pelz"
+   "testKey": "pelz",
+   "id": "G22x758"
   },
   {
    "phase": "PHASE 3",
@@ -9241,7 +9263,8 @@
    "start": 0.45,
    "target": 0.6,
    "note": "Hoch",
-   "testKey": "updown"
+   "testKey": "updown",
+   "id": "G23x4920"
   },
   {
    "phase": "PHASE 3",
@@ -9249,7 +9272,8 @@
    "start": 55,
    "target": 130,
    "note": "Hoch  ·  GIR ≥ 45%",
-   "testKey": "approach"
+   "testKey": "approach",
+   "id": "G24x1716"
   },
   {
    "phase": "PHASE 3",
@@ -9257,7 +9281,8 @@
    "start": 30,
    "target": 37,
    "note": "Hoch",
-   "testKey": "lag"
+   "testKey": "lag",
+   "id": "G25x6845"
   },
   {
    "phase": "PHASE 3",
@@ -9265,7 +9290,8 @@
    "start": 24,
    "target": 29,
    "note": "Hoch",
-   "testKey": "distanzputt"
+   "testKey": "distanzputt",
+   "id": "G26x9862"
   },
   {
    "phase": "PHASE 3",
@@ -9273,7 +9299,8 @@
    "start": 28,
    "target": 36,
    "note": "Mittel  ·  Alle Shot-Typen zuverlässig",
-   "testKey": null
+   "testKey": null,
+   "id": "G27x3945"
   },
   {
    "phase": "PHASE 3",
@@ -9281,7 +9308,8 @@
    "start": 5,
    "target": 7,
    "note": "Mittel",
-   "testKey": null
+   "testKey": null,
+   "id": "G28x2931"
   },
   {
    "phase": "PHASE 3",
@@ -9289,7 +9317,8 @@
    "start": 96,
    "target": 103,
    "note": "Mittel · Lars startet P2 bereits bei 96 mph → Ziel ≥ 103 mph (→ ~245m Carry)",
-   "testKey": null
+   "testKey": null,
+   "id": "G29x832"
   },
   {
    "phase": "PHASE 3",
@@ -9297,7 +9326,8 @@
    "start": 18,
    "target": 12,
    "note": "Mittel  ·  Achtung: kleiner = besser!",
-   "testKey": null
+   "testKey": null,
+   "id": "G30x4499"
   },
   {
    "phase": "PHASE 4",
@@ -9305,7 +9335,8 @@
    "start": 110,
    "target": 240,
    "note": "Hoch",
-   "testKey": "pelz"
+   "testKey": "pelz",
+   "id": "G31x5014"
   },
   {
    "phase": "PHASE 4",
@@ -9313,7 +9344,8 @@
    "start": 0.6,
    "target": 0.68,
    "note": "Hoch  ·  Tour-nahes Niveau",
-   "testKey": "updown"
+   "testKey": "updown",
+   "id": "G32x5076"
   },
   {
    "phase": "PHASE 4",
@@ -9321,7 +9353,8 @@
    "start": 70,
    "target": 150,
    "note": "Hoch  ·  GIR ≥ 55%",
-   "testKey": "approach"
+   "testKey": "approach",
+   "id": "G33x6114"
   },
   {
    "phase": "PHASE 4",
@@ -9329,7 +9362,8 @@
    "start": 5,
    "target": 9,
    "note": "Hoch  ·  Kurzputts unter Turnierdruck",
-   "testKey": "3ball"
+   "testKey": "3ball",
+   "id": "G34x718"
   },
   {
    "phase": "PHASE 4",
@@ -9337,7 +9371,8 @@
    "start": 37,
    "target": 42,
    "note": "Hoch",
-   "testKey": "lag"
+   "testKey": "lag",
+   "id": "G35x2066"
   },
   {
    "phase": "PHASE 4",
@@ -9345,7 +9380,8 @@
    "start": 103,
    "target": 102,
    "note": "Mittel  ·  → ≥ 250m Carry",
-   "testKey": null
+   "testKey": null,
+   "id": "G36x2865"
   },
   {
    "phase": "PHASE 4",
@@ -9353,7 +9389,8 @@
    "start": 36,
    "target": 45,
    "note": "Mittel  ·  Alle Shot-Typen & Höhen sicher",
-   "testKey": null
+   "testKey": null,
+   "id": "G37x1134"
   },
   {
    "phase": "PHASE 4",
@@ -9361,7 +9398,8 @@
    "start": 7,
    "target": 10,
    "note": "Mittel",
-   "testKey": null
+   "testKey": null,
+   "id": "G38x6990"
   }
  ],
  "periodization": {
@@ -9373,7 +9411,8 @@
     "focus": "Short Game + Technik",
     "load": "Aufbau",
     "volume": "Hoch",
-    "intensity": "Mittel"
+    "intensity": "Mittel",
+    "id": "M1x3539"
    },
    {
     "name": "P2: Entwicklung",
@@ -9382,7 +9421,8 @@
     "focus": "Short Game + Course Mgmt",
     "load": "Hoch",
     "volume": "Sehr hoch",
-    "intensity": "Hoch"
+    "intensity": "Hoch",
+    "id": "M2x4650"
    },
    {
     "name": "P3: Verfeinerung",
@@ -9391,7 +9431,8 @@
     "focus": "Alle Bereiche + Wettkampf",
     "load": "Peak",
     "volume": "Mittel",
-    "intensity": "Sehr hoch"
+    "intensity": "Sehr hoch",
+    "id": "M3x8048"
    },
    {
     "name": "P4: Elite",
@@ -9400,7 +9441,8 @@
     "focus": "Wettkampf + Feintuning",
     "load": "Wettkampf",
     "volume": "Niedrig",
-    "intensity": "Maximal"
+    "intensity": "Maximal",
+    "id": "M4x4535"
    }
   ],
   "blocks": [
@@ -9413,7 +9455,8 @@
     "shortPct": "60%",
     "longPct": "40%",
     "loadType": "Aufbau",
-    "tournamentWeek": "Nein"
+    "tournamentWeek": "Nein",
+    "id": "B1x925"
    },
    {
     "name": "Block 2",
@@ -9424,7 +9467,8 @@
     "shortPct": "65%",
     "longPct": "35%",
     "loadType": "Aufbau",
-    "tournamentWeek": "Nein"
+    "tournamentWeek": "Nein",
+    "id": "B2x3050"
    },
    {
     "name": "Block 3",
@@ -9435,7 +9479,8 @@
     "shortPct": "55%",
     "longPct": "45%",
     "loadType": "Entwicklung",
-    "tournamentWeek": "Ja"
+    "tournamentWeek": "Ja",
+    "id": "B3x2285"
    },
    {
     "name": "Block 4",
@@ -9446,7 +9491,8 @@
     "shortPct": "50%",
     "longPct": "50%",
     "loadType": "Entwicklung",
-    "tournamentWeek": "Nein"
+    "tournamentWeek": "Nein",
+    "id": "B4x5829"
    },
    {
     "name": "Block 5",
@@ -9457,7 +9503,8 @@
     "shortPct": "50%",
     "longPct": "50%",
     "loadType": "Peak",
-    "tournamentWeek": "Ja"
+    "tournamentWeek": "Ja",
+    "id": "B5x2823"
    },
    {
     "name": "Block 6",
@@ -9468,7 +9515,8 @@
     "shortPct": "45%",
     "longPct": "55%",
     "loadType": "Wettkampf",
-    "tournamentWeek": "Ja"
+    "tournamentWeek": "Ja",
+    "id": "B6x8907"
    },
    {
     "name": "Block 7",
@@ -9479,7 +9527,8 @@
     "shortPct": "50%",
     "longPct": "50%",
     "loadType": "Peak",
-    "tournamentWeek": "Ja"
+    "tournamentWeek": "Ja",
+    "id": "B7x3709"
    },
    {
     "name": "Block 8",
@@ -9490,7 +9539,8 @@
     "shortPct": "60%",
     "longPct": "40%",
     "loadType": "Aufbau",
-    "tournamentWeek": "Nein"
+    "tournamentWeek": "Nein",
+    "id": "B8x6449"
    },
    {
     "name": "Block 9",
@@ -9501,7 +9551,8 @@
     "shortPct": "50%",
     "longPct": "50%",
     "loadType": "Entwicklung",
-    "tournamentWeek": "Ja"
+    "tournamentWeek": "Ja",
+    "id": "B9x5398"
    },
    {
     "name": "Block 10",
@@ -9512,7 +9563,8 @@
     "shortPct": "50%",
     "longPct": "50%",
     "loadType": "Peak",
-    "tournamentWeek": "Ja"
+    "tournamentWeek": "Ja",
+    "id": "B10x1891"
    },
    {
     "name": "Block 11",
@@ -9523,7 +9575,8 @@
     "shortPct": "55%",
     "longPct": "45%",
     "loadType": "Wettkampf",
-    "tournamentWeek": "Ja"
+    "tournamentWeek": "Ja",
+    "id": "B11x7615"
    },
    {
     "name": "Block 12",
@@ -9534,7 +9587,8 @@
     "shortPct": "55%",
     "longPct": "45%",
     "loadType": "Aufbau",
-    "tournamentWeek": "Nein"
+    "tournamentWeek": "Nein",
+    "id": "B12x3863"
    },
    {
     "name": "Block 13",
@@ -9545,7 +9599,8 @@
     "shortPct": "45%",
     "longPct": "55%",
     "loadType": "Peak",
-    "tournamentWeek": "Ja"
+    "tournamentWeek": "Ja",
+    "id": "B13x5592"
    },
    {
     "name": "Block 14",
@@ -9556,7 +9611,8 @@
     "shortPct": "50%",
     "longPct": "50%",
     "loadType": "Peak",
-    "tournamentWeek": "Ja"
+    "tournamentWeek": "Ja",
+    "id": "B14x6788"
    },
    {
     "name": "Block 15",
@@ -9567,7 +9623,8 @@
     "shortPct": "50%",
     "longPct": "50%",
     "loadType": "Wettkampf",
-    "tournamentWeek": "Ja"
+    "tournamentWeek": "Ja",
+    "id": "B15x1885"
    },
    {
     "name": "Block 16",
@@ -9578,7 +9635,8 @@
     "shortPct": "40%",
     "longPct": "60%",
     "loadType": "Entwicklung",
-    "tournamentWeek": "Ja"
+    "tournamentWeek": "Ja",
+    "id": "B16x9062"
    },
    {
     "name": "Block 17",
@@ -9589,7 +9647,8 @@
     "shortPct": "55%",
     "longPct": "45%",
     "loadType": "Peak",
-    "tournamentWeek": "Ja"
+    "tournamentWeek": "Ja",
+    "id": "B17x1573"
    },
    {
     "name": "Block 18",
@@ -9600,7 +9659,8 @@
     "shortPct": "45%",
     "longPct": "55%",
     "loadType": "Wettkampf",
-    "tournamentWeek": "Ja"
+    "tournamentWeek": "Ja",
+    "id": "B18x6442"
    }
   ]
  },
