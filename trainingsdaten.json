@@ -1,6 +1,6 @@
 {
  "version": 12,
- "exportedAt": "2026-07-29T13:17:15.248Z",
+ "exportedAt": "2026-07-29T13:25:00.579Z",
  "profile": {
   "name": "Lars",
   "startHcp": 22.8,
@@ -9646,14 +9646,6 @@
    "id": "T5x6182"
   },
   {
-   "name": "BSV Turnier Gut Waldhof",
-   "date": "2026-08-08",
-   "priority": "B",
-   "status": "optional",
-   "prepWindow": 7,
-   "id": "T6x3171"
-  },
-  {
    "name": "Clubmeisterschaften Timmendorfer Strand",
    "date": "2026-08-22",
    "priority": "A",
@@ -9692,6 +9684,12 @@
    "total": 211
   },
   {
+   "id": "C3",
+   "club": "5 Wood 18°",
+   "carry": 192,
+   "total": 204
+  },
+  {
    "id": "C4",
    "club": "2 Iron 17°",
    "carry": 187,
@@ -9704,6 +9702,12 @@
    "total": 181
   },
   {
+   "id": "C6",
+   "club": "4 Iron 20,5°",
+   "carry": 161,
+   "total": 171
+  },
+  {
    "id": "C7",
    "club": "5 Iron 23,5°",
    "carry": 155,
@@ -9712,7 +9716,7 @@
   {
    "id": "C8",
    "club": "6 Iron 26,5°",
-   "carry": 148,
+   "carry": 146,
    "total": 155
   },
   {
