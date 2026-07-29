@@ -1,6 +1,6 @@
 {
  "version": 12,
- "exportedAt": "2026-07-29T16:43:42.133Z",
+ "exportedAt": "2026-07-29T16:50:37.401Z",
  "profile": {
   "name": "Lars",
   "startHcp": 22.8,
@@ -9861,5 +9861,80 @@
    "carry": 35,
    "total": null
   }
- ]
+ ],
+ "_draftRound": {
+  "round": {
+   "id": "R1785343837393",
+   "date": "2026-07-29",
+   "course": "Timmendorfer Strand Nordplatz",
+   "tee": "Gelb",
+   "type": "9 Loch",
+   "side": "Back 9",
+   "hi": 20,
+   "countHcp": false,
+   "conditions": {},
+   "holes": [
+    {
+     "hole": 10,
+     "score": 4,
+     "putts": 1,
+     "tee": "Lang",
+     "appr": "<20",
+     "firstPutt": "3m",
+     "quality": "Holed",
+     "club": "7w Aerojet",
+     "lie": "Semi-Rough",
+     "distToPin": 3,
+     "ud": "Ja",
+     "recovery": "Nein"
+    },
+    {
+     "hole": 11,
+     "score": 5,
+     "putts": 2,
+     "tee": "Hit",
+     "appr": "20–50",
+     "firstPutt": "5m",
+     "quality": "<1m",
+     "club": "Driver Aerojet",
+     "lie": "Fairway",
+     "distToPin": 5,
+     "recovery": "Nein",
+     "girDirect": "Ja"
+    },
+    {
+     "hole": 12,
+     "score": 3,
+     "appr": "170–200",
+     "firstPutt": "7m",
+     "quality": "1m",
+     "club": "5 Eisen G410",
+     "lie": "Tee",
+     "distToPin": 7,
+     "recovery": "Nein",
+     "girDirect": "Ja"
+    },
+    {
+     "hole": 13,
+     "tee": "Hit"
+    },
+    {
+     "hole": 14
+    },
+    {
+     "hole": 15
+    },
+    {
+     "hole": 16
+    },
+    {
+     "hole": 17
+    },
+    {
+     "hole": 18
+    }
+   ]
+  },
+  "ts": "2026-07-29T16:50:37.393Z"
+ }
 }
