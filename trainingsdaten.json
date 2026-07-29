@@ -1,0 +1,8300 @@
+{
+ "version": 12,
+ "exportedAt": "2026-07-26",
+ "profile": {
+  "name": "Lars",
+  "startHcp": 22.8,
+  "targetHcp": 0.0,
+  "currentHcp": 21.4,
+  "seasonStart": "2026-03-01",
+  "hcpIndex": 20
+ },
+ "phases": [
+  {
+   "name": "P1: Grundlage",
+   "start": "2026-03-01",
+   "end": "2026-08-31",
+   "hcpTarget": 18
+  },
+  {
+   "name": "P2: Entwicklung",
+   "start": "2026-09-01",
+   "end": "2027-03-31",
+   "hcpTarget": 10
+  },
+  {
+   "name": "P3: Verfeinerung",
+   "start": "2027-04-01",
+   "end": "2027-09-30",
+   "hcpTarget": 3
+  },
+  {
+   "name": "P4: Elite",
+   "start": "2027-10-01",
+   "end": "2028-03-31",
+   "hcpTarget": 0
+  }
+ ],
+ "priorityWeights": {
+  "Par-3 Challenge /27": 0.0191,
+  "Course Management /50": 0.0115,
+  "Eisen Streubreite ↓ besser": 0.0383,
+  "Driver FW-Hits /10": 0.0421,
+  "Consecutive FW-Serie": 0.0115,
+  "Swing Speed Driver mph": 0.0153,
+  "Random Wedge /48": 0.0383,
+  "Approach Accuracy /200": 0.0651,
+  "9-Shot Test /54": 0.0038,
+  "Distanzkontrolle Wedge /45": 0.023,
+  "Pelz Score /360": 0.0689,
+  "Up & Down Rate %": 0.0651,
+  "Scrambling Zone /40": 0.0306,
+  "3-Varianten Chip /60": 0.0306,
+  "Bunker-Test /20": 0.0421,
+  "Short Game Pressure /25": 0.0153,
+  "3-Ball Pressure Putting": 0.0689,
+  "Distanz-Putting /36": 0.0612,
+  "Lag Putting /45": 0.0536,
+  "Kurzputt-Präzision /50": 0.0612,
+  "Recovery Test /20": 0.0267,
+  "Layup & Long-Club /20": 0.0223,
+  "Pressure Approach /20": 0.0312,
+  "Par-Save Test /20": 0.0267,
+  "Decision Go-No-Go /50": 0.0176,
+  "3m-Putts /50": 0.05,
+  "Smash Factor Driver": 0.03,
+  "Tempo-Ratio Driver": 0.03
+ },
+ "testDefs": [
+  {
+   "key": "kurzputt",
+   "label": "Kurzputt-Präzision",
+   "category": "Putting",
+   "inputs": [
+    {
+     "key": "1,0m",
+     "label": "1,0m",
+     "max": 10
+    },
+    {
+     "key": "1,5m",
+     "label": "1,5m",
+     "max": 10
+    },
+    {
+     "key": "2,0m",
+     "label": "2,0m",
+     "max": 10
+    },
+    {
+     "key": "2,5m",
+     "label": "2,5m",
+     "max": 10
+    },
+    {
+     "key": "3,0m",
+     "label": "3,0m",
+     "max": 10
+    }
+   ],
+   "benchmark": {
+    "levels": [
+     22,
+     30,
+     38,
+     44,
+     48
+    ],
+    "unit": "Pkt /50",
+    "higherIsBetter": true
+   },
+   "weightKey": "Kurzputt-Präzision /50",
+   "weight": 0.0612,
+   "score": "sum",
+   "description": "🎯 KURZPUTT-PRÄZISIONSTEST (Gate Drill nach Dave Pelz) · Trefferquote auf kurze Distanzen\n\nWichtigste Einzelmetrik für HCP-Verbesserung. 10 Versuche je Distanz. Gate = Lochbreite + 2 Tee-Breiten je Seite (≈ 12 cm). Nur Putts durch das Gate = Treffer."
+  },
+  {
+   "key": "distanzputt",
+   "label": "Distanz-Putting Test",
+   "category": "Putting",
+   "inputs": [
+    {
+     "key": "3m",
+     "label": "3m",
+     "max": 9
+    },
+    {
+     "key": "5m",
+     "label": "5m",
+     "max": 9
+    },
+    {
+     "key": "7m",
+     "label": "7m",
+     "max": 9
+    },
+    {
+     "key": "10m",
+     "label": "10m",
+     "max": 9
+    }
+   ],
+   "benchmark": {
+    "levels": [
+     14,
+     18,
+     24,
+     29,
+     33
+    ],
+    "unit": "Pkt /36",
+    "higherIsBetter": true
+   },
+   "weightKey": "Distanz-Putting /36",
+   "weight": 0.0612,
+   "score": "sum",
+   "description": "DISTANZ-PUTTING TEST – 3 Putts je Distanz\n\nANLEITUNG:\n• 3 Bälle von jeder Distanz einlochen\n• 4 Distanzen: 3m / 5m / 7m / 10m\n\nWERTUNG:\n Gelocht = 3 Pkt\n ≤ 50 cm = 2 Pkt\n ≤ 100 cm = 1 Pkt\n > 100 cm = 0 Pkt\n\nMax: 36 Punkte\nZiel Hcp 15: ≥ 18 Pkt → siehe Benchmarks\nZiel Hcp 8: ≥ 24 Pkt → siehe Benchmarks"
+  },
+  {
+   "key": "lag",
+   "label": "Lag Putting Test",
+   "category": "Putting",
+   "inputs": [
+    {
+     "key": "8m",
+     "label": "8m",
+     "max": 15
+    },
+    {
+     "key": "10m",
+     "label": "10m",
+     "max": 15
+    },
+    {
+     "key": "15m",
+     "label": "15m",
+     "max": 15
+    }
+   ],
+   "benchmark": {
+    "levels": [
+     18,
+     22,
+     30,
+     37,
+     42
+    ],
+    "unit": "Pkt /45",
+    "higherIsBetter": true
+   },
+   "weightKey": "Lag Putting /45",
+   "weight": 0.0536,
+   "score": "sum",
+   "description": "🎯 LAG PUTTING TEST – 3-Putt Vermeidung\n\nANLEITUNG:\n• 5 Bälle von 8m / 10m / 15m\n• Ziel: Ball innerhalb 1m Kreis\n\nWERTUNG:\n Gelocht = 3 Pkt\n ≤ 50 cm = 2 Pkt\n ≤ 100 cm = 1 Pkt ← Zielzone\n > 100 cm = 0 Pkt ← 3-Putt Risiko\n\nMax: 45 Punkte\nZiel Hcp 15: ≥ 22 Pkt\nZiel Hcp 10: ≥ 30 Pkt\n3-Putt-Rate < 10% = Hcp ~10\n→ Zielwerte: siehe Benchmarks-Blatt"
+  },
+  {
+   "key": "3ball",
+   "label": "3-Ball Pressure Putting Test",
+   "category": "Putting",
+   "inputs": [
+    {
+     "key": "Serien gesamt",
+     "label": "Serien gesamt",
+     "max": 10
+    },
+    {
+     "key": "Erfolgreiche Serien",
+     "label": "Erfolgreiche Serien",
+     "max": 10
+    }
+   ],
+   "benchmark": {
+    "levels": [
+     2,
+     4,
+     6,
+     8,
+     9
+    ],
+    "unit": "Serien /10",
+    "higherIsBetter": true
+   },
+   "weightKey": "3-Ball Pressure Putting",
+   "weight": 0.0689,
+   "score": {
+    "field": "Erfolgreiche Serien"
+   },
+   "description": "3-Ball Pressure Putting Test"
+  },
+  {
+   "key": "3mputts",
+   "label": "3m-Putts Test",
+   "category": "Putting",
+   "inputs": [
+    {
+     "key": "Gerade",
+     "label": "Gerade",
+     "max": 10
+    },
+    {
+     "key": "Links Break",
+     "label": "Links Break",
+     "max": 10
+    },
+    {
+     "key": "Rechts Break",
+     "label": "Rechts Break",
+     "max": 10
+    },
+    {
+     "key": "Bergauf",
+     "label": "Bergauf",
+     "max": 10
+    },
+    {
+     "key": "Bergab",
+     "label": "Bergab",
+     "max": 10
+    }
+   ],
+   "benchmark": null,
+   "weightKey": "3m-Putts /50",
+   "weight": 0.05,
+   "score": "sum",
+   "description": "🎯 3m-PUTTS TEST · Lag-Putting-Vermeidung · Pelz/Broadie\n\nAnleitung: 10 Putts aus 3m je Seite (links/rechts/gerade/Korn). Tour-Quote 3m: 50% (PGA Tour 2024). HCP 15: 35%, HCP 8: 45%. 3m-Putts sind die wichtigste Distanz für 3-Putt-Vermeidung — wer hier sicher ist, lockt 3-Putts aus 12m+ deutlich ab."
+  },
+  {
+   "key": "scrambling",
+   "label": "Scrambling Zone Test",
+   "category": "Short Game & Pelz",
+   "inputs": [
+    {
+     "key": "Fairway/Vorgrün",
+     "label": "Fairway/Vorgrün",
+     "max": 10
+    },
+    {
+     "key": "Rough leicht",
+     "label": "Rough leicht",
+     "max": 10
+    },
+    {
+     "key": "Rough tief/Hang",
+     "label": "Rough tief/Hang",
+     "max": 10
+    },
+    {
+     "key": "Bunker",
+     "label": "Bunker",
+     "max": 10
+    }
+   ],
+   "benchmark": {
+    "levels": [
+     12,
+     15,
+     22,
+     28,
+     35
+    ],
+    "unit": "Pkt /40",
+    "higherIsBetter": true
+   },
+   "weightKey": "Scrambling Zone /40",
+   "weight": 0.0306,
+   "score": "sum",
+   "description": "🟢 SCRAMBLING ZONE TEST – 4 Lagen\n\nANLEITUNG:\n• 5 Versuche pro Lage (4 Lagen)\n• Gesamt: 20 Versuche\n• Distanz 10-30 m\n\nWERTUNG je Versuch:\n Up&Down = 2 Pkt\n 2-Putt = 1 Pkt\n 3+ Putts = 0 Pkt\n\nMax je Lage: 10 Pkt\nMax gesamt: 40 Pkt\n\nBenchmarks (→ Reiter Benchmarks):\n ≥ 35 = Hcp 0 (Elite)\n ≥ 28 = Hcp ~3\n ≥ 22 = Hcp ~8\n ≥ 15 = Hcp ~15\n ≥ 12 = Hcp ~20\n < 12 = < Hcp 20"
+  },
+  {
+   "key": "chip3",
+   "label": "3-Varianten Chip Test",
+   "category": "Short Game & Pelz",
+   "inputs": [
+    {
+     "key": "Distanz (m)",
+     "label": "Distanz (m)",
+     "max": null
+    },
+    {
+     "key": "Fairway",
+     "label": "Fairway",
+     "max": 20
+    },
+    {
+     "key": "Rough leicht",
+     "label": "Rough leicht",
+     "max": 20
+    },
+    {
+     "key": "Hardpan/Hang",
+     "label": "Hardpan/Hang",
+     "max": 20
+    }
+   ],
+   "benchmark": {
+    "levels": [
+     18,
+     25,
+     38,
+     46,
+     54
+    ],
+    "unit": "Pkt /60",
+    "higherIsBetter": true
+   },
+   "weightKey": "3-Varianten Chip /60",
+   "weight": 0.0306,
+   "score": "sum",
+   "description": "🎯 3-VARIANTEN CHIP/PITCH TEST – gleiche Distanz, 3 Lies\n\nANLEITUNG:\n• Distanz wählen: 15 m oder 20 m\n• Selber Schläger, 3 verschiedene Lies\n• Je Lie: 5 Bälle spielen\n\nWERTUNG (Pelz-Punkte):\n Gelocht = 4 Pkt\n ≤ 90 cm = 2 Pkt\n ≤ 180 cm = 1 Pkt\n > 180 cm = 0 Pkt\n\nMax Score: 60 Punkte (3×5×4)\nZiel: ≥ 30 Punkte"
+  },
+  {
+   "key": "bunker",
+   "label": "Bunker-Test",
+   "category": "Short Game & Pelz",
+   "inputs": [
+    {
+     "key": "Greenside /20",
+     "label": "Greenside /20",
+     "max": 20
+    },
+    {
+     "key": "Fairway /20",
+     "label": "Fairway /20",
+     "max": 20
+    }
+   ],
+   "benchmark": {
+    "levels": [
+     6,
+     10,
+     14,
+     17,
+     19
+    ],
+    "unit": "Pkt /20",
+    "higherIsBetter": true
+   },
+   "weightKey": "Bunker-Test /20",
+   "weight": 0.0421,
+   "score": "avg",
+   "description": "🏖 BUNKER-TEST · Greenside + Fairway · Up&Down=2Pkt / 2-Putt=1Pkt / Max: 40 Pkt gesamt / Insgesamt 20 Schläge\n\nJe Typ: Up&Down=2Pkt | 2-Putt=1Pkt | 3+Putts=0Pkt | Greenside und Fairway je /20 | Score-Spalte = Durchschnitt /20 (modus-bewusst: nur tatsächlich getestete Modi zählen)"
+  },
+  {
+   "key": "sgpressure",
+   "label": "Short Game Pressure",
+   "category": "Short Game & Pelz",
+   "inputs": [
+    {
+     "key": "10m Chip",
+     "label": "10m Chip",
+     "max": 5
+    },
+    {
+     "key": "20m Pitch",
+     "label": "20m Pitch",
+     "max": 5
+    },
+    {
+     "key": "30m Pitch",
+     "label": "30m Pitch",
+     "max": 5
+    },
+    {
+     "key": "10m Bunker",
+     "label": "10m Bunker",
+     "max": 5
+    },
+    {
+     "key": "10m Lob",
+     "label": "10m Lob",
+     "max": 5
+    }
+   ],
+   "benchmark": {
+    "levels": [
+     7,
+     10,
+     15,
+     19,
+     22
+    ],
+    "unit": "Pkt /25",
+    "higherIsBetter": true
+   },
+   "weightKey": "Short Game Pressure /25",
+   "weight": 0.0153,
+   "score": "sum",
+   "description": "🎯 SHORT GAME PRESSURE STATION TEST · Chip/Pitch Zielgenauigkeit unter Druck\n\n5 Stationen × 5 Versuche = 25 Punkte max. | 3 Punkte = im 1m-Kreis, 2P = 2m, 1P = 3m, 0P = verfehlt.\n\n🎯 SHORT GAME PRESSURE STATION TEST · Chip/Pitch Zielgenauigkeit unter Druck\n\nStation 1: 10m Chip von kurzer Rough, Ziel Pin\n\nStation 2: 20m Pitch von Fairway, Ziel Pin\n\nStation 3: 30m Pitch aus Rough, Ziel Pin\n\nStation 4: 10m Bunkershot, Ziel 2m-Kreis\n\nStation 5: 10m Lob-Chip über Hindernis, Ziel Pin\n\nZiele: Hcp20: ≥8 | Hcp15: ≥12 | Hcp8: ≥17 | Hcp0: ≥22"
+  },
+  {
+   "key": "updown",
+   "label": "Up & Down Test",
+   "category": "Short Game & Pelz",
+   "inputs": [
+    {
+     "key": "Ø Dist (m)",
+     "label": "Ø Dist (m)",
+     "max": null
+    },
+    {
+     "key": "Up&Downs /10",
+     "label": "Up&Downs /10",
+     "max": 10
+    }
+   ],
+   "benchmark": {
+    "levels": [
+     22,
+     33,
+     45,
+     60,
+     68
+    ],
+    "unit": "%",
+    "higherIsBetter": true
+   },
+   "weightKey": "Up & Down Rate %",
+   "weight": 0.0651,
+   "score": {
+    "field": "Up&Downs /10"
+   },
+   "description": "🏌 UP & DOWN TEST · Scrambling-Rate aus 10 definierten Versuchen pro Session\n\n📌 ANLEITUNG: 10 Versuche pro Session aus VERSCHIEDENEN Lagen — randomisiert wählen, nicht selbst aussuchen! Empfehlung: 3× Fairway/Vorgrün (15m), 4× leichtes Rough (20m), 3× Halbrough/Hang oder Bunker (20–25m). 1 Versuch = 1 Chip/Pitch + max. 2 Putts. ✅ Up&Down = du brauchst zusammen NUR 2 Schläge (Chip + 1 Putt). ❌ Kein Up&Down = 3+ Schläge. Trage die Anzahl erfolgreicher Versuche ein → Rate% wird automatisch berechnet."
+  },
+  {
+   "key": "recovery",
+   "label": "Recovery Test",
+   "category": "Short Game & Pelz",
+   "inputs": [
+    {
+     "key": "Perfekt /10",
+     "label": "Perfekt /10",
+     "max": 10
+    },
+    {
+     "key": "Spielbar /10",
+     "label": "Spielbar /10",
+     "max": 10
+    }
+   ],
+   "benchmark": {
+    "levels": [
+     3,
+     5,
+     8,
+     12,
+     15
+    ],
+    "unit": "Pkt /20",
+    "higherIsBetter": true
+   },
+   "weightKey": "Recovery Test /20",
+   "weight": 0.0267,
+   "score": "sum",
+   "description": "🌲 RECOVERY TEST · Trouble-Lagen sicher zurück ins Spiel bringen\n\n📌 WAS IST RECOVERY? Jeder Schlag aus einer Trouble-Lage, bei dem nicht der Hero Shot, sondern die sichere Rückkehr ins Spiel zählt: \nBäume, tiefes Rough, Seitlage oder Punch-Out. Perfekt = Ball sicher im Spiel + gute Folgeposition."
+  },
+  {
+   "key": "parsave",
+   "label": "Par-Save Test",
+   "category": "Short Game & Pelz",
+   "inputs": [
+    {
+     "key": "Par Saves /10",
+     "label": "Par Saves /10",
+     "max": 10
+    },
+    {
+     "key": "Bogey Saves /10",
+     "label": "Bogey Saves /10",
+     "max": 10
+    }
+   ],
+   "benchmark": {
+    "levels": [
+     4,
+     6,
+     10,
+     14,
+     17
+    ],
+    "unit": "Pkt /20",
+    "higherIsBetter": true
+   },
+   "weightKey": "Par-Save Test /20",
+   "weight": 0.0267,
+   "score": "sum",
+   "description": "⛳ PAR-SAVE TEST · Par retten nach verfehltem Grün\n\n📌 WAS WIRD GETESTET? 10 Stationen rund ums Grün. Pro Station genau EIN Ball. Ziel ist nicht nur Up & Down allgemein, sondern konkret: \nWie oft rettest du nach GIR-Miss noch Par? Par Save = 2 Punkte, Bogey Save = 1 Punkt, schlechter = 0 Punkte."
+  },
+  {
+   "key": "pelz",
+   "label": "Pelztest · Pelz Score",
+   "category": "Short Game & Pelz",
+   "inputs": [
+    {
+     "key": "45m Pitch",
+     "label": "45m Pitch",
+     "max": 45
+    },
+    {
+     "key": "27m Pitch",
+     "label": "27m Pitch",
+     "max": 45
+    },
+    {
+     "key": "9m Chip",
+     "label": "9m Chip",
+     "max": 45
+    },
+    {
+     "key": "18m Chip",
+     "label": "18m Chip",
+     "max": 45
+    },
+    {
+     "key": "13,5m P kurz",
+     "label": "13,5m P kurz",
+     "max": 45
+    },
+    {
+     "key": "13,5m P lang",
+     "label": "13,5m P lang",
+     "max": 45
+    },
+    {
+     "key": "7m Bunker",
+     "label": "7m Bunker",
+     "max": 15
+    },
+    {
+     "key": "13,5m Bunker",
+     "label": "13,5m Bunker",
+     "max": 15
+    },
+    {
+     "key": "Putt Break R",
+     "label": "Putt Break R",
+     "max": 15
+    },
+    {
+     "key": "Putt Break L",
+     "label": "Putt Break L",
+     "max": 15
+    },
+    {
+     "key": "Lange Putts",
+     "label": "Lange Putts",
+     "max": 30
+    }
+   ],
+   "benchmark": {
+    "levels": [
+     80,
+     105,
+     140,
+     190,
+     240
+    ],
+    "unit": "Pkt /360",
+    "higherIsBetter": true
+   },
+   "weightKey": "Pelz Score /360",
+   "weight": 0.0689,
+   "score": "sum",
+   "description": "🎯 PELZTEST DATENERFASSUNG · Pelz-Originaldistanzen (Yard→Meter kalibriert) · Max: 360 Punkte\n\nPelz Short Game Test — Originaldistanzen in Yard, metrisch kalibriert (1yd=0,914m). Monatlich erfassen."
+  },
+  {
+   "key": "randomwedge",
+   "label": "Random Wedge Test",
+   "category": "Wedge & Approach",
+   "inputs": [
+    {
+     "key": "18–22m",
+     "label": "18–22m",
+     "max": 12
+    },
+    {
+     "key": "28–32m",
+     "label": "28–32m",
+     "max": 12
+    },
+    {
+     "key": "38–42m",
+     "label": "38–42m",
+     "max": 12
+    },
+    {
+     "key": "48–52m",
+     "label": "48–52m",
+     "max": 12
+    }
+   ],
+   "benchmark": {
+    "levels": [
+     10,
+     16,
+     22,
+     30,
+     38
+    ],
+    "unit": "Pkt /48",
+    "higherIsBetter": true
+   },
+   "weightKey": "Random Wedge /48",
+   "weight": 0.0383,
+   "score": "sum",
+   "description": "RANDOM WEDGE TEST – TRACKING\n\nREGELN:\n• 3 Bälle pro Distanzspanne\n• Distanz bei jedem Schlag wechseln\n• Verschiedene Flugbahnen\n• Wertung: Gelocht=4, ≤90cm=2, ≤180cm=1, >180cm=0\n• Max Score: 48 Punkte"
+  },
+  {
+   "key": "approach",
+   "label": "Approach Accuracy Test",
+   "category": "Wedge & Approach",
+   "inputs": [
+    {
+     "key": "80m",
+     "label": "80m",
+     "max": 40
+    },
+    {
+     "key": "100m",
+     "label": "100m",
+     "max": 40
+    },
+    {
+     "key": "120m",
+     "label": "120m",
+     "max": 40
+    },
+    {
+     "key": "140m",
+     "label": "140m",
+     "max": 40
+    },
+    {
+     "key": "175m",
+     "label": "175m",
+     "max": 40
+    }
+   ],
+   "benchmark": {
+    "levels": [
+     40,
+     70,
+     100,
+     130,
+     150
+    ],
+    "unit": "Pkt /200",
+    "higherIsBetter": true
+   },
+   "weightKey": "Approach Accuracy /200",
+   "weight": 0.0651,
+   "score": "sum",
+   "description": "🏹 APPROACH ACCURACY TEST – 5 Distanzen × 20 Bälle (statistisch valide) – auf Südplatz oder Range\n\nANLEITUNG (20 Bälle = stat. valide):\n• 20 Bälle je Distanz\n• Passenden Schläger wählen\n\nPUNKTE je Ball:\n Grün getroffen = 2 Pkt\n ≤ 3 m daneben = 1 Pkt\n Verfehlt = 0 Pkt\n\nMax: 40 Pkt/Distanz | 200 gesamt\nZiel Hcp 15: ≥ 80 Pkt\nZiel Hcp 10: ≥ 110 Pkt\nZiel Hcp 5: ≥ 140 Pkt\n95%-KI: ±1.96×√(n·p·(1-p))"
+  },
+  {
+   "key": "distanzkontrolle",
+   "label": "Distanzkontrolle Wedge",
+   "category": "Wedge & Approach",
+   "inputs": [
+    {
+     "key": "100% /15",
+     "label": "100% /15",
+     "max": 15
+    },
+    {
+     "key": "75% /15",
+     "label": "75% /15",
+     "max": 15
+    },
+    {
+     "key": "50% /15",
+     "label": "50% /15",
+     "max": 15
+    }
+   ],
+   "benchmark": {
+    "levels": [
+     15,
+     20,
+     30,
+     38,
+     43
+    ],
+    "unit": "Pkt /45",
+    "higherIsBetter": true
+   },
+   "weightKey": "Distanzkontrolle Wedge /45",
+   "weight": 0.023,
+   "score": "sum",
+   "description": "📏 DISTANZKONTROLLE WEDGE – 50% / 75% / 100% Schwung\n\nANLEITUNG:\n• SW oder GW verwenden\n• 5 Bälle je Schwungweite\n• Zieldistanz vorher festlegen!\n\nBEWERTUNG je Ball:\n ± 3m vom Ziel = 3 Pkt\n ± 6m vom Ziel = 2 Pkt\n ± 10m vom Ziel = 1 Pkt\n > 10m Abw. = 0 Pkt\n\nMax: 45 Punkte\n→ Benchmarks-Ziele\n siehe Benchmarks-Blatt\n (Zeile 14)"
+  },
+  {
+   "key": "pressureapproach",
+   "label": "Pressure Approach Test",
+   "category": "Wedge & Approach",
+   "inputs": [
+    {
+     "key": "Green /10",
+     "label": "Green /10",
+     "max": 10
+    },
+    {
+     "key": "Knapp/spielbar /10",
+     "label": "Knapp/spielbar /10",
+     "max": 10
+    }
+   ],
+   "benchmark": {
+    "levels": [
+     5,
+     8,
+     12,
+     16,
+     19
+    ],
+    "unit": "Pkt /20",
+    "higherIsBetter": true
+   },
+   "weightKey": "Pressure Approach /20",
+   "weight": 0.0312,
+   "score": "sum",
+   "description": "🎯 PRESSURE APPROACH TEST · 10 Ein-Ball-Approaches unter Druck\n\n📌 WAS IST DER TEST? 10 Approaches aus wechselnden Distanzen, aber pro Distanz nur EIN Ball. Kein Nachschlagen. \nGreen = 2 Punkte, knapp / spielbar = 1 Punkt, klare Miss = 0 Punkte. Das misst Platz-Performance statt Range-Rhythmus."
+  },
+  {
+   "key": "9shot",
+   "label": "9-Shot Test",
+   "category": "Wedge & Approach",
+   "inputs": [
+    {
+     "key": "Hoch-Draw",
+     "label": "Hoch-Draw",
+     "max": 6
+    },
+    {
+     "key": "Hoch-Gerade",
+     "label": "Hoch-Gerade",
+     "max": 6
+    },
+    {
+     "key": "Hoch-Fade",
+     "label": "Hoch-Fade",
+     "max": 6
+    },
+    {
+     "key": "Mittel-Draw",
+     "label": "Mittel-Draw",
+     "max": 6
+    },
+    {
+     "key": "Mittel-Gerade",
+     "label": "Mittel-Gerade",
+     "max": 6
+    },
+    {
+     "key": "Mittel-Fade",
+     "label": "Mittel-Fade",
+     "max": 6
+    },
+    {
+     "key": "Flach-Draw",
+     "label": "Flach-Draw",
+     "max": 6
+    },
+    {
+     "key": "Flach-Gerade",
+     "label": "Flach-Gerade",
+     "max": 6
+    },
+    {
+     "key": "Flach-Fade",
+     "label": "Flach-Fade",
+     "max": 6
+    }
+   ],
+   "benchmark": {
+    "levels": [
+     14,
+     20,
+     28,
+     36,
+     45
+    ],
+    "unit": "Pkt /54",
+    "higherIsBetter": true
+   },
+   "weightKey": "9-Shot Test /54",
+   "weight": 0.0038,
+   "score": "sum",
+   "description": "🎨 9-SHOT TEST – Ballflugkontrolle (Draw / Gerade / Fade × 3 Höhen)"
+  },
+  {
+   "key": "driverfw",
+   "label": "Driver Consistency Test",
+   "category": "Driver & Longgame",
+   "inputs": [
+    {
+     "key": "FW-Hits /10",
+     "label": "FW-Hits /10",
+     "max": 10
+    },
+    {
+     "key": "Ø Carry (m)",
+     "label": "Ø Carry (m)",
+     "max": null
+    },
+    {
+     "key": "Ø Abw L/R (m)",
+     "label": "Ø Abw L/R (m)",
+     "max": null
+    },
+    {
+     "key": "Smash",
+     "label": "Smash",
+     "max": null
+    },
+    {
+     "key": "Max Carry (m)",
+     "label": "Max Carry (m)",
+     "max": null
+    }
+   ],
+   "benchmark": {
+    "levels": [
+     4,
+     5,
+     6,
+     7,
+     7
+    ],
+    "unit": "Hits /10",
+    "higherIsBetter": true
+   },
+   "weightKey": "Driver FW-Hits /10",
+   "weight": 0.0421,
+   "score": "sum",
+   "description": "🏌 DRIVER CONSISTENCY TEST – 10 Drives\n\nANLEITUNG:\n• 10 Drives auf der Range\n• R10 Approach oder Driver Modus\n\nERFASSEN:\n Fairway/Ziel = 1 Pkt\n < 20m daneben = 0.5 Pkt\n > 20m / OB = 0 Pkt\n\nZusätzlich:\n Ø Carry (m)\n Smash Factor\n Abweichung L/R (m)\n\nZiel Fairway-Rate: > 60%"
+  },
+  {
+   "key": "consecutive",
+   "label": "Consecutive Fairway Test",
+   "category": "Driver & Longgame",
+   "inputs": [
+    {
+     "key": "Längste Serie",
+     "label": "Längste Serie",
+     "max": null
+    },
+    {
+     "key": "FW-Treffer /20",
+     "label": "FW-Treffer /20",
+     "max": 20
+    },
+    {
+     "key": "Ø Carry (m)",
+     "label": "Ø Carry (m)",
+     "max": null
+    }
+   ],
+   "benchmark": {
+    "levels": [
+     2,
+     3,
+     5,
+     7,
+     10
+    ],
+    "unit": "in Folge",
+    "higherIsBetter": true
+   },
+   "weightKey": "Consecutive FW-Serie",
+   "weight": 0.0115,
+   "score": {
+    "field": "Längste Serie"
+   },
+   "description": "🎯 CONSECUTIVE FAIRWAY TEST – 20 Drives, Konsistenz unter Druck\n\nANLEITUNG:\n• 20 Drives hintereinander\n• Ziel: Fairway (±15m Breite)\n• Jedes Verfehlen = Serie endet\n\nERFASSEN:\n Consecutive = längste Serie\n ohne Fehler\n FW-Treffer gesamt (von 20)\n Ø Carry (aus R10)\n\nWERTUNG Consecutive:\n 0–2 = Hcp 25+\n 3–4 = Hcp ~20\n 5–6 = Hcp ~15\n 7–9 = Hcp ~10\n 10–13 = Hcp ~5\n 14+ = Elite"
+  },
+  {
+   "key": "eisenstreu",
+   "label": "Eisen Richtungstest",
+   "category": "Driver & Longgame",
+   "inputs": [
+    {
+     "key": "B1",
+     "label": "B1",
+     "max": null
+    },
+    {
+     "key": "B2",
+     "label": "B2",
+     "max": null
+    },
+    {
+     "key": "B3",
+     "label": "B3",
+     "max": null
+    },
+    {
+     "key": "B4",
+     "label": "B4",
+     "max": null
+    },
+    {
+     "key": "B5",
+     "label": "B5",
+     "max": null
+    },
+    {
+     "key": "B6",
+     "label": "B6",
+     "max": null
+    },
+    {
+     "key": "B7",
+     "label": "B7",
+     "max": null
+    },
+    {
+     "key": "B8",
+     "label": "B8",
+     "max": null
+    },
+    {
+     "key": "B9",
+     "label": "B9",
+     "max": null
+    },
+    {
+     "key": "B10",
+     "label": "B10",
+     "max": null
+    }
+   ],
+   "benchmark": {
+    "levels": [
+     35,
+     30,
+     24,
+     20,
+     16
+    ],
+    "unit": "m seitl.",
+    "higherIsBetter": false
+   },
+   "weightKey": "Eisen Streubreite ↓ besser",
+   "weight": 0.0383,
+   "score": "range",
+   "description": "📐 EISEN RICHTUNGSTEST – 10 Bälle / 7-Eisen, Streubreite messen\n\nANLEITUNG:\n• 7-Eisen, 10 Bälle auf Ziel\n• R10 Approach Modus\n• Nach jedem Ball erfassen:\n Abweichung L/R in Metern\n Carry-Distanz\n\nBERECHNUNG STREUBREITE:\n = Max(L) + Max(R) aller 10 Bälle\n\nWERTUNG:\n > 30m Streubreite = Hcp 25+\n 20–30m = Hcp ~20\n 15–20m = Hcp ~15\n 10–15m = Hcp ~10\n 6–10m = Hcp ~5\n < 6m = Elite\n\nZiel Hcp 10: ≤ 15m Streubreite\n(negative = links, positiv = rechts)"
+  },
+  {
+   "key": "layuplong",
+   "label": "Layup & Long-Club Test",
+   "category": "Driver & Longgame",
+   "inputs": [
+    {
+     "key": "Treffer /10",
+     "label": "Treffer /10",
+     "max": 10
+    },
+    {
+     "key": "Spielbar /10",
+     "label": "Spielbar /10",
+     "max": 10
+    }
+   ],
+   "benchmark": {
+    "levels": [
+     6,
+     10,
+     14,
+     17,
+     19
+    ],
+    "unit": "Pkt /20",
+    "higherIsBetter": true
+   },
+   "weightKey": "Layup & Long-Club /20",
+   "weight": 0.0223,
+   "score": "sum",
+   "description": "🪵 LAYUP & LONG-CLUB TEST · Sichere Entscheidung + saubere Ausführung mit langen Schlägern\n\n📌 WAS WIRD GETESTET? Kein Vollgas-Test. Du prüfst, ob du mit 5W / 7W / Hybrid / Driving Iron einen Zielkorridor oder eine \nLayup-Distanz kontrolliert triffst. Ideal für enge Abschläge und Layups auf Par 5."
+  },
+  {
+   "key": "swingspeed",
+   "label": "Swing Speed Tracking",
+   "category": "Driver & Longgame",
+   "inputs": [
+    {
+     "key": "CHS (mph)",
+     "label": "CHS (mph)",
+     "max": null
+    },
+    {
+     "key": "Smash",
+     "label": "Smash",
+     "max": null
+    },
+    {
+     "key": "Ø Carry (m)",
+     "label": "Ø Carry (m)",
+     "max": null
+    },
+    {
+     "key": "Max Carry (m)",
+     "label": "Max Carry (m)",
+     "max": null
+    }
+   ],
+   "benchmark": {
+    "levels": [
+     76,
+     83,
+     91,
+     96,
+     102
+    ],
+    "unit": "mph",
+    "higherIsBetter": true
+   },
+   "weightKey": "Swing Speed Driver mph",
+   "weight": 0.0153,
+   "score": {
+    "field": "CHS (mph)"
+   },
+   "description": "⚡ SWING SPEED TRACKING · Clubhead Speed, Ball Speed, Smash Factor & Carry\n\n📋 5–10 Messungen je Session mit R10. Clubhead Speed (CHS) in mph, Carry in Metern. Smash Factor = Ball Speed ÷ CHS. Ziel: SF > 1.45 (Driver), SF > 1.38 (7-Eisen).\n\n📋 5–10 Messungen je Session mit R10. Clubhead Speed (CHS) in mph, Carry in Metern. Smash Factor = Ball Speed ÷ CHS. Ziel: SF > 1.45 (Driver), SF > 1.38 (7-Eisen).\n\n🏌 DRIVER – ZIELWERTE JE HCP-KLASSE\n\n🏌 7-EISEN – ZIELWERTE JE HCP-KLASSE"
+  },
+  {
+   "key": "r10disp",
+   "label": "R10 Dispersion Test",
+   "category": "Driver & Longgame",
+   "inputs": [
+    {
+     "key": "Schläger",
+     "label": "Schläger",
+     "max": null
+    },
+    {
+     "key": "Ø Carry (m)",
+     "label": "Ø Carry (m)",
+     "max": null
+    },
+    {
+     "key": "Score /30",
+     "label": "Score /30",
+     "max": 30
+    }
+   ],
+   "benchmark": {
+    "levels": [
+     10,
+     14,
+     20,
+     24,
+     27
+    ],
+    "unit": "Pkt /30",
+    "higherIsBetter": true
+   },
+   "weightKey": "R10 Dispersion (/30)",
+   "weight": null,
+   "score": {
+    "field": "Score /30"
+   },
+   "description": "📡 R10 DISPERSION TEST – Streukreis & Gapping\n\nANLEITUNG:\n• R10 Approach Modus verwenden\n• 10 Bälle je Schläger\n• Carry-Distanz + Abweichung L/R\n\nPUNKTE je Ball (Streukreis):\n ≤ 3 m Radius = 3 Pkt\n ≤ 6 m Radius = 2 Pkt\n ≤ 9 m Radius = 1 Pkt\n > 9 m Radius = 0 Pkt\n\nMax: 30 Punkte je Session\nSmash Factor Ziel: > 1.45"
+  },
+  {
+   "key": "smashfactor",
+   "label": "Smash Factor Test",
+   "category": "Driver & Longgame",
+   "inputs": [
+    {
+     "key": "Driver",
+     "label": "Driver",
+     "max": null
+    },
+    {
+     "key": "3W",
+     "label": "3W",
+     "max": null
+    },
+    {
+     "key": "5W/7W",
+     "label": "5W/7W",
+     "max": null
+    },
+    {
+     "key": "4-Eisen",
+     "label": "4-Eisen",
+     "max": null
+    },
+    {
+     "key": "6-Eisen",
+     "label": "6-Eisen",
+     "max": null
+    },
+    {
+     "key": "7-Eisen",
+     "label": "7-Eisen",
+     "max": null
+    },
+    {
+     "key": "8-Eisen",
+     "label": "8-Eisen",
+     "max": null
+    },
+    {
+     "key": "PW",
+     "label": "PW",
+     "max": null
+    },
+    {
+     "key": "50° GW",
+     "label": "50° GW",
+     "max": null
+    },
+    {
+     "key": "54° SW",
+     "label": "54° SW",
+     "max": null
+    },
+    {
+     "key": "58° LW",
+     "label": "58° LW",
+     "max": null
+    }
+   ],
+   "benchmark": null,
+   "weightKey": "Smash Factor Driver",
+   "weight": 0.03,
+   "score": "avg",
+   "description": "⚙ SMASH FACTOR TEST · Center-Contact je Schläger · Garmin R10\n\nAnleitung: 10 Bälle je Schläger auf der Range mit R10. Smash Factor = Ball Speed / Club Speed. Tour-Werte: Driver 1.48–1.52, 7-Eisen 1.33, Wedges 1.15. >1.52 prüfen (Daten-Outlier)."
+  },
+  {
+   "key": "tempo",
+   "label": "Tempo-Ratio Test",
+   "category": "Driver & Longgame",
+   "inputs": [
+    {
+     "key": "Backswing (s)",
+     "label": "Backswing (s)",
+     "max": null
+    },
+    {
+     "key": "Downswing (s)",
+     "label": "Downswing (s)",
+     "max": null
+    }
+   ],
+   "benchmark": null,
+   "weightKey": "Tempo-Ratio Driver",
+   "weight": 0.03,
+   "score": "ratio",
+   "description": "🎵 TEMPO-RATIO TEST · Backswing : Downswing · Tour-Ziel 3:1\n\nAnleitung: Mit Tour Tempo App / Metronom / R10 messen. Tour-Spieler haben durchschnittlich 3:1 Verhältnis (Backswing 0.75s, Downswing 0.25s). Konsistenz ist wichtiger als Absolutwert.\n\n🎵 TEMPO-RATIO TEST · Backswing : Downswing · Tour-Ziel 3:1"
+  },
+  {
+   "key": "par3",
+   "label": "Par-3 Challenge Test",
+   "category": "Platz & Analyse",
+   "inputs": [
+    {
+     "key": "L1",
+     "label": "L1",
+     "max": 3
+    },
+    {
+     "key": "L2",
+     "label": "L2",
+     "max": 3
+    },
+    {
+     "key": "L3",
+     "label": "L3",
+     "max": 3
+    },
+    {
+     "key": "L4",
+     "label": "L4",
+     "max": 3
+    },
+    {
+     "key": "L5",
+     "label": "L5",
+     "max": 3
+    },
+    {
+     "key": "L6",
+     "label": "L6",
+     "max": 3
+    },
+    {
+     "key": "L7",
+     "label": "L7",
+     "max": 3
+    },
+    {
+     "key": "L8",
+     "label": "L8",
+     "max": 3
+    },
+    {
+     "key": "L9",
+     "label": "L9",
+     "max": 3
+    }
+   ],
+   "benchmark": {
+    "levels": [
+     8,
+     12,
+     16,
+     20,
+     23
+    ],
+    "unit": "Pkt /27",
+    "higherIsBetter": true
+   },
+   "weightKey": "Par-3 Challenge /27",
+   "weight": 0.0191,
+   "score": "sum",
+   "description": "⛳ PAR-3 CHALLENGE TEST – Auf dem echten Platz\n\nANLEITUNG: 9 Par-3-Löcher spielen (oder 3× die gleichen 3 Löcher). Je Loch: GIR (Grün in Regulationszahl) = 1 Pkt, Birdie = 3 Pkt, Par = 2 Pkt, Bogey = 1 Pkt, Doppel+ = 0 Pkt. Max 27 Pkt (9 Löcher × 3). Zusätzlich: Anzahl GIRs und Putts pro Loch notieren.\n\nBEWERTUNG: <9 = Hcp 25+ | 9–13 = Hcp ~20 | 14–18 = Hcp ~15 | 19–22 = Hcp ~10 | 23–25 = Hcp ~5 | 26–27 = Elite"
+  }
+ ],
+ "tests": [
+  {
+   "defKey": "kurzputt",
+   "date": "2026-03-10",
+   "inputs": {
+    "1,0m": 6,
+    "1,5m": 5,
+    "2,0m": 4,
+    "2,5m": 3,
+    "3,0m": 3
+   },
+   "total": 21
+  },
+  {
+   "defKey": "kurzputt",
+   "date": "2026-03-29",
+   "inputs": {
+    "1,0m": 8,
+    "1,5m": 7,
+    "2,0m": 7,
+    "2,5m": 4,
+    "3,0m": 2
+   },
+   "total": 28
+  },
+  {
+   "defKey": "kurzputt",
+   "date": "2026-04-26",
+   "inputs": {
+    "1,0m": 8,
+    "1,5m": 7,
+    "2,0m": 4,
+    "2,5m": 4,
+    "3,0m": 4
+   },
+   "total": 27
+  },
+  {
+   "defKey": "distanzputt",
+   "date": "2026-04-26",
+   "inputs": {
+    "3m": 6,
+    "5m": 3,
+    "7m": 5,
+    "10m": 3
+   },
+   "total": 17
+  },
+  {
+   "defKey": "lag",
+   "date": "2026-03-10",
+   "inputs": {
+    "8m": 6,
+    "10m": 6,
+    "15m": 6
+   },
+   "total": 18
+  },
+  {
+   "defKey": "lag",
+   "date": "2026-03-29",
+   "inputs": {
+    "8m": 7,
+    "10m": 8,
+    "15m": 2
+   },
+   "total": 17
+  },
+  {
+   "defKey": "3ball",
+   "date": "2026-03-10",
+   "inputs": {
+    "Serien gesamt": 10,
+    "Erfolgreiche Serien": 4
+   },
+   "total": 4
+  },
+  {
+   "defKey": "3ball",
+   "date": "2026-03-29",
+   "inputs": {
+    "Serien gesamt": 10,
+    "Erfolgreiche Serien": 2
+   },
+   "total": 2
+  },
+  {
+   "defKey": "3ball",
+   "date": "2026-06-14",
+   "inputs": {
+    "Serien gesamt": 10,
+    "Erfolgreiche Serien": 3
+   },
+   "total": 3
+  },
+  {
+   "defKey": "3ball",
+   "date": "2026-06-14",
+   "inputs": {
+    "Serien gesamt": 4,
+    "Erfolgreiche Serien": 6
+   },
+   "total": 6
+  },
+  {
+   "defKey": "3ball",
+   "date": "2026-06-14",
+   "inputs": {
+    "Serien gesamt": 4,
+    "Erfolgreiche Serien": 6
+   },
+   "total": 6
+  },
+  {
+   "defKey": "3ball",
+   "date": "2026-06-14",
+   "inputs": {
+    "Serien gesamt": 4,
+    "Erfolgreiche Serien": 6
+   },
+   "total": 6
+  },
+  {
+   "defKey": "3ball",
+   "date": "2026-06-14",
+   "inputs": {
+    "Serien gesamt": 4,
+    "Erfolgreiche Serien": 6
+   },
+   "total": 6
+  },
+  {
+   "defKey": "3ball",
+   "date": "2026-06-14",
+   "inputs": {
+    "Serien gesamt": 4,
+    "Erfolgreiche Serien": 6
+   },
+   "total": 6
+  },
+  {
+   "defKey": "3ball",
+   "date": "2026-06-14",
+   "inputs": {
+    "Serien gesamt": 4,
+    "Erfolgreiche Serien": 6
+   },
+   "total": 6
+  },
+  {
+   "defKey": "3ball",
+   "date": "2026-06-14",
+   "inputs": {
+    "Serien gesamt": 4,
+    "Erfolgreiche Serien": 6
+   },
+   "total": 6
+  },
+  {
+   "defKey": "3ball",
+   "date": "2026-06-14",
+   "inputs": {
+    "Serien gesamt": 4,
+    "Erfolgreiche Serien": 6
+   },
+   "total": 6
+  },
+  {
+   "defKey": "3ball",
+   "date": "2026-06-14",
+   "inputs": {
+    "Serien gesamt": 4,
+    "Erfolgreiche Serien": 6
+   },
+   "total": 6
+  },
+  {
+   "defKey": "3ball",
+   "date": "2026-06-14",
+   "inputs": {
+    "Serien gesamt": 4,
+    "Erfolgreiche Serien": 6
+   },
+   "total": 6
+  },
+  {
+   "defKey": "3ball",
+   "date": "2026-06-14",
+   "inputs": {
+    "Serien gesamt": 4,
+    "Erfolgreiche Serien": 6
+   },
+   "total": 6
+  },
+  {
+   "defKey": "3ball",
+   "date": "2026-06-14",
+   "inputs": {
+    "Serien gesamt": 4,
+    "Erfolgreiche Serien": 6
+   },
+   "total": 6
+  },
+  {
+   "defKey": "3ball",
+   "date": "2026-06-14",
+   "inputs": {
+    "Serien gesamt": 4,
+    "Erfolgreiche Serien": 6
+   },
+   "total": 6
+  },
+  {
+   "defKey": "scrambling",
+   "date": "2026-03-13",
+   "inputs": {
+    "Fairway/Vorgrün": 3,
+    "Rough leicht": 3,
+    "Rough tief/Hang": 3,
+    "Bunker": 3
+   },
+   "total": 12
+  },
+  {
+   "defKey": "scrambling",
+   "date": "2026-03-13",
+   "inputs": {
+    "Fairway/Vorgrün": 6,
+    "Rough leicht": 4,
+    "Rough tief/Hang": 4,
+    "Bunker": 5
+   },
+   "total": 19
+  },
+  {
+   "defKey": "chip3",
+   "date": "2026-03-10",
+   "inputs": {
+    "Distanz (m)": 15,
+    "Fairway": 5,
+    "Rough leicht": 5,
+    "Hardpan/Hang": 5
+   },
+   "total": 15
+  },
+  {
+   "defKey": "chip3",
+   "date": "2026-03-29",
+   "inputs": {
+    "Distanz (m)": 15,
+    "Fairway": 6,
+    "Rough leicht": 5,
+    "Hardpan/Hang": 3
+   },
+   "total": 14
+  },
+  {
+   "defKey": "bunker",
+   "date": "2026-03-10",
+   "inputs": {
+    "Greenside /20": 4,
+    "Fairway /20": 4
+   },
+   "total": 4
+  },
+  {
+   "defKey": "sgpressure",
+   "date": "2026-03-10",
+   "inputs": {
+    "10m Chip": 5,
+    "20m Pitch": 3,
+    "30m Pitch": 3,
+    "10m Bunker": 3,
+    "10m Lob": 2
+   },
+   "total": 16
+  },
+  {
+   "defKey": "updown",
+   "date": "2026-03-10",
+   "inputs": {
+    "Ø Dist (m)": 9,
+    "Up&Downs /10": 1
+   },
+   "total": 1
+  },
+  {
+   "defKey": "updown",
+   "date": "2026-03-13",
+   "inputs": {
+    "Ø Dist (m)": 9,
+    "Up&Downs /10": 4
+   },
+   "total": 4
+  },
+  {
+   "defKey": "updown",
+   "date": "2026-03-13",
+   "inputs": {
+    "Ø Dist (m)": 10,
+    "Up&Downs /10": 5
+   },
+   "total": 5
+  },
+  {
+   "defKey": "updown",
+   "date": "2026-03-13",
+   "inputs": {
+    "Ø Dist (m)": 10,
+    "Up&Downs /10": 4
+   },
+   "total": 4
+  },
+  {
+   "defKey": "pelz",
+   "date": "2026-03-10",
+   "inputs": {
+    "45m Pitch": 1,
+    "27m Pitch": 1,
+    "9m Chip": 15,
+    "18m Chip": 7,
+    "13,5m P kurz": 14,
+    "13,5m P lang": 1,
+    "7m Bunker": 5,
+    "13,5m Bunker": 2,
+    "Putt Break R": 2,
+    "Putt Break L": 3,
+    "Lange Putts": 7
+   },
+   "total": 58
+  },
+  {
+   "defKey": "pelz",
+   "date": "2026-05-03",
+   "inputs": {
+    "45m Pitch": 7,
+    "27m Pitch": 5,
+    "9m Chip": 13,
+    "18m Chip": 10,
+    "13,5m P kurz": 7,
+    "13,5m P lang": 6,
+    "7m Bunker": 4,
+    "13,5m Bunker": 4,
+    "Putt Break R": 4,
+    "Putt Break L": 4,
+    "Lange Putts": 12
+   },
+   "total": 76
+  },
+  {
+   "defKey": "randomwedge",
+   "date": "2026-03-10",
+   "inputs": {
+    "18–22m": 2,
+    "28–32m": 2,
+    "38–42m": 2,
+    "48–52m": 2
+   },
+   "total": 8
+  },
+  {
+   "defKey": "randomwedge",
+   "date": "2026-03-29",
+   "inputs": {
+    "18–22m": 2,
+    "28–32m": 2,
+    "38–42m": 2,
+    "48–52m": 1
+   },
+   "total": 7
+  },
+  {
+   "defKey": "randomwedge",
+   "date": "2026-06-14",
+   "inputs": {
+    "18–22m": 2,
+    "28–32m": 0,
+    "38–42m": 2,
+    "48–52m": 0
+   },
+   "total": 4
+  },
+  {
+   "defKey": "randomwedge",
+   "date": "2026-06-14",
+   "inputs": {
+    "18–22m": 2,
+    "28–32m": 3,
+    "38–42m": 0,
+    "48–52m": 0
+   },
+   "total": 5
+  },
+  {
+   "defKey": "approach",
+   "date": "2026-03-10",
+   "inputs": {
+    "80m": 6,
+    "100m": 6,
+    "120m": 6,
+    "140m": 6,
+    "175m": 6
+   },
+   "total": 30
+  },
+  {
+   "defKey": "approach",
+   "date": "2026-05-03",
+   "inputs": {
+    "80m": 26,
+    "100m": 28,
+    "120m": 20,
+    "140m": 14,
+    "175m": 10
+   },
+   "total": 98
+  },
+  {
+   "defKey": "distanzkontrolle",
+   "date": "2026-03-14",
+   "inputs": {
+    "100% /15": 7,
+    "75% /15": 7,
+    "50% /15": 8
+   },
+   "total": 22
+  },
+  {
+   "defKey": "driverfw",
+   "date": "2026-03-10",
+   "inputs": {
+    "FW-Hits /10": 6,
+    "Ø Carry (m)": 195,
+    "Ø Abw L/R (m)": 14,
+    "Smash": 1.41,
+    "Max Carry (m)": 214
+   },
+   "total": 6
+  },
+  {
+   "defKey": "consecutive",
+   "date": "2026-03-10",
+   "inputs": {
+    "Längste Serie": 4,
+    "FW-Treffer /20": 10,
+    "Ø Carry (m)": 198
+   },
+   "total": 4
+  },
+  {
+   "defKey": "eisenstreu",
+   "date": "2026-03-14",
+   "inputs": {
+    "B1": -5,
+    "B2": -10,
+    "B3": 0,
+    "B4": -8,
+    "B5": -30,
+    "B6": 3,
+    "B7": -2,
+    "B8": 0,
+    "B9": 0,
+    "B10": -18
+   },
+   "total": 33
+  },
+  {
+   "defKey": "eisenstreu",
+   "date": "2026-03-14",
+   "inputs": {
+    "B1": 10,
+    "B2": -1,
+    "B3": 2,
+    "B4": 0,
+    "B5": -4,
+    "B6": -2,
+    "B7": 5,
+    "B8": 21,
+    "B9": -8,
+    "B10": -1
+   },
+   "total": 29
+  },
+  {
+   "defKey": "swingspeed",
+   "date": "2026-03-10",
+   "inputs": {
+    "CHS (mph)": 96,
+    "Smash": 1.41,
+    "Ø Carry (m)": 194.2,
+    "Max Carry (m)": 209
+   },
+   "total": 96
+  },
+  {
+   "defKey": "swingspeed",
+   "date": "2026-05-07",
+   "inputs": {
+    "CHS (mph)": 100.82,
+    "Smash": 1.44,
+    "Ø Carry (m)": 207.8,
+    "Max Carry (m)": 219.45
+   },
+   "total": 100.82
+  },
+  {
+   "defKey": "swingspeed",
+   "date": "2026-03-10",
+   "inputs": {
+    "CHS (mph)": 83,
+    "Smash": 1.33,
+    "Ø Carry (m)": 138.3,
+    "Max Carry (m)": 143.4
+   },
+   "total": 83
+  },
+  {
+   "defKey": "swingspeed",
+   "date": "2026-05-07",
+   "inputs": {
+    "CHS (mph)": 85.52,
+    "Smash": 1.38,
+    "Ø Carry (m)": 144.7,
+    "Max Carry (m)": 150.69
+   },
+   "total": 85.52
+  },
+  {
+   "defKey": "par3",
+   "date": "2026-03-10",
+   "inputs": {
+    "L1": 1,
+    "L2": 0,
+    "L3": 2,
+    "L4": 0,
+    "L5": 0,
+    "L6": 1,
+    "L7": 1,
+    "L8": 2,
+    "L9": 3
+   },
+   "total": 10
+  }
+ ],
+ "courses": [
+  {
+   "name": "Timmendorfer Strand Nordplatz",
+   "tees": {
+    "Gelb": {
+     "sides": {
+      "Front 9": {
+       "cr": 35.9,
+       "slope": 135,
+       "par": 36
+      },
+      "Back 9": {
+       "cr": 35.9,
+       "slope": 135,
+       "par": 36
+      }
+     },
+     "cr18": 71.8,
+     "slope18": 135,
+     "par18": 72,
+     "holes": [
+      {
+       "hole": 1,
+       "par": 4,
+       "si": 17,
+       "len": 279
+      },
+      {
+       "hole": 2,
+       "par": 5,
+       "si": 1,
+       "len": 499
+      },
+      {
+       "hole": 3,
+       "par": 3,
+       "si": 13,
+       "len": 150
+      },
+      {
+       "hole": 4,
+       "par": 4,
+       "si": 11,
+       "len": 321
+      },
+      {
+       "hole": 5,
+       "par": 4,
+       "si": 3,
+       "len": 387
+      },
+      {
+       "hole": 6,
+       "par": 3,
+       "si": 7,
+       "len": 175
+      },
+      {
+       "hole": 7,
+       "par": 4,
+       "si": 9,
+       "len": 351
+      },
+      {
+       "hole": 8,
+       "par": 5,
+       "si": 15,
+       "len": 463
+      },
+      {
+       "hole": 9,
+       "par": 4,
+       "si": 5,
+       "len": 342
+      },
+      {
+       "hole": 10,
+       "par": 4,
+       "si": 6,
+       "len": 341
+      },
+      {
+       "hole": 11,
+       "par": 5,
+       "si": 10,
+       "len": 482
+      },
+      {
+       "hole": 12,
+       "par": 3,
+       "si": 16,
+       "len": 179
+      },
+      {
+       "hole": 13,
+       "par": 4,
+       "si": 4,
+       "len": 363
+      },
+      {
+       "hole": 14,
+       "par": 4,
+       "si": 12,
+       "len": 317
+      },
+      {
+       "hole": 15,
+       "par": 5,
+       "si": 8,
+       "len": 440
+      },
+      {
+       "hole": 16,
+       "par": 4,
+       "si": 14,
+       "len": 310
+      },
+      {
+       "hole": 17,
+       "par": 3,
+       "si": 18,
+       "len": 168
+      },
+      {
+       "hole": 18,
+       "par": 4,
+       "si": 2,
+       "len": 370
+      }
+     ]
+    }
+   }
+  },
+  {
+   "name": "Timmendorfer Strand Südplatz",
+   "tees": {
+    "Gelb": {
+     "sides": {
+      "Front 9": {
+       "cr": 30.5,
+       "slope": 106,
+       "par": 30
+      },
+      "Back 9": {
+       "cr": 30.6,
+       "slope": 110,
+       "par": 31
+      }
+     },
+     "cr18": 61.1,
+     "slope18": 108,
+     "par18": 61,
+     "holes": [
+      {
+       "hole": 1,
+       "par": 3,
+       "si": 9,
+       "len": 171
+      },
+      {
+       "hole": 2,
+       "par": 3,
+       "si": 5,
+       "len": 169
+      },
+      {
+       "hole": 3,
+       "par": 3,
+       "si": 1,
+       "len": 177
+      },
+      {
+       "hole": 4,
+       "par": 4,
+       "si": 7,
+       "len": 270
+      },
+      {
+       "hole": 5,
+       "par": 3,
+       "si": 13,
+       "len": 131
+      },
+      {
+       "hole": 6,
+       "par": 3,
+       "si": 15,
+       "len": 160
+      },
+      {
+       "hole": 7,
+       "par": 3,
+       "si": 17,
+       "len": 115
+      },
+      {
+       "hole": 8,
+       "par": 4,
+       "si": 3,
+       "len": 310
+      },
+      {
+       "hole": 9,
+       "par": 4,
+       "si": 11,
+       "len": 278
+      },
+      {
+       "hole": 10,
+       "par": 3,
+       "si": 8,
+       "len": 154
+      },
+      {
+       "hole": 11,
+       "par": 4,
+       "si": 2,
+       "len": 342
+      },
+      {
+       "hole": 12,
+       "par": 4,
+       "si": 12,
+       "len": 261
+      },
+      {
+       "hole": 13,
+       "par": 4,
+       "si": 14,
+       "len": 232
+      },
+      {
+       "hole": 14,
+       "par": 3,
+       "si": 16,
+       "len": 131
+      },
+      {
+       "hole": 15,
+       "par": 4,
+       "si": 4,
+       "len": 310
+      },
+      {
+       "hole": 16,
+       "par": 3,
+       "si": 18,
+       "len": 125
+      },
+      {
+       "hole": 17,
+       "par": 3,
+       "si": 10,
+       "len": 146
+      },
+      {
+       "hole": 18,
+       "par": 3,
+       "si": 6,
+       "len": 123
+      }
+     ]
+    }
+   }
+  },
+  {
+   "name": "GC Brodauer Mühle",
+   "tees": {
+    "Gelb": {
+     "sides": {
+      "Front 9": {
+       "cr": 36.2,
+       "slope": 130,
+       "par": 36
+      },
+      "Back 9": {
+       "cr": 36.1,
+       "slope": 130,
+       "par": 36
+      }
+     },
+     "cr18": 72.3,
+     "slope18": 130,
+     "par18": 72,
+     "holes": [
+      {
+       "hole": 1,
+       "par": 4,
+       "si": 5,
+       "len": 340
+      },
+      {
+       "hole": 2,
+       "par": 3,
+       "si": 17,
+       "len": 155
+      },
+      {
+       "hole": 3,
+       "par": 5,
+       "si": 7,
+       "len": 537
+      },
+      {
+       "hole": 4,
+       "par": 5,
+       "si": 9,
+       "len": 482
+      },
+      {
+       "hole": 5,
+       "par": 4,
+       "si": 3,
+       "len": 358
+      },
+      {
+       "hole": 6,
+       "par": 3,
+       "si": 15,
+       "len": 172
+      },
+      {
+       "hole": 7,
+       "par": 4,
+       "si": 11,
+       "len": 299
+      },
+      {
+       "hole": 8,
+       "par": 4,
+       "si": 13,
+       "len": 345
+      },
+      {
+       "hole": 9,
+       "par": 4,
+       "si": 1,
+       "len": 359
+      },
+      {
+       "hole": 10,
+       "par": 4,
+       "si": 18,
+       "len": 285
+      },
+      {
+       "hole": 11,
+       "par": 4,
+       "si": 14,
+       "len": 324
+      },
+      {
+       "hole": 12,
+       "par": 5,
+       "si": 6,
+       "len": 549
+      },
+      {
+       "hole": 13,
+       "par": 3,
+       "si": 12,
+       "len": 132
+      },
+      {
+       "hole": 14,
+       "par": 4,
+       "si": 2,
+       "len": 407
+      },
+      {
+       "hole": 15,
+       "par": 3,
+       "si": 10,
+       "len": 190
+      },
+      {
+       "hole": 16,
+       "par": 4,
+       "si": 4,
+       "len": 395
+      },
+      {
+       "hole": 17,
+       "par": 5,
+       "si": 8,
+       "len": 475
+      },
+      {
+       "hole": 18,
+       "par": 4,
+       "si": 16,
+       "len": 235
+      }
+     ]
+    }
+   }
+  }
+ ],
+ "competitions": [
+  {
+   "date": "2026-05-17",
+   "course": "Timmendorfer Strand Südplatz",
+   "tournament": "BSV Lübeck Saisoneröffnungsturnier",
+   "cr": 61.1,
+   "tees": "gelb",
+   "slope": 108,
+   "holes": 18,
+   "format": "S = vorgabewirksames Turnier (Stableford-basiert)",
+   "hcpStart": 22.1,
+   "hcpAfter": 21.4,
+   "courseHcp": 21,
+   "par": 61,
+   "gbe": 78,
+   "deltaPar": 17,
+   "stbGross": 19,
+   "stbNet": 40,
+   "sd": 17.7,
+   "gir": null,
+   "fir": null,
+   "putts": null
+  },
+  {
+   "date": "2026-05-12",
+   "course": "Timmendorfer Strand Nordplatz",
+   "tournament": "2. GC Scharbeutz Series",
+   "cr": 36,
+   "tees": "gelb",
+   "slope": 139,
+   "holes": 9,
+   "format": "S = vorgabewirksames Turnier (Stableford-basiert)",
+   "hcpStart": 22.8,
+   "hcpAfter": 22.1,
+   "courseHcp": 14,
+   "par": 36,
+   "gbe": 44,
+   "deltaPar": 8,
+   "stbGross": 11,
+   "stbNet": 24,
+   "sd": 19.6,
+   "gir": null,
+   "fir": null,
+   "putts": null
+  },
+  {
+   "date": "2025-10-19",
+   "course": "Golfclub Scharbeutz",
+   "tournament": "Clubmeisterschaften - GC Scharbeutz",
+   "cr": 35.8,
+   "tees": "gelb",
+   "slope": 131,
+   "holes": 9,
+   "format": "S = vorgabewirksames Turnier (Stableford-basiert)",
+   "hcpStart": 22.8,
+   "hcpAfter": 22.8,
+   "courseHcp": 13,
+   "par": 36,
+   "gbe": 54,
+   "deltaPar": 18,
+   "stbGross": null,
+   "stbNet": null,
+   "sd": 28.8,
+   "gir": null,
+   "fir": null,
+   "putts": null
+  },
+  {
+   "date": "2025-10-12",
+   "course": "Timmendorfer Strand Südplatz",
+   "tournament": "klein gegen GROSS",
+   "cr": 29,
+   "tees": "gruen",
+   "slope": 96,
+   "holes": 9,
+   "format": "Nicht vorgabewirksam",
+   "hcpStart": 22.8,
+   "hcpAfter": 22.8,
+   "courseHcp": 9,
+   "par": 30,
+   "gbe": 34,
+   "deltaPar": 4,
+   "stbGross": null,
+   "stbNet": null,
+   "sd": null,
+   "gir": null,
+   "fir": null,
+   "putts": null
+  },
+  {
+   "date": "2025-09-07",
+   "course": "Timmendorfer Strand Nordplatz",
+   "tournament": "5. Monatscup NP",
+   "cr": 71.8,
+   "tees": "gelb",
+   "slope": 135,
+   "holes": 18,
+   "format": "S = vorgabewirksames Turnier (Stableford-basiert)",
+   "hcpStart": 23.2,
+   "hcpAfter": 22.8,
+   "courseHcp": 28,
+   "par": 72,
+   "gbe": 98,
+   "deltaPar": 26,
+   "stbGross": 14,
+   "stbNet": 38,
+   "sd": 21.9,
+   "gir": null,
+   "fir": null,
+   "putts": null
+  },
+  {
+   "date": "2025-08-09",
+   "course": "Öffentlicher Golfpark Krogaspe",
+   "tournament": "BSV Hamburg 2025",
+   "cr": 71.8,
+   "tees": "gelb",
+   "slope": 126,
+   "holes": 18,
+   "format": "S = vorgabewirksames Turnier (Stableford-basiert)",
+   "hcpStart": 23.3,
+   "hcpAfter": 23.2,
+   "courseHcp": 25,
+   "par": 73,
+   "gbe": 99,
+   "deltaPar": 26,
+   "stbGross": 14,
+   "stbNet": 35,
+   "sd": 24.4,
+   "gir": null,
+   "fir": null,
+   "putts": null
+  },
+  {
+   "date": "2025-08-05",
+   "course": "Timmendorfer Strand Nordplatz",
+   "tournament": "8. GC Scharbeutz Series",
+   "cr": 36,
+   "tees": "gelb",
+   "slope": 139,
+   "holes": 9,
+   "format": "S = vorgabewirksames Turnier (Stableford-basiert)",
+   "hcpStart": 23.3,
+   "hcpAfter": 23.3,
+   "courseHcp": 14,
+   "par": 36,
+   "gbe": 52,
+   "deltaPar": 16,
+   "stbGross": 5,
+   "stbNet": 16,
+   "sd": 26.3,
+   "gir": null,
+   "fir": null,
+   "putts": null
+  },
+  {
+   "date": "2025-07-28",
+   "course": "Timmendorfer Strand Nordplatz",
+   "tournament": "3. Mercedes Benz AWGC Nordplatz",
+   "cr": 36,
+   "tees": "gelb",
+   "slope": 139,
+   "holes": 9,
+   "format": "S = vorgabewirksames Turnier (Stableford-basiert)",
+   "hcpStart": 23.5,
+   "hcpAfter": 23.3,
+   "courseHcp": 14,
+   "par": 36,
+   "gbe": 49,
+   "deltaPar": 13,
+   "stbGross": 6,
+   "stbNet": 19,
+   "sd": 24,
+   "gir": null,
+   "fir": null,
+   "putts": null
+  },
+  {
+   "date": "2025-07-22",
+   "course": "Timmendorfer Strand Nordplatz",
+   "tournament": "7. GC Scharbeutz Series",
+   "cr": 36,
+   "tees": "gelb",
+   "slope": 139,
+   "holes": 9,
+   "format": "S = vorgabewirksames Turnier (Stableford-basiert)",
+   "hcpStart": 23.5,
+   "hcpAfter": 23.5,
+   "courseHcp": 14,
+   "par": 36,
+   "gbe": 53,
+   "deltaPar": 17,
+   "stbGross": null,
+   "stbNet": null,
+   "sd": 27.2,
+   "gir": null,
+   "fir": null,
+   "putts": null
+  },
+  {
+   "date": "2025-07-12",
+   "course": "Golf-Club Curau",
+   "tournament": "CuSa 18 Loch offen (eclectic 8 von 9 intern)",
+   "cr": 71.2,
+   "tees": "gelb",
+   "slope": 129,
+   "holes": 18,
+   "format": "S = vorgabewirksames Turnier (Stableford-basiert)",
+   "hcpStart": 23.5,
+   "hcpAfter": 23.5,
+   "courseHcp": 26,
+   "par": 72,
+   "gbe": 106,
+   "deltaPar": 34,
+   "stbGross": null,
+   "stbNet": null,
+   "sd": 30.5,
+   "gir": null,
+   "fir": null,
+   "putts": null
+  },
+  {
+   "date": "2025-05-20",
+   "course": "Timmendorfer Strand Nordplatz",
+   "tournament": "3. GC Scharbeutz Series",
+   "cr": 36,
+   "tees": "gelb",
+   "slope": 139,
+   "holes": 9,
+   "format": "S = vorgabewirksames Turnier (Stableford-basiert)",
+   "hcpStart": 23.5,
+   "hcpAfter": 23.5,
+   "courseHcp": 14,
+   "par": 36,
+   "gbe": 55,
+   "deltaPar": 19,
+   "stbGross": null,
+   "stbNet": null,
+   "sd": 28.8,
+   "gir": null,
+   "fir": null,
+   "putts": null
+  },
+  {
+   "date": "2025-05-18",
+   "course": "Golf-Club Buxtehude",
+   "tournament": "Hamburger Betriebssport Meisterschaften",
+   "cr": 72.8,
+   "tees": "gelb",
+   "slope": 132,
+   "holes": 18,
+   "format": "S = vorgabewirksames Turnier (Stableford-basiert)",
+   "hcpStart": 22.7,
+   "hcpAfter": 23.5,
+   "courseHcp": 25,
+   "par": 74,
+   "gbe": 113,
+   "deltaPar": 39,
+   "stbGross": null,
+   "stbNet": null,
+   "sd": 34.4,
+   "gir": null,
+   "fir": null,
+   "putts": null
+  },
+  {
+   "date": "2025-05-08",
+   "course": "Timmendorfer Strand Nordplatz",
+   "tournament": "1. Players Night Nordplatz",
+   "cr": 36,
+   "tees": "gelb",
+   "slope": 139,
+   "holes": 9,
+   "format": "S = vorgabewirksames Turnier (Stableford-basiert)",
+   "hcpStart": 22.9,
+   "hcpAfter": 22.7,
+   "courseHcp": 14,
+   "par": 36,
+   "gbe": 49,
+   "deltaPar": 13,
+   "stbGross": null,
+   "stbNet": null,
+   "sd": 23.7,
+   "gir": null,
+   "fir": null,
+   "putts": null
+  },
+  {
+   "date": "2025-05-06",
+   "course": "Timmendorfer Strand Nordplatz",
+   "tournament": "2. GC Scharbeutz Series",
+   "cr": 36,
+   "tees": "gelb",
+   "slope": 139,
+   "holes": 9,
+   "format": "S = vorgabewirksames Turnier (Stableford-basiert)",
+   "hcpStart": 22.9,
+   "hcpAfter": 22.9,
+   "courseHcp": 14,
+   "par": 36,
+   "gbe": 54,
+   "deltaPar": 18,
+   "stbGross": null,
+   "stbNet": null,
+   "sd": 27.7,
+   "gir": null,
+   "fir": null,
+   "putts": null
+  },
+  {
+   "date": "2025-04-29",
+   "course": "Timmendorfer Strand Nordplatz",
+   "tournament": "1. GC Scharbeutz Series",
+   "cr": 36,
+   "tees": "gelb",
+   "slope": 139,
+   "holes": 9,
+   "format": "S = vorgabewirksames Turnier (Stableford-basiert)",
+   "hcpStart": 22.9,
+   "hcpAfter": 22.9,
+   "courseHcp": 14,
+   "par": 36,
+   "gbe": 51,
+   "deltaPar": 15,
+   "stbGross": null,
+   "stbNet": null,
+   "sd": 25.3,
+   "gir": null,
+   "fir": null,
+   "putts": null
+  },
+  {
+   "date": "2025-04-23",
+   "course": "Timmendorfer Strand Südplatz",
+   "tournament": "Sea Eagles Season Opening",
+   "cr": 61.1,
+   "tees": "gelb",
+   "slope": 108,
+   "holes": 18,
+   "format": "S = vorgabewirksames Turnier (Stableford-basiert)",
+   "hcpStart": 25.8,
+   "hcpAfter": 22.9,
+   "courseHcp": 25,
+   "par": 61,
+   "gbe": 82,
+   "deltaPar": 21,
+   "stbGross": null,
+   "stbNet": null,
+   "sd": 19.9,
+   "gir": null,
+   "fir": null,
+   "putts": null
+  },
+  {
+   "date": "2024-10-12",
+   "course": "Timmendorfer Strand Nordplatz",
+   "tournament": "GC St. Pauli Team Cup",
+   "cr": 71.8,
+   "tees": "gelb",
+   "slope": 135,
+   "holes": 18,
+   "format": "S = vorgabewirksames Turnier (Stableford-basiert)",
+   "hcpStart": 25.8,
+   "hcpAfter": 25.8,
+   "courseHcp": 31,
+   "par": 72,
+   "gbe": 117,
+   "deltaPar": 45,
+   "stbGross": null,
+   "stbNet": null,
+   "sd": 35.8,
+   "gir": null,
+   "fir": null,
+   "putts": null
+  },
+  {
+   "date": "2024-09-17",
+   "course": "Timmendorfer Strand Nordplatz",
+   "tournament": "10. GC Scharbeutz Series",
+   "cr": 36,
+   "tees": "gelb",
+   "slope": 139,
+   "holes": 9,
+   "format": "S = vorgabewirksames Turnier (Stableford-basiert)",
+   "hcpStart": 26.6,
+   "hcpAfter": 25.8,
+   "courseHcp": 16,
+   "par": 36,
+   "gbe": 45,
+   "deltaPar": 9,
+   "stbGross": null,
+   "stbNet": null,
+   "sd": 20.3,
+   "gir": null,
+   "fir": null,
+   "putts": null
+  },
+  {
+   "date": "2024-09-08",
+   "course": "Golf Resort Adendorf",
+   "tournament": "BSV Turnier",
+   "cr": 71.9,
+   "tees": "gelb",
+   "slope": 130,
+   "holes": 18,
+   "format": "S = vorgabewirksames Turnier (Stableford-basiert)",
+   "hcpStart": 27,
+   "hcpAfter": 26.6,
+   "courseHcp": 31,
+   "par": 72,
+   "gbe": 103,
+   "deltaPar": 31,
+   "stbGross": null,
+   "stbNet": null,
+   "sd": 25,
+   "gir": null,
+   "fir": null,
+   "putts": null
+  },
+  {
+   "date": "2024-08-25",
+   "course": "Timmendorfer Strand Nordplatz",
+   "tournament": "Clubmeisterschaften Damen & Herren – Rd. 3",
+   "cr": 74,
+   "tees": "weiss",
+   "slope": 136,
+   "holes": 18,
+   "format": "Z = vorgabewirksames Turnier (Zählspiel)",
+   "hcpStart": 27.7,
+   "hcpAfter": 27,
+   "courseHcp": 35,
+   "par": 72,
+   "gbe": 109,
+   "deltaPar": 37,
+   "stbGross": null,
+   "stbNet": null,
+   "sd": 27.1,
+   "gir": null,
+   "fir": null,
+   "putts": null
+  },
+  {
+   "date": "2024-08-24",
+   "course": "Timmendorfer Strand Südplatz",
+   "tournament": "Clubmeisterschaften Damen & Herren – Rd. 2",
+   "cr": 71.8,
+   "tees": "gelb",
+   "slope": 135,
+   "holes": 18,
+   "format": "Z = vorgabewirksames Turnier (Zählspiel)",
+   "hcpStart": 27.7,
+   "hcpAfter": 27.7,
+   "courseHcp": 33,
+   "par": 72,
+   "gbe": 106,
+   "deltaPar": 34,
+   "stbGross": null,
+   "stbNet": null,
+   "sd": 26.6,
+   "gir": null,
+   "fir": null,
+   "putts": null
+  },
+  {
+   "date": "2024-08-24",
+   "course": "Timmendorfer Strand Nordplatz",
+   "tournament": "Clubmeisterschaften Damen & Herren – Rd. 1",
+   "cr": 61.1,
+   "tees": "gelb",
+   "slope": 108,
+   "holes": 18,
+   "format": "Z = vorgabewirksames Turnier (Zählspiel)",
+   "hcpStart": 27.7,
+   "hcpAfter": 27.7,
+   "courseHcp": 27,
+   "par": 61,
+   "gbe": 85,
+   "deltaPar": 24,
+   "stbGross": null,
+   "stbNet": null,
+   "sd": 23,
+   "gir": null,
+   "fir": null,
+   "putts": null
+  },
+  {
+   "date": "2024-07-07",
+   "course": "Timmendorfer Strand Nordplatz",
+   "tournament": "3. Monatscup NP",
+   "cr": 71.8,
+   "tees": "gelb",
+   "slope": 135,
+   "holes": 18,
+   "format": "S = vorgabewirksames Turnier (Stableford-basiert)",
+   "hcpStart": 27.7,
+   "hcpAfter": 27.7,
+   "courseHcp": 33,
+   "par": 72,
+   "gbe": 110,
+   "deltaPar": 38,
+   "stbGross": null,
+   "stbNet": null,
+   "sd": 30,
+   "gir": null,
+   "fir": null,
+   "putts": null
+  },
+  {
+   "date": "2024-07-02",
+   "course": "Timmendorfer Strand Nordplatz",
+   "tournament": "5. GC Scharbeutz Series",
+   "cr": 36,
+   "tees": "gelb",
+   "slope": 139,
+   "holes": 9,
+   "format": "S = vorgabewirksames Turnier (Stableford-basiert)",
+   "hcpStart": 27.7,
+   "hcpAfter": 27.7,
+   "courseHcp": 17,
+   "par": 36,
+   "gbe": 50,
+   "deltaPar": 14,
+   "stbGross": null,
+   "stbNet": null,
+   "sd": null,
+   "gir": null,
+   "fir": null,
+   "putts": null
+  },
+  {
+   "date": "2024-05-25",
+   "course": "Golf-Club Escheburg",
+   "tournament": "21. HH BSV-Betriebssportmeisterschaft 2024",
+   "cr": 71.8,
+   "tees": "gelb",
+   "slope": 131,
+   "holes": 18,
+   "format": "Z = vorgabewirksames Turnier (Zählspiel)",
+   "hcpStart": 27.7,
+   "hcpAfter": 27.7,
+   "courseHcp": 32,
+   "par": 72,
+   "gbe": 104,
+   "deltaPar": 32,
+   "stbGross": null,
+   "stbNet": null,
+   "sd": null,
+   "gir": null,
+   "fir": null,
+   "putts": null
+  },
+  {
+   "date": "2024-05-08",
+   "course": "Golf-Club Buxtehude",
+   "tournament": "Hamburger Golfwoche",
+   "cr": 72.6,
+   "tees": "gelb",
+   "slope": 134,
+   "holes": 18,
+   "format": "S = vorgabewirksames Turnier (Stableford-basiert)",
+   "hcpStart": 27.7,
+   "hcpAfter": 27.7,
+   "courseHcp": 31,
+   "par": 74,
+   "gbe": 116,
+   "deltaPar": 42,
+   "stbGross": null,
+   "stbNet": null,
+   "sd": null,
+   "gir": null,
+   "fir": null,
+   "putts": null
+  },
+  {
+   "date": "2024-05-07",
+   "course": "Golfclub Hamburg Gut Waldhof",
+   "tournament": "15. Hamburger Golfwoche",
+   "cr": 72.1,
+   "tees": "gelb",
+   "slope": 133,
+   "holes": 18,
+   "format": "S = vorgabewirksames Turnier (Stableford-basiert)",
+   "hcpStart": 27.7,
+   "hcpAfter": 27.7,
+   "courseHcp": 33,
+   "par": 72,
+   "gbe": 113,
+   "deltaPar": 41,
+   "stbGross": null,
+   "stbNet": null,
+   "sd": null,
+   "gir": null,
+   "fir": null,
+   "putts": null
+  },
+  {
+   "date": "2024-05-06",
+   "course": "Hamburger Land- und Golf-Club Hittfeld",
+   "tournament": "Hamburger Golfwoche 2024",
+   "cr": 71.6,
+   "tees": "gelb",
+   "slope": 132,
+   "holes": 18,
+   "format": "S = vorgabewirksames Turnier (Stableford-basiert)",
+   "hcpStart": 27.7,
+   "hcpAfter": 27.7,
+   "courseHcp": 33,
+   "par": 71,
+   "gbe": 115,
+   "deltaPar": 44,
+   "stbGross": null,
+   "stbNet": null,
+   "sd": null,
+   "gir": null,
+   "fir": null,
+   "putts": null
+  },
+  {
+   "date": "2024-05-04",
+   "course": "Maritim Golfpark Ostsee",
+   "tournament": "BSV-Qualifikationsturnier",
+   "cr": 72.2,
+   "tees": "gelb",
+   "slope": 128,
+   "holes": 18,
+   "format": "Z = vorgabewirksames Turnier (Zählspiel)",
+   "hcpStart": 27.7,
+   "hcpAfter": 27.7,
+   "courseHcp": 33,
+   "par": 71,
+   "gbe": 111,
+   "deltaPar": 40,
+   "stbGross": null,
+   "stbNet": null,
+   "sd": null,
+   "gir": null,
+   "fir": null,
+   "putts": null
+  },
+  {
+   "date": "2023-09-10",
+   "course": "Golf Club Buchholz-Nordheide",
+   "tournament": "BSV Hamburg Turnier",
+   "cr": 71.4,
+   "tees": "gelb",
+   "slope": 129,
+   "holes": 18,
+   "format": "S = vorgabewirksames Turnier (Stableford-basiert)",
+   "hcpStart": 28.3,
+   "hcpAfter": 27.7,
+   "courseHcp": 32,
+   "par": 72,
+   "gbe": 106,
+   "deltaPar": 34,
+   "stbGross": null,
+   "stbNet": null,
+   "sd": null,
+   "gir": null,
+   "fir": null,
+   "putts": null
+  },
+  {
+   "date": "2023-08-26",
+   "course": "Golfpark Idstein",
+   "tournament": "23. DBM Golf - Deutsche Betriebssportmeisterschaft",
+   "cr": 72.7,
+   "tees": "gelb",
+   "slope": 129,
+   "holes": 18,
+   "format": "S = vorgabewirksames Turnier (Stableford-basiert)",
+   "hcpStart": 31.6,
+   "hcpAfter": 28.3,
+   "courseHcp": 37,
+   "par": 72,
+   "gbe": 98,
+   "deltaPar": 26,
+   "stbGross": null,
+   "stbNet": null,
+   "sd": null,
+   "gir": null,
+   "fir": null,
+   "putts": null
+  },
+  {
+   "date": "2023-08-25",
+   "course": "Golf-Club Hof Hausen vor der Sonne",
+   "tournament": "23. DBM Golf Klasse D",
+   "cr": 70.9,
+   "tees": "gelb",
+   "slope": 128,
+   "holes": 18,
+   "format": "S = vorgabewirksames Turnier (Stableford-basiert)",
+   "hcpStart": 32.2,
+   "hcpAfter": 31.6,
+   "courseHcp": 35,
+   "par": 72,
+   "gbe": 109,
+   "deltaPar": 37,
+   "stbGross": null,
+   "stbNet": null,
+   "sd": null,
+   "gir": null,
+   "fir": null,
+   "putts": null
+  },
+  {
+   "date": "2023-06-18",
+   "course": "Golfanlage Bad Bevensen",
+   "tournament": "20. BSV Hamburg Meisterschaft Golf 2023",
+   "cr": 70.8,
+   "tees": "gelb",
+   "slope": 137,
+   "holes": 18,
+   "format": "S = vorgabewirksames Turnier (Stableford-basiert)",
+   "hcpStart": 34.2,
+   "hcpAfter": 32.2,
+   "courseHcp": 39,
+   "par": 73,
+   "gbe": 105,
+   "deltaPar": 32,
+   "stbGross": null,
+   "stbNet": null,
+   "sd": null,
+   "gir": null,
+   "fir": null,
+   "putts": null
+  },
+  {
+   "date": "2023-05-27",
+   "course": "Golfclub Sülfeld",
+   "tournament": "BSV-Turnier",
+   "cr": 70.2,
+   "tees": "gelb",
+   "slope": 122,
+   "holes": 18,
+   "format": "S = vorgabewirksames Turnier (Stableford-basiert)",
+   "hcpStart": 34.2,
+   "hcpAfter": 34.2,
+   "courseHcp": 36,
+   "par": 71,
+   "gbe": 120,
+   "deltaPar": 49,
+   "stbGross": null,
+   "stbNet": null,
+   "sd": null,
+   "gir": null,
+   "fir": null,
+   "putts": null
+  },
+  {
+   "date": "2023-04-30",
+   "course": "Golfpark Weidenhof",
+   "tournament": "BSV-Turnier",
+   "cr": 67.6,
+   "tees": "gelb",
+   "slope": 121,
+   "holes": 18,
+   "format": "S = vorgabewirksames Turnier (Stableford-basiert)",
+   "hcpStart": 35.8,
+   "hcpAfter": 34.2,
+   "courseHcp": 36,
+   "par": 70,
+   "gbe": 103,
+   "deltaPar": 33,
+   "stbGross": null,
+   "stbNet": null,
+   "sd": null,
+   "gir": null,
+   "fir": null,
+   "putts": null
+  },
+  {
+   "date": "2022-05-08",
+   "course": "Golf- und Country Club Hamburg",
+   "tournament": "Monatstaler 9 Loch (strikt nach HCP)",
+   "cr": 35.9,
+   "tees": "gelb",
+   "slope": 129,
+   "holes": 9,
+   "format": "S = vorgabewirksames Turnier (Stableford-basiert)",
+   "hcpStart": 35.8,
+   "hcpAfter": 35.8,
+   "courseHcp": 20,
+   "par": 36,
+   "gbe": 112,
+   "deltaPar": 76,
+   "stbGross": null,
+   "stbNet": null,
+   "sd": null,
+   "gir": null,
+   "fir": null,
+   "putts": null
+  },
+  {
+   "date": "2022-04-30",
+   "course": "Golf- und Country Club Hamburg",
+   "tournament": "Einsteiger-Cup",
+   "cr": 35.6,
+   "tees": "gelb",
+   "slope": 129,
+   "holes": 9,
+   "format": "S = vorgabewirksames Turnier (Stableford-basiert)",
+   "hcpStart": 37,
+   "hcpAfter": 35.8,
+   "courseHcp": 21,
+   "par": 36,
+   "gbe": 113,
+   "deltaPar": 77,
+   "stbGross": null,
+   "stbNet": null,
+   "sd": null,
+   "gir": null,
+   "fir": null,
+   "putts": null
+  },
+  {
+   "date": "2021-08-22",
+   "course": "Golf- und Country Club Hamburg",
+   "tournament": "Monatstaler 9L",
+   "cr": 35.9,
+   "tees": "gelb",
+   "slope": 129,
+   "holes": 9,
+   "format": "S = vorgabewirksames Turnier (Stableford-basiert)",
+   "hcpStart": 39.1,
+   "hcpAfter": 37,
+   "courseHcp": 22,
+   "par": 36,
+   "gbe": 114,
+   "deltaPar": 78,
+   "stbGross": null,
+   "stbNet": null,
+   "sd": null,
+   "gir": null,
+   "fir": null,
+   "putts": null
+  },
+  {
+   "date": "2021-08-21",
+   "course": "Golf- und Country Club Hamburg",
+   "tournament": "Einsteiger-Cup",
+   "cr": 35.6,
+   "tees": "gelb",
+   "slope": 129,
+   "holes": 9,
+   "format": "S = vorgabewirksames Turnier (Stableford-basiert)",
+   "hcpStart": 39.1,
+   "hcpAfter": 39.1,
+   "courseHcp": 22,
+   "par": 36,
+   "gbe": 119,
+   "deltaPar": 83,
+   "stbGross": null,
+   "stbNet": null,
+   "sd": null,
+   "gir": null,
+   "fir": null,
+   "putts": null
+  },
+  {
+   "date": "2021-07-17",
+   "course": "Golf- und Country Club Hamburg",
+   "tournament": "Einsteiger-Cup",
+   "cr": 35.9,
+   "tees": "gelb",
+   "slope": 129,
+   "holes": 9,
+   "format": "S = vorgabewirksames Turnier (Stableford-basiert)",
+   "hcpStart": 39.1,
+   "hcpAfter": 39.1,
+   "courseHcp": 22,
+   "par": 36,
+   "gbe": 127,
+   "deltaPar": 91,
+   "stbGross": null,
+   "stbNet": null,
+   "sd": null,
+   "gir": null,
+   "fir": null,
+   "putts": null
+  },
+  {
+   "date": "2021-06-26",
+   "course": "Golf- und Country Club Hamburg",
+   "tournament": "Einsteiger-Cup",
+   "cr": 35.9,
+   "tees": "gelb",
+   "slope": 129,
+   "holes": 9,
+   "format": "S = vorgabewirksames Turnier (Stableford-basiert)",
+   "hcpStart": 54,
+   "hcpAfter": 39.1,
+   "courseHcp": 31,
+   "par": 36,
+   "gbe": 121,
+   "deltaPar": 85,
+   "stbGross": null,
+   "stbNet": null,
+   "sd": null,
+   "gir": null,
+   "fir": null,
+   "putts": null
+  },
+  {
+   "date": "2026-05-21",
+   "course": "Timmendorfer Strand Südplatz",
+   "tournament": "1. Ecco Day",
+   "cr": 30.3,
+   "tees": "gelb",
+   "slope": 109,
+   "holes": 9,
+   "format": "S = vorgabewirksames Turnier (Stableford-basiert)",
+   "hcpStart": 21.4,
+   "hcpAfter": 20.9,
+   "courseHcp": 11,
+   "par": 30,
+   "gbe": 38,
+   "deltaPar": 8,
+   "stbGross": 10,
+   "stbNet": 21,
+   "sd": 20.3,
+   "gir": null,
+   "fir": null,
+   "putts": null
+  },
+  {
+   "date": "2026-05-26",
+   "course": "Timmendorfer Strand Südplatz",
+   "tournament": "BSV Lübeck Turnier",
+   "cr": 61.1,
+   "tees": "gelb",
+   "slope": 108,
+   "holes": 18,
+   "format": "S = vorgabewirksames Turnier (Stableford-basiert)",
+   "hcpStart": 20.9,
+   "hcpAfter": 20.8,
+   "courseHcp": 20,
+   "par": 61,
+   "gbe": 83,
+   "deltaPar": 22,
+   "stbGross": 17,
+   "stbNet": 34,
+   "sd": 22.9,
+   "gir": null,
+   "fir": null,
+   "putts": null
+  },
+  {
+   "date": "2026-05-30",
+   "course": "Golfclub Gut Waldshagen",
+   "tournament": "BSV Turnier",
+   "cr": 72.3,
+   "tees": "gelb",
+   "slope": 131,
+   "holes": 18,
+   "format": "S = vorgabewirksames Turnier (Stableford-basiert)",
+   "hcpStart": 20.8,
+   "hcpAfter": 20,
+   "courseHcp": 23,
+   "par": 73,
+   "gbe": 92,
+   "deltaPar": 19,
+   "stbGross": 19,
+   "stbNet": 40,
+   "sd": 17,
+   "gir": null,
+   "fir": null,
+   "putts": null
+  },
+  {
+   "date": "2026-05-31",
+   "course": "Timmendorfer Strand Südplatz",
+   "tournament": "Monatscup Timmendorfer Strand",
+   "cr": 61.1,
+   "tees": "gelb",
+   "slope": 108,
+   "holes": 18,
+   "format": "S = vorgabewirksames Turnier (Stableford-basiert)",
+   "hcpStart": 20,
+   "hcpAfter": 20.4,
+   "courseHcp": 19,
+   "par": 61,
+   "gbe": 86,
+   "deltaPar": 25,
+   "stbGross": 14,
+   "stbNet": 30,
+   "sd": 26.1,
+   "gir": null,
+   "fir": null,
+   "putts": null
+  },
+  {
+   "date": "2026-06-15",
+   "course": "Timmendorfer Strand Nordplatz",
+   "tournament": "Mercedes Benz AWGC",
+   "cr": 36,
+   "tees": "gelb",
+   "slope": 139,
+   "holes": 9,
+   "format": "S = vorgabewirksames Turnier (Stableford-basiert)",
+   "hcpStart": 20.4,
+   "hcpAfter": 20,
+   "courseHcp": 13,
+   "par": 36,
+   "gbe": 47,
+   "deltaPar": 11,
+   "stbGross": 7,
+   "stbNet": 20,
+   "sd": 20.7,
+   "gir": null,
+   "fir": null,
+   "putts": null
+  }
+ ],
+ "rounds": [
+  {
+   "id": "R001",
+   "date": "2025-09-07",
+   "course": "Timmendorfer Strand Nordplatz",
+   "type": "18 Loch",
+   "tee": "Gelb",
+   "side": "18 Loch",
+   "hi": 20,
+   "conditions": {
+    "weather": "Leicht bewölkt",
+    "temp": 19,
+    "sleep": 3,
+    "energy": 3,
+    "stress": 3,
+    "warmup": 20,
+    "readiness": "Mittel"
+   },
+   "holes": [
+    {
+     "hole": 1,
+     "score": 5,
+     "putts": 2,
+     "firstPutt": "5m",
+     "tee": "Mis-hit",
+     "club": "7w Aerojet",
+     "appr": "80–110",
+     "lie": "Fairway",
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 2,
+     "score": 7,
+     "putts": 2,
+     "firstPutt": "5m",
+     "tee": "Hit",
+     "club": "7w Aerojet",
+     "appr": "50–80",
+     "lie": "Fairway",
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 3,
+     "score": 4,
+     "putts": 2,
+     "firstPutt": "3m",
+     "tee": "Rechts",
+     "club": "7 Eisen G410",
+     "appr": null,
+     "lie": null,
+     "b1": "Green Side",
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 4,
+     "score": 4,
+     "putts": 2,
+     "firstPutt": "5m",
+     "tee": "Hit",
+     "club": "Driver Aerojet",
+     "appr": null,
+     "lie": null,
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 5,
+     "score": 5,
+     "putts": 2,
+     "firstPutt": "3m",
+     "tee": "Hit",
+     "club": "5w Aerojet",
+     "appr": null,
+     "lie": null,
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 6,
+     "score": 4,
+     "putts": 2,
+     "firstPutt": "15+m",
+     "tee": "Lang",
+     "club": "7w Aerojet",
+     "appr": null,
+     "lie": null,
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 7,
+     "score": 4,
+     "putts": 2,
+     "firstPutt": "5m",
+     "tee": "Hit",
+     "club": "Driver Aerojet",
+     "appr": null,
+     "lie": null,
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 8,
+     "score": 6,
+     "putts": 2,
+     "firstPutt": "5m",
+     "tee": "Rechts",
+     "club": "Driver Aerojet",
+     "appr": null,
+     "lie": null,
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 9,
+     "score": 8,
+     "putts": 2,
+     "firstPutt": "5m",
+     "tee": "Hit",
+     "club": "5w Aerojet",
+     "appr": null,
+     "lie": null,
+     "b1": null,
+     "b2": null,
+     "penN": 1,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 10,
+     "score": 6,
+     "putts": 3,
+     "firstPutt": "15+m",
+     "tee": "Rechts",
+     "club": "7w Aerojet",
+     "appr": null,
+     "lie": null,
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 11,
+     "score": 8,
+     "putts": 2,
+     "firstPutt": "5m",
+     "tee": "Rechts",
+     "club": "Driver Aerojet",
+     "appr": null,
+     "lie": null,
+     "b1": "Fairway Bunker",
+     "b2": "Green Side",
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 12,
+     "score": 4,
+     "putts": 2,
+     "firstPutt": "5m",
+     "tee": null,
+     "club": "5 Eisen G410",
+     "appr": null,
+     "lie": null,
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 13,
+     "score": 6,
+     "putts": 2,
+     "firstPutt": "5m",
+     "tee": "Weit rechts",
+     "club": "Driver Aerojet",
+     "appr": null,
+     "lie": null,
+     "b1": "Green Side",
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 14,
+     "score": 5,
+     "putts": 2,
+     "firstPutt": "5m",
+     "tee": "Weit links",
+     "club": "5w Aerojet",
+     "appr": null,
+     "lie": null,
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 15,
+     "score": 6,
+     "putts": 2,
+     "firstPutt": "10m",
+     "tee": "Weit rechts",
+     "club": "Driver Aerojet",
+     "appr": null,
+     "lie": null,
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 16,
+     "score": 4,
+     "putts": 2,
+     "firstPutt": "5m",
+     "tee": "Hit",
+     "club": "5w Aerojet",
+     "appr": null,
+     "lie": null,
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 17,
+     "score": 6,
+     "putts": 2,
+     "firstPutt": "5m",
+     "tee": null,
+     "club": "5 Eisen G410",
+     "appr": null,
+     "lie": null,
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 18,
+     "score": 6,
+     "putts": 2,
+     "firstPutt": "5m",
+     "tee": "Mis-hit",
+     "club": "Driver Aerojet",
+     "appr": null,
+     "lie": null,
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    }
+   ],
+   "countHcp": false
+  },
+  {
+   "id": "R002",
+   "date": "2025-11-15",
+   "course": "Timmendorfer Strand Nordplatz",
+   "type": "9 Loch",
+   "tee": "Gelb",
+   "side": "Front 9",
+   "hi": 20,
+   "conditions": {
+    "weather": "Leicht bewölkt",
+    "temp": 14,
+    "sleep": 3,
+    "energy": 3,
+    "stress": 3,
+    "warmup": 20,
+    "readiness": "Mittel"
+   },
+   "holes": [
+    {
+     "hole": 1,
+     "score": 5,
+     "putts": 1,
+     "firstPutt": "2m",
+     "tee": "Links",
+     "club": "7w Aerojet",
+     "appr": null,
+     "lie": null,
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 2,
+     "score": 6,
+     "putts": 2,
+     "firstPutt": "3m",
+     "tee": "Hit",
+     "club": "5 Eisen G410",
+     "appr": null,
+     "lie": null,
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 3,
+     "score": 5,
+     "putts": 4,
+     "firstPutt": "15m",
+     "tee": null,
+     "club": "5 Eisen G410",
+     "appr": null,
+     "lie": null,
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 4,
+     "score": 5,
+     "putts": 2,
+     "firstPutt": "5m",
+     "tee": "Hit",
+     "club": "Driver Aerojet",
+     "appr": null,
+     "lie": null,
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 5,
+     "score": 6,
+     "putts": 2,
+     "firstPutt": "7m",
+     "tee": "Weit rechts",
+     "club": "Driver Aerojet",
+     "appr": null,
+     "lie": null,
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 6,
+     "score": 4,
+     "putts": 2,
+     "firstPutt": "3m",
+     "tee": null,
+     "club": "7w Aerojet",
+     "appr": null,
+     "lie": null,
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 7,
+     "score": 5,
+     "putts": 2,
+     "firstPutt": "5m",
+     "tee": "Weit rechts",
+     "club": "Driver Aerojet",
+     "appr": null,
+     "lie": null,
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 8,
+     "score": 7,
+     "putts": 2,
+     "firstPutt": "7m",
+     "tee": "Weit rechts",
+     "club": "Driver Aerojet",
+     "appr": null,
+     "lie": null,
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 9,
+     "score": 5,
+     "putts": 2,
+     "firstPutt": "5m",
+     "tee": "Rechts",
+     "club": "Driver Aerojet",
+     "appr": null,
+     "lie": null,
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 10,
+     "score": null,
+     "putts": null,
+     "firstPutt": null,
+     "tee": null,
+     "club": null,
+     "appr": null,
+     "lie": null,
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 11,
+     "score": null,
+     "putts": null,
+     "firstPutt": null,
+     "tee": null,
+     "club": null,
+     "appr": null,
+     "lie": null,
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 12,
+     "score": null,
+     "putts": null,
+     "firstPutt": null,
+     "tee": null,
+     "club": null,
+     "appr": null,
+     "lie": null,
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 13,
+     "score": null,
+     "putts": null,
+     "firstPutt": null,
+     "tee": null,
+     "club": null,
+     "appr": null,
+     "lie": null,
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 14,
+     "score": null,
+     "putts": null,
+     "firstPutt": null,
+     "tee": null,
+     "club": null,
+     "appr": null,
+     "lie": null,
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 15,
+     "score": null,
+     "putts": null,
+     "firstPutt": null,
+     "tee": null,
+     "club": null,
+     "appr": null,
+     "lie": null,
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 16,
+     "score": null,
+     "putts": null,
+     "firstPutt": null,
+     "tee": null,
+     "club": null,
+     "appr": null,
+     "lie": null,
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 17,
+     "score": null,
+     "putts": null,
+     "firstPutt": null,
+     "tee": null,
+     "club": null,
+     "appr": null,
+     "lie": null,
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 18,
+     "score": null,
+     "putts": null,
+     "firstPutt": null,
+     "tee": null,
+     "club": null,
+     "appr": null,
+     "lie": null,
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    }
+   ],
+   "countHcp": false
+  },
+  {
+   "id": "R003",
+   "date": "2025-09-21",
+   "course": "Timmendorfer Strand Südplatz",
+   "type": "18 Loch",
+   "tee": "Gelb",
+   "side": "18 Loch",
+   "hi": 20,
+   "conditions": {
+    "weather": "Bewölkt",
+    "temp": 21,
+    "sleep": 3,
+    "energy": 3,
+    "stress": 3,
+    "warmup": 0,
+    "readiness": "Mittel"
+   },
+   "holes": [
+    {
+     "hole": 1,
+     "score": 4,
+     "putts": 2,
+     "firstPutt": "3m",
+     "tee": null,
+     "club": null,
+     "appr": null,
+     "lie": null,
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 2,
+     "score": 3,
+     "putts": 1,
+     "firstPutt": "2m",
+     "tee": null,
+     "club": null,
+     "appr": null,
+     "lie": null,
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 3,
+     "score": 4,
+     "putts": 2,
+     "firstPutt": "7m",
+     "tee": null,
+     "club": null,
+     "appr": null,
+     "lie": null,
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 4,
+     "score": 5,
+     "putts": 2,
+     "firstPutt": "5m",
+     "tee": "Rechts",
+     "club": "4 Eisen G410",
+     "appr": null,
+     "lie": null,
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 5,
+     "score": 4,
+     "putts": 2,
+     "firstPutt": "2m",
+     "tee": null,
+     "club": null,
+     "appr": null,
+     "lie": null,
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 6,
+     "score": 4,
+     "putts": 2,
+     "firstPutt": "5m",
+     "tee": null,
+     "club": null,
+     "appr": null,
+     "lie": null,
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 7,
+     "score": 3,
+     "putts": 2,
+     "firstPutt": "3m",
+     "tee": null,
+     "club": null,
+     "appr": null,
+     "lie": null,
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 8,
+     "score": 5,
+     "putts": 2,
+     "firstPutt": "5m",
+     "tee": "Rechts",
+     "club": "Driver Aerojet",
+     "appr": null,
+     "lie": null,
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 9,
+     "score": 5,
+     "putts": 2,
+     "firstPutt": "5m",
+     "tee": "Hit",
+     "club": "4 Eisen G410",
+     "appr": null,
+     "lie": null,
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 10,
+     "score": 5,
+     "putts": 2,
+     "firstPutt": "5m",
+     "tee": null,
+     "club": null,
+     "appr": null,
+     "lie": null,
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 11,
+     "score": 4,
+     "putts": 1,
+     "firstPutt": "Gimme",
+     "tee": "Hit",
+     "club": "5 Eisen G410",
+     "appr": null,
+     "lie": null,
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 12,
+     "score": 5,
+     "putts": 2,
+     "firstPutt": "3m",
+     "tee": "Weit rechts",
+     "club": "Driver Aerojet",
+     "appr": null,
+     "lie": null,
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 13,
+     "score": 4,
+     "putts": 1,
+     "firstPutt": "2m",
+     "tee": "Hit",
+     "club": "5w Aerojet",
+     "appr": null,
+     "lie": null,
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 14,
+     "score": 3,
+     "putts": 1,
+     "firstPutt": "3m",
+     "tee": null,
+     "club": null,
+     "appr": null,
+     "lie": null,
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 15,
+     "score": 5,
+     "putts": 2,
+     "firstPutt": "3m",
+     "tee": "Links",
+     "club": "Driver Aerojet",
+     "appr": null,
+     "lie": null,
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 16,
+     "score": 4,
+     "putts": 2,
+     "firstPutt": "2m",
+     "tee": null,
+     "club": null,
+     "appr": null,
+     "lie": null,
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 17,
+     "score": 3,
+     "putts": 2,
+     "firstPutt": "5m",
+     "tee": null,
+     "club": null,
+     "appr": null,
+     "lie": null,
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 18,
+     "score": 5,
+     "putts": 2,
+     "firstPutt": "5m",
+     "tee": null,
+     "club": null,
+     "appr": null,
+     "lie": null,
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    }
+   ],
+   "countHcp": false
+  },
+  {
+   "id": "R004",
+   "date": "2025-08-24",
+   "course": "Timmendorfer Strand Nordplatz",
+   "type": "18 Loch",
+   "tee": "Gelb",
+   "side": "18 Loch",
+   "hi": 20,
+   "conditions": {
+    "weather": "Bewölkt",
+    "temp": 23.4,
+    "sleep": 3,
+    "energy": 3,
+    "stress": 3,
+    "warmup": 0,
+    "readiness": "Mittel"
+   },
+   "holes": [
+    {
+     "hole": 1,
+     "score": 5,
+     "putts": 2,
+     "firstPutt": "3m",
+     "tee": "Mis-hit",
+     "club": "4 Eisen G410",
+     "appr": null,
+     "lie": null,
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 2,
+     "score": 8,
+     "putts": 2,
+     "firstPutt": null,
+     "tee": "Rechts",
+     "club": "4 Eisen G410",
+     "appr": null,
+     "lie": null,
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 3,
+     "score": 4,
+     "putts": 2,
+     "firstPutt": "3m",
+     "tee": null,
+     "club": "7 Eisen G410",
+     "appr": null,
+     "lie": null,
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 4,
+     "score": 5,
+     "putts": 2,
+     "firstPutt": null,
+     "tee": "Hit",
+     "club": "Driver Aerojet",
+     "appr": null,
+     "lie": null,
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 5,
+     "score": 7,
+     "putts": 3,
+     "firstPutt": null,
+     "tee": "Mis-hit",
+     "club": null,
+     "appr": null,
+     "lie": null,
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 6,
+     "score": 5,
+     "putts": 3,
+     "firstPutt": null,
+     "tee": null,
+     "club": "7w Aerojet",
+     "appr": null,
+     "lie": null,
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 7,
+     "score": 5,
+     "putts": 2,
+     "firstPutt": "7m",
+     "tee": "Hit",
+     "club": "Driver Aerojet",
+     "appr": null,
+     "lie": null,
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 8,
+     "score": 6,
+     "putts": 2,
+     "firstPutt": null,
+     "tee": "Hit",
+     "club": null,
+     "appr": null,
+     "lie": null,
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 9,
+     "score": 7,
+     "putts": 3,
+     "firstPutt": null,
+     "tee": "Links",
+     "club": null,
+     "appr": null,
+     "lie": null,
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 10,
+     "score": 5,
+     "putts": 2,
+     "firstPutt": null,
+     "tee": "Links",
+     "club": "7w Aerojet",
+     "appr": null,
+     "lie": null,
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 11,
+     "score": 6,
+     "putts": 2,
+     "firstPutt": null,
+     "tee": "Hit",
+     "club": null,
+     "appr": null,
+     "lie": null,
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 12,
+     "score": 4,
+     "putts": 2,
+     "firstPutt": "5m",
+     "tee": null,
+     "club": "7w Aerojet",
+     "appr": null,
+     "lie": null,
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 13,
+     "score": 6,
+     "putts": 3,
+     "firstPutt": "5m",
+     "tee": "Mis-hit",
+     "club": "Driver Aerojet",
+     "appr": null,
+     "lie": null,
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 14,
+     "score": 5,
+     "putts": 2,
+     "firstPutt": "5m",
+     "tee": "Mis-hit",
+     "club": "Driver Aerojet",
+     "appr": null,
+     "lie": null,
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 15,
+     "score": 5,
+     "putts": 2,
+     "firstPutt": "5m",
+     "tee": "Mis-hit",
+     "club": "Driver Aerojet",
+     "appr": null,
+     "lie": null,
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 16,
+     "score": 6,
+     "putts": 3,
+     "firstPutt": "7m",
+     "tee": "Hit",
+     "club": "7w Aerojet",
+     "appr": null,
+     "lie": null,
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 17,
+     "score": 2,
+     "putts": 1,
+     "firstPutt": "5m",
+     "tee": null,
+     "club": "5 Eisen G410",
+     "appr": null,
+     "lie": null,
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 18,
+     "score": 5,
+     "putts": 1,
+     "firstPutt": "3m",
+     "tee": "Rechts",
+     "club": "Driver Aerojet",
+     "appr": null,
+     "lie": null,
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    }
+   ],
+   "countHcp": false
+  },
+  {
+   "id": "R005",
+   "date": "2025-07-17",
+   "course": "Timmendorfer Strand Nordplatz",
+   "type": "18 Loch",
+   "tee": "Gelb",
+   "side": "18 Loch",
+   "hi": 20,
+   "conditions": {
+    "weather": "Leicht bewölkt",
+    "temp": 24.8,
+    "sleep": 3,
+    "energy": 3,
+    "stress": 3,
+    "warmup": 0,
+    "readiness": "Mittel"
+   },
+   "holes": [
+    {
+     "hole": 1,
+     "score": 5,
+     "putts": 3,
+     "firstPutt": "10m",
+     "tee": "Hit",
+     "club": "4 Eisen G410",
+     "appr": null,
+     "lie": null,
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 2,
+     "score": 7,
+     "putts": 2,
+     "firstPutt": "5m",
+     "tee": "Mis-hit",
+     "club": "7w Aerojet",
+     "appr": null,
+     "lie": null,
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 3,
+     "score": 4,
+     "putts": 2,
+     "firstPutt": "2m",
+     "tee": null,
+     "club": "6 Eisen G410",
+     "appr": null,
+     "lie": null,
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 4,
+     "score": 5,
+     "putts": 2,
+     "firstPutt": "10m",
+     "tee": "Rechts",
+     "club": "Driver Aerojet",
+     "appr": null,
+     "lie": null,
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 5,
+     "score": 6,
+     "putts": 2,
+     "firstPutt": "3m",
+     "tee": "Mis-hit",
+     "club": "3w Aerojet",
+     "appr": null,
+     "lie": null,
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 6,
+     "score": 3,
+     "putts": 2,
+     "firstPutt": "10m",
+     "tee": null,
+     "club": "7w Aerojet",
+     "appr": null,
+     "lie": null,
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 7,
+     "score": 4,
+     "putts": 2,
+     "firstPutt": "5m",
+     "tee": "Mis-hit",
+     "club": "Driver Aerojet",
+     "appr": null,
+     "lie": null,
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 8,
+     "score": 6,
+     "putts": 2,
+     "firstPutt": "5m",
+     "tee": "Mis-hit",
+     "club": "Driver Aerojet",
+     "appr": null,
+     "lie": null,
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 9,
+     "score": 5,
+     "putts": 2,
+     "firstPutt": "3m",
+     "tee": "Weit rechts",
+     "club": "3w Aerojet",
+     "appr": null,
+     "lie": null,
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 10,
+     "score": 4,
+     "putts": 1,
+     "firstPutt": "1m",
+     "tee": "Hit",
+     "club": "7w Aerojet",
+     "appr": null,
+     "lie": null,
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 11,
+     "score": 6,
+     "putts": 2,
+     "firstPutt": "3m",
+     "tee": "Hit",
+     "club": "Driver Aerojet",
+     "appr": null,
+     "lie": null,
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 12,
+     "score": 4,
+     "putts": 3,
+     "firstPutt": "5m",
+     "tee": null,
+     "club": "4 Eisen G410",
+     "appr": null,
+     "lie": null,
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 13,
+     "score": 5,
+     "putts": 2,
+     "firstPutt": "5m",
+     "tee": "Rechts",
+     "club": "Driver Aerojet",
+     "appr": null,
+     "lie": null,
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 14,
+     "score": 4,
+     "putts": 1,
+     "firstPutt": "2m",
+     "tee": "Rechts",
+     "club": "3w Aerojet",
+     "appr": null,
+     "lie": null,
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 15,
+     "score": 5,
+     "putts": 2,
+     "firstPutt": "15m",
+     "tee": "Hit",
+     "club": "3w Aerojet",
+     "appr": null,
+     "lie": null,
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 16,
+     "score": 6,
+     "putts": 2,
+     "firstPutt": "7m",
+     "tee": "Mis-hit",
+     "club": "7w Aerojet",
+     "appr": null,
+     "lie": null,
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 17,
+     "score": 4,
+     "putts": 2,
+     "firstPutt": null,
+     "tee": null,
+     "club": "5 Eisen G410",
+     "appr": null,
+     "lie": null,
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 18,
+     "score": 4,
+     "putts": 1,
+     "firstPutt": "1,5m",
+     "tee": "Hit",
+     "club": "Driver Aerojet",
+     "appr": null,
+     "lie": null,
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    }
+   ],
+   "countHcp": false
+  },
+  {
+   "id": "R006",
+   "date": "2026-04-16",
+   "course": "Timmendorfer Strand Südplatz",
+   "type": "9 Loch",
+   "tee": "Gelb",
+   "side": "Back 9",
+   "hi": 20,
+   "conditions": {
+    "weather": "Sonnig",
+    "temp": 18,
+    "sleep": 3,
+    "energy": 3,
+    "stress": 3,
+    "warmup": 0,
+    "readiness": "Mittel"
+   },
+   "holes": [
+    {
+     "hole": 1,
+     "score": null,
+     "putts": null,
+     "firstPutt": null,
+     "tee": null,
+     "club": null,
+     "appr": null,
+     "lie": null,
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 2,
+     "score": null,
+     "putts": null,
+     "firstPutt": null,
+     "tee": null,
+     "club": null,
+     "appr": null,
+     "lie": null,
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 3,
+     "score": null,
+     "putts": null,
+     "firstPutt": null,
+     "tee": null,
+     "club": null,
+     "appr": null,
+     "lie": null,
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 4,
+     "score": null,
+     "putts": null,
+     "firstPutt": null,
+     "tee": null,
+     "club": null,
+     "appr": null,
+     "lie": null,
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 5,
+     "score": null,
+     "putts": null,
+     "firstPutt": null,
+     "tee": null,
+     "club": null,
+     "appr": null,
+     "lie": null,
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 6,
+     "score": null,
+     "putts": null,
+     "firstPutt": null,
+     "tee": null,
+     "club": null,
+     "appr": null,
+     "lie": null,
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 7,
+     "score": null,
+     "putts": null,
+     "firstPutt": null,
+     "tee": null,
+     "club": null,
+     "appr": null,
+     "lie": null,
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 8,
+     "score": null,
+     "putts": null,
+     "firstPutt": null,
+     "tee": null,
+     "club": null,
+     "appr": null,
+     "lie": null,
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 9,
+     "score": null,
+     "putts": null,
+     "firstPutt": null,
+     "tee": null,
+     "club": null,
+     "appr": null,
+     "lie": null,
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 10,
+     "score": 3,
+     "putts": 2,
+     "firstPutt": "3m",
+     "tee": null,
+     "club": null,
+     "appr": null,
+     "lie": null,
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 11,
+     "score": 5,
+     "putts": 2,
+     "firstPutt": "2m",
+     "tee": null,
+     "club": null,
+     "appr": null,
+     "lie": null,
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 12,
+     "score": 4,
+     "putts": 2,
+     "firstPutt": "6m",
+     "tee": null,
+     "club": null,
+     "appr": null,
+     "lie": null,
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 13,
+     "score": 4,
+     "putts": 2,
+     "firstPutt": "3m",
+     "tee": null,
+     "club": null,
+     "appr": null,
+     "lie": null,
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 14,
+     "score": 4,
+     "putts": 3,
+     "firstPutt": "7m",
+     "tee": null,
+     "club": null,
+     "appr": null,
+     "lie": null,
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 15,
+     "score": 3,
+     "putts": 0,
+     "firstPutt": null,
+     "tee": null,
+     "club": null,
+     "appr": null,
+     "lie": null,
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 16,
+     "score": 4,
+     "putts": 2,
+     "firstPutt": "4m",
+     "tee": null,
+     "club": null,
+     "appr": null,
+     "lie": null,
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 17,
+     "score": 4,
+     "putts": 2,
+     "firstPutt": "9m",
+     "tee": null,
+     "club": null,
+     "appr": null,
+     "lie": null,
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 18,
+     "score": 3,
+     "putts": 1,
+     "firstPutt": "3m",
+     "tee": null,
+     "club": "9 Eisen G410",
+     "appr": "110–140",
+     "lie": "Rough",
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": "Ja",
+     "ss": null,
+     "girDirect": null
+    }
+   ],
+   "countHcp": false
+  },
+  {
+   "id": "R007",
+   "date": "2026-04-24",
+   "course": "Timmendorfer Strand Nordplatz",
+   "type": "9 Loch",
+   "tee": "Gelb",
+   "side": "Front 9",
+   "hi": 20,
+   "conditions": {
+    "weather": "Sonnig",
+    "temp": 15,
+    "sleep": 3,
+    "energy": 3,
+    "stress": 3,
+    "warmup": 0,
+    "readiness": "Mittel"
+   },
+   "holes": [
+    {
+     "hole": 1,
+     "score": 4,
+     "putts": 2,
+     "firstPutt": "6m",
+     "tee": "Hit",
+     "club": "2 Driving iron Cobra",
+     "appr": "80–110",
+     "lie": "Fairway",
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 2,
+     "score": 6,
+     "putts": 2,
+     "firstPutt": "7m",
+     "tee": "Links",
+     "club": "2 Driving iron Cobra",
+     "appr": "50–80",
+     "lie": "Rough",
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 3,
+     "score": 4,
+     "putts": 2,
+     "firstPutt": "3m",
+     "tee": "Links",
+     "club": "7 Eisen G410",
+     "appr": "20–50",
+     "lie": "Fairway",
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": "Nein",
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 4,
+     "score": 5,
+     "putts": 2,
+     "firstPutt": "5m",
+     "tee": "Rechts",
+     "club": "Driver Aerojet",
+     "appr": "110–140",
+     "lie": "Fairway",
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": "Nein",
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 5,
+     "score": 5,
+     "putts": 2,
+     "firstPutt": "5m",
+     "tee": "Rechts",
+     "club": "Driver Aerojet",
+     "appr": "50–80",
+     "lie": "Fairway",
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 6,
+     "score": 4,
+     "putts": 3,
+     "firstPutt": "12m",
+     "tee": "Hit",
+     "club": "7w Aerojet",
+     "appr": "170–200",
+     "lie": "Tee",
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 7,
+     "score": 6,
+     "putts": 2,
+     "firstPutt": "5m",
+     "tee": "Hit",
+     "club": "Driver Aerojet",
+     "appr": "110–140",
+     "lie": "Rough",
+     "b1": "Green Side",
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 8,
+     "score": 6,
+     "putts": 2,
+     "firstPutt": "5m",
+     "tee": "Links",
+     "club": "Driver Aerojet",
+     "appr": "110–140",
+     "lie": "Rough",
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 9,
+     "score": 5,
+     "putts": 3,
+     "firstPutt": "6m",
+     "tee": "Hit",
+     "club": "Driver Aerojet",
+     "appr": "110–140",
+     "lie": "Fairway",
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 10,
+     "score": null,
+     "putts": null,
+     "firstPutt": null,
+     "tee": null,
+     "club": null,
+     "appr": null,
+     "lie": null,
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 11,
+     "score": null,
+     "putts": null,
+     "firstPutt": null,
+     "tee": null,
+     "club": null,
+     "appr": null,
+     "lie": null,
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 12,
+     "score": null,
+     "putts": null,
+     "firstPutt": null,
+     "tee": null,
+     "club": null,
+     "appr": null,
+     "lie": null,
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 13,
+     "score": null,
+     "putts": null,
+     "firstPutt": null,
+     "tee": null,
+     "club": null,
+     "appr": null,
+     "lie": null,
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 14,
+     "score": null,
+     "putts": null,
+     "firstPutt": null,
+     "tee": null,
+     "club": null,
+     "appr": null,
+     "lie": null,
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 15,
+     "score": null,
+     "putts": null,
+     "firstPutt": null,
+     "tee": null,
+     "club": null,
+     "appr": null,
+     "lie": null,
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 16,
+     "score": null,
+     "putts": null,
+     "firstPutt": null,
+     "tee": null,
+     "club": null,
+     "appr": null,
+     "lie": null,
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 17,
+     "score": null,
+     "putts": null,
+     "firstPutt": null,
+     "tee": null,
+     "club": null,
+     "appr": null,
+     "lie": null,
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 18,
+     "score": null,
+     "putts": null,
+     "firstPutt": null,
+     "tee": null,
+     "club": null,
+     "appr": null,
+     "lie": null,
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    }
+   ],
+   "countHcp": false
+  },
+  {
+   "id": "R008",
+   "date": "2026-04-25",
+   "course": "Timmendorfer Strand Nordplatz",
+   "type": "9 Loch",
+   "tee": "Gelb",
+   "side": "Front 9",
+   "hi": 20,
+   "conditions": {
+    "weather": "Sonnig",
+    "temp": 15,
+    "sleep": 3,
+    "energy": 3,
+    "stress": 3,
+    "warmup": 0,
+    "readiness": "Mittel"
+   },
+   "holes": [
+    {
+     "hole": 1,
+     "score": 6,
+     "putts": 3,
+     "firstPutt": "8m",
+     "tee": "Mis-hit",
+     "club": "2 Driving iron Cobra",
+     "appr": "80–110",
+     "lie": "Fairway",
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 2,
+     "score": 7,
+     "putts": 2,
+     "firstPutt": "5m",
+     "tee": "Rechts",
+     "club": "2 Driving iron Cobra",
+     "appr": "140–170",
+     "lie": "Fairway",
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 3,
+     "score": 3,
+     "putts": 1,
+     "firstPutt": "6m",
+     "tee": "Kurz",
+     "club": "7 Eisen G410",
+     "appr": "<20",
+     "lie": "Rough",
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": "Ja",
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 4,
+     "score": 4,
+     "putts": 1,
+     "firstPutt": "5m",
+     "tee": "Mis-hit",
+     "club": "Driver Aerojet",
+     "appr": "20–50",
+     "lie": "Rough",
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 5,
+     "score": 6,
+     "putts": 2,
+     "firstPutt": "5m",
+     "tee": "Rechts",
+     "club": "3w Aerojet",
+     "appr": "110–140",
+     "lie": "Rough",
+     "b1": null,
+     "b2": null,
+     "penN": 1,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 6,
+     "score": 5,
+     "putts": 2,
+     "firstPutt": "8m",
+     "tee": "Rechts",
+     "club": "Driver Aerojet",
+     "appr": "80–110",
+     "lie": "Rough",
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 7,
+     "score": 6,
+     "putts": 2,
+     "firstPutt": "4m",
+     "tee": "Hit",
+     "club": "Driver Aerojet",
+     "appr": "110–140",
+     "lie": "Rough",
+     "b1": "Green Side",
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 8,
+     "score": 7,
+     "putts": 3,
+     "firstPutt": "9m",
+     "tee": "Hit",
+     "club": "Driver Aerojet",
+     "appr": "110–140",
+     "lie": "Rough",
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 9,
+     "score": 5,
+     "putts": 2,
+     "firstPutt": "6m",
+     "tee": "Hit",
+     "club": "3w Aerojet",
+     "appr": "50–80",
+     "lie": "Fairway",
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 10,
+     "score": null,
+     "putts": null,
+     "firstPutt": null,
+     "tee": null,
+     "club": null,
+     "appr": null,
+     "lie": null,
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 11,
+     "score": null,
+     "putts": null,
+     "firstPutt": null,
+     "tee": null,
+     "club": null,
+     "appr": null,
+     "lie": null,
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 12,
+     "score": null,
+     "putts": null,
+     "firstPutt": null,
+     "tee": null,
+     "club": null,
+     "appr": null,
+     "lie": null,
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 13,
+     "score": null,
+     "putts": null,
+     "firstPutt": null,
+     "tee": null,
+     "club": null,
+     "appr": null,
+     "lie": null,
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 14,
+     "score": null,
+     "putts": null,
+     "firstPutt": null,
+     "tee": null,
+     "club": null,
+     "appr": null,
+     "lie": null,
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 15,
+     "score": null,
+     "putts": null,
+     "firstPutt": null,
+     "tee": null,
+     "club": null,
+     "appr": null,
+     "lie": null,
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 16,
+     "score": null,
+     "putts": null,
+     "firstPutt": null,
+     "tee": null,
+     "club": null,
+     "appr": null,
+     "lie": null,
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 17,
+     "score": null,
+     "putts": null,
+     "firstPutt": null,
+     "tee": null,
+     "club": null,
+     "appr": null,
+     "lie": null,
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 18,
+     "score": null,
+     "putts": null,
+     "firstPutt": null,
+     "tee": null,
+     "club": null,
+     "appr": null,
+     "lie": null,
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    }
+   ],
+   "countHcp": false
+  },
+  {
+   "id": "R009",
+   "date": "2026-04-26",
+   "course": "Timmendorfer Strand Nordplatz",
+   "type": "9 Loch",
+   "tee": "Gelb",
+   "side": "Back 9",
+   "hi": 20,
+   "conditions": {
+    "weather": "Sonnig",
+    "temp": 18.5,
+    "sleep": 3,
+    "energy": 3,
+    "stress": 3,
+    "warmup": 0,
+    "readiness": "Mittel"
+   },
+   "holes": [
+    {
+     "hole": 1,
+     "score": null,
+     "putts": null,
+     "firstPutt": null,
+     "tee": null,
+     "club": null,
+     "appr": null,
+     "lie": null,
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 2,
+     "score": null,
+     "putts": null,
+     "firstPutt": null,
+     "tee": null,
+     "club": null,
+     "appr": null,
+     "lie": null,
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 3,
+     "score": null,
+     "putts": null,
+     "firstPutt": null,
+     "tee": null,
+     "club": null,
+     "appr": null,
+     "lie": null,
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 4,
+     "score": null,
+     "putts": null,
+     "firstPutt": null,
+     "tee": null,
+     "club": null,
+     "appr": null,
+     "lie": null,
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 5,
+     "score": null,
+     "putts": null,
+     "firstPutt": null,
+     "tee": null,
+     "club": null,
+     "appr": null,
+     "lie": null,
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 6,
+     "score": null,
+     "putts": null,
+     "firstPutt": null,
+     "tee": null,
+     "club": null,
+     "appr": null,
+     "lie": null,
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 7,
+     "score": null,
+     "putts": null,
+     "firstPutt": null,
+     "tee": null,
+     "club": null,
+     "appr": null,
+     "lie": null,
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 8,
+     "score": null,
+     "putts": null,
+     "firstPutt": null,
+     "tee": null,
+     "club": null,
+     "appr": null,
+     "lie": null,
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 9,
+     "score": null,
+     "putts": null,
+     "firstPutt": null,
+     "tee": null,
+     "club": null,
+     "appr": null,
+     "lie": null,
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 10,
+     "score": 4,
+     "putts": 1,
+     "firstPutt": "5m",
+     "tee": "Mis-hit",
+     "club": "7w Aerojet",
+     "appr": "140–170",
+     "lie": "Fairway",
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": "Ja",
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 11,
+     "score": 5,
+     "putts": 2,
+     "firstPutt": "4m",
+     "tee": "Hit",
+     "club": "Driver Aerojet",
+     "appr": "110–140",
+     "lie": "Fairway",
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 12,
+     "score": 4,
+     "putts": 2,
+     "firstPutt": "8m",
+     "tee": "Mis-hit",
+     "club": "7w Aerojet",
+     "appr": "20–50",
+     "lie": "Fairway",
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 13,
+     "score": 5,
+     "putts": 2,
+     "firstPutt": "3m",
+     "tee": "Hit",
+     "club": "Driver Aerojet",
+     "appr": "140–170",
+     "lie": "Rough",
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 14,
+     "score": 5,
+     "putts": 1,
+     "firstPutt": "2m",
+     "tee": "Rechts",
+     "club": "Driver Aerojet",
+     "appr": "140–170",
+     "lie": "Rough",
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": "Nein",
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 15,
+     "score": 6,
+     "putts": 2,
+     "firstPutt": "6m",
+     "tee": "Rechts",
+     "club": "Driver Aerojet",
+     "appr": "80–110",
+     "lie": "Fairway",
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 16,
+     "score": 6,
+     "putts": 2,
+     "firstPutt": "5m",
+     "tee": "Mis-hit",
+     "club": "2 Driving iron Cobra",
+     "appr": "140–170",
+     "lie": "Rough",
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 17,
+     "score": 5,
+     "putts": 2,
+     "firstPutt": "6m",
+     "tee": "Mis-hit",
+     "club": "5 Eisen G410",
+     "appr": null,
+     "lie": null,
+     "b1": "Green Side",
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": "Nein",
+     "girDirect": null
+    },
+    {
+     "hole": 18,
+     "score": 5,
+     "putts": 2,
+     "firstPutt": "6m",
+     "tee": "Links",
+     "club": "2 Driving iron Cobra",
+     "appr": "50–80",
+     "lie": "Fairway",
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    }
+   ],
+   "countHcp": false
+  },
+  {
+   "id": "R010",
+   "date": "2026-05-03",
+   "course": "Timmendorfer Strand Nordplatz",
+   "type": "9 Loch",
+   "tee": "Gelb",
+   "side": "Front 9",
+   "hi": 20,
+   "conditions": {
+    "weather": "Sonnig",
+    "temp": 23,
+    "sleep": 2,
+    "energy": 4,
+    "stress": 4,
+    "warmup": 30,
+    "readiness": "Mittel"
+   },
+   "holes": [
+    {
+     "hole": 1,
+     "score": 4,
+     "putts": 2,
+     "firstPutt": "8m",
+     "tee": "Hit",
+     "club": "2 Driving iron Cobra",
+     "appr": "50–80",
+     "lie": "Fairway",
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 2,
+     "score": 5,
+     "putts": 1,
+     "firstPutt": "1,5m",
+     "tee": "Hit",
+     "club": "2 Driving iron Cobra",
+     "appr": "80–110",
+     "lie": "Fairway",
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": "Ja",
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 3,
+     "score": 3,
+     "putts": 1,
+     "firstPutt": "6m",
+     "tee": "Weit rechts",
+     "club": "7 Eisen G410",
+     "appr": "20–50",
+     "lie": "Rough",
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": "Ja",
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 4,
+     "score": 5,
+     "putts": 2,
+     "firstPutt": "2m",
+     "tee": "Rechts",
+     "club": "Driver Aerojet",
+     "appr": "<20",
+     "lie": "Bunker",
+     "b1": "Green Side",
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": "Ja",
+     "girDirect": null
+    },
+    {
+     "hole": 5,
+     "score": 5,
+     "putts": 2,
+     "firstPutt": "8m",
+     "tee": "Rechts",
+     "club": "Driver Aerojet",
+     "appr": "80–110",
+     "lie": "Fairway",
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 6,
+     "score": 4,
+     "putts": 2,
+     "firstPutt": "8m",
+     "tee": "Lang",
+     "club": "7w Aerojet",
+     "appr": "170–200",
+     "lie": "Tee",
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 7,
+     "score": 5,
+     "putts": 3,
+     "firstPutt": "9m",
+     "tee": "Hit",
+     "club": "Driver Aerojet",
+     "appr": "80–110",
+     "lie": "Fairway",
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 8,
+     "score": 5,
+     "putts": 1,
+     "firstPutt": "1,5m",
+     "tee": "Hit",
+     "club": "Driver Aerojet",
+     "appr": "<20",
+     "lie": "Rough",
+     "b1": "Fairway Bunker",
+     "b2": null,
+     "penN": null,
+     "ud": "Ja",
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 9,
+     "score": 5,
+     "putts": 2,
+     "firstPutt": "6m",
+     "tee": "Hit",
+     "club": "3w Aerojet",
+     "appr": "<20",
+     "lie": "Bunker",
+     "b1": "Green Side",
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 10,
+     "score": null,
+     "putts": null,
+     "firstPutt": null,
+     "tee": null,
+     "club": null,
+     "appr": null,
+     "lie": null,
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 11,
+     "score": null,
+     "putts": null,
+     "firstPutt": null,
+     "tee": null,
+     "club": null,
+     "appr": null,
+     "lie": null,
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 12,
+     "score": null,
+     "putts": null,
+     "firstPutt": null,
+     "tee": null,
+     "club": null,
+     "appr": null,
+     "lie": null,
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 13,
+     "score": null,
+     "putts": null,
+     "firstPutt": null,
+     "tee": null,
+     "club": null,
+     "appr": null,
+     "lie": null,
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 14,
+     "score": null,
+     "putts": null,
+     "firstPutt": null,
+     "tee": null,
+     "club": null,
+     "appr": null,
+     "lie": null,
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 15,
+     "score": null,
+     "putts": null,
+     "firstPutt": null,
+     "tee": null,
+     "club": null,
+     "appr": null,
+     "lie": null,
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 16,
+     "score": null,
+     "putts": null,
+     "firstPutt": null,
+     "tee": null,
+     "club": null,
+     "appr": null,
+     "lie": null,
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 17,
+     "score": null,
+     "putts": null,
+     "firstPutt": null,
+     "tee": null,
+     "club": null,
+     "appr": null,
+     "lie": null,
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 18,
+     "score": null,
+     "putts": null,
+     "firstPutt": null,
+     "tee": null,
+     "club": null,
+     "appr": null,
+     "lie": null,
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    }
+   ],
+   "countHcp": false
+  },
+  {
+   "id": "R011",
+   "date": "2026-05-13",
+   "course": "Timmendorfer Strand Nordplatz",
+   "type": "9 Loch",
+   "tee": "Gelb",
+   "side": "Front 9",
+   "hi": 20,
+   "conditions": {
+    "weather": "Sonnig",
+    "temp": 17,
+    "sleep": 3,
+    "energy": 4,
+    "stress": 3,
+    "warmup": 30,
+    "readiness": "Mittel"
+   },
+   "holes": [
+    {
+     "hole": 1,
+     "score": 4,
+     "putts": 2,
+     "firstPutt": "6m",
+     "tee": "Rechts",
+     "club": "2 Driving iron Cobra",
+     "appr": "80–110",
+     "lie": "Rough",
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 2,
+     "score": 6,
+     "putts": 3,
+     "firstPutt": "8m",
+     "tee": "Hit",
+     "club": "3w Aerojet",
+     "appr": "110–140",
+     "lie": "Rough",
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 3,
+     "score": 4,
+     "putts": 2,
+     "firstPutt": "1,5m",
+     "tee": "Links",
+     "club": "7 Eisen G410",
+     "appr": "<20",
+     "lie": "Bunker",
+     "b1": "Green Side",
+     "b2": null,
+     "penN": null,
+     "ud": "Nein",
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 4,
+     "score": 5,
+     "putts": 3,
+     "firstPutt": "9m",
+     "tee": "Hit",
+     "club": "Driver Aerojet",
+     "appr": "80–110",
+     "lie": "Fairway",
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 5,
+     "score": 5,
+     "putts": 1,
+     "firstPutt": "5m",
+     "tee": "Rechts",
+     "club": "Driver Aerojet",
+     "appr": "<20",
+     "lie": "Bunker",
+     "b1": "Green Side",
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": "Ja",
+     "girDirect": null
+    },
+    {
+     "hole": 6,
+     "score": 4,
+     "putts": 2,
+     "firstPutt": "2m",
+     "tee": "Links",
+     "club": "7w Aerojet",
+     "appr": "<20",
+     "lie": "Rough",
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": "Nein",
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 7,
+     "score": 4,
+     "putts": 2,
+     "firstPutt": "8m",
+     "tee": "Hit",
+     "club": "Driver Aerojet",
+     "appr": "110–140",
+     "lie": "Fairway",
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 8,
+     "score": 6,
+     "putts": 2,
+     "firstPutt": "8m",
+     "tee": "Hit",
+     "club": "Driver Aerojet",
+     "appr": "50–80",
+     "lie": "Fairway",
+     "b1": "Fairway Bunker",
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 9,
+     "score": 7,
+     "putts": 2,
+     "firstPutt": "6m",
+     "tee": "Mis-hit",
+     "club": "3w Aerojet",
+     "appr": "<20",
+     "lie": "Bunker",
+     "b1": "Green Side",
+     "b2": null,
+     "penN": 1,
+     "ud": "Nein",
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 10,
+     "score": null,
+     "putts": null,
+     "firstPutt": null,
+     "tee": null,
+     "club": null,
+     "appr": null,
+     "lie": null,
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 11,
+     "score": null,
+     "putts": null,
+     "firstPutt": null,
+     "tee": null,
+     "club": null,
+     "appr": null,
+     "lie": null,
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 12,
+     "score": null,
+     "putts": null,
+     "firstPutt": null,
+     "tee": null,
+     "club": null,
+     "appr": null,
+     "lie": null,
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 13,
+     "score": null,
+     "putts": null,
+     "firstPutt": null,
+     "tee": null,
+     "club": null,
+     "appr": null,
+     "lie": null,
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 14,
+     "score": null,
+     "putts": null,
+     "firstPutt": null,
+     "tee": null,
+     "club": null,
+     "appr": null,
+     "lie": null,
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 15,
+     "score": null,
+     "putts": null,
+     "firstPutt": null,
+     "tee": null,
+     "club": null,
+     "appr": null,
+     "lie": null,
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 16,
+     "score": null,
+     "putts": null,
+     "firstPutt": null,
+     "tee": null,
+     "club": null,
+     "appr": null,
+     "lie": null,
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 17,
+     "score": null,
+     "putts": null,
+     "firstPutt": null,
+     "tee": null,
+     "club": null,
+     "appr": null,
+     "lie": null,
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 18,
+     "score": null,
+     "putts": null,
+     "firstPutt": null,
+     "tee": null,
+     "club": null,
+     "appr": null,
+     "lie": null,
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    }
+   ],
+   "countHcp": false
+  },
+  {
+   "id": "R012",
+   "date": "2026-06-17",
+   "course": "Timmendorfer Strand Nordplatz",
+   "type": "18 Loch",
+   "tee": "Gelb",
+   "side": "18 Loch",
+   "hi": 20,
+   "conditions": {
+    "weather": "Sonnig",
+    "temp": 19.5,
+    "sleep": 2,
+    "energy": 2,
+    "stress": 4,
+    "warmup": 15,
+    "readiness": "Gering"
+   },
+   "holes": [
+    {
+     "hole": 1,
+     "score": 5,
+     "putts": null,
+     "firstPutt": null,
+     "tee": null,
+     "club": null,
+     "appr": null,
+     "lie": null,
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 2,
+     "score": 5,
+     "putts": null,
+     "firstPutt": null,
+     "tee": null,
+     "club": null,
+     "appr": null,
+     "lie": null,
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 3,
+     "score": 4,
+     "putts": null,
+     "firstPutt": null,
+     "tee": null,
+     "club": null,
+     "appr": null,
+     "lie": null,
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 4,
+     "score": 5,
+     "putts": null,
+     "firstPutt": null,
+     "tee": null,
+     "club": null,
+     "appr": null,
+     "lie": null,
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 5,
+     "score": 6,
+     "putts": null,
+     "firstPutt": null,
+     "tee": null,
+     "club": null,
+     "appr": null,
+     "lie": null,
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 6,
+     "score": 5,
+     "putts": null,
+     "firstPutt": null,
+     "tee": null,
+     "club": null,
+     "appr": null,
+     "lie": null,
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 7,
+     "score": 5,
+     "putts": null,
+     "firstPutt": null,
+     "tee": null,
+     "club": null,
+     "appr": null,
+     "lie": null,
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 8,
+     "score": 5,
+     "putts": null,
+     "firstPutt": null,
+     "tee": null,
+     "club": null,
+     "appr": null,
+     "lie": null,
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 9,
+     "score": 6,
+     "putts": null,
+     "firstPutt": null,
+     "tee": null,
+     "club": null,
+     "appr": null,
+     "lie": null,
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 10,
+     "score": 7,
+     "putts": null,
+     "firstPutt": null,
+     "tee": null,
+     "club": null,
+     "appr": null,
+     "lie": null,
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 11,
+     "score": 5,
+     "putts": null,
+     "firstPutt": null,
+     "tee": null,
+     "club": null,
+     "appr": null,
+     "lie": null,
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 12,
+     "score": 4,
+     "putts": null,
+     "firstPutt": null,
+     "tee": null,
+     "club": null,
+     "appr": null,
+     "lie": null,
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 13,
+     "score": 4,
+     "putts": null,
+     "firstPutt": null,
+     "tee": null,
+     "club": null,
+     "appr": null,
+     "lie": null,
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 14,
+     "score": 4,
+     "putts": null,
+     "firstPutt": null,
+     "tee": null,
+     "club": null,
+     "appr": null,
+     "lie": null,
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 15,
+     "score": 7,
+     "putts": null,
+     "firstPutt": null,
+     "tee": null,
+     "club": null,
+     "appr": null,
+     "lie": null,
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 16,
+     "score": 5,
+     "putts": null,
+     "firstPutt": null,
+     "tee": null,
+     "club": null,
+     "appr": null,
+     "lie": null,
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 17,
+     "score": 3,
+     "putts": null,
+     "firstPutt": null,
+     "tee": null,
+     "club": null,
+     "appr": null,
+     "lie": null,
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    },
+    {
+     "hole": 18,
+     "score": 5,
+     "putts": null,
+     "firstPutt": null,
+     "tee": null,
+     "club": null,
+     "appr": null,
+     "lie": null,
+     "b1": null,
+     "b2": null,
+     "penN": null,
+     "ud": null,
+     "ss": null,
+     "girDirect": null
+    }
+   ],
+   "countHcp": false
+  }
+ ],
+ "costWeights": {
+  "putt": 1.2,
+  "teeBig": 0.6,
+  "teeSmall": 0.3,
+  "appr": 0.8,
+  "wedge": 0.9,
+  "short": 0.8,
+  "sand": 0.65,
+  "pen": 1.8
+ },
+ "approachBuckets": [
+  "200+",
+  "170–200",
+  "140–170",
+  "110–140",
+  "80–110",
+  "50–80",
+  "20–50",
+  "<20"
+ ],
+ "teeResults": [
+  "Hit",
+  "Links",
+  "Rechts",
+  "Kurz",
+  "Lang",
+  "Weit links",
+  "Weit rechts",
+  "Mis-hit"
+ ],
+ "warmup": {
+  "stretches": [
+   "Golfers Grip, zufassen (20 Sekunden)",
+   "Forearm Stretch (jede Position 15 Sekunden halten)",
+   "Arm Circles forward mit Golfers Grip, palms down, 20 Stk",
+   "Arm Circles backwards mit Golfers Grip, palms up, 20 Stk",
+   "Shoulder Stretch, Golfers Grip, Thumbs Pointing down, 20 Stk",
+   "Shoulder Stretch, Interlock Fingers, Palms Down, Reach Up, 20 Sekunden",
+   "Tricep Stretch (both sides), Hand on Elbow, Pull Elbow Back",
+   "Side Stretch (both sides), Point one foot, Arms straigt and tip over, shoulders stay in line",
+   "Wrist strengthening, hold two clubs, arms at your sides",
+   "Forearm strength (both sides), elbow on side, rotate side to side with club, Go to two clubs „choked up“",
+   "Hamstring Stretch (both sides), Feet flat and Back flat, Clubs for Balance, Lift your front toe to „make it worse“, Don’t hold your Breath",
+   "Forward Stretch, Legs Apart, Touch the Ground if you can",
+   "Forward Stretch (both sides), Reach for leg, with other arm behind you",
+   "Mid-back-stretch, cross your arms around you",
+   "Upper-body-rotation, club on shoulders and rotate",
+   "Upper-body-rotation, Now bend from hips and rotate, Don’t move your head when turning",
+   "Seated Rotation (both sides), Place your left foot outside right knee, Right arm outside left knee, turn and look over left shoulder",
+   "Lunge Stretch (Der Ausfallschritt für Hüftbeuger-Dehnung)"
+  ],
+  "protocol": [
+   {
+    "block": "1. Beweglichkeit",
+    "dauer": "5 Min",
+    "inhalt": "Malaska-Dehnprogramm (siehe oben Z.6-23)",
+    "ziel": "Hüfte/Schulter/Wrists locker",
+    "test": "–"
+   },
+   {
+    "block": "2. Putting-Kalibrierung",
+    "dauer": "8 Min",
+    "inhalt": "5×3m + 5×7m (Geradeaus-Putts)",
+    "ziel": "Speed + Linie geeicht",
+    "test": "3m: 5/5 · 7m: 3/5"
+   },
+   {
+    "block": "3. Wedges",
+    "dauer": "8 Min",
+    "inhalt": "5×50m + 5×80m + 5×100m (PW/SW)",
+    "ziel": "Wedge-Kontrolle, Carry-Distanzen",
+    "test": "50m: 4/5 in 6m-Kreis"
+   },
+   {
+    "block": "4. Mid-Iron",
+    "dauer": "5 Min",
+    "inhalt": "5×7-Iron, 5×6-Iron auf Range-Ziel",
+    "ziel": "Eisen-Kontakt + Distanz",
+    "test": "–"
+   },
+   {
+    "block": "5. Driver",
+    "dauer": "4 Min",
+    "inhalt": "5×Driver, 80% Tempo, ZIEL-Korridor",
+    "ziel": "Rhythmus + Aim, kein max. Power",
+    "test": "5/5 in Korridor"
+   }
+  ],
+  "source": "Aufwärm Dehnprogramm nach Malaska - https://www.youtube.com/watch?v=SHP70Xv14kY"
+ },
+ "playedCourses": [
+  {
+   "name": "Golf Club Fehmarn",
+   "place": "Fehmarn",
+   "country": "Deutschland",
+   "note": null,
+   "priority": null
+  },
+  {
+   "name": "Golf Club Berchtesgaden",
+   "place": "Berchtesgaden",
+   "country": "Deutschland",
+   "note": null,
+   "priority": null
+  },
+  {
+   "name": "Golfpark Sülfed",
+   "place": "Sülfeld",
+   "country": "Deutschland",
+   "note": null,
+   "priority": null
+  },
+  {
+   "name": "Ras Al Hamra Golf Club",
+   "place": "Muskat",
+   "country": "Oman",
+   "note": "Nachtgolf gespielt. Startzeit um 20:00 Uhr und dann in Flutlicht 18 Loch gespielt",
+   "priority": null
+  },
+  {
+   "name": "Madinat Makadi Golf Resort",
+   "place": "Hurghada",
+   "country": "Ägypten",
+   "note": null,
+   "priority": null
+  },
+  {
+   "name": "Golf Club Adriatic",
+   "place": "Savudrija",
+   "country": "Kroatien",
+   "note": null,
+   "priority": null
+  },
+  {
+   "name": "Golf Club Lignano",
+   "place": "Udine",
+   "country": "Italien",
+   "note": null,
+   "priority": 5
+  },
+  {
+   "name": "Golfplatz Buchholz",
+   "place": "Buchholz",
+   "country": "Deutschland",
+   "note": null,
+   "priority": null
+  },
+  {
+   "name": "Somabay Golf",
+   "place": "Somabay",
+   "country": "Ägypten",
+   "note": null,
+   "priority": 1
+  },
+  {
+   "name": "Golfclub Buxtehude",
+   "place": "Buxtehude",
+   "country": "Deutschland",
+   "note": null,
+   "priority": null
+  },
+  {
+   "name": "Tour Course · Camiral Golf & Wellness",
+   "place": "Girona",
+   "country": "Spanien",
+   "note": null,
+   "priority": 2
+  },
+  {
+   "name": "Stadium Course · Camiral Golf & Wellness",
+   "place": "Girona",
+   "country": "Spanien",
+   "note": "unglablich lang zu spielen, daher hat mir der Tour Platz in Camiral besser gefallen. Aber unglaubliche Qualität der Platz",
+   "priority": 3
+  },
+  {
+   "name": "Golf Club Hof Hausen vor der Sonne",
+   "place": "Hofheim am Taunus",
+   "country": "Deutschland",
+   "note": "Gespielt im Rahmen der BSV-Deutschlandmeisterschaft 2024",
+   "priority": 10
+  },
+  {
+   "name": "Golfpark Idstein Südkurs",
+   "place": "Idstein-Wörsdorf",
+   "country": "Deutschland",
+   "note": "Gespielt im Rahmen der BSV-Deutschlandmeisterschaft 2024",
+   "priority": 10
+  },
+  {
+   "name": "Nordplatz Golfresort Strandgrün Timmendorfer Strand",
+   "place": "Timmendorfer Strand",
+   "country": "Deutschland",
+   "note": "Mitglied seit 2024",
+   "priority": null
+  },
+  {
+   "name": "Südplatz Golfresort Strandgrün Timmendorfer Strand",
+   "place": "Timmendorfer Strand",
+   "country": "Deutschland",
+   "note": "Mitglied seit 2024",
+   "priority": null
+  },
+  {
+   "name": "Golf-Club Jersbek e.V.",
+   "place": "Jersbek",
+   "country": "Deutschland",
+   "note": "Platzreife Ende 2020 gemacht",
+   "priority": null
+  },
+  {
+   "name": "Steigenberger Hotel Treudelberg",
+   "place": "Hamburg",
+   "country": "Deutschland",
+   "note": "Mitglied von 2021 - 2024",
+   "priority": null
+  },
+  {
+   "name": "Golfclub Bad Bevensen",
+   "place": "Bad Bevensen",
+   "country": "Deutschland",
+   "note": null,
+   "priority": null
+  },
+  {
+   "name": "GolfClub Escheburg",
+   "place": "Escheburg",
+   "country": "Deutschland",
+   "note": null,
+   "priority": null
+  },
+  {
+   "name": "Golf-Club Curau",
+   "place": "Curau",
+   "country": "Deutschland",
+   "note": null,
+   "priority": null
+  },
+  {
+   "name": "Golfclub Resort Adendorf · Mastercourse",
+   "place": "Adendorf",
+   "country": "Deutschland",
+   "note": null,
+   "priority": 99
+  },
+  {
+   "name": "Maritim Golfclub Ostsee",
+   "place": "Ratekau",
+   "country": "Deutschland",
+   "note": null,
+   "priority": null
+  },
+  {
+   "name": "Golfclub Hamburg Gut Waldhof",
+   "place": "Kisdorf",
+   "country": "Deutschland",
+   "note": null,
+   "priority": null
+  },
+  {
+   "name": "Golfclub Hamburg-Oberalster",
+   "place": "Tangstedt",
+   "country": "Deutschland",
+   "note": null,
+   "priority": null
+  },
+  {
+   "name": "Golfclub Haseldorf",
+   "place": "Haselau",
+   "country": "Deutschland",
+   "note": null,
+   "priority": null
+  },
+  {
+   "name": "Nord-Course · Green Eagle",
+   "place": "Winsen (Luhe)",
+   "country": "Deutschland",
+   "note": null,
+   "priority": null
+  },
+  {
+   "name": "Hamburger Land- und Golfclub Hittfeld",
+   "place": "Hittfeld",
+   "country": "Deutschland",
+   "note": null,
+   "priority": null
+  },
+  {
+   "name": "Golf&Country Club Am Hockenberg",
+   "place": "Seevetal",
+   "country": "Deutschland",
+   "note": null,
+   "priority": null
+  },
+  {
+   "name": "Golfpark Soltau",
+   "place": "Soltau",
+   "country": "Deutschland",
+   "note": null,
+   "priority": null
+  },
+  {
+   "name": "Golf Club Lignano",
+   "place": "Lignano Sabbiadoro",
+   "country": "Italien",
+   "note": null,
+   "priority": null
+  },
+  {
+   "name": "Golfpark Weidenhof",
+   "place": "Pinneberg",
+   "country": "Deutschland",
+   "note": null,
+   "priority": null
+  },
+  {
+   "name": "Golfpark Krogaspe",
+   "place": "Krogaspe",
+   "country": "Deutschland",
+   "note": null,
+   "priority": null
+  },
+  {
+   "name": "Golfclub Hohwacht",
+   "place": "Hohwacht (Ostsee)",
+   "country": "Deutschland",
+   "note": "Gute Partneranlage von Timmendorf. Sehr schnelle und harte Grüns und harter Platz",
+   "priority": null
+  },
+  {
+   "name": "Golfclub Gut Waldshagen",
+   "place": "Bösdorf",
+   "country": "Deutschland",
+   "note": "Der beste Platz den ich in Norddeutschland gespielt habe",
+   "priority": null
+  },
+  {
+   "name": "Golfclub Millstätter See",
+   "place": "Millstatt",
+   "country": "Österreich",
+   "note": "die ersten zwölf loch \"illegal\" gespielt spät abends. sehr schöner platz , hügelig mit wahnssins blick auf berge und seen",
+   "priority": null
+  },
+  {
+   "name": "Golfclub Brodauer Mühle",
+   "place": null,
+   "country": "Deutschland",
+   "note": null,
+   "priority": null
+  }
+ ],
+ "bucketList": [
+  {
+   "name": "Golf Club Brodauer Mühle",
+   "place": null,
+   "country": "Deutschland",
+   "note": null
+  },
+  {
+   "name": "Golfclub St. Vigil - Seis",
+   "place": null,
+   "country": "Italien",
+   "note": null
+  },
+  {
+   "name": "Winston Links",
+   "place": null,
+   "country": "Deutschland",
+   "note": null
+  },
+  {
+   "name": "Great Northern Course",
+   "place": null,
+   "country": "Dänemark",
+   "note": null
+  },
+  {
+   "name": "Hamburger Golf Club Falkenstein",
+   "place": null,
+   "country": null,
+   "note": null
+  },
+  {
+   "name": "Golf Club St. Dionys e.V.",
+   "place": null,
+   "country": null,
+   "note": null
+  },
+  {
+   "name": "Dolomitengolf Falstaff- Keuco",
+   "place": null,
+   "country": "Österreich",
+   "note": null
+  },
+  {
+   "name": "Golclub Budersand Sylt",
+   "place": null,
+   "country": null,
+   "note": null
+  },
+  {
+   "name": "Hill Course / Hills Golf & Sports Club",
+   "place": null,
+   "country": "Molndal Schweden",
+   "note": null
+  },
+  {
+   "name": "Golf Club Grömitz",
+   "place": null,
+   "country": null,
+   "note": null
+  }
+ ],
+ "lmSessions": [],
+ "lmTargets": {
+  "Driver": {
+   "smash": [
+    1.44,
+    1.52
+   ],
+   "attack": [
+    1,
+    6
+   ],
+   "launch": [
+    11,
+    15
+   ],
+   "spin": [
+    2000,
+    3000
+   ],
+   "descent": [
+    35,
+    42
+   ],
+   "faceTarget": [
+    -1.5,
+    1.5
+   ],
+   "path": [
+    -2,
+    3
+   ]
+  },
+  "Wood": {
+   "smash": [
+    1.44,
+    1.5
+   ],
+   "attack": [
+    -3,
+    1
+   ],
+   "launch": [
+    10,
+    14
+   ],
+   "spin": [
+    3000,
+    4300
+   ],
+   "descent": [
+    38,
+    46
+   ],
+   "faceTarget": [
+    -1.5,
+    1.5
+   ]
+  },
+  "Hybrid": {
+   "smash": [
+    1.42,
+    1.48
+   ],
+   "attack": [
+    -3,
+    0
+   ],
+   "launch": [
+    11,
+    16
+   ],
+   "spin": [
+    3500,
+    4800
+   ],
+   "descent": [
+    42,
+    48
+   ],
+   "faceTarget": [
+    -1.5,
+    1.5
+   ]
+  },
+  "LongIron": {
+   "smash": [
+    1.36,
+    1.44
+   ],
+   "attack": [
+    -4,
+    -2
+   ],
+   "launch": [
+    12,
+    17
+   ],
+   "spin": [
+    4500,
+    6000
+   ],
+   "descent": [
+    44,
+    50
+   ],
+   "faceTarget": [
+    -1.5,
+    1.5
+   ]
+  },
+  "MidIron": {
+   "smash": [
+    1.33,
+    1.42
+   ],
+   "attack": [
+    -5,
+    -3
+   ],
+   "launch": [
+    14,
+    19
+   ],
+   "spin": [
+    6000,
+    7500
+   ],
+   "descent": [
+    45,
+    52
+   ],
+   "faceTarget": [
+    -1.5,
+    1.5
+   ]
+  },
+  "ShortIron": {
+   "smash": [
+    1.28,
+    1.38
+   ],
+   "attack": [
+    -6,
+    -4
+   ],
+   "launch": [
+    18,
+    24
+   ],
+   "spin": [
+    7000,
+    8500
+   ],
+   "descent": [
+    48,
+    54
+   ],
+   "faceTarget": [
+    -1.5,
+    1.5
+   ]
+  },
+  "Wedge": {
+   "smash": [
+    1.15,
+    1.3
+   ],
+   "attack": [
+    -8,
+    -4
+   ],
+   "launch": [
+    24,
+    32
+   ],
+   "spin": [
+    8000,
+    10500
+   ],
+   "descent": [
+    50,
+    58
+   ],
+   "faceTarget": [
+    -2,
+    2
+   ]
+  }
+ },
+ "firstPuttDist": [
+  "Gimme",
+  "1m",
+  "1,5m",
+  "2m",
+  "3m",
+  "4m",
+  "5m",
+  "6m",
+  "7m",
+  "8m",
+  "9m",
+  "10m",
+  "11m",
+  "12m",
+  "13m",
+  "14m",
+  "15m",
+  "15+m"
+ ],
+ "teeClubs": [
+  "Driver Aerojet",
+  "3w Aerojet",
+  "5w Aerojet",
+  "7w Aerojet",
+  "2 Driving iron Cobra",
+  "4 Eisen G410",
+  "5 Eisen G410",
+  "6 Eisen G410",
+  "7 Eisen G410",
+  "8 Eisen G410",
+  "9 Eisen G410",
+  "PW G410",
+  "50° GW CBX",
+  "54° SW CBX",
+  "58° LW CBX"
+ ],
+ "approachLies": [
+  "Fairway",
+  "Semi-Rough",
+  "Rough",
+  "Bunker",
+  "Recovery",
+  "Tee"
+ ],
+ "qualityOpts": [
+  "Holed",
+  "Gimme",
+  "<1m",
+  "1m",
+  "1,5m",
+  "2m",
+  "2,5m",
+  "3m",
+  "4m",
+  "5m",
+  ">5m",
+  "3-Putt+"
+ ],
+ "bunkerTypes": [
+  "Fairway Bunker",
+  "Green Side"
+ ],
+ "penaltyTypes": [
+  "Water/Hazard",
+  "Drop Shot",
+  "Out of Bounds"
+ ],
+ "fitnessSessions": [
+  {
+   "id": "F1y",
+   "type": "Yoga",
+   "date": "2026-05-17",
+   "style": "Hatha",
+   "source": "Down Dog",
+   "duration": 30,
+   "focus": "Hüftbeuger",
+   "feeling": 3,
+   "note": null
+  },
+  {
+   "id": "F2y",
+   "type": "Yoga",
+   "date": "2026-05-18",
+   "style": "Yin",
+   "source": "Down Dog",
+   "duration": 20,
+   "focus": "Hüftbeuger",
+   "feeling": 3,
+   "note": null
+  },
+  {
+   "id": "F3y",
+   "type": "Yoga",
+   "date": "2026-05-19",
+   "style": "Hatha",
+   "source": "Down Dog",
+   "duration": 20,
+   "focus": "Hüftbeuger",
+   "feeling": 4,
+   "note": null
+  },
+  {
+   "id": "F4y",
+   "type": "Yoga",
+   "date": "2026-05-20",
+   "style": "Yin",
+   "source": "Down Dog",
+   "duration": 25,
+   "focus": "Hüftbeuger",
+   "feeling": 4,
+   "note": null
+  },
+  {
+   "id": "F5y",
+   "type": "Yoga",
+   "date": "2026-05-26",
+   "style": "Hatha",
+   "source": "Down Dog",
+   "duration": 25,
+   "focus": "Hüftbeuger",
+   "feeling": 4,
+   "note": null
+  },
+  {
+   "id": "F6y",
+   "type": "Yoga",
+   "date": "2026-06-11",
+   "style": "Hatha",
+   "source": "Down Dog",
+   "duration": 15,
+   "focus": "Hüftbeuger",
+   "feeling": 3,
+   "note": null
+  },
+  {
+   "id": "F7y",
+   "type": "Yoga",
+   "date": "2026-06-14",
+   "style": "Hatha",
+   "source": "Down Dog",
+   "duration": 30,
+   "focus": "Hüftbeuger",
+   "feeling": 4,
+   "note": null
+  }
+ ],
+ "fitnessLifts": [
+  "Kniebeuge",
+  "Bankdrücken",
+  "Kraftdrücken",
+  "Rudern, vorgebeugt",
+  "Kreuzheben",
+  "Klimmzüge"
+ ],
+ "yogaStyles": [
+  "Hatha",
+  "Yin",
+  "Vinyasa",
+  "Restorative",
+  "Power"
+ ],
+ "seasonGoals": [
+  {
+   "phase": "Phase 1",
+   "label": "Pelz Score ≥ 105",
+   "start": 58,
+   "target": 105,
+   "note": "Hoch  ·  Schwerpunkt: Pitching & Putting",
+   "testKey": "pelz"
+  },
+  {
+   "phase": "Phase 1",
+   "label": "Pelz Quote ≥ 0,292",
+   "start": 0.125,
+   "target": 0.292,
+   "note": "Hoch  ·  Effizienz-Kennzahl neben Rohscore",
+   "testKey": null
+  },
+  {
+   "phase": "Phase 1",
+   "label": "Up & Down Rate ≥ 0,33",
+   "start": 0.22,
+   "target": 0.33,
+   "note": "Hoch  ·  Scrambling ist der wichtigste Scoring-Faktor bei Hcp 20+",
+   "testKey": "updown"
+  },
+  {
+   "phase": "Phase 1",
+   "label": "Scrambling Zone ≥ 15/40",
+   "start": 12,
+   "target": 15,
+   "note": "Hoch  ·  Fokus: Rough & Vorgrün",
+   "testKey": "scrambling"
+  },
+  {
+   "phase": "Phase 1",
+   "label": "Approach Accuracy ≥ 70/200",
+   "start": 40,
+   "target": 70,
+   "note": "Hoch  ·  GIR-Rate von Fairway steigern",
+   "testKey": "approach"
+  },
+  {
+   "phase": "Phase 1",
+   "label": "Lag Putting ≥ 22/45",
+   "start": 14,
+   "target": 22,
+   "note": "Mittel  ·  3-Putts reduzieren",
+   "testKey": "lag"
+  },
+  {
+   "phase": "Phase 1",
+   "label": "Random Wedge ≥ 16/48",
+   "start": 10,
+   "target": 16,
+   "note": "Mittel  ·  Wedge-Schärfe aus allen Lagen",
+   "testKey": "randomwedge"
+  },
+  {
+   "phase": "Phase 1",
+   "label": "3-Ball Pressure Putting ≥ 4",
+   "start": 2,
+   "target": 4,
+   "note": "Mittel  ·  Kurzputts unter Druck halten",
+   "testKey": "3ball"
+  },
+  {
+   "phase": "Phase 1",
+   "label": "Driver FW-Hits ≥ 5/10",
+   "start": 4,
+   "target": 5,
+   "note": "Mittel  ·  50% als Mindest-Basis",
+   "testKey": "driverfw"
+  },
+  {
+   "phase": "Phase 1",
+   "label": "Kurzputt-Präzision ≥ 30/50",
+   "start": 22,
+   "target": 30,
+   "note": "Mittel  ·  Gate Drill nach Pelz – 1,0–3,0 m",
+   "testKey": "kurzputt"
+  },
+  {
+   "phase": "Phase 1",
+   "label": "GolfForever Streak ≥ 90 Tage",
+   "start": 0,
+   "target": 90,
+   "note": "Hoch  ·  Beweglichkeit = Schwung-Fundament",
+   "testKey": null
+  },
+  {
+   "phase": "Phase 2",
+   "label": "Pelz Score ≥ 140",
+   "start": 70,
+   "target": 140,
+   "note": "Hoch  ·  Schwerpunkt: Bunker & Lag Putting",
+   "testKey": "pelz"
+  },
+  {
+   "phase": "Phase 2",
+   "label": "Up & Down Rate ≥ 0,45",
+   "start": 0.33,
+   "target": 0.45,
+   "note": "Hoch  ·  Definiert Hcp-10-Niveau",
+   "testKey": "updown"
+  },
+  {
+   "phase": "Phase 2",
+   "label": "Approach Accuracy ≥ 100/200",
+   "start": 40,
+   "target": 100,
+   "note": "Hoch  ·  GIR-Rate auf ~30% steigern",
+   "testKey": "approach"
+  },
+  {
+   "phase": "Phase 2",
+   "label": "Lag Putting ≥ 30/45",
+   "start": 0,
+   "target": 30,
+   "note": "Hoch  ·  3-Putt-Rate unter 10%",
+   "testKey": "lag"
+  },
+  {
+   "phase": "Phase 2",
+   "label": "Driver FW-Hits ≥ 6/10",
+   "start": 5,
+   "target": 6,
+   "note": "Mittel  ·  70% FW-Rate als Phase-2-Ziel",
+   "testKey": "driverfw"
+  },
+  {
+   "phase": "Phase 2",
+   "label": "Scrambling Zone ≥ 22/40",
+   "start": 15,
+   "target": 22,
+   "note": "Mittel",
+   "testKey": "scrambling"
+  },
+  {
+   "phase": "Phase 2",
+   "label": "9-Shot Test ≥ 28/54",
+   "start": 0,
+   "target": 28,
+   "note": "Mittel  ·  Ballflugkontrolle für Hcp 8 notwendig",
+   "testKey": null
+  },
+  {
+   "phase": "Phase 2",
+   "label": "Eisen Streubreite ≤ 18m",
+   "start": 30,
+   "target": 18,
+   "note": "Mittel  ·  Achtung: kleiner = besser!",
+   "testKey": null
+  },
+  {
+   "phase": "Phase 2",
+   "label": "Distanzkontrolle Wedge ≥ 30",
+   "start": 0,
+   "target": 30,
+   "note": "Mittel  ·  Scoring-Zone 50–100m präzisieren",
+   "testKey": null
+  },
+  {
+   "phase": "Phase 2",
+   "label": "Swing Speed Driver ≥ 99 mph",
+   "start": 83,
+   "target": 99,
+   "note": "✅ Bereits übertroffen! Lars bei 96 mph (> HCP-8-Niveau). Fokus auf 99 mph (Phase 2).",
+   "testKey": null
+  },
+  {
+   "phase": "PHASE 3",
+   "label": "Pelz Score ≥ 190",
+   "start": 90,
+   "target": 190,
+   "note": "Hoch",
+   "testKey": "pelz"
+  },
+  {
+   "phase": "PHASE 3",
+   "label": "Up & Down Rate ≥ 0,6",
+   "start": 0.45,
+   "target": 0.6,
+   "note": "Hoch",
+   "testKey": "updown"
+  },
+  {
+   "phase": "PHASE 3",
+   "label": "Approach Accuracy ≥ 130/200",
+   "start": 55,
+   "target": 130,
+   "note": "Hoch  ·  GIR ≥ 45%",
+   "testKey": "approach"
+  },
+  {
+   "phase": "PHASE 3",
+   "label": "Lag Putting ≥ 37/45",
+   "start": 30,
+   "target": 37,
+   "note": "Hoch",
+   "testKey": "lag"
+  },
+  {
+   "phase": "PHASE 3",
+   "label": "Distanz-Putting ≥ 29/36",
+   "start": 24,
+   "target": 29,
+   "note": "Hoch",
+   "testKey": "distanzputt"
+  },
+  {
+   "phase": "PHASE 3",
+   "label": "9-Shot Test ≥ 36/54",
+   "start": 28,
+   "target": 36,
+   "note": "Mittel  ·  Alle Shot-Typen zuverlässig",
+   "testKey": null
+  },
+  {
+   "phase": "PHASE 3",
+   "label": "Consecutive FW-Serie ≥ 7",
+   "start": 5,
+   "target": 7,
+   "note": "Mittel",
+   "testKey": null
+  },
+  {
+   "phase": "PHASE 3",
+   "label": "Swing Speed Driver ≥ 103 mph",
+   "start": 96,
+   "target": 103,
+   "note": "Mittel · Lars startet P2 bereits bei 96 mph → Ziel ≥ 103 mph (→ ~245m Carry)",
+   "testKey": null
+  },
+  {
+   "phase": "PHASE 3",
+   "label": "Eisen Streubreite ≤ 12m",
+   "start": 18,
+   "target": 12,
+   "note": "Mittel  ·  Achtung: kleiner = besser!",
+   "testKey": null
+  },
+  {
+   "phase": "PHASE 4",
+   "label": "Pelz Score ≥ 240",
+   "start": 110,
+   "target": 240,
+   "note": "Hoch",
+   "testKey": "pelz"
+  },
+  {
+   "phase": "PHASE 4",
+   "label": "Up & Down Rate ≥ 0,68",
+   "start": 0.6,
+   "target": 0.68,
+   "note": "Hoch  ·  Tour-nahes Niveau",
+   "testKey": "updown"
+  },
+  {
+   "phase": "PHASE 4",
+   "label": "Approach Accuracy ≥ 150/200",
+   "start": 70,
+   "target": 150,
+   "note": "Hoch  ·  GIR ≥ 55%",
+   "testKey": "approach"
+  },
+  {
+   "phase": "PHASE 4",
+   "label": "3-Ball Pressure Putting ≥ 9",
+   "start": 5,
+   "target": 9,
+   "note": "Hoch  ·  Kurzputts unter Turnierdruck",
+   "testKey": "3ball"
+  },
+  {
+   "phase": "PHASE 4",
+   "label": "Lag Putting ≥ 42/45",
+   "start": 37,
+   "target": 42,
+   "note": "Hoch",
+   "testKey": "lag"
+  },
+  {
+   "phase": "PHASE 4",
+   "label": "Swing Speed Driver ≥ 102",
+   "start": 103,
+   "target": 102,
+   "note": "Mittel  ·  → ≥ 250m Carry",
+   "testKey": null
+  },
+  {
+   "phase": "PHASE 4",
+   "label": "9-Shot Test ≥ 45/54",
+   "start": 36,
+   "target": 45,
+   "note": "Mittel  ·  Alle Shot-Typen & Höhen sicher",
+   "testKey": null
+  },
+  {
+   "phase": "PHASE 4",
+   "label": "Consecutive FW-Serie ≥ 10",
+   "start": 7,
+   "target": 10,
+   "note": "Mittel",
+   "testKey": null
+  }
+ ],
+ "periodization": {
+  "phases": [
+   {
+    "name": "P1: Grundlage",
+    "period": "Mrz 2026 – Aug 2026",
+    "hcpTarget": "HCP 18",
+    "focus": "Short Game + Technik",
+    "load": "Aufbau",
+    "volume": "Hoch",
+    "intensity": "Mittel"
+   },
+   {
+    "name": "P2: Entwicklung",
+    "period": "Sep 2026 – Mrz 2027",
+    "hcpTarget": "HCP 10",
+    "focus": "Short Game + Course Mgmt",
+    "load": "Hoch",
+    "volume": "Sehr hoch",
+    "intensity": "Hoch"
+   },
+   {
+    "name": "P3: Verfeinerung",
+    "period": "Apr 2027 – Sep 2027",
+    "hcpTarget": "HCP 3",
+    "focus": "Alle Bereiche + Wettkampf",
+    "load": "Peak",
+    "volume": "Mittel",
+    "intensity": "Sehr hoch"
+   },
+   {
+    "name": "P4: Elite",
+    "period": "Okt 2027 – Mrz 2028",
+    "hcpTarget": "HCP 0",
+    "focus": "Wettkampf + Feintuning",
+    "load": "Wettkampf",
+    "volume": "Niedrig",
+    "intensity": "Maximal"
+   }
+  ],
+  "blocks": [
+   {
+    "name": "Block 1",
+    "kwFrom": 10,
+    "kwTo": 13,
+    "hcpTarget": "HCP 21→19",
+    "focus": "Grundlage Short Game",
+    "shortPct": "60%",
+    "longPct": "40%",
+    "loadType": "Aufbau",
+    "tournamentWeek": "Nein"
+   },
+   {
+    "name": "Block 2",
+    "kwFrom": 14,
+    "kwTo": 17,
+    "hcpTarget": "HCP 21→19",
+    "focus": "Short Game + Wedge",
+    "shortPct": "65%",
+    "longPct": "35%",
+    "loadType": "Aufbau",
+    "tournamentWeek": "Nein"
+   },
+   {
+    "name": "Block 3",
+    "kwFrom": 18,
+    "kwTo": 21,
+    "hcpTarget": "HCP 20→18",
+    "focus": "Wedge + Approach",
+    "shortPct": "55%",
+    "longPct": "45%",
+    "loadType": "Entwicklung",
+    "tournamentWeek": "Ja"
+   },
+   {
+    "name": "Block 4",
+    "kwFrom": 22,
+    "kwTo": 25,
+    "hcpTarget": "HCP 20→18",
+    "focus": "Approach + Putting",
+    "shortPct": "50%",
+    "longPct": "50%",
+    "loadType": "Entwicklung",
+    "tournamentWeek": "Nein"
+   },
+   {
+    "name": "Block 5",
+    "kwFrom": 26,
+    "kwTo": 29,
+    "hcpTarget": "HCP 18→16",
+    "focus": "Alle Bereiche",
+    "shortPct": "50%",
+    "longPct": "50%",
+    "loadType": "Peak",
+    "tournamentWeek": "Ja"
+   },
+   {
+    "name": "Block 6",
+    "kwFrom": 30,
+    "kwTo": 33,
+    "hcpTarget": "HCP 18→16",
+    "focus": "Wettkampf + Analyse",
+    "shortPct": "45%",
+    "longPct": "55%",
+    "loadType": "Wettkampf",
+    "tournamentWeek": "Ja"
+   },
+   {
+    "name": "Block 7",
+    "kwFrom": 34,
+    "kwTo": 36,
+    "hcpTarget": "HCP 18→16",
+    "focus": "Feintuning P1-Abschluss",
+    "shortPct": "50%",
+    "longPct": "50%",
+    "loadType": "Peak",
+    "tournamentWeek": "Ja"
+   },
+   {
+    "name": "Block 8",
+    "kwFrom": 37,
+    "kwTo": 40,
+    "hcpTarget": "HCP 15→13",
+    "focus": "Short Game Intensiv",
+    "shortPct": "60%",
+    "longPct": "40%",
+    "loadType": "Aufbau",
+    "tournamentWeek": "Nein"
+   },
+   {
+    "name": "Block 9",
+    "kwFrom": 41,
+    "kwTo": 44,
+    "hcpTarget": "HCP 15→13",
+    "focus": "Course Mgmt + Wettkampf",
+    "shortPct": "50%",
+    "longPct": "50%",
+    "loadType": "Entwicklung",
+    "tournamentWeek": "Ja"
+   },
+   {
+    "name": "Block 10",
+    "kwFrom": 45,
+    "kwTo": 48,
+    "hcpTarget": "HCP 13→11",
+    "focus": "Alle Bereiche",
+    "shortPct": "50%",
+    "longPct": "50%",
+    "loadType": "Peak",
+    "tournamentWeek": "Ja"
+   },
+   {
+    "name": "Block 11",
+    "kwFrom": 49,
+    "kwTo": 52,
+    "hcpTarget": "HCP 13→11",
+    "focus": "Jahresabschluss",
+    "shortPct": "55%",
+    "longPct": "45%",
+    "loadType": "Wettkampf",
+    "tournamentWeek": "Ja"
+   },
+   {
+    "name": "Block 12",
+    "kwFrom": 1,
+    "kwTo": 4,
+    "hcpTarget": "HCP 11→9",
+    "focus": "Grundlage P3",
+    "shortPct": "55%",
+    "longPct": "45%",
+    "loadType": "Aufbau",
+    "tournamentWeek": "Nein"
+   },
+   {
+    "name": "Block 13",
+    "kwFrom": 5,
+    "kwTo": 8,
+    "hcpTarget": "HCP 11→9",
+    "focus": "Wettkampf Vorbereitung",
+    "shortPct": "45%",
+    "longPct": "55%",
+    "loadType": "Peak",
+    "tournamentWeek": "Ja"
+   },
+   {
+    "name": "Block 14",
+    "kwFrom": 9,
+    "kwTo": 12,
+    "hcpTarget": "HCP 9→7",
+    "focus": "Alle Bereiche",
+    "shortPct": "50%",
+    "longPct": "50%",
+    "loadType": "Peak",
+    "tournamentWeek": "Ja"
+   },
+   {
+    "name": "Block 15",
+    "kwFrom": 13,
+    "kwTo": 16,
+    "hcpTarget": "HCP 9→7",
+    "focus": "Feintuning",
+    "shortPct": "50%",
+    "longPct": "50%",
+    "loadType": "Wettkampf",
+    "tournamentWeek": "Ja"
+   },
+   {
+    "name": "Block 16",
+    "kwFrom": 17,
+    "kwTo": 20,
+    "hcpTarget": "HCP 7→5",
+    "focus": "Longgame + Approach",
+    "shortPct": "40%",
+    "longPct": "60%",
+    "loadType": "Entwicklung",
+    "tournamentWeek": "Ja"
+   },
+   {
+    "name": "Block 17",
+    "kwFrom": 21,
+    "kwTo": 24,
+    "hcpTarget": "HCP 7→5",
+    "focus": "Short Game Feintuning",
+    "shortPct": "55%",
+    "longPct": "45%",
+    "loadType": "Peak",
+    "tournamentWeek": "Ja"
+   },
+   {
+    "name": "Block 18",
+    "kwFrom": 25,
+    "kwTo": 28,
+    "hcpTarget": "HCP 5→3",
+    "focus": "Wettkampf Intensiv",
+    "shortPct": "45%",
+    "longPct": "55%",
+    "loadType": "Wettkampf",
+    "tournamentWeek": "Ja"
+   }
+  ]
+ },
+ "tournaments": [
+  {
+   "name": "Saisoneröffnungsturnier Südplatz",
+   "date": "2026-05-17",
+   "priority": "B",
+   "status": "geplant",
+   "prepWindow": 7
+  },
+  {
+   "name": "ECO Day Südplatz / 9 Loch",
+   "date": "2026-05-21",
+   "priority": "C",
+   "status": "geplant",
+   "prepWindow": 3
+  },
+  {
+   "name": "BSV Quali Turnier Gut Waldshagen",
+   "date": "2026-05-30",
+   "priority": "A",
+   "status": "geplant",
+   "prepWindow": 14
+  },
+  {
+   "name": "BSV Quali Turnier Hamburg-Walddörfer (Sommerferien)",
+   "date": "2026-07-05",
+   "priority": "A",
+   "status": "optional",
+   "prepWindow": 14
+  },
+  {
+   "name": "BSV Quali Turnier St. Dionys (Sommerferien)",
+   "date": "2026-07-25",
+   "priority": "A",
+   "status": "optional",
+   "prepWindow": 14
+  },
+  {
+   "name": "BSV Turnier Gut Waldhof",
+   "date": "2026-08-08",
+   "priority": "B",
+   "status": "optional",
+   "prepWindow": 7
+  },
+  {
+   "name": "Clubmeisterschaften Timmendorfer Strand",
+   "date": "2026-08-22",
+   "priority": "A",
+   "status": "geplant",
+   "prepWindow": 14
+  },
+  {
+   "name": "BSV Turnier Bissenmoor",
+   "date": "2026-09-13",
+   "priority": "B",
+   "status": "optional",
+   "prepWindow": 7
+  },
+  {
+   "name": "Südplatz Monatscup",
+   "date": "2026-09-27",
+   "priority": "C",
+   "status": "optional",
+   "prepWindow": 3
+  }
+ ]
+}
