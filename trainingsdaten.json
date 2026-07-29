@@ -1,6 +1,6 @@
 {
  "version": 12,
- "exportedAt": "2026-07-29T13:25:00.579Z",
+ "exportedAt": "2026-07-29T13:25:16.175Z",
  "profile": {
   "name": "Lars",
   "startHcp": 22.8,
@@ -9636,14 +9636,6 @@
    "status": "optional",
    "prepWindow": 14,
    "id": "T4x2852"
-  },
-  {
-   "name": "BSV Quali Turnier St. Dionys (Sommerferien)",
-   "date": "2026-07-25",
-   "priority": "A",
-   "status": "optional",
-   "prepWindow": 14,
-   "id": "T5x6182"
   },
   {
    "name": "Clubmeisterschaften Timmendorfer Strand",
