@@ -1,6 +1,6 @@
 {
  "version": 12,
- "exportedAt": "2026-07-29T16:50:37.401Z",
+ "exportedAt": "2026-07-29T17:10:24.517Z",
  "profile": {
   "name": "Lars",
   "startHcp": 22.8,
@@ -9864,7 +9864,7 @@
  ],
  "_draftRound": {
   "round": {
-   "id": "R1785343837393",
+   "id": "R1785345024508",
    "date": "2026-07-29",
    "course": "Timmendorfer Strand Nordplatz",
    "tee": "Gelb",
@@ -9905,6 +9905,7 @@
     {
      "hole": 12,
      "score": 3,
+     "putts": 2,
      "appr": "170–200",
      "firstPutt": "7m",
      "quality": "1m",
@@ -9916,7 +9917,8 @@
     },
     {
      "hole": 13,
-     "tee": "Hit"
+     "tee": "Hit",
+     "club": "Driver Aerojet"
     },
     {
      "hole": 14
@@ -9935,6 +9937,6 @@
     }
    ]
   },
-  "ts": "2026-07-29T16:50:37.393Z"
+  "ts": "2026-07-29T17:10:24.510Z"
  }
 }
