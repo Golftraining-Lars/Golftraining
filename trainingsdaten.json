@@ -1,6 +1,6 @@
 {
  "version": 12,
- "exportedAt": "2026-07-30T09:46:53.456Z",
+ "exportedAt": "2026-07-30T09:47:07.606Z",
  "profile": {
   "name": "Lars",
   "startHcp": 22.8,
@@ -7155,6 +7155,94 @@
      "recovery": "Ja"
     }
    ]
+  },
+  {
+   "id": "R1785404827552",
+   "date": "2026-07-30",
+   "course": "Timmendorfer Strand Südplatz",
+   "tee": "Gelb",
+   "type": "18 Loch",
+   "side": "18 Loch",
+   "hi": 20,
+   "countHcp": false,
+   "conditions": {},
+   "holes": [
+    {
+     "hole": 1,
+     "score": 4,
+     "putts": 3
+    },
+    {
+     "hole": 2,
+     "score": 4,
+     "putts": 3
+    },
+    {
+     "hole": 3,
+     "score": 4
+    },
+    {
+     "hole": 4,
+     "score": 5
+    },
+    {
+     "hole": 5,
+     "score": 4
+    },
+    {
+     "hole": 6,
+     "score": 4
+    },
+    {
+     "hole": 7,
+     "score": 4,
+     "recovery": "Ja"
+    },
+    {
+     "hole": 8,
+     "score": 5
+    },
+    {
+     "hole": 9,
+     "score": 5
+    },
+    {
+     "hole": 10,
+     "score": 4
+    },
+    {
+     "hole": 11,
+     "score": 5
+    },
+    {
+     "hole": 12,
+     "score": 5
+    },
+    {
+     "hole": 13,
+     "score": 5
+    },
+    {
+     "hole": 14,
+     "score": 4
+    },
+    {
+     "hole": 15,
+     "score": 5
+    },
+    {
+     "hole": 16,
+     "score": 4
+    },
+    {
+     "hole": 17,
+     "score": 4
+    },
+    {
+     "hole": 18,
+     "score": 4
+    }
+   ]
   }
  ],
  "costWeights": {
@@ -9978,96 +10066,5 @@
    "carry": 35,
    "total": null
   }
- ],
- "_draftRound": {
-  "round": {
-   "id": "R1785404813448",
-   "date": "2026-07-30",
-   "course": "Timmendorfer Strand Südplatz",
-   "tee": "Gelb",
-   "type": "18 Loch",
-   "side": "18 Loch",
-   "hi": 20,
-   "countHcp": false,
-   "conditions": {},
-   "holes": [
-    {
-     "hole": 1,
-     "score": 4,
-     "putts": 3
-    },
-    {
-     "hole": 2,
-     "score": 4,
-     "putts": 3
-    },
-    {
-     "hole": 3,
-     "score": 4
-    },
-    {
-     "hole": 4,
-     "score": 5
-    },
-    {
-     "hole": 5,
-     "score": 4
-    },
-    {
-     "hole": 6,
-     "score": 4
-    },
-    {
-     "hole": 7,
-     "score": 4,
-     "recovery": "Ja"
-    },
-    {
-     "hole": 8,
-     "score": 5
-    },
-    {
-     "hole": 9,
-     "score": 5
-    },
-    {
-     "hole": 10,
-     "score": 4
-    },
-    {
-     "hole": 11,
-     "score": 5
-    },
-    {
-     "hole": 12,
-     "score": 5
-    },
-    {
-     "hole": 13,
-     "score": 5
-    },
-    {
-     "hole": 14,
-     "score": 4
-    },
-    {
-     "hole": 15,
-     "score": 5
-    },
-    {
-     "hole": 16,
-     "score": 4
-    },
-    {
-     "hole": 17,
-     "score": 4
-    },
-    {
-     "hole": 18,
-     "score": 4
-    }
-   ]
-  },
-  "ts": "2026-07-30T09:46:53.449Z"
- }
+ ]
 }
