@@ -1,6 +1,6 @@
 {
  "version": 12,
- "exportedAt": "2026-07-30T07:58:54Z",
+ "exportedAt": "2026-07-30T08:44:45Z",
  "profile": {
   "name": "Lars",
   "startHcp": 22.8,
@@ -9990,11 +9990,13 @@
    "hi": 20,
    "holes": [
     {
-     "hole": 18,
-     "ud": "Ja"
+     "hole": 1,
+     "score": 4,
+     "tee": "Hit",
+     "club": "Driver Aerojet"
     }
    ]
   },
-  "ts": "2026-07-30T07:58:54Z"
+  "ts": "2026-07-30T08:44:45Z"
  }
 }
