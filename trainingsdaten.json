@@ -1,6 +1,6 @@
 {
  "version": 12,
- "exportedAt": "2026-07-30T16:02:14Z",
+ "exportedAt": "2026-07-30T16:33:25Z",
  "profile": {
   "name": "Lars",
   "startHcp": 22.8,
@@ -9963,6 +9963,7 @@
     {
      "hole": 4,
      "score": 5,
+     "putts": 3,
      "tee": "Hit",
      "appr": "50–80",
      "firstPutt": "8m",
@@ -9970,9 +9971,15 @@
      "club": "Driver Aerojet",
      "lie": "Fairway",
      "distToPin": 8
+    },
+    {
+     "hole": 5,
+     "score": 5,
+     "putts": 2,
+     "tee": "Links"
     }
    ]
   },
-  "ts": "2026-07-30T16:02:14Z"
+  "ts": "2026-07-30T16:33:25Z"
  }
 }
