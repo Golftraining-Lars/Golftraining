@@ -1,6 +1,6 @@
 {
  "version": 12,
- "exportedAt": "2026-07-30T18:30:13.351Z",
+ "exportedAt": "2026-07-30T18:31:09.533Z",
  "profile": {
   "name": "Lars",
   "startHcp": 22.8,
@@ -7183,6 +7183,84 @@
      "hole": 18
     }
    ]
+  },
+  {
+   "id": "R1785436269488",
+   "date": "2026-07-30",
+   "course": "Timmendorfer Strand Nordplatz",
+   "tee": "Gelb",
+   "type": "18 Loch",
+   "side": "18 Loch",
+   "hi": 20,
+   "countHcp": false,
+   "conditions": {},
+   "startTime": "20:30",
+   "endTime": "20:30",
+   "durationMin": 0,
+   "holes": [
+    {
+     "hole": 1,
+     "score": 6,
+     "putts": 2
+    },
+    {
+     "hole": 2,
+     "score": 6,
+     "putts": 2
+    },
+    {
+     "hole": 3,
+     "score": 3
+    },
+    {
+     "hole": 4
+    },
+    {
+     "hole": 5,
+     "score": 5,
+     "putts": 2,
+     "appr": "<20"
+    },
+    {
+     "hole": 6
+    },
+    {
+     "hole": 7
+    },
+    {
+     "hole": 8
+    },
+    {
+     "hole": 9
+    },
+    {
+     "hole": 10
+    },
+    {
+     "hole": 11
+    },
+    {
+     "hole": 12
+    },
+    {
+     "hole": 13
+    },
+    {
+     "hole": 14
+    },
+    {
+     "hole": 15
+    },
+    {
+     "hole": 16
+    },
+    {
+     "hole": 17
+    },
+    {
+     "hole": 18
+    }
+   ]
   }
  ],
  "costWeights": {
@@ -10031,83 +10109,5 @@
    "lngB": 10.7500189,
    "hole": null
   }
- ],
- "_draftRound": {
-  "round": {
-   "id": "R1785436213342",
-   "date": "2026-07-30",
-   "course": "Timmendorfer Strand Nordplatz",
-   "tee": "Gelb",
-   "type": "18 Loch",
-   "side": "18 Loch",
-   "hi": 20,
-   "countHcp": false,
-   "conditions": {},
-   "startTime": "20:29",
-   "endTime": null,
-   "durationMin": null,
-   "holes": [
-    {
-     "hole": 1,
-     "score": 6,
-     "putts": 2
-    },
-    {
-     "hole": 2,
-     "score": 6,
-     "putts": 2
-    },
-    {
-     "hole": 3,
-     "score": 1
-    },
-    {
-     "hole": 4
-    },
-    {
-     "hole": 5
-    },
-    {
-     "hole": 6
-    },
-    {
-     "hole": 7
-    },
-    {
-     "hole": 8
-    },
-    {
-     "hole": 9
-    },
-    {
-     "hole": 10
-    },
-    {
-     "hole": 11
-    },
-    {
-     "hole": 12
-    },
-    {
-     "hole": 13
-    },
-    {
-     "hole": 14
-    },
-    {
-     "hole": 15
-    },
-    {
-     "hole": 16
-    },
-    {
-     "hole": 17
-    },
-    {
-     "hole": 18
-    }
-   ]
-  },
-  "ts": "2026-07-30T18:30:13.342Z"
- }
+ ]
 }
