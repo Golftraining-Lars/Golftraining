@@ -1,6 +1,6 @@
 {
  "version": 12,
- "exportedAt": "2026-07-30T16:35:04.710Z",
+ "exportedAt": "2026-07-30T16:35:34.183Z",
  "profile": {
   "name": "Lars",
   "startHcp": 22.8,
@@ -7089,6 +7089,98 @@
      "recovery": "Ja"
     }
    ]
+  },
+  {
+   "id": "R1785429334116",
+   "date": "2026-07-30",
+   "course": "Timmendorfer Strand Nordplatz",
+   "tee": "Gelb",
+   "type": "18 Loch",
+   "side": "18 Loch",
+   "hi": 20,
+   "countHcp": false,
+   "conditions": {},
+   "holes": [
+    {
+     "hole": 1,
+     "score": 4,
+     "putts": 2,
+     "tee": "Hit",
+     "appr": "50–80",
+     "firstPutt": "4m",
+     "quality": "Gimme",
+     "club": "2 Driving iron Cobra",
+     "lie": "Fairway",
+     "distToPin": 4,
+     "recovery": "Nein",
+     "girDirect": "Ja"
+    },
+    {
+     "hole": 2,
+     "tee": "Hit"
+    },
+    {
+     "hole": 3,
+     "score": 3,
+     "putts": 1,
+     "firstPutt": "7m",
+     "quality": "Holed",
+     "girDirect": "Nein"
+    },
+    {
+     "hole": 4,
+     "score": 5,
+     "tee": "Hit",
+     "appr": "50–80",
+     "firstPutt": "8m",
+     "quality": "Holed",
+     "club": "Driver Aerojet",
+     "lie": "Fairway",
+     "distToPin": 8
+    },
+    {
+     "hole": 5
+    },
+    {
+     "hole": 6
+    },
+    {
+     "hole": 7
+    },
+    {
+     "hole": 8
+    },
+    {
+     "hole": 9
+    },
+    {
+     "hole": 10
+    },
+    {
+     "hole": 11
+    },
+    {
+     "hole": 12
+    },
+    {
+     "hole": 13
+    },
+    {
+     "hole": 14
+    },
+    {
+     "hole": 15
+    },
+    {
+     "hole": 16
+    },
+    {
+     "hole": 17
+    },
+    {
+     "hole": 18
+    }
+   ]
   }
  ],
  "costWeights": {
@@ -9923,100 +10015,5 @@
    "ts": "2026-07-30T14:00:36.171Z"
   }
  ],
- "_draftRound": {
-  "round": {
-   "id": "R1785429304699",
-   "date": "2026-07-30",
-   "course": "Timmendorfer Strand Nordplatz",
-   "tee": "Gelb",
-   "type": "18 Loch",
-   "side": "18 Loch",
-   "hi": 20,
-   "countHcp": false,
-   "conditions": {},
-   "holes": [
-    {
-     "hole": 1,
-     "score": 4,
-     "putts": 2,
-     "tee": "Hit",
-     "appr": "50–80",
-     "firstPutt": "4m",
-     "quality": "Gimme",
-     "club": "2 Driving iron Cobra",
-     "lie": "Fairway",
-     "distToPin": 4,
-     "recovery": "Nein",
-     "girDirect": "Ja"
-    },
-    {
-     "hole": 2,
-     "tee": "Hit"
-    },
-    {
-     "hole": 3,
-     "score": 3,
-     "putts": 1,
-     "firstPutt": "7m",
-     "quality": "Holed",
-     "girDirect": "Nein"
-    },
-    {
-     "hole": 4,
-     "score": 5,
-     "tee": "Hit",
-     "appr": "50–80",
-     "firstPutt": "8m",
-     "quality": "Holed",
-     "club": "Driver Aerojet",
-     "lie": "Fairway",
-     "distToPin": 8
-    },
-    {
-     "hole": 5
-    },
-    {
-     "hole": 6
-    },
-    {
-     "hole": 7
-    },
-    {
-     "hole": 8
-    },
-    {
-     "hole": 9
-    },
-    {
-     "hole": 10
-    },
-    {
-     "hole": 11
-    },
-    {
-     "hole": 12
-    },
-    {
-     "hole": 13
-    },
-    {
-     "hole": 14
-    },
-    {
-     "hole": 15
-    },
-    {
-     "hole": 16
-    },
-    {
-     "hole": 17
-    },
-    {
-     "hole": 18
-    }
-   ]
-  },
-  "ts": "2026-07-30T16:35:04.700Z"
- },
  "gpsShots": []
 }
