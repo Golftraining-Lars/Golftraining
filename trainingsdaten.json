@@ -1,6 +1,6 @@
 {
  "version": 12,
- "exportedAt": "2026-07-30T08:44:45Z",
+ "exportedAt": "2026-07-30T08:45:46.448Z",
  "profile": {
   "name": "Lars",
   "startHcp": 22.8,
@@ -9978,25 +9978,5 @@
    "carry": 35,
    "total": null
   }
- ],
- "_draftRound": {
-  "round": {
-   "date": "2026-07-30",
-   "course": "Timmendorfer Strand Nordplatz",
-   "tee": "Gelb",
-   "side": "18 Loch",
-   "type": "18 Loch",
-   "countHcp": false,
-   "hi": 20,
-   "holes": [
-    {
-     "hole": 1,
-     "score": 4,
-     "tee": "Hit",
-     "club": "Driver Aerojet"
-    }
-   ]
-  },
-  "ts": "2026-07-30T08:44:45Z"
- }
+ ]
 }
