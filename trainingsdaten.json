@@ -1,6 +1,6 @@
 {
  "version": 12,
- "exportedAt": "2026-07-30T06:35:33.353Z",
+ "exportedAt": "2026-07-30T06:44:20Z",
  "profile": {
   "name": "Lars",
   "startHcp": 22.8,
@@ -9981,83 +9981,21 @@
  ],
  "_draftRound": {
   "round": {
-   "id": "R1785393333348",
    "date": "2026-07-30",
    "course": "Timmendorfer Strand Nordplatz",
    "tee": "Gelb",
-   "type": "18 Loch",
    "side": "18 Loch",
-   "hi": 20,
+   "type": "18 Loch",
    "countHcp": false,
-   "conditions": {},
+   "hi": 20,
    "holes": [
     {
      "hole": 1,
-     "score": 6,
-     "putts": 1,
-     "tee": "Hit",
-     "appr": "140–170",
-     "firstPutt": "1,5m",
-     "b1": "Fairway Bunker",
-     "girDirect": "Ja"
-    },
-    {
-     "hole": 2,
-     "score": 8,
-     "putts": 4
-    },
-    {
-     "hole": 3,
-     "score": 6,
-     "putts": 4
-    },
-    {
-     "hole": 4
-    },
-    {
-     "hole": 5
-    },
-    {
-     "hole": 6
-    },
-    {
-     "hole": 7
-    },
-    {
-     "hole": 8
-    },
-    {
-     "hole": 9
-    },
-    {
-     "hole": 10
-    },
-    {
-     "hole": 11
-    },
-    {
-     "hole": 12
-    },
-    {
-     "hole": 13
-    },
-    {
-     "hole": 14
-    },
-    {
-     "hole": 15
-    },
-    {
-     "hole": 16
-    },
-    {
-     "hole": 17
-    },
-    {
-     "hole": 18
+     "distToPin": 3,
+     "bunkerN": 0
     }
    ]
   },
-  "ts": "2026-07-30T06:35:33.349Z"
+  "ts": "2026-07-30T06:44:20Z"
  }
 }
