@@ -1,6 +1,6 @@
 {
  "version": 12,
- "exportedAt": "2026-07-30T11:36:27.336Z",
+ "exportedAt": "2026-07-30T14:00:44.185Z",
  "profile": {
   "name": "Lars",
   "startHcp": 22.8,
@@ -9911,6 +9911,16 @@
    "club": "SW 54° · 35 m",
    "carry": 35,
    "total": null
+  }
+ ],
+ "notes": [
+  {
+   "id": "N1785420036171",
+   "title": "Linke Hand abschwächen",
+   "text": "Linke Hand schwächer greifen",
+   "cat": "Schwung",
+   "pinned": false,
+   "ts": "2026-07-30T14:00:36.171Z"
   }
  ]
 }
