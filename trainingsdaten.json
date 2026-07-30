@@ -1,6 +1,6 @@
 {
  "version": 12,
- "exportedAt": "2026-07-29T18:11:03.361Z",
+ "exportedAt": "2026-07-30T06:34:38Z",
  "profile": {
   "name": "Lars",
   "startHcp": 22.8,
@@ -9978,5 +9978,38 @@
    "carry": 35,
    "total": null
   }
- ]
+ ],
+ "_draftRound": {
+  "round": {
+   "date": "2026-07-30",
+   "course": "Timmendorfer Strand Nordplatz",
+   "tee": "Gelb",
+   "side": "18 Loch",
+   "type": "18 Loch",
+   "countHcp": false,
+   "hi": 20,
+   "holes": [
+    {
+     "hole": 1,
+     "score": 6,
+     "putts": 1,
+     "tee": "Hit",
+     "appr": "140–170",
+     "firstPutt": "1,5m",
+     "b1": "Fairway Bunker",
+     "girDirect": "Ja"
+    },
+    {
+     "hole": 2,
+     "score": 8,
+     "putts": 4
+    },
+    {
+     "hole": 3,
+     "score": 4
+    }
+   ]
+  },
+  "ts": "2026-07-30T06:34:38Z"
+ }
 }
