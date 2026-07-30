@@ -1,6 +1,6 @@
 {
  "version": 12,
- "exportedAt": "2026-07-30T09:38:51Z",
+ "exportedAt": "2026-07-30T09:46:53.456Z",
  "profile": {
   "name": "Lars",
   "startHcp": 22.8,
@@ -9981,13 +9981,15 @@
  ],
  "_draftRound": {
   "round": {
+   "id": "R1785404813448",
    "date": "2026-07-30",
    "course": "Timmendorfer Strand Südplatz",
    "tee": "Gelb",
-   "side": "18 Loch",
    "type": "18 Loch",
-   "countHcp": false,
+   "side": "18 Loch",
    "hi": 20,
+   "countHcp": false,
+   "conditions": {},
    "holes": [
     {
      "hole": 1,
@@ -10066,6 +10068,6 @@
     }
    ]
   },
-  "ts": "2026-07-30T09:38:51Z"
+  "ts": "2026-07-30T09:46:53.449Z"
  }
 }
