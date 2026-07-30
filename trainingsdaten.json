@@ -1,6 +1,6 @@
 {
  "version": 12,
- "exportedAt": "2026-07-30T15:00:00.926Z",
+ "exportedAt": "2026-07-30T16:02:14Z",
  "profile": {
   "name": "Lars",
   "startHcp": 22.8,
@@ -9922,5 +9922,57 @@
    "pinned": false,
    "ts": "2026-07-30T14:00:36.171Z"
   }
- ]
+ ],
+ "_draftRound": {
+  "round": {
+   "date": "2026-07-30",
+   "course": "Timmendorfer Strand Nordplatz",
+   "tee": "Gelb",
+   "side": "18 Loch",
+   "type": "18 Loch",
+   "countHcp": false,
+   "hi": 20,
+   "holes": [
+    {
+     "hole": 1,
+     "score": 4,
+     "putts": 2,
+     "tee": "Hit",
+     "appr": "50–80",
+     "firstPutt": "4m",
+     "quality": "Gimme",
+     "club": "2 Driving iron Cobra",
+     "lie": "Fairway",
+     "distToPin": 4,
+     "recovery": "Nein",
+     "girDirect": "Ja"
+    },
+    {
+     "hole": 2,
+     "tee": "Hit"
+    },
+    {
+     "hole": 3,
+     "score": 3,
+     "putts": 1,
+     "tee": "Mis-hit",
+     "firstPutt": "7m",
+     "quality": "Holed",
+     "girDirect": "Nein"
+    },
+    {
+     "hole": 4,
+     "score": 5,
+     "tee": "Hit",
+     "appr": "50–80",
+     "firstPutt": "8m",
+     "quality": "Holed",
+     "club": "Driver Aerojet",
+     "lie": "Fairway",
+     "distToPin": 8
+    }
+   ]
+  },
+  "ts": "2026-07-30T16:02:14Z"
+ }
 }
