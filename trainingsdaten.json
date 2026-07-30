@@ -1,6 +1,6 @@
 {
  "version": 12,
- "exportedAt": "2026-07-30T18:41:52.073Z",
+ "exportedAt": "2026-07-30T18:50:39.676Z",
  "profile": {
   "name": "Lars",
   "startHcp": 22.8,
@@ -10035,6 +10035,15 @@
    "pinned": true,
    "images": [],
    "ts": "2026-07-30T18:41:44.054Z"
+  },
+  {
+   "id": "N1785437431590",
+   "title": "Mjg",
+   "text": "Jg",
+   "cat": "Schwung",
+   "pinned": true,
+   "images": [],
+   "ts": "2026-07-30T18:50:31.590Z"
   }
  ],
  "gpsShots": [
