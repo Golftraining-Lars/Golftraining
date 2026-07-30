@@ -1,6 +1,6 @@
 {
  "version": 12,
- "exportedAt": "2026-07-30T06:44:59.049Z",
+ "exportedAt": "2026-07-30T07:58:54Z",
  "profile": {
   "name": "Lars",
   "startHcp": 22.8,
@@ -9978,5 +9978,23 @@
    "carry": 35,
    "total": null
   }
- ]
+ ],
+ "_draftRound": {
+  "round": {
+   "date": "2026-07-30",
+   "course": "Timmendorfer Strand Nordplatz",
+   "tee": "Gelb",
+   "side": "18 Loch",
+   "type": "18 Loch",
+   "countHcp": false,
+   "hi": 20,
+   "holes": [
+    {
+     "hole": 18,
+     "ud": "Ja"
+    }
+   ]
+  },
+  "ts": "2026-07-30T07:58:54Z"
+ }
 }
