@@ -1,6 +1,6 @@
 {
  "version": 12,
- "exportedAt": "2026-07-31T05:56:20.119Z",
+ "exportedAt": "2026-07-31T05:58:43.868Z",
  "profile": {
   "name": "Lars",
   "startHcp": 22.8,
@@ -8,7 +8,7 @@
   "currentHcp": 21.4,
   "seasonStart": "2026-03-01",
   "hcpIndex": 20,
-  "caddyMode": "safe"
+  "caddyMode": "bal"
  },
  "phases": [
   {
