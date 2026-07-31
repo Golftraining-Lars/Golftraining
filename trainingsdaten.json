@@ -1,6 +1,6 @@
 {
  "version": 12,
- "exportedAt": "2026-07-30T18:50:39.676Z",
+ "exportedAt": "2026-07-31T05:55:53.796Z",
  "profile": {
   "name": "Lars",
   "startHcp": 22.8,
@@ -1930,6 +1930,32 @@
        "len": 370
       }
      ]
+    }
+   },
+   "trouble": {
+    "1": {
+     "tSide": "L",
+     "tType": "ob",
+     "green": "bunker"
+    },
+    "2": {
+     "green": "bunker"
+    },
+    "3": {
+     "green": "bunker"
+    },
+    "4": {
+     "green": "bunker"
+    },
+    "6": {
+     "tSide": "R",
+     "tType": "ob"
+    },
+    "7": {
+     "green": "bunker"
+    },
+    "9": {
+     "green": "bunker"
     }
    }
   },
