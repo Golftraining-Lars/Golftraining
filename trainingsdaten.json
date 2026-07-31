@@ -1,6 +1,6 @@
 {
  "version": 12,
- "exportedAt": "2026-07-31T12:33:13.346Z",
+ "exportedAt": "2026-07-31T12:35:28.300Z",
  "profile": {
   "name": "Lars",
   "startHcp": 22.8,
@@ -24032,15 +24032,6 @@
   },
   {
    "phase": "Phase 1",
-   "label": "Pelz Quote ≥ 0,292",
-   "start": 0.125,
-   "target": 0.292,
-   "note": "Hoch  ·  Effizienz-Kennzahl neben Rohscore",
-   "testKey": null,
-   "id": "G2x1919"
-  },
-  {
-   "phase": "Phase 1",
    "label": "Up & Down Rate ≥ 0,33",
    "start": 0.22,
    "target": 0.33,
@@ -24164,15 +24155,6 @@
    "note": "Mittel",
    "testKey": "scrambling",
    "id": "G17x1238"
-  },
-  {
-   "phase": "Phase 2",
-   "label": "9-Shot Test ≥ 28/54",
-   "start": 0,
-   "target": 28,
-   "note": "Mittel  ·  Ballflugkontrolle für Hcp 8 notwendig",
-   "testKey": null,
-   "id": "G18x8581"
   },
   {
    "phase": "Phase 2",
