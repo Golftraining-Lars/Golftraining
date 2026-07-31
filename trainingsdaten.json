@@ -1,6 +1,6 @@
 {
  "version": 12,
- "exportedAt": "2026-07-31T06:38:20.000Z",
+ "exportedAt": "2026-07-31T06:38:48.208Z",
  "profile": {
   "name": "Lars",
   "startHcp": 22.8,
@@ -7561,8 +7561,8 @@
    "name": "Golfclub Gut Waldshagen",
    "place": "Bösdorf",
    "country": "Deutschland",
-   "note": "Der beste Platz den ich in Norddeutschland gespielt habe",
-   "priority": null
+   "priority": 3,
+   "note": "Der beste Platz den ich in Norddeutschland gespielt habe"
   },
   {
    "name": "Golfclub Millstätter See",
