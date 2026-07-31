@@ -1,6 +1,6 @@
 {
  "version": 12,
- "exportedAt": "2026-07-31T06:40:18.037Z",
+ "exportedAt": "2026-07-31T06:40:31.657Z",
  "profile": {
   "name": "Lars",
   "startHcp": 22.8,
@@ -7632,12 +7632,6 @@
    "name": "Hill Course / Hills Golf & Sports Club",
    "place": null,
    "country": "Molndal Schweden",
-   "note": null
-  },
-  {
-   "name": "Golf Club Grömitz",
-   "place": null,
-   "country": null,
    "note": null
   }
  ],
