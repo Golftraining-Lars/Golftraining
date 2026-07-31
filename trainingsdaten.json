@@ -1,6 +1,6 @@
 {
  "version": 12,
- "exportedAt": "2026-07-31T06:39:47.612Z",
+ "exportedAt": "2026-07-31T06:39:55.759Z",
  "profile": {
   "name": "Lars",
   "startHcp": 22.8,
@@ -7470,8 +7470,8 @@
    "name": "Golfclub Resort Adendorf · Mastercourse",
    "place": "Adendorf",
    "country": "Deutschland",
-   "note": null,
-   "priority": 99
+   "priority": 99,
+   "note": null
   },
   {
    "name": "Maritim Golfclub Ostsee",
