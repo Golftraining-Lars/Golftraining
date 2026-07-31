@@ -1,6 +1,6 @@
 {
  "version": 12,
- "exportedAt": "2026-07-31T06:09:37.227Z",
+ "exportedAt": "2026-07-31T06:38:20.000Z",
  "profile": {
   "name": "Lars",
   "startHcp": 22.8,
@@ -7505,8 +7505,8 @@
    "name": "Nord-Course · Green Eagle",
    "place": "Winsen (Luhe)",
    "country": "Deutschland",
-   "note": null,
-   "priority": null
+   "priority": 8,
+   "note": null
   },
   {
    "name": "Hamburger Land- und Golfclub Hittfeld",
