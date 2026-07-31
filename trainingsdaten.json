@@ -1,6 +1,6 @@
 {
  "version": 12,
- "exportedAt": "2026-07-31T11:16:19.989Z",
+ "exportedAt": "2026-07-31T11:40:55.136Z",
  "profile": {
   "name": "Lars",
   "startHcp": 22.8,
@@ -1934,7 +1934,7 @@
    },
    "geo": {
     "src": "geojson",
-    "loadedAt": "2026-07-31T11:16:11.972Z",
+    "loadedAt": "2026-07-31T11:40:47.119Z",
     "center": [
      54.002308,
      10.7486355
@@ -21753,6 +21753,241 @@
     }
    ],
    "countHcp": false
+  },
+  {
+   "id": "R1785322674265",
+   "date": "2026-07-29",
+   "course": "GC Brodauer Mühle",
+   "tee": "Gelb",
+   "type": "18 Loch",
+   "side": "18 Loch",
+   "hi": 20,
+   "countHcp": false,
+   "conditions": {},
+   "holes": [
+    {
+     "hole": 1,
+     "score": 6,
+     "putts": 2
+    },
+    {
+     "hole": 2,
+     "score": 4,
+     "putts": 2
+    },
+    {
+     "hole": 3,
+     "score": 6,
+     "putts": 3
+    },
+    {
+     "hole": 4,
+     "score": 5,
+     "putts": 2
+    },
+    {
+     "hole": 5,
+     "score": 5,
+     "putts": 2
+    },
+    {
+     "hole": 6,
+     "score": 4,
+     "putts": 2
+    },
+    {
+     "hole": 7,
+     "score": 4,
+     "putts": 2
+    },
+    {
+     "hole": 8,
+     "score": 5,
+     "putts": 2
+    },
+    {
+     "hole": 9,
+     "score": 5,
+     "putts": 2
+    },
+    {
+     "hole": 10,
+     "score": 5,
+     "putts": 2,
+     "penN": 1,
+     "penType": "Water/Hazard"
+    },
+    {
+     "hole": 11,
+     "score": 4,
+     "putts": 2
+    },
+    {
+     "hole": 12,
+     "score": 7,
+     "penN": 1,
+     "penType": "Out of Bounds"
+    },
+    {
+     "hole": 13,
+     "score": 4,
+     "putts": 3
+    },
+    {
+     "hole": 14,
+     "score": 5,
+     "putts": 2
+    },
+    {
+     "hole": 15,
+     "score": 4,
+     "putts": 2
+    },
+    {
+     "hole": 16,
+     "score": 5,
+     "putts": 2
+    },
+    {
+     "hole": 17,
+     "score": 6,
+     "putts": 2
+    },
+    {
+     "hole": 18,
+     "score": 5,
+     "putts": 2
+    }
+   ]
+  },
+  {
+   "id": "R1785348663192",
+   "date": "2026-07-29",
+   "course": "Timmendorfer Strand Nordplatz",
+   "tee": "Gelb",
+   "type": "9 Loch",
+   "side": "Back 9",
+   "hi": 20,
+   "countHcp": false,
+   "conditions": {},
+   "holes": [
+    {
+     "hole": 10,
+     "score": 4,
+     "putts": 1,
+     "tee": "Lang",
+     "appr": "<20",
+     "firstPutt": "3m",
+     "quality": "Holed",
+     "club": "7w Aerojet",
+     "lie": "Semi-Rough",
+     "distToPin": 3,
+     "ud": "Ja",
+     "recovery": "Nein"
+    },
+    {
+     "hole": 11,
+     "score": 5,
+     "putts": 2,
+     "tee": "Hit",
+     "appr": "20–50",
+     "firstPutt": "5m",
+     "quality": "<1m",
+     "club": "Driver Aerojet",
+     "lie": "Fairway",
+     "distToPin": 5,
+     "recovery": "Nein",
+     "girDirect": "Ja"
+    },
+    {
+     "hole": 12,
+     "score": 3,
+     "putts": 2,
+     "appr": "170–200",
+     "firstPutt": "7m",
+     "quality": "1m",
+     "club": "5 Eisen G410",
+     "lie": "Tee",
+     "distToPin": 7,
+     "recovery": "Nein",
+     "girDirect": "Ja"
+    },
+    {
+     "hole": 13,
+     "score": 5,
+     "putts": 2,
+     "tee": "Hit",
+     "appr": "20–50",
+     "firstPutt": "6m",
+     "quality": "Gimme",
+     "club": "Driver Aerojet",
+     "lie": "Rough",
+     "distToPin": 6,
+     "ud": "Nein",
+     "recovery": "Nein"
+    },
+    {
+     "hole": 14,
+     "score": 5,
+     "putts": 3,
+     "tee": "Hit",
+     "club": "3w Aerojet"
+    },
+    {
+     "hole": 15,
+     "score": 5,
+     "putts": 2,
+     "tee": "Hit",
+     "appr": "80–110",
+     "firstPutt": "8m",
+     "quality": "Gimme",
+     "club": "Driver Aerojet",
+     "lie": "Rough",
+     "recovery": "Nein",
+     "girDirect": "Ja"
+    },
+    {
+     "hole": 16,
+     "score": 5,
+     "putts": 2,
+     "tee": "Hit",
+     "appr": "<20",
+     "firstPutt": "4m",
+     "quality": "Gimme",
+     "club": "2 Driving iron Cobra",
+     "lie": "Semi-Rough",
+     "distToPin": 4,
+     "ud": "Nein",
+     "recovery": "Nein"
+    },
+    {
+     "hole": 17,
+     "score": 3,
+     "putts": 2,
+     "appr": "140–170",
+     "firstPutt": "7m",
+     "quality": "<1m",
+     "club": "5 Eisen G410",
+     "lie": "Tee",
+     "distToPin": 7,
+     "recovery": "Nein"
+    },
+    {
+     "hole": 18,
+     "score": 7,
+     "putts": 3,
+     "tee": "Links",
+     "appr": "<20",
+     "firstPutt": "8m",
+     "quality": "2m",
+     "club": "Driver Aerojet",
+     "lie": "Bunker",
+     "distToPin": 8,
+     "b1": "Green Side",
+     "ss": "Nein",
+     "recovery": "Ja"
+    }
+   ]
   }
  ],
  "costWeights": {
@@ -22170,8 +22405,8 @@
  ],
  "lmSessions": [
   {
-   "id": "LM1785274804621735",
-   "date": "2026-07-28",
+   "id": "LM1785313790392592",
+   "date": "2026-07-29",
    "name": "ags-shots-2026-07-24",
    "shots": [
     {
@@ -22405,8 +22640,8 @@
    }
   },
   {
-   "id": "LM1785274804633930",
-   "date": "2026-07-28",
+   "id": "LM1785313790407424",
+   "date": "2026-07-29",
    "name": "ags-shots-2026-07-25",
    "shots": [
     {
@@ -22808,8 +23043,8 @@
    }
   },
   {
-   "id": "LM1785274804662357",
-   "date": "2026-07-28",
+   "id": "LM1785313790449946",
+   "date": "2026-07-29",
    "name": "ags-shots-2026-07-27",
    "shots": [
     {
@@ -23793,7 +24028,7 @@
    "target": 105,
    "note": "Hoch  ·  Schwerpunkt: Pitching & Putting",
    "testKey": "pelz",
-   "id": "G1x84"
+   "id": "G1x9549"
   },
   {
    "phase": "Phase 1",
@@ -23802,7 +24037,7 @@
    "target": 0.292,
    "note": "Hoch  ·  Effizienz-Kennzahl neben Rohscore",
    "testKey": null,
-   "id": "G2x6381"
+   "id": "G2x1919"
   },
   {
    "phase": "Phase 1",
@@ -23811,7 +24046,7 @@
    "target": 0.33,
    "note": "Hoch  ·  Scrambling ist der wichtigste Scoring-Faktor bei Hcp 20+",
    "testKey": "updown",
-   "id": "G3x5874"
+   "id": "G3x3115"
   },
   {
    "phase": "Phase 1",
@@ -23820,7 +24055,7 @@
    "target": 15,
    "note": "Hoch  ·  Fokus: Rough & Vorgrün",
    "testKey": "scrambling",
-   "id": "G4x4751"
+   "id": "G4x6227"
   },
   {
    "phase": "Phase 1",
@@ -23829,7 +24064,7 @@
    "target": 70,
    "note": "Hoch  ·  GIR-Rate von Fairway steigern",
    "testKey": "approach",
-   "id": "G5x7507"
+   "id": "G5x3858"
   },
   {
    "phase": "Phase 1",
@@ -23838,7 +24073,7 @@
    "target": 22,
    "note": "Mittel  ·  3-Putts reduzieren",
    "testKey": "lag",
-   "id": "G6x420"
+   "id": "G6x7682"
   },
   {
    "phase": "Phase 1",
@@ -23847,7 +24082,7 @@
    "target": 16,
    "note": "Mittel  ·  Wedge-Schärfe aus allen Lagen",
    "testKey": "randomwedge",
-   "id": "G7x3527"
+   "id": "G7x8944"
   },
   {
    "phase": "Phase 1",
@@ -23856,7 +24091,7 @@
    "target": 4,
    "note": "Mittel  ·  Kurzputts unter Druck halten",
    "testKey": "3ball",
-   "id": "G8x1108"
+   "id": "G8x4166"
   },
   {
    "phase": "Phase 1",
@@ -23865,7 +24100,7 @@
    "target": 5,
    "note": "Mittel  ·  50% als Mindest-Basis",
    "testKey": "driverfw",
-   "id": "G9x7050"
+   "id": "G9x8612"
   },
   {
    "phase": "Phase 1",
@@ -23874,7 +24109,7 @@
    "target": 30,
    "note": "Mittel  ·  Gate Drill nach Pelz – 1,0–3,0 m",
    "testKey": "kurzputt",
-   "id": "G10x536"
+   "id": "G10x2886"
   },
   {
    "phase": "Phase 1",
@@ -23883,7 +24118,7 @@
    "target": 90,
    "note": "Hoch  ·  Beweglichkeit = Schwung-Fundament",
    "testKey": null,
-   "id": "G11x8259"
+   "id": "G11x4718"
   },
   {
    "phase": "Phase 2",
@@ -23892,7 +24127,7 @@
    "target": 140,
    "note": "Hoch  ·  Schwerpunkt: Bunker & Lag Putting",
    "testKey": "pelz",
-   "id": "G12x832"
+   "id": "G12x5579"
   },
   {
    "phase": "Phase 2",
@@ -23901,7 +24136,7 @@
    "target": 0.45,
    "note": "Hoch  ·  Definiert Hcp-10-Niveau",
    "testKey": "updown",
-   "id": "G13x731"
+   "id": "G13x7628"
   },
   {
    "phase": "Phase 2",
@@ -23910,7 +24145,7 @@
    "target": 100,
    "note": "Hoch  ·  GIR-Rate auf ~30% steigern",
    "testKey": "approach",
-   "id": "G14x9093"
+   "id": "G14x4161"
   },
   {
    "phase": "Phase 2",
@@ -23919,7 +24154,7 @@
    "target": 30,
    "note": "Hoch  ·  3-Putt-Rate unter 10%",
    "testKey": "lag",
-   "id": "G15x6150"
+   "id": "G15x8295"
   },
   {
    "phase": "Phase 2",
@@ -23928,7 +24163,7 @@
    "target": 6,
    "note": "Mittel  ·  70% FW-Rate als Phase-2-Ziel",
    "testKey": "driverfw",
-   "id": "G16x3573"
+   "id": "G16x2814"
   },
   {
    "phase": "Phase 2",
@@ -23937,7 +24172,7 @@
    "target": 22,
    "note": "Mittel",
    "testKey": "scrambling",
-   "id": "G17x8098"
+   "id": "G17x1238"
   },
   {
    "phase": "Phase 2",
@@ -23946,7 +24181,7 @@
    "target": 28,
    "note": "Mittel  ·  Ballflugkontrolle für Hcp 8 notwendig",
    "testKey": null,
-   "id": "G18x1437"
+   "id": "G18x8581"
   },
   {
    "phase": "Phase 2",
@@ -23955,7 +24190,7 @@
    "target": 18,
    "note": "Mittel  ·  Achtung: kleiner = besser!",
    "testKey": null,
-   "id": "G19x706"
+   "id": "G19x8445"
   },
   {
    "phase": "Phase 2",
@@ -23964,7 +24199,7 @@
    "target": 30,
    "note": "Mittel  ·  Scoring-Zone 50–100m präzisieren",
    "testKey": null,
-   "id": "G20x7010"
+   "id": "G20x1696"
   },
   {
    "phase": "Phase 2",
@@ -23973,7 +24208,7 @@
    "target": 99,
    "note": "✅ Bereits übertroffen! Lars bei 96 mph (> HCP-8-Niveau). Fokus auf 99 mph (Phase 2).",
    "testKey": null,
-   "id": "G21x1959"
+   "id": "G21x6513"
   },
   {
    "phase": "PHASE 3",
@@ -23982,7 +24217,7 @@
    "target": 190,
    "note": "Hoch",
    "testKey": "pelz",
-   "id": "G22x4533"
+   "id": "G22x758"
   },
   {
    "phase": "PHASE 3",
@@ -23991,7 +24226,7 @@
    "target": 0.6,
    "note": "Hoch",
    "testKey": "updown",
-   "id": "G23x8512"
+   "id": "G23x4920"
   },
   {
    "phase": "PHASE 3",
@@ -24000,7 +24235,7 @@
    "target": 130,
    "note": "Hoch  ·  GIR ≥ 45%",
    "testKey": "approach",
-   "id": "G24x347"
+   "id": "G24x1716"
   },
   {
    "phase": "PHASE 3",
@@ -24009,7 +24244,7 @@
    "target": 37,
    "note": "Hoch",
    "testKey": "lag",
-   "id": "G25x8274"
+   "id": "G25x6845"
   },
   {
    "phase": "PHASE 3",
@@ -24018,7 +24253,7 @@
    "target": 29,
    "note": "Hoch",
    "testKey": "distanzputt",
-   "id": "G26x5238"
+   "id": "G26x9862"
   },
   {
    "phase": "PHASE 3",
@@ -24027,7 +24262,7 @@
    "target": 36,
    "note": "Mittel  ·  Alle Shot-Typen zuverlässig",
    "testKey": null,
-   "id": "G27x1797"
+   "id": "G27x3945"
   },
   {
    "phase": "PHASE 3",
@@ -24036,7 +24271,7 @@
    "target": 7,
    "note": "Mittel",
    "testKey": null,
-   "id": "G28x6407"
+   "id": "G28x2931"
   },
   {
    "phase": "PHASE 3",
@@ -24045,7 +24280,7 @@
    "target": 103,
    "note": "Mittel · Lars startet P2 bereits bei 96 mph → Ziel ≥ 103 mph (→ ~245m Carry)",
    "testKey": null,
-   "id": "G29x1127"
+   "id": "G29x832"
   },
   {
    "phase": "PHASE 3",
@@ -24054,7 +24289,7 @@
    "target": 12,
    "note": "Mittel  ·  Achtung: kleiner = besser!",
    "testKey": null,
-   "id": "G30x8408"
+   "id": "G30x4499"
   },
   {
    "phase": "PHASE 4",
@@ -24063,7 +24298,7 @@
    "target": 240,
    "note": "Hoch",
    "testKey": "pelz",
-   "id": "G31x3560"
+   "id": "G31x5014"
   },
   {
    "phase": "PHASE 4",
@@ -24072,7 +24307,7 @@
    "target": 0.68,
    "note": "Hoch  ·  Tour-nahes Niveau",
    "testKey": "updown",
-   "id": "G32x8815"
+   "id": "G32x5076"
   },
   {
    "phase": "PHASE 4",
@@ -24081,7 +24316,7 @@
    "target": 150,
    "note": "Hoch  ·  GIR ≥ 55%",
    "testKey": "approach",
-   "id": "G33x35"
+   "id": "G33x6114"
   },
   {
    "phase": "PHASE 4",
@@ -24090,7 +24325,7 @@
    "target": 9,
    "note": "Hoch  ·  Kurzputts unter Turnierdruck",
    "testKey": "3ball",
-   "id": "G34x9340"
+   "id": "G34x718"
   },
   {
    "phase": "PHASE 4",
@@ -24099,7 +24334,7 @@
    "target": 42,
    "note": "Hoch",
    "testKey": "lag",
-   "id": "G35x4551"
+   "id": "G35x2066"
   },
   {
    "phase": "PHASE 4",
@@ -24108,7 +24343,7 @@
    "target": 102,
    "note": "Mittel  ·  → ≥ 250m Carry",
    "testKey": null,
-   "id": "G36x9022"
+   "id": "G36x2865"
   },
   {
    "phase": "PHASE 4",
@@ -24117,7 +24352,7 @@
    "target": 45,
    "note": "Mittel  ·  Alle Shot-Typen & Höhen sicher",
    "testKey": null,
-   "id": "G37x3478"
+   "id": "G37x1134"
   },
   {
    "phase": "PHASE 4",
@@ -24126,7 +24361,7 @@
    "target": 10,
    "note": "Mittel",
    "testKey": null,
-   "id": "G38x57"
+   "id": "G38x6990"
   }
  ],
  "periodization": {
@@ -24139,7 +24374,7 @@
     "load": "Aufbau",
     "volume": "Hoch",
     "intensity": "Mittel",
-    "id": "M1x1884"
+    "id": "M1x3539"
    },
    {
     "name": "P2: Entwicklung",
@@ -24149,7 +24384,7 @@
     "load": "Hoch",
     "volume": "Sehr hoch",
     "intensity": "Hoch",
-    "id": "M2x8423"
+    "id": "M2x4650"
    },
    {
     "name": "P3: Verfeinerung",
@@ -24159,7 +24394,7 @@
     "load": "Peak",
     "volume": "Mittel",
     "intensity": "Sehr hoch",
-    "id": "M3x8532"
+    "id": "M3x8048"
    },
    {
     "name": "P4: Elite",
@@ -24169,7 +24404,7 @@
     "load": "Wettkampf",
     "volume": "Niedrig",
     "intensity": "Maximal",
-    "id": "M4x3895"
+    "id": "M4x4535"
    }
   ],
   "blocks": [
@@ -24183,7 +24418,7 @@
     "longPct": "40%",
     "loadType": "Aufbau",
     "tournamentWeek": "Nein",
-    "id": "B1x7889"
+    "id": "B1x925"
    },
    {
     "name": "Block 2",
@@ -24195,7 +24430,7 @@
     "longPct": "35%",
     "loadType": "Aufbau",
     "tournamentWeek": "Nein",
-    "id": "B2x1235"
+    "id": "B2x3050"
    },
    {
     "name": "Block 3",
@@ -24207,7 +24442,7 @@
     "longPct": "45%",
     "loadType": "Entwicklung",
     "tournamentWeek": "Ja",
-    "id": "B3x8903"
+    "id": "B3x2285"
    },
    {
     "name": "Block 4",
@@ -24219,7 +24454,7 @@
     "longPct": "50%",
     "loadType": "Entwicklung",
     "tournamentWeek": "Nein",
-    "id": "B4x782"
+    "id": "B4x5829"
    },
    {
     "name": "Block 5",
@@ -24231,7 +24466,7 @@
     "longPct": "50%",
     "loadType": "Peak",
     "tournamentWeek": "Ja",
-    "id": "B5x8571"
+    "id": "B5x2823"
    },
    {
     "name": "Block 6",
@@ -24243,7 +24478,7 @@
     "longPct": "55%",
     "loadType": "Wettkampf",
     "tournamentWeek": "Ja",
-    "id": "B6x8759"
+    "id": "B6x8907"
    },
    {
     "name": "Block 7",
@@ -24255,7 +24490,7 @@
     "longPct": "50%",
     "loadType": "Peak",
     "tournamentWeek": "Ja",
-    "id": "B7x6543"
+    "id": "B7x3709"
    },
    {
     "name": "Block 8",
@@ -24267,7 +24502,7 @@
     "longPct": "40%",
     "loadType": "Aufbau",
     "tournamentWeek": "Nein",
-    "id": "B8x3931"
+    "id": "B8x6449"
    },
    {
     "name": "Block 9",
@@ -24279,7 +24514,7 @@
     "longPct": "50%",
     "loadType": "Entwicklung",
     "tournamentWeek": "Ja",
-    "id": "B9x9277"
+    "id": "B9x5398"
    },
    {
     "name": "Block 10",
@@ -24291,7 +24526,7 @@
     "longPct": "50%",
     "loadType": "Peak",
     "tournamentWeek": "Ja",
-    "id": "B10x4231"
+    "id": "B10x1891"
    },
    {
     "name": "Block 11",
@@ -24303,7 +24538,7 @@
     "longPct": "45%",
     "loadType": "Wettkampf",
     "tournamentWeek": "Ja",
-    "id": "B11x7856"
+    "id": "B11x7615"
    },
    {
     "name": "Block 12",
@@ -24315,7 +24550,7 @@
     "longPct": "45%",
     "loadType": "Aufbau",
     "tournamentWeek": "Nein",
-    "id": "B12x9620"
+    "id": "B12x3863"
    },
    {
     "name": "Block 13",
@@ -24327,7 +24562,7 @@
     "longPct": "55%",
     "loadType": "Peak",
     "tournamentWeek": "Ja",
-    "id": "B13x1400"
+    "id": "B13x5592"
    },
    {
     "name": "Block 14",
@@ -24339,7 +24574,7 @@
     "longPct": "50%",
     "loadType": "Peak",
     "tournamentWeek": "Ja",
-    "id": "B14x6056"
+    "id": "B14x6788"
    },
    {
     "name": "Block 15",
@@ -24351,7 +24586,7 @@
     "longPct": "50%",
     "loadType": "Wettkampf",
     "tournamentWeek": "Ja",
-    "id": "B15x9280"
+    "id": "B15x1885"
    },
    {
     "name": "Block 16",
@@ -24363,7 +24598,7 @@
     "longPct": "60%",
     "loadType": "Entwicklung",
     "tournamentWeek": "Ja",
-    "id": "B16x8585"
+    "id": "B16x9062"
    },
    {
     "name": "Block 17",
@@ -24375,7 +24610,7 @@
     "longPct": "45%",
     "loadType": "Peak",
     "tournamentWeek": "Ja",
-    "id": "B17x7130"
+    "id": "B17x1573"
    },
    {
     "name": "Block 18",
@@ -24387,7 +24622,7 @@
     "longPct": "55%",
     "loadType": "Wettkampf",
     "tournamentWeek": "Ja",
-    "id": "B18x7766"
+    "id": "B18x6442"
    }
   ]
  },
@@ -24398,7 +24633,7 @@
    "priority": "B",
    "status": "geplant",
    "prepWindow": 7,
-   "id": "T1x3178"
+   "id": "T1x6469"
   },
   {
    "name": "ECO Day Südplatz / 9 Loch",
@@ -24406,7 +24641,7 @@
    "priority": "C",
    "status": "geplant",
    "prepWindow": 3,
-   "id": "T2x8213"
+   "id": "T2x9312"
   },
   {
    "name": "BSV Quali Turnier Gut Waldshagen",
@@ -24414,7 +24649,7 @@
    "priority": "A",
    "status": "geplant",
    "prepWindow": 14,
-   "id": "T3x587"
+   "id": "T3x3600"
   },
   {
    "name": "BSV Quali Turnier Hamburg-Walddörfer (Sommerferien)",
@@ -24422,23 +24657,7 @@
    "priority": "A",
    "status": "optional",
    "prepWindow": 14,
-   "id": "T4x1904"
-  },
-  {
-   "name": "BSV Quali Turnier St. Dionys (Sommerferien)",
-   "date": "2026-07-25",
-   "priority": "A",
-   "status": "optional",
-   "prepWindow": 14,
-   "id": "T5x1980"
-  },
-  {
-   "name": "BSV Turnier Gut Waldhof",
-   "date": "2026-08-08",
-   "priority": "B",
-   "status": "optional",
-   "prepWindow": 7,
-   "id": "T6x8215"
+   "id": "T4x2852"
   },
   {
    "name": "Clubmeisterschaften Timmendorfer Strand",
@@ -24446,7 +24665,7 @@
    "priority": "A",
    "status": "geplant",
    "prepWindow": 14,
-   "id": "T7x8084"
+   "id": "T7x5168"
   },
   {
    "name": "BSV Turnier Bissenmoor",
@@ -24454,7 +24673,7 @@
    "priority": "B",
    "status": "optional",
    "prepWindow": 7,
-   "id": "T8x6478"
+   "id": "T8x6182"
   },
   {
    "name": "Südplatz Monatscup",
@@ -24462,7 +24681,7 @@
    "priority": "C",
    "status": "optional",
    "prepWindow": 3,
-   "id": "T9x5723"
+   "id": "T9x6488"
   }
  ],
  "clubDistances": [
@@ -24479,12 +24698,6 @@
    "total": 211
   },
   {
-   "id": "C3",
-   "club": "5 Wood 18°",
-   "carry": 192,
-   "total": 204
-  },
-  {
    "id": "C4",
    "club": "2 Iron 17°",
    "carry": 187,
@@ -24497,21 +24710,15 @@
    "total": 181
   },
   {
-   "id": "C6",
-   "club": "4 Iron 20,5°",
-   "carry": 161,
-   "total": 171
-  },
-  {
    "id": "C7",
    "club": "5 Iron 23,5°",
-   "carry": 155,
+   "carry": 158,
    "total": 165
   },
   {
    "id": "C8",
    "club": "6 Iron 26,5°",
-   "carry": 146,
+   "carry": 148,
    "total": 155
   },
   {
