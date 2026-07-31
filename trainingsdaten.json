@@ -1,6 +1,6 @@
 {
  "version": 12,
- "exportedAt": "2026-07-31T06:38:48.208Z",
+ "exportedAt": "2026-07-31T06:39:47.612Z",
  "profile": {
   "name": "Lars",
   "startHcp": 22.8,
@@ -7393,22 +7393,22 @@
    "name": "Tour Course · Camiral Golf & Wellness",
    "place": "Girona",
    "country": "Spanien",
-   "note": null,
-   "priority": 2
+   "priority": 2,
+   "note": null
   },
   {
    "name": "Stadium Course · Camiral Golf & Wellness",
    "place": "Girona",
    "country": "Spanien",
-   "note": "unglablich lang zu spielen, daher hat mir der Tour Platz in Camiral besser gefallen. Aber unglaubliche Qualität der Platz",
-   "priority": 3
+   "priority": 4,
+   "note": "unglablich lang zu spielen, daher hat mir der Tour Platz in Camiral besser gefallen. Aber unglaubliche Qualität der Platz"
   },
   {
    "name": "Golf Club Hof Hausen vor der Sonne",
    "place": "Hofheim am Taunus",
    "country": "Deutschland",
-   "note": "Gespielt im Rahmen der BSV-Deutschlandmeisterschaft 2024",
-   "priority": 10
+   "priority": null,
+   "note": "Gespielt im Rahmen der BSV-Deutschlandmeisterschaft 2024"
   },
   {
    "name": "Golfpark Idstein Südkurs",
