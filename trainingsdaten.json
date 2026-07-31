@@ -1,6 +1,6 @@
 {
  "version": 12,
- "exportedAt": "2026-07-31T06:00:50.778Z",
+ "exportedAt": "2026-07-31T06:09:37.227Z",
  "profile": {
   "name": "Lars",
   "startHcp": 22.8,
@@ -1956,6 +1956,22 @@
      "green": "bunker"
     },
     "9": {
+     "green": "bunker"
+    },
+    "10": {
+     "green": "bunker",
+     "dog": "R"
+    },
+    "12": {
+     "green": "bunker"
+    },
+    "13": {
+     "dog": "L"
+    },
+    "17": {
+     "green": "bunker"
+    },
+    "18": {
      "green": "bunker"
     }
    }
