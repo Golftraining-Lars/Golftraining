@@ -1,6 +1,6 @@
 {
  "version": 12,
- "exportedAt": "2026-07-31T06:53:07.587Z",
+ "exportedAt": "2026-07-31T07:05:48.285Z",
  "profile": {
   "name": "Lars",
   "startHcp": 22.8,
@@ -10050,7 +10050,7 @@
   {
    "id": "N1785480326630",
    "title": "ToDo Golfdatei",
-   "text": "Die Datei Grundpfeiler Golf irgendwie integrieren\n\nVirtueller caddy soll sinnvolle schlägerempfehlungen geben\n\nAuf watch anzeigen wie viel über Par ich liege. Timer entfernen \n\n\nTroubles auf Loch viel mehr detaillieren - wo sind downslopes wo ich ungern liegen will z. B. - wo Ätzende Baumgruppe etc.\nBeim caddy fine tunen das ich manche Schläge nicht gut treffe",
+   "text": "Die Datei Grundpfeiler Golf irgendwie integrieren\n\nVirtueller caddy soll sinnvolle schlägerempfehlungen geben\n\nAuf watch anzeigen wie viel über Par ich liege. Timer entfernen \n\n\nTroubles auf Loch viel mehr detaillieren - wo sind downslopes wo ich ungern liegen will z. B. - wo Ätzende Baumgruppe etc.\nBeim caddy fine tunen das ich manche Schläge nicht gut treffe\n\n\nCronjob einrichten damit das git repository regelmäßig in Dropbox gespeichert wird https://chatgpt.com/share/6a6c490e-520c-83eb-8bd9-9beee3c2977b?ogimg=plain",
    "cat": "Sonstiges",
    "pinned": true,
    "images": [],
