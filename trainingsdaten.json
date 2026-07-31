@@ -1,6 +1,6 @@
 {
  "version": 12,
- "exportedAt": "2026-07-31T13:00:52.276Z",
+ "exportedAt": "2026-07-31T14:27:35.700Z",
  "profile": {
   "name": "Lars",
   "startHcp": 22.8,
@@ -16754,7 +16754,17 @@
       "distM": 368
      }
     },
-    "mine": [],
+    "mine": [
+     {
+      "kind": "mine",
+      "label": "Test",
+      "pt": [
+       54.008281,
+       10.749317
+      ],
+      "hole": 3
+     }
+    ],
     "stats": {
      "greens": 28,
      "bunkers": 62,
