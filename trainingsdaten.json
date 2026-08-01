@@ -1,6 +1,6 @@
 {
  "version": 12,
- "exportedAt": "2026-08-01T07:47:53.996Z",
+ "exportedAt": "2026-08-01T08:20:10.422Z",
  "profile": {
   "name": "Lars",
   "startHcp": 22.8,
@@ -39722,5 +39722,17 @@
   }
  ],
  "gpsShots": [],
- "notes": []
+ "notes": [],
+ "notesTrash": [
+  {
+   "id": "N1785572395072",
+   "title": "Idee",
+   "text": "Test test",
+   "cat": "Schwung",
+   "pinned": false,
+   "images": [],
+   "ts": "2026-08-01T08:19:55.072Z",
+   "deletedAt": "2026-08-01T08:20:02.181Z"
+  }
+ ]
 }
