@@ -1,6 +1,6 @@
 {
  "version": 12,
- "exportedAt": "2026-08-01T18:19:09.198Z",
+ "exportedAt": "2026-08-01T18:19:35.527Z",
  "profile": {
   "name": "Lars",
   "startHcp": 22.8,
@@ -36975,8 +36975,8 @@
    "name": "Tour Course · Camiral Golf & Wellness",
    "place": "Girona",
    "country": "Spanien",
-   "note": null,
-   "priority": 2
+   "priority": 2,
+   "note": null
   },
   {
    "name": "Stadium Course · Camiral Golf & Wellness",
