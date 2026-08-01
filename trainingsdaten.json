@@ -1,6 +1,6 @@
 {
  "version": 12,
- "exportedAt": "2026-08-01T07:42:07.312Z",
+ "exportedAt": "2026-08-01T07:42:27.493Z",
  "profile": {
   "name": "Lars",
   "startHcp": 22.8,
@@ -39633,5 +39633,81 @@
   }
  ],
  "gpsShots": [],
- "notes": []
+ "notes": [],
+ "_draftRound": {
+  "round": {
+   "id": "R1785570147251",
+   "date": "2026-08-01",
+   "course": "Timmendorfer Strand Nordplatz",
+   "tee": "Gelb",
+   "type": "18 Loch",
+   "side": "18 Loch",
+   "hi": 20,
+   "countHcp": false,
+   "conditions": {},
+   "startTime": "09:41",
+   "endTime": null,
+   "durationMin": null,
+   "holes": [
+    {
+     "hole": 1,
+     "score": 6
+    },
+    {
+     "hole": 2,
+     "score": 4
+    },
+    {
+     "hole": 3,
+     "score": 5
+    },
+    {
+     "hole": 4
+    },
+    {
+     "hole": 5
+    },
+    {
+     "hole": 6
+    },
+    {
+     "hole": 7
+    },
+    {
+     "hole": 8
+    },
+    {
+     "hole": 9
+    },
+    {
+     "hole": 10
+    },
+    {
+     "hole": 11
+    },
+    {
+     "hole": 12
+    },
+    {
+     "hole": 13
+    },
+    {
+     "hole": 14
+    },
+    {
+     "hole": 15
+    },
+    {
+     "hole": 16
+    },
+    {
+     "hole": 17
+    },
+    {
+     "hole": 18
+    }
+   ]
+  },
+  "ts": "2026-08-01T07:42:27.252Z"
+ }
 }
