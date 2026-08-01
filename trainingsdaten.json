@@ -1,6 +1,6 @@
 {
  "version": 12,
- "exportedAt": "2026-08-01T17:54:02.574Z",
+ "exportedAt": "2026-08-01T18:19:09.198Z",
  "profile": {
   "name": "Lars",
   "startHcp": 22.8,
@@ -36806,95 +36806,6 @@
      "b1": "Green Side",
      "ss": "Nein",
      "recovery": "Ja"
-    }
-   ]
-  },
-  {
-   "id": "R1785570473617",
-   "date": "2026-08-01",
-   "course": "Timmendorfer Strand Nordplatz",
-   "tee": "Gelb",
-   "type": "18 Loch",
-   "side": "18 Loch",
-   "hi": 20,
-   "countHcp": false,
-   "conditions": {},
-   "startTime": "09:41",
-   "endTime": "09:47",
-   "durationMin": 6,
-   "holes": [
-    {
-     "hole": 1,
-     "score": 6
-    },
-    {
-     "hole": 2,
-     "score": 4
-    },
-    {
-     "hole": 3,
-     "score": 5
-    },
-    {
-     "hole": 4,
-     "score": 5
-    },
-    {
-     "hole": 5,
-     "score": 6
-    },
-    {
-     "hole": 6,
-     "score": 3
-    },
-    {
-     "hole": 7,
-     "score": 5,
-     "shots": [
-      {
-       "lat": 54.008332,
-       "lng": 10.748395,
-       "club": "PW 44,5°"
-      },
-      {
-       "lat": 54.007526,
-       "lng": 10.749359,
-       "club": ""
-      }
-     ]
-    },
-    {
-     "hole": 8
-    },
-    {
-     "hole": 9
-    },
-    {
-     "hole": 10
-    },
-    {
-     "hole": 11
-    },
-    {
-     "hole": 12
-    },
-    {
-     "hole": 13
-    },
-    {
-     "hole": 14
-    },
-    {
-     "hole": 15
-    },
-    {
-     "hole": 16
-    },
-    {
-     "hole": 17
-    },
-    {
-     "hole": 18
     }
    ]
   }
