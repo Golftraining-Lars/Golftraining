@@ -1,6 +1,6 @@
 {
  "version": 12,
- "exportedAt": "2026-08-01T18:20:51.198Z",
+ "exportedAt": "2026-08-02T10:41:52.076Z",
  "profile": {
   "name": "Lars",
   "startHcp": 22.8,
@@ -38918,15 +38918,6 @@
    "note": "Mittel  ·  Gate Drill nach Pelz – 1,0–3,0 m",
    "testKey": "kurzputt",
    "id": "G10x2886"
-  },
-  {
-   "phase": "Phase 1",
-   "label": "GolfForever Streak ≥ 90 Tage",
-   "start": 0,
-   "target": 90,
-   "note": "Hoch  ·  Beweglichkeit = Schwung-Fundament",
-   "testKey": null,
-   "id": "G11x4718"
   },
   {
    "phase": "Phase 2",
