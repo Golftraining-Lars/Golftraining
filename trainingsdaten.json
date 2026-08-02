@@ -1,6 +1,6 @@
 {
  "version": 12,
- "exportedAt": "2026-08-02T10:41:52.076Z",
+ "exportedAt": "2026-08-02T10:42:08.485Z",
  "profile": {
   "name": "Lars",
   "startHcp": 22.8,
@@ -38972,15 +38972,6 @@
    "note": "Mittel",
    "testKey": "scrambling",
    "id": "G17x1238"
-  },
-  {
-   "phase": "Phase 2",
-   "label": "9-Shot Test ≥ 28/54",
-   "start": 0,
-   "target": 28,
-   "note": "Mittel  ·  Ballflugkontrolle für Hcp 8 notwendig",
-   "testKey": null,
-   "id": "G18x8581"
   },
   {
    "phase": "Phase 2",
