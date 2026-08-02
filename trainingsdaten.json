@@ -1,6 +1,6 @@
 {
  "version": 12,
- "exportedAt": "2026-08-02T10:42:08.485Z",
+ "exportedAt": "2026-08-02T12:30:23.982Z",
  "profile": {
   "name": "Lars",
   "startHcp": 22.8,
@@ -39134,15 +39134,6 @@
    "note": "Mittel  ·  → ≥ 250m Carry",
    "testKey": null,
    "id": "G36x2865"
-  },
-  {
-   "phase": "PHASE 4",
-   "label": "9-Shot Test ≥ 45/54",
-   "start": 36,
-   "target": 45,
-   "note": "Mittel  ·  Alle Shot-Typen & Höhen sicher",
-   "testKey": null,
-   "id": "G37x1134"
   },
   {
    "phase": "PHASE 4",
