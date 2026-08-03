@@ -1,6 +1,6 @@
 {
  "version": 12,
- "exportedAt": "2026-08-03T07:49:47.015Z",
+ "exportedAt": "2026-08-03T07:54:56.993Z",
  "profile": {
   "name": "Lars",
   "startHcp": 22.8,
@@ -1934,7 +1934,7 @@
    },
    "geo": {
     "src": "geojson",
-    "loadedAt": "2026-08-03T07:49:38.792Z",
+    "loadedAt": "2026-08-03T07:54:48.818Z",
     "center": [
      54.002308,
      10.7486355
