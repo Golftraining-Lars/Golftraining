@@ -1,6 +1,6 @@
 {
  "version": 12,
- "exportedAt": "2026-08-04T13:20:48.467Z",
+ "exportedAt": "2026-08-04T13:23:27.252Z",
  "profile": {
   "name": "Lars",
   "startHcp": 22.8,
@@ -41390,6 +41390,14 @@
    "priority": "B",
    "status": "gemeldet",
    "prepWindow": 5
+  },
+  {
+   "id": "T1785849798960",
+   "name": "8. Sea Eagles Men's Cup offene Herrenrunde",
+   "date": "2026-09-02",
+   "priority": "B",
+   "status": "offen",
+   "prepWindow": null
   }
  ],
  "clubDistances": [
