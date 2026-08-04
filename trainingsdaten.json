@@ -1,6 +1,6 @@
 {
  "version": 12,
- "exportedAt": "2026-08-04T13:37:19.288Z",
+ "exportedAt": "2026-08-04T17:00:30.353Z",
  "profile": {
   "name": "Lars",
   "startHcp": 22.8,
@@ -34680,6 +34680,72 @@
    "putts": null
   },
   {
+   "date": "2021-08-21",
+   "course": "Golf- und Country Club Hamburg",
+   "tournament": "Einsteiger-Cup",
+   "cr": 35.6,
+   "tees": "gelb",
+   "slope": 129,
+   "holes": 9,
+   "format": "S = vorgabewirksames Turnier (Stableford-basiert)",
+   "hcpStart": 39.1,
+   "hcpAfter": 39.1,
+   "courseHcp": 22,
+   "par": 36,
+   "gbe": 119,
+   "deltaPar": 83,
+   "stbGross": null,
+   "stbNet": null,
+   "sd": null,
+   "gir": null,
+   "fir": null,
+   "putts": null
+  },
+  {
+   "date": "2021-07-17",
+   "course": "Golf- und Country Club Hamburg",
+   "tournament": "Einsteiger-Cup",
+   "cr": 35.9,
+   "tees": "gelb",
+   "slope": 129,
+   "holes": 9,
+   "format": "S = vorgabewirksames Turnier (Stableford-basiert)",
+   "hcpStart": 39.1,
+   "hcpAfter": 39.1,
+   "courseHcp": 22,
+   "par": 36,
+   "gbe": 127,
+   "deltaPar": 91,
+   "stbGross": null,
+   "stbNet": null,
+   "sd": null,
+   "gir": null,
+   "fir": null,
+   "putts": null
+  },
+  {
+   "date": "2021-06-26",
+   "course": "Golf- und Country Club Hamburg",
+   "tournament": "Einsteiger-Cup",
+   "cr": 35.9,
+   "tees": "gelb",
+   "slope": 129,
+   "holes": 9,
+   "format": "S = vorgabewirksames Turnier (Stableford-basiert)",
+   "hcpStart": 54,
+   "hcpAfter": 39.1,
+   "courseHcp": 31,
+   "par": 36,
+   "gbe": 121,
+   "deltaPar": 85,
+   "stbGross": null,
+   "stbNet": null,
+   "sd": null,
+   "gir": null,
+   "fir": null,
+   "putts": null
+  },
+  {
    "date": "2026-05-21",
    "course": "Timmendorfer Strand Südplatz",
    "tournament": "1. Ecco Day",
@@ -40777,6 +40843,15 @@
   },
   {
    "phase": "Phase 1",
+   "label": "Pelz Quote ≥ 0,292",
+   "start": 0.125,
+   "target": 0.292,
+   "note": "Hoch  ·  Effizienz-Kennzahl neben Rohscore",
+   "testKey": null,
+   "id": "G2x1919"
+  },
+  {
+   "phase": "Phase 1",
    "label": "Up & Down Rate ≥ 0,33",
    "start": 0.22,
    "target": 0.33,
@@ -40848,6 +40923,15 @@
    "id": "G10x2886"
   },
   {
+   "phase": "Phase 1",
+   "label": "GolfForever Streak ≥ 90 Tage",
+   "start": 0,
+   "target": 90,
+   "note": "Hoch  ·  Beweglichkeit = Schwung-Fundament",
+   "testKey": null,
+   "id": "G11x4718"
+  },
+  {
    "phase": "Phase 2",
    "label": "Pelz Score ≥ 140",
    "start": 70,
@@ -40900,6 +40984,15 @@
    "note": "Mittel",
    "testKey": "scrambling",
    "id": "G17x1238"
+  },
+  {
+   "phase": "Phase 2",
+   "label": "9-Shot Test ≥ 28/54",
+   "start": 0,
+   "target": 28,
+   "note": "Mittel  ·  Ballflugkontrolle für Hcp 8 notwendig",
+   "testKey": null,
+   "id": "G18x8581"
   },
   {
    "phase": "Phase 2",
@@ -40972,6 +41065,15 @@
    "note": "Hoch",
    "testKey": "distanzputt",
    "id": "G26x9862"
+  },
+  {
+   "phase": "PHASE 3",
+   "label": "9-Shot Test ≥ 36/54",
+   "start": 28,
+   "target": 36,
+   "note": "Mittel  ·  Alle Shot-Typen zuverlässig",
+   "testKey": null,
+   "id": "G27x3945"
   },
   {
    "phase": "PHASE 3",
@@ -41053,6 +41155,15 @@
    "note": "Mittel  ·  → ≥ 250m Carry",
    "testKey": null,
    "id": "G36x2865"
+  },
+  {
+   "phase": "PHASE 4",
+   "label": "9-Shot Test ≥ 45/54",
+   "start": 36,
+   "target": 45,
+   "note": "Mittel  ·  Alle Shot-Typen & Höhen sicher",
+   "testKey": null,
+   "id": "G37x1134"
   },
   {
    "phase": "PHASE 4",
@@ -41368,68 +41479,20 @@
    "id": "T7x5168"
   },
   {
-   "id": "T1785849639996",
-   "name": "Timmendorf - klassischer Vierer",
-   "date": "2026-09-06",
+   "name": "BSV Turnier Bissenmoor",
+   "date": "2026-09-13",
    "priority": "B",
-   "status": "gemeldet",
-   "prepWindow": null
+   "status": "optional",
+   "prepWindow": 7,
+   "id": "T8x6182"
   },
   {
-   "id": "T1785849798960",
-   "name": "8. Sea Eagles Men's Cup offene Herrenrunde",
-   "date": "2026-09-02",
-   "priority": "B",
-   "status": "offen",
-   "prepWindow": null
-  },
-  {
-   "id": "T1785849891439",
-   "name": "BSV Einzelmeisterschaften Südplatz",
-   "date": "2026-09-08",
-   "priority": "B",
-   "status": "offen",
-   "prepWindow": null
-  },
-  {
-   "id": "T1785850007648",
-   "name": "Südplatz Open Tag 1",
-   "date": "2026-09-19",
-   "priority": "B",
-   "status": "offen",
-   "prepWindow": null
-  },
-  {
-   "id": "T1785850048249",
-   "name": "Südplatz Open Tag 2",
-   "date": "2026-09-20",
-   "priority": "B",
-   "status": "offen",
-   "prepWindow": null
-  },
-  {
-   "id": "T1785850126926",
-   "name": "offene Herrenrunde SeaEagles Südplatz",
-   "date": "2026-09-23",
-   "priority": "B",
-   "status": "offen",
-   "prepWindow": null
-  },
-  {
-   "id": "T1785850544587",
-   "name": "Golfclub Scharbeutz Clubmeisterschaften Nordplatz",
-   "date": "2026-10-18",
-   "priority": "A",
-   "status": "offen",
-   "prepWindow": 14
-  },
-  {
-   "id": "T1785850590661",
-   "name": "Halloween Turnier Nordplatz",
-   "date": "2026-10-31",
-   "priority": "B",
-   "status": "offen",
-   "prepWindow": null
+   "name": "Südplatz Monatscup",
+   "date": "2026-09-27",
+   "priority": "C",
+   "status": "optional",
+   "prepWindow": 3,
+   "id": "T9x6488"
   }
  ],
  "clubDistances": [
@@ -41562,5 +41625,134 @@
  ],
  "gpsShots": [],
  "notes": [],
- "notesTrash": []
+ "notesTrash": [],
+ "pins": {},
+ "_draftRound": {
+  "round": {
+   "id": "R1785862824694",
+   "date": "2026-08-04",
+   "course": "Timmendorfer Strand Nordplatz",
+   "tee": "Gelb",
+   "type": "18 Loch",
+   "side": "18 Loch",
+   "hi": 20,
+   "countHcp": true,
+   "conditions": {},
+   "startTime": "19:00",
+   "endTime": null,
+   "durationMin": null,
+   "holes": [
+    {
+     "hole": 1,
+     "par": 4,
+     "si": 17,
+     "len": 279,
+     "score": 4
+    },
+    {
+     "hole": 2,
+     "par": 5,
+     "si": 1,
+     "len": 499
+    },
+    {
+     "hole": 3,
+     "par": 3,
+     "si": 13,
+     "len": 150
+    },
+    {
+     "hole": 4,
+     "par": 4,
+     "si": 11,
+     "len": 321
+    },
+    {
+     "hole": 5,
+     "par": 4,
+     "si": 3,
+     "len": 387
+    },
+    {
+     "hole": 6,
+     "par": 3,
+     "si": 7,
+     "len": 175
+    },
+    {
+     "hole": 7,
+     "par": 4,
+     "si": 9,
+     "len": 351
+    },
+    {
+     "hole": 8,
+     "par": 5,
+     "si": 15,
+     "len": 463
+    },
+    {
+     "hole": 9,
+     "par": 4,
+     "si": 5,
+     "len": 342
+    },
+    {
+     "hole": 10,
+     "par": 4,
+     "si": 6,
+     "len": 341
+    },
+    {
+     "hole": 11,
+     "par": 5,
+     "si": 10,
+     "len": 482
+    },
+    {
+     "hole": 12,
+     "par": 3,
+     "si": 16,
+     "len": 179
+    },
+    {
+     "hole": 13,
+     "par": 4,
+     "si": 4,
+     "len": 363
+    },
+    {
+     "hole": 14,
+     "par": 4,
+     "si": 12,
+     "len": 317
+    },
+    {
+     "hole": 15,
+     "par": 5,
+     "si": 8,
+     "len": 440
+    },
+    {
+     "hole": 16,
+     "par": 4,
+     "si": 14,
+     "len": 310
+    },
+    {
+     "hole": 17,
+     "par": 3,
+     "si": 18,
+     "len": 168
+    },
+    {
+     "hole": 18,
+     "par": 4,
+     "si": 2,
+     "len": 370
+    }
+   ]
+  },
+  "ts": "2026-08-04T17:00:30.134Z"
+ }
 }
