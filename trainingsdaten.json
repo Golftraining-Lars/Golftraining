@@ -1,6 +1,6 @@
 {
  "version": 12,
- "exportedAt": "2026-08-04T13:23:27.252Z",
+ "exportedAt": "2026-08-04T13:23:37.995Z",
  "profile": {
   "name": "Lars",
   "startHcp": 22.8,
@@ -41389,7 +41389,7 @@
    "date": "2026-09-06",
    "priority": "B",
    "status": "gemeldet",
-   "prepWindow": 5
+   "prepWindow": null
   },
   {
    "id": "T1785849798960",
