@@ -1,6 +1,6 @@
 {
  "version": 12,
- "exportedAt": "2026-08-04T13:26:55.937Z",
+ "exportedAt": "2026-08-04T13:27:12.756Z",
  "profile": {
   "name": "Lars",
   "startHcp": 22.8,
@@ -41366,14 +41366,6 @@
    "status": "geplant",
    "prepWindow": 14,
    "id": "T7x5168"
-  },
-  {
-   "name": "BSV Turnier Bissenmoor",
-   "date": "2026-09-13",
-   "priority": "B",
-   "status": "optional",
-   "prepWindow": 7,
-   "id": "T8x6182"
   },
   {
    "name": "Südplatz Monatscup",
