@@ -1,6 +1,6 @@
 {
  "version": 12,
- "exportedAt": "2026-08-04T13:35:52.790Z",
+ "exportedAt": "2026-08-04T13:36:38.939Z",
  "profile": {
   "name": "Lars",
   "startHcp": 22.8,
@@ -41422,6 +41422,14 @@
    "priority": "A",
    "status": "offen",
    "prepWindow": 14
+  },
+  {
+   "id": "T1785850590661",
+   "name": "Halloween Turnier Nordplatz",
+   "date": "2026-10-31",
+   "priority": "B",
+   "status": "offen",
+   "prepWindow": null
   }
  ],
  "clubDistances": [
