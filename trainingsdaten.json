@@ -1,6 +1,6 @@
 {
  "version": 12,
- "exportedAt": "2026-08-04T12:25:35.947Z",
+ "exportedAt": "2026-08-04T12:25:56.574Z",
  "profile": {
   "name": "Lars",
   "startHcp": 22.8,
@@ -40972,15 +40972,6 @@
    "note": "Hoch",
    "testKey": "distanzputt",
    "id": "G26x9862"
-  },
-  {
-   "phase": "PHASE 3",
-   "label": "9-Shot Test ≥ 36/54",
-   "start": 28,
-   "target": 36,
-   "note": "Mittel  ·  Alle Shot-Typen zuverlässig",
-   "testKey": null,
-   "id": "G27x3945"
   },
   {
    "phase": "PHASE 3",
