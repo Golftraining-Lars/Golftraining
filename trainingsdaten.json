@@ -1,6 +1,6 @@
 {
  "version": 12,
- "exportedAt": "2026-08-04T13:33:15.023Z",
+ "exportedAt": "2026-08-04T13:35:52.790Z",
  "profile": {
   "name": "Lars",
   "startHcp": 22.8,
@@ -41414,6 +41414,14 @@
    "priority": "B",
    "status": "offen",
    "prepWindow": null
+  },
+  {
+   "id": "T1785850544587",
+   "name": "Golfclub Scharbeutz Clubmeisterschaften Nordplatz",
+   "date": "2026-10-18",
+   "priority": "A",
+   "status": "offen",
+   "prepWindow": 14
   }
  ],
  "clubDistances": [
