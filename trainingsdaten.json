@@ -1,6 +1,6 @@
 {
  "version": 12,
- "exportedAt": "2026-08-04T12:26:07.904Z",
+ "exportedAt": "2026-08-04T13:20:48.467Z",
  "profile": {
   "name": "Lars",
   "startHcp": 22.8,
@@ -41382,6 +41382,14 @@
    "status": "optional",
    "prepWindow": 3,
    "id": "T9x6488"
+  },
+  {
+   "id": "T1785849639996",
+   "name": "Timmendorf - klassischer Vierer",
+   "date": "2026-09-06",
+   "priority": "B",
+   "status": "gemeldet",
+   "prepWindow": 5
   }
  ],
  "clubDistances": [
