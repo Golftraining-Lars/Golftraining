@@ -1,6 +1,6 @@
 {
  "version": 12,
- "exportedAt": "2026-08-04T13:28:55.171Z",
+ "exportedAt": "2026-08-04T13:29:43.629Z",
  "profile": {
   "name": "Lars",
   "startHcp": 22.8,
@@ -41366,14 +41366,6 @@
    "status": "geplant",
    "prepWindow": 14,
    "id": "T7x5168"
-  },
-  {
-   "name": "Südplatz Monatscup",
-   "date": "2026-09-27",
-   "priority": "C",
-   "status": "optional",
-   "prepWindow": 3,
-   "id": "T9x6488"
   },
   {
    "id": "T1785849639996",
