@@ -1,6 +1,6 @@
 {
  "version": 12,
- "exportedAt": "2026-08-05T12:29:33.811Z",
+ "exportedAt": "2026-08-05T12:29:53.501Z",
  "profile": {
   "name": "Lars",
   "startHcp": 22.8,
@@ -68918,6 +68918,10 @@
  "pins": {
   "Timmendorfer Strand Nordplatz|5": {
    "d": 0.5,
+   "date": "2026-08-05"
+  },
+  "Timmendorfer Strand Nordplatz|6": {
+   "d": 0.88,
    "date": "2026-08-05"
   }
  }
