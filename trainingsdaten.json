@@ -1,6 +1,6 @@
 {
  "version": 12,
- "exportedAt": "2026-08-05T12:15:56.066Z",
+ "exportedAt": "2026-08-05T12:29:33.811Z",
  "profile": {
   "name": "Lars",
   "startHcp": 22.8,
@@ -68915,5 +68915,10 @@
    "deletedAt": "2026-08-05T06:58:42.195Z"
   }
  ],
- "pins": {}
+ "pins": {
+  "Timmendorfer Strand Nordplatz|5": {
+   "d": 0.5,
+   "date": "2026-08-05"
+  }
+ }
 }
