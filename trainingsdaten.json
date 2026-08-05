@@ -1,6 +1,6 @@
 {
  "version": 12,
- "exportedAt": "2026-08-05T08:38:33.044Z",
+ "exportedAt": "2026-08-05T08:41:37.958Z",
  "profile": {
   "name": "Lars",
   "startHcp": 22.8,
@@ -20679,10 +20679,21 @@
    "name": "Golf Club Fehmarn",
    "tees": {
     "Gelb": {
-     "sides": {},
-     "cr18": 0,
-     "slope18": null,
-     "par18": 0,
+     "sides": {
+      "Front 9": {
+       "cr": 35.6,
+       "slope": 130,
+       "par": 35
+      },
+      "Back 9": {
+       "cr": 35.9,
+       "slope": 130,
+       "par": 37
+      }
+     },
+     "cr18": 71.5,
+     "slope18": 130,
+     "par18": 72,
      "holes": [
       {
        "hole": 1,
