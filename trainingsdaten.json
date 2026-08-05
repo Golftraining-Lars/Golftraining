@@ -1,6 +1,6 @@
 {
  "version": 12,
- "exportedAt": "2026-08-05T06:56:36.157Z",
+ "exportedAt": "2026-08-05T06:56:49.202Z",
  "profile": {
   "name": "Lars",
   "startHcp": 22.8,
@@ -41644,6 +41644,17 @@
    "ts": "2026-08-05T06:56:28.081Z"
   }
  ],
- "notesTrash": [],
+ "notesTrash": [
+  {
+   "id": "N1785912997263",
+   "title": "Test",
+   "text": "Test",
+   "cat": "Schwung",
+   "pinned": false,
+   "images": [],
+   "ts": "2026-08-05T06:56:37.263Z",
+   "deletedAt": "2026-08-05T06:56:41.123Z"
+  }
+ ],
  "pins": {}
 }
