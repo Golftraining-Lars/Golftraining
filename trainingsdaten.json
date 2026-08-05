@@ -1,6 +1,6 @@
 {
  "version": 12,
- "exportedAt": "2026-08-05T12:33:24.325Z",
+ "exportedAt": "2026-08-05T12:35:22.381Z",
  "profile": {
   "name": "Lars",
   "startHcp": 22.8,
@@ -21795,6 +21795,20 @@
       ],
       "own": true,
       "hole": 1
+     },
+     {
+      "kind": "ob",
+      "line": [
+       [
+        54.002848,
+        10.751425
+       ],
+       [
+        54.001095,
+        10.752664
+       ]
+      ],
+      "own": true
      }
     ],
     "overrides": {
