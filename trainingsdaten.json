@@ -1,6 +1,6 @@
 {
  "version": 12,
- "exportedAt": "2026-08-05T18:23:01.152Z",
+ "exportedAt": "2026-08-05T18:23:55.984Z",
  "profile": {
   "name": "Lars",
   "startHcp": 22.8,
@@ -68950,9 +68950,10 @@
    "date": "2026-08-05"
   }
  },
+ "ui": {},
  "_draftRound": {
   "round": {
-   "id": "R1785932946797",
+   "id": "R1785954209691",
    "date": "2026-08-05",
    "course": "Timmendorfer Strand Nordplatz",
    "tee": "Gelb",
@@ -68961,20 +68962,20 @@
    "hi": 20,
    "countHcp": true,
    "conditions": {
-    "temp": 29,
-    "windMs": 8.01,
-    "windDir": 250,
-    "gustMs": 13.2,
-    "at": "2026-08-05T12:28:39.071Z"
+    "temp": 24.4,
+    "windMs": 3.62,
+    "windDir": 294,
+    "gustMs": 7.3,
+    "at": "2026-08-05T18:21:53.745Z"
    },
    "weather": {
-    "temp": 29,
-    "windMs": 8.01,
-    "windDir": 250,
-    "gustMs": 13.2,
-    "at": "2026-08-05T12:28:39.071Z"
+    "temp": 24.4,
+    "windMs": 3.62,
+    "windDir": 294,
+    "gustMs": 7.3,
+    "at": "2026-08-05T18:21:53.745Z"
    },
-   "startTime": "14:29",
+   "startTime": "20:23",
    "endTime": null,
    "durationMin": null,
    "holes": [
@@ -68982,44 +68983,56 @@
      "hole": 1,
      "par": 4,
      "si": 17,
-     "len": 279
+     "len": 279,
+     "score": 4,
+     "putts": 1
     },
     {
      "hole": 2,
      "par": 5,
      "si": 1,
-     "len": 499
+     "len": 499,
+     "score": 5,
+     "putts": 1
     },
     {
      "hole": 3,
      "par": 3,
      "si": 13,
-     "len": 150
+     "len": 150,
+     "score": 3,
+     "putts": 1
     },
     {
      "hole": 4,
      "par": 4,
      "si": 11,
-     "len": 321
+     "len": 321,
+     "score": 4,
+     "putts": 1
     },
     {
      "hole": 5,
      "par": 4,
      "si": 3,
      "len": 387,
-     "score": 4
+     "score": 4,
+     "putts": 1
     },
     {
      "hole": 6,
      "par": 3,
      "si": 7,
-     "len": 175
+     "len": 175,
+     "score": 3,
+     "putts": 1
     },
     {
      "hole": 7,
      "par": 4,
      "si": 9,
-     "len": 351
+     "len": 351,
+     "score": 4
     },
     {
      "hole": 8,
@@ -69089,7 +69102,6 @@
     }
    ]
   },
-  "ts": "2026-08-05T12:30:12.309Z"
- },
- "ui": {}
+  "ts": "2026-08-05T18:23:55.386Z"
+ }
 }
