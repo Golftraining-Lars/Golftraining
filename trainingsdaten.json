@@ -1,6 +1,6 @@
 {
  "version": 12,
- "exportedAt": "2026-08-05T12:32:53.077Z",
+ "exportedAt": "2026-08-05T12:33:24.325Z",
  "profile": {
   "name": "Lars",
   "startHcp": 22.8,
@@ -21786,7 +21786,17 @@
       "distM": 368
      }
     },
-    "mine": [],
+    "mine": [
+     {
+      "kind": "tree",
+      "pt": [
+       54.002732,
+       10.752529
+      ],
+      "own": true,
+      "hole": 1
+     }
+    ],
     "overrides": {
      "holes": {}
     },
