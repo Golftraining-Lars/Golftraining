@@ -1,6 +1,6 @@
 {
  "version": 12,
- "exportedAt": "2026-08-06T06:14:20.262Z",
+ "exportedAt": "2026-08-06T06:18:17.676Z",
  "profile": {
   "name": "Lars",
   "startHcp": 22.8,
@@ -68950,7 +68950,9 @@
    "date": "2026-08-05"
   }
  },
- "ui": {},
+ "ui": {
+  "rings": true
+ },
  "_draftRound": {
   "round": {
    "id": "R1785996748438",
