@@ -1,6 +1,6 @@
 {
  "version": 12,
- "exportedAt": "2026-08-06T08:41:12Z",
+ "exportedAt": "2026-08-06T08:43:11.233Z",
  "profile": {
   "name": "Lars",
   "startHcp": 22.8,
@@ -1821,6 +1821,387 @@
        "par": 4,
        "si": 2,
        "len": 370
+      }
+     ]
+    },
+    "Schwarz": {
+     "sides": {
+      "Front 9": {
+       "par": 36,
+       "cr": 37,
+       "slope": 136
+      },
+      "Back 9": {
+       "par": 36,
+       "cr": 37,
+       "slope": 136
+      }
+     },
+     "cr18": 74,
+     "slope18": 136,
+     "par18": 72,
+     "holes": [
+      {
+       "hole": 1,
+       "par": 4,
+       "si": 17,
+       "len": 279
+      },
+      {
+       "hole": 2,
+       "par": 5,
+       "si": 1,
+       "len": 542
+      },
+      {
+       "hole": 3,
+       "par": 3,
+       "si": 13,
+       "len": 158
+      },
+      {
+       "hole": 4,
+       "par": 4,
+       "si": 11,
+       "len": 333
+      },
+      {
+       "hole": 5,
+       "par": 4,
+       "si": 3,
+       "len": 394
+      },
+      {
+       "hole": 6,
+       "par": 3,
+       "si": 7,
+       "len": 206
+      },
+      {
+       "hole": 7,
+       "par": 4,
+       "si": 9,
+       "len": 360
+      },
+      {
+       "hole": 8,
+       "par": 5,
+       "si": 15,
+       "len": 471
+      },
+      {
+       "hole": 9,
+       "par": 4,
+       "si": 5,
+       "len": 362
+      },
+      {
+       "hole": 10,
+       "par": 4,
+       "si": 6,
+       "len": 364
+      },
+      {
+       "hole": 11,
+       "par": 5,
+       "si": 10,
+       "len": 526
+      },
+      {
+       "hole": 12,
+       "par": 3,
+       "si": 16,
+       "len": 207
+      },
+      {
+       "hole": 13,
+       "par": 4,
+       "si": 4,
+       "len": 371
+      },
+      {
+       "hole": 14,
+       "par": 4,
+       "si": 12,
+       "len": 341
+      },
+      {
+       "hole": 15,
+       "par": 5,
+       "si": 8,
+       "len": 464
+      },
+      {
+       "hole": 16,
+       "par": 4,
+       "si": 14,
+       "len": 329
+      },
+      {
+       "hole": 17,
+       "par": 3,
+       "si": 18,
+       "len": 184
+      },
+      {
+       "hole": 18,
+       "par": 4,
+       "si": 2,
+       "len": 420
+      }
+     ]
+    },
+    "Blau": {
+     "sides": {
+      "Front 9": {
+       "par": 36,
+       "cr": 35,
+       "slope": 131
+      },
+      "Back 9": {
+       "par": 36,
+       "cr": 35,
+       "slope": 131
+      }
+     },
+     "cr18": 70,
+     "slope18": 131,
+     "par18": 72,
+     "holes": [
+      {
+       "hole": 1,
+       "par": 4,
+       "si": 17,
+       "len": 279
+      },
+      {
+       "hole": 2,
+       "par": 5,
+       "si": 1,
+       "len": 468
+      },
+      {
+       "hole": 3,
+       "par": 3,
+       "si": 13,
+       "len": 150
+      },
+      {
+       "hole": 4,
+       "par": 4,
+       "si": 11,
+       "len": 309
+      },
+      {
+       "hole": 5,
+       "par": 4,
+       "si": 3,
+       "len": 352
+      },
+      {
+       "hole": 6,
+       "par": 3,
+       "si": 7,
+       "len": 152
+      },
+      {
+       "hole": 7,
+       "par": 4,
+       "si": 9,
+       "len": 351
+      },
+      {
+       "hole": 8,
+       "par": 5,
+       "si": 15,
+       "len": 413
+      },
+      {
+       "hole": 9,
+       "par": 4,
+       "si": 5,
+       "len": 308
+      },
+      {
+       "hole": 10,
+       "par": 4,
+       "si": 6,
+       "len": 308
+      },
+      {
+       "hole": 11,
+       "par": 5,
+       "si": 10,
+       "len": 435
+      },
+      {
+       "hole": 12,
+       "par": 3,
+       "si": 16,
+       "len": 179
+      },
+      {
+       "hole": 13,
+       "par": 4,
+       "si": 4,
+       "len": 334
+      },
+      {
+       "hole": 14,
+       "par": 4,
+       "si": 12,
+       "len": 296
+      },
+      {
+       "hole": 15,
+       "par": 5,
+       "si": 8,
+       "len": 430
+      },
+      {
+       "hole": 16,
+       "par": 4,
+       "si": 14,
+       "len": 310
+      },
+      {
+       "hole": 17,
+       "par": 3,
+       "si": 18,
+       "len": 168
+      },
+      {
+       "hole": 18,
+       "par": 4,
+       "si": 2,
+       "len": 342
+      }
+     ]
+    },
+    "Rot": {
+     "sides": {
+      "Front 9": {
+       "par": 36,
+       "cr": 37,
+       "slope": 132
+      },
+      "Back 9": {
+       "par": 36,
+       "cr": 37,
+       "slope": 132
+      }
+     },
+     "cr18": 74.1,
+     "slope18": 132,
+     "par18": 72,
+     "holes": [
+      {
+       "hole": 1,
+       "par": 4,
+       "si": 17,
+       "len": 271
+      },
+      {
+       "hole": 2,
+       "par": 5,
+       "si": 1,
+       "len": 421
+      },
+      {
+       "hole": 3,
+       "par": 3,
+       "si": 13,
+       "len": 139
+      },
+      {
+       "hole": 4,
+       "par": 4,
+       "si": 11,
+       "len": 294
+      },
+      {
+       "hole": 5,
+       "par": 4,
+       "si": 3,
+       "len": 352
+      },
+      {
+       "hole": 6,
+       "par": 3,
+       "si": 7,
+       "len": 152
+      },
+      {
+       "hole": 7,
+       "par": 4,
+       "si": 9,
+       "len": 304
+      },
+      {
+       "hole": 8,
+       "par": 5,
+       "si": 15,
+       "len": 400
+      },
+      {
+       "hole": 9,
+       "par": 4,
+       "si": 5,
+       "len": 291
+      },
+      {
+       "hole": 10,
+       "par": 4,
+       "si": 6,
+       "len": 308
+      },
+      {
+       "hole": 11,
+       "par": 5,
+       "si": 10,
+       "len": 435
+      },
+      {
+       "hole": 12,
+       "par": 3,
+       "si": 16,
+       "len": 161
+      },
+      {
+       "hole": 13,
+       "par": 4,
+       "si": 4,
+       "len": 334
+      },
+      {
+       "hole": 14,
+       "par": 4,
+       "si": 12,
+       "len": 270
+      },
+      {
+       "hole": 15,
+       "par": 5,
+       "si": 8,
+       "len": 403
+      },
+      {
+       "hole": 16,
+       "par": 4,
+       "si": 14,
+       "len": 285
+      },
+      {
+       "hole": 17,
+       "par": 3,
+       "si": 18,
+       "len": 150
+      },
+      {
+       "hole": 18,
+       "par": 4,
+       "si": 2,
+       "len": 342
       }
      ]
     }
@@ -33101,6 +33482,133 @@
        "len": 123
       }
      ]
+    },
+    "Rot": {
+     "sides": {
+      "Front 9": {
+       "par": 30,
+       "cr": 30.6,
+       "slope": 103
+      },
+      "Back 9": {
+       "par": 31,
+       "cr": 30.6,
+       "slope": 103
+      }
+     },
+     "cr18": 61.2,
+     "slope18": 103,
+     "par18": 61,
+     "holes": [
+      {
+       "hole": 1,
+       "par": 3,
+       "si": 9,
+       "len": 148
+      },
+      {
+       "hole": 2,
+       "par": 3,
+       "si": 5,
+       "len": 154
+      },
+      {
+       "hole": 3,
+       "par": 3,
+       "si": 1,
+       "len": 165
+      },
+      {
+       "hole": 4,
+       "par": 4,
+       "si": 7,
+       "len": 248
+      },
+      {
+       "hole": 5,
+       "par": 3,
+       "si": 13,
+       "len": 121
+      },
+      {
+       "hole": 6,
+       "par": 3,
+       "si": 15,
+       "len": 149
+      },
+      {
+       "hole": 7,
+       "par": 3,
+       "si": 17,
+       "len": 107
+      },
+      {
+       "hole": 8,
+       "par": 4,
+       "si": 3,
+       "len": 281
+      },
+      {
+       "hole": 9,
+       "par": 4,
+       "si": 11,
+       "len": 239
+      },
+      {
+       "hole": 10,
+       "par": 3,
+       "si": 8,
+       "len": 143
+      },
+      {
+       "hole": 11,
+       "par": 4,
+       "si": 2,
+       "len": 302
+      },
+      {
+       "hole": 12,
+       "par": 4,
+       "si": 12,
+       "len": 224
+      },
+      {
+       "hole": 13,
+       "par": 4,
+       "si": 14,
+       "len": 207
+      },
+      {
+       "hole": 14,
+       "par": 3,
+       "si": 16,
+       "len": 122
+      },
+      {
+       "hole": 15,
+       "par": 4,
+       "si": 4,
+       "len": 290
+      },
+      {
+       "hole": 16,
+       "par": 3,
+       "si": 18,
+       "len": 114
+      },
+      {
+       "hole": 17,
+       "par": 3,
+       "si": 10,
+       "len": 136
+      },
+      {
+       "hole": 18,
+       "par": 3,
+       "si": 6,
+       "len": 113
+      }
+     ]
     }
    },
    "geo": {
@@ -64353,6 +64861,133 @@
        "par": 4,
        "si": 16,
        "len": 235
+      }
+     ]
+    },
+    "Rot": {
+     "sides": {
+      "Front 9": {
+       "par": 36,
+       "cr": 37,
+       "slope": 130
+      },
+      "Back 9": {
+       "par": 36,
+       "cr": 37,
+       "slope": 130
+      }
+     },
+     "cr18": 74,
+     "slope18": 130,
+     "par18": 72,
+     "holes": [
+      {
+       "hole": 1,
+       "par": 4,
+       "si": 5,
+       "len": 295
+      },
+      {
+       "hole": 2,
+       "par": 3,
+       "si": 17,
+       "len": 142
+      },
+      {
+       "hole": 3,
+       "par": 5,
+       "si": 7,
+       "len": 472
+      },
+      {
+       "hole": 4,
+       "par": 5,
+       "si": 9,
+       "len": 380
+      },
+      {
+       "hole": 5,
+       "par": 4,
+       "si": 3,
+       "len": 316
+      },
+      {
+       "hole": 6,
+       "par": 3,
+       "si": 15,
+       "len": 155
+      },
+      {
+       "hole": 7,
+       "par": 4,
+       "si": 11,
+       "len": 243
+      },
+      {
+       "hole": 8,
+       "par": 4,
+       "si": 13,
+       "len": 323
+      },
+      {
+       "hole": 9,
+       "par": 4,
+       "si": 1,
+       "len": 317
+      },
+      {
+       "hole": 10,
+       "par": 4,
+       "si": 18,
+       "len": 243
+      },
+      {
+       "hole": 11,
+       "par": 4,
+       "si": 14,
+       "len": 287
+      },
+      {
+       "hole": 12,
+       "par": 5,
+       "si": 6,
+       "len": 497
+      },
+      {
+       "hole": 13,
+       "par": 3,
+       "si": 12,
+       "len": 111
+      },
+      {
+       "hole": 14,
+       "par": 4,
+       "si": 2,
+       "len": 366
+      },
+      {
+       "hole": 15,
+       "par": 3,
+       "si": 10,
+       "len": 168
+      },
+      {
+       "hole": 16,
+       "par": 4,
+       "si": 4,
+       "len": 358
+      },
+      {
+       "hole": 17,
+       "par": 5,
+       "si": 8,
+       "len": 389
+      },
+      {
+       "hole": 18,
+       "par": 4,
+       "si": 16,
+       "len": 211
       }
      ]
     }
@@ -561477,6 +562112,542 @@
      "holesMapped": 18
     }
    }
+  },
+  {
+   "name": "GCC Hohwachter Bucht (A/B)",
+   "place": "Hohwacht",
+   "country": "Deutschland",
+   "tees": {
+    "Gelb": {
+     "sides": {
+      "Front 9": {
+       "par": 36,
+       "cr": 36.3,
+       "slope": 133
+      },
+      "Back 9": {
+       "par": 37,
+       "cr": 36.3,
+       "slope": 133
+      }
+     },
+     "cr18": 72.5,
+     "slope18": 133,
+     "par18": 73,
+     "holes": [
+      {
+       "hole": 1,
+       "par": 4,
+       "si": 15,
+       "len": 386
+      },
+      {
+       "hole": 2,
+       "par": 4,
+       "si": 5,
+       "len": 355
+      },
+      {
+       "hole": 3,
+       "par": 3,
+       "si": 17,
+       "len": 160
+      },
+      {
+       "hole": 4,
+       "par": 4,
+       "si": 11,
+       "len": 323
+      },
+      {
+       "hole": 5,
+       "par": 5,
+       "si": 7,
+       "len": 458
+      },
+      {
+       "hole": 6,
+       "par": 4,
+       "si": 13,
+       "len": 308
+      },
+      {
+       "hole": 7,
+       "par": 4,
+       "si": 1,
+       "len": 356
+      },
+      {
+       "hole": 8,
+       "par": 3,
+       "si": 3,
+       "len": 172
+      },
+      {
+       "hole": 9,
+       "par": 5,
+       "si": 9,
+       "len": 459
+      },
+      {
+       "hole": 10,
+       "par": 4,
+       "si": 4,
+       "len": 328
+      },
+      {
+       "hole": 11,
+       "par": 5,
+       "si": 10,
+       "len": 426
+      },
+      {
+       "hole": 12,
+       "par": 3,
+       "si": 18,
+       "len": 150
+      },
+      {
+       "hole": 13,
+       "par": 5,
+       "si": 8,
+       "len": 480
+      },
+      {
+       "hole": 14,
+       "par": 4,
+       "si": 16,
+       "len": 323
+      },
+      {
+       "hole": 15,
+       "par": 3,
+       "si": 14,
+       "len": 179
+      },
+      {
+       "hole": 16,
+       "par": 4,
+       "si": 2,
+       "len": 358
+      },
+      {
+       "hole": 17,
+       "par": 5,
+       "si": 6,
+       "len": 486
+      },
+      {
+       "hole": 18,
+       "par": 4,
+       "si": 12,
+       "len": 281
+      }
+     ]
+    }
+   }
+  },
+  {
+   "name": "Golf-Club Curau",
+   "place": "Stockelsdorf-Curau",
+   "country": "Deutschland",
+   "tees": {
+    "Gelb": {
+     "sides": {
+      "Front 9": {
+       "par": 37,
+       "cr": 35.5,
+       "slope": 130
+      },
+      "Back 9": {
+       "par": 35,
+       "cr": 35.5,
+       "slope": 130
+      }
+     },
+     "cr18": 71,
+     "slope18": 130,
+     "par18": 72,
+     "holes": [
+      {
+       "hole": 1,
+       "par": 5,
+       "si": 3,
+       "len": 471
+      },
+      {
+       "hole": 2,
+       "par": 3,
+       "si": 17,
+       "len": 190
+      },
+      {
+       "hole": 3,
+       "par": 4,
+       "si": 13,
+       "len": 337
+      },
+      {
+       "hole": 4,
+       "par": 4,
+       "si": 11,
+       "len": 323
+      },
+      {
+       "hole": 5,
+       "par": 4,
+       "si": 5,
+       "len": 399
+      },
+      {
+       "hole": 6,
+       "par": 5,
+       "si": 7,
+       "len": 465
+      },
+      {
+       "hole": 7,
+       "par": 3,
+       "si": 15,
+       "len": 169
+      },
+      {
+       "hole": 8,
+       "par": 5,
+       "si": 9,
+       "len": 453
+      },
+      {
+       "hole": 9,
+       "par": 4,
+       "si": 1,
+       "len": 388
+      },
+      {
+       "hole": 10,
+       "par": 4,
+       "si": 4,
+       "len": 371
+      },
+      {
+       "hole": 11,
+       "par": 3,
+       "si": 18,
+       "len": 112
+      },
+      {
+       "hole": 12,
+       "par": 4,
+       "si": 8,
+       "len": 356
+      },
+      {
+       "hole": 13,
+       "par": 4,
+       "si": 12,
+       "len": 313
+      },
+      {
+       "hole": 14,
+       "par": 3,
+       "si": 10,
+       "len": 169
+      },
+      {
+       "hole": 15,
+       "par": 4,
+       "si": 14,
+       "len": 312
+      },
+      {
+       "hole": 16,
+       "par": 4,
+       "si": 6,
+       "len": 367
+      },
+      {
+       "hole": 17,
+       "par": 4,
+       "si": 16,
+       "len": 301
+      },
+      {
+       "hole": 18,
+       "par": 5,
+       "si": 2,
+       "len": 493
+      }
+     ]
+    }
+   }
+  },
+  {
+   "name": "Golf Club Ostseebad Grömitz (Residenz)",
+   "place": "Grömitz",
+   "country": "Deutschland",
+   "tees": {
+    "Gelb": {
+     "sides": {
+      "Front 9": {
+       "par": 36,
+       "cr": 35.3,
+       "slope": 133
+      },
+      "Back 9": {
+       "par": 37,
+       "cr": 35.3,
+       "slope": 133
+      }
+     },
+     "cr18": 70.6,
+     "slope18": 133,
+     "par18": 73,
+     "holes": [
+      {
+       "hole": 1,
+       "par": 3,
+       "si": 9,
+       "len": 183
+      },
+      {
+       "hole": 2,
+       "par": 4,
+       "si": 7,
+       "len": 326
+      },
+      {
+       "hole": 3,
+       "par": 4,
+       "si": 15,
+       "len": 304
+      },
+      {
+       "hole": 4,
+       "par": 5,
+       "si": 1,
+       "len": 496
+      },
+      {
+       "hole": 5,
+       "par": 4,
+       "si": 11,
+       "len": 302
+      },
+      {
+       "hole": 6,
+       "par": 4,
+       "si": 17,
+       "len": 344
+      },
+      {
+       "hole": 7,
+       "par": 4,
+       "si": 5,
+       "len": 310
+      },
+      {
+       "hole": 8,
+       "par": 5,
+       "si": 3,
+       "len": 473
+      },
+      {
+       "hole": 9,
+       "par": 3,
+       "si": 13,
+       "len": 158
+      },
+      {
+       "hole": 10,
+       "par": 4,
+       "si": 6,
+       "len": 335
+      },
+      {
+       "hole": 11,
+       "par": 3,
+       "si": 4,
+       "len": 154
+      },
+      {
+       "hole": 12,
+       "par": 4,
+       "si": 10,
+       "len": 319
+      },
+      {
+       "hole": 13,
+       "par": 5,
+       "si": 2,
+       "len": 441
+      },
+      {
+       "hole": 14,
+       "par": 5,
+       "si": 8,
+       "len": 442
+      },
+      {
+       "hole": 15,
+       "par": 4,
+       "si": 18,
+       "len": 295
+      },
+      {
+       "hole": 16,
+       "par": 4,
+       "si": 16,
+       "len": 309
+      },
+      {
+       "hole": 17,
+       "par": 4,
+       "si": 12,
+       "len": 295
+      },
+      {
+       "hole": 18,
+       "par": 4,
+       "si": 14,
+       "len": 281
+      }
+     ]
+    }
+   }
+  },
+  {
+   "name": "Lübeck-Travemünder Golf-Klub (A/B)",
+   "place": "Lübeck-Travemünde",
+   "country": "Deutschland",
+   "tees": {
+    "Gelb": {
+     "sides": {
+      "Front 9": {
+       "par": 36,
+       "cr": 36.9,
+       "slope": 134
+      },
+      "Back 9": {
+       "par": 37,
+       "cr": 36.9,
+       "slope": 134
+      }
+     },
+     "cr18": 73.7,
+     "slope18": 134,
+     "par18": 73,
+     "holes": [
+      {
+       "hole": 1,
+       "par": 4,
+       "si": 9,
+       "len": 337
+      },
+      {
+       "hole": 2,
+       "par": 5,
+       "si": 3,
+       "len": 482
+      },
+      {
+       "hole": 3,
+       "par": 3,
+       "si": 17,
+       "len": 141
+      },
+      {
+       "hole": 4,
+       "par": 4,
+       "si": 1,
+       "len": 382
+      },
+      {
+       "hole": 5,
+       "par": 4,
+       "si": 7,
+       "len": 366
+      },
+      {
+       "hole": 6,
+       "par": 5,
+       "si": 11,
+       "len": 504
+      },
+      {
+       "hole": 7,
+       "par": 4,
+       "si": 5,
+       "len": 339
+      },
+      {
+       "hole": 8,
+       "par": 3,
+       "si": 13,
+       "len": 171
+      },
+      {
+       "hole": 9,
+       "par": 4,
+       "si": 15,
+       "len": 343
+      },
+      {
+       "hole": 10,
+       "par": 5,
+       "si": 2,
+       "len": 501
+      },
+      {
+       "hole": 11,
+       "par": 4,
+       "si": 6,
+       "len": 371
+      },
+      {
+       "hole": 12,
+       "par": 5,
+       "si": 10,
+       "len": 482
+      },
+      {
+       "hole": 13,
+       "par": 3,
+       "si": 18,
+       "len": 162
+      },
+      {
+       "hole": 14,
+       "par": 4,
+       "si": 4,
+       "len": 350
+      },
+      {
+       "hole": 15,
+       "par": 4,
+       "si": 8,
+       "len": 281
+      },
+      {
+       "hole": 16,
+       "par": 5,
+       "si": 12,
+       "len": 447
+      },
+      {
+       "hole": 17,
+       "par": 4,
+       "si": 14,
+       "len": 344
+      },
+      {
+       "hole": 18,
+       "par": 3,
+       "si": 16,
+       "len": 161
+      }
+     ]
+    }
+   }
   }
  ],
  "competitions": [
@@ -569234,7 +570405,9 @@
   }
  },
  "ui": {
-  "rings": true
+  "rings": true,
+  "extraCoursesSeed": "ostsee-4-2026-08",
+  "extraTeesSeed": "scorecards2-2026-08"
  },
  "_draftRound": {
   "round": {
@@ -569245,15 +570418,9 @@
    "type": "18 Loch",
    "countHcp": false,
    "hi": 20,
-   "conditions": {
-    "temp": 21.7,
-    "windMs": 5.9,
-    "windDir": 259
-   },
    "holes": [
     {
      "hole": 1,
-     "distToPin": 250,
      "shots": [
       {
        "lat": 54.029362,
@@ -569264,26 +570431,11 @@
        "lat": 54.029362,
        "lng": 10.749206,
        "club": ""
-      },
-      {
-       "lat": 54.029357,
-       "lng": 10.749195,
-       "club": "Driver 10,5°"
-      },
-      {
-       "lat": 54.029375,
-       "lng": 10.749178,
-       "club": "2 Iron 17°"
-      },
-      {
-       "lat": 54.029375,
-       "lng": 10.749178,
-       "club": ""
       }
      ]
     }
    ]
   },
-  "ts": "2026-08-06T08:41:12Z"
+  "ts": "2026-08-06T08:33:39Z"
  }
 }
