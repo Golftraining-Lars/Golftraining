@@ -1,6 +1,6 @@
 {
  "version": 12,
- "exportedAt": "2026-08-06T06:33:40Z",
+ "exportedAt": "2026-08-06T06:33:46Z",
  "profile": {
   "name": "Lars",
   "startHcp": 22.8,
@@ -68962,8 +68962,13 @@
    "type": "18 Loch",
    "countHcp": false,
    "hi": 20,
-   "holes": []
+   "holes": [
+    {
+     "hole": 3,
+     "score": 6
+    }
+   ]
   },
-  "ts": "2026-08-06T06:33:40Z"
+  "ts": "2026-08-06T06:33:46Z"
  }
 }
