@@ -1,6 +1,6 @@
 {
  "version": 12,
- "exportedAt": "2026-08-06T08:33:39Z",
+ "exportedAt": "2026-08-06T08:39:51Z",
  "profile": {
   "name": "Lars",
   "startHcp": 22.8,
@@ -569245,6 +569245,11 @@
    "type": "18 Loch",
    "countHcp": false,
    "hi": 20,
+   "conditions": {
+    "temp": 21.7,
+    "windMs": 5.9,
+    "windDir": 259
+   },
    "holes": [
     {
      "hole": 1,
@@ -569258,11 +569263,16 @@
        "lat": 54.029362,
        "lng": 10.749206,
        "club": ""
+      },
+      {
+       "lat": 54.029357,
+       "lng": 10.749195,
+       "club": ""
       }
      ]
     }
    ]
   },
-  "ts": "2026-08-06T08:33:39Z"
+  "ts": "2026-08-06T08:39:51Z"
  }
 }
