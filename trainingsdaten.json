@@ -1,6 +1,6 @@
 {
  "version": 12,
- "exportedAt": "2026-08-06T09:52:13Z",
+ "exportedAt": "2026-08-06T10:24:35Z",
  "profile": {
   "name": "Lars",
   "startHcp": 22.8,
@@ -570419,18 +570419,18 @@
    "countHcp": false,
    "hi": 20,
    "conditions": {
-    "temp": 22.3,
-    "windMs": 6.7,
-    "windDir": 261
+    "temp": 22.2,
+    "windMs": 6.5,
+    "windDir": 259
    },
    "holes": [
     {
      "hole": 1,
-     "recovery": "Ja"
+     "score": 4
     }
    ]
   },
-  "ts": "2026-08-06T09:52:13Z"
+  "ts": "2026-08-06T10:24:35Z"
  },
  "wiki": {
   "cats": [
