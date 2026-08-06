@@ -1,6 +1,6 @@
 {
  "version": 12,
- "exportedAt": "2026-08-06T10:24:35Z",
+ "exportedAt": "2026-08-06T10:24:40Z",
  "profile": {
   "name": "Lars",
   "startHcp": 22.8,
@@ -570426,11 +570426,11 @@
    "holes": [
     {
      "hole": 1,
-     "score": 4
+     "score": 3
     }
    ]
   },
-  "ts": "2026-08-06T10:24:35Z"
+  "ts": "2026-08-06T10:24:40Z"
  },
  "wiki": {
   "cats": [
