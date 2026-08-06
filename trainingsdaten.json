@@ -1,6 +1,6 @@
 {
  "version": 12,
- "exportedAt": "2026-08-06T07:28:29.313Z",
+ "exportedAt": "2026-08-06T08:33:39Z",
  "profile": {
   "name": "Lars",
   "startHcp": 22.8,
@@ -569239,7 +569239,7 @@
  "_draftRound": {
   "round": {
    "date": "2026-08-06",
-   "course": "Golf Club Fehmarn",
+   "course": "Timmendorfer Strand Nordplatz",
    "tee": "Gelb",
    "side": "18 Loch",
    "type": "18 Loch",
@@ -569247,32 +569247,22 @@
    "hi": 20,
    "holes": [
     {
-     "hole": 3,
-     "score": 7,
-     "putts": 3
-    },
-    {
-     "hole": 4,
-     "score": 4
-    },
-    {
-     "hole": 5,
-     "score": 4
-    },
-    {
-     "hole": 6,
-     "score": 6
-    },
-    {
-     "hole": 7,
-     "score": 5
-    },
-    {
-     "hole": 8,
-     "score": 6
+     "hole": 1,
+     "shots": [
+      {
+       "lat": 54.029362,
+       "lng": 10.749206,
+       "club": ""
+      },
+      {
+       "lat": 54.029362,
+       "lng": 10.749206,
+       "club": ""
+      }
+     ]
     }
    ]
   },
-  "ts": "2026-08-06T06:36:30Z"
+  "ts": "2026-08-06T08:33:39Z"
  }
 }
