@@ -578,12 +578,24 @@
   /* ---------- VOLLBILD-KARTE (v1.69) ----------
      Kein Blatt mit Karte darin, sondern eine eigene Ebene ueber allem: die
      Karte fuellt den Bildschirm, alles andere liegt als Overlay darauf. */
-  /* Beide Kanten pinnen UND dvh setzen: `inset:0` allein deckte auf dem Geraet
-     nur rund drei Viertel ab. 100dvh folgt der dynamischen Adressleiste auf
-     Android; pfSize() setzt zusaetzlich den gemessenen Wert per JS. */
-  #playFull{position:fixed;top:0;left:0;right:0;bottom:0;width:100%;height:100vh;height:100dvh;
-    z-index:70;display:none;background:#eef3e6}
-  #playFull.on{display:block}
+  /* ---------- TOP LAYER statt position:fixed (v1.83) ----------
+     Sieben Anlaeufe mit `position:fixed` sind gescheitert: `bottom:0` loest
+     gegen das Initial Containing Block auf, und dessen Hoehe war auf dem Geraet
+     56 px kuerzer als der Bildschirm (gemessen: clientH 649 vs innerH 705).
+     Jede Korrektur ueber gemessene Hoehen wurde damit zum Wettlauf mit der
+     Adressleiste — sie schrumpfte bei jeder Beruehrung.
+
+     Ein MODALES <dialog> liegt im TOP LAYER. Sein Bezugsrahmen ist der
+     Viewport selbst: unabhaengig vom ICB, von Vorfahren mit transform und von
+     der Adressleiste. Damit entfaellt die ganze Messerei ersatzlos.
+
+     Die Browser-Vorgaben fuer <dialog> MUESSEN zurueckgesetzt werden — vor
+     allem `max-width`/`max-height` (Standard: calc(100% - 6px - 2em)), sonst
+     bleibt ringsum ein Rand. */
+  #playFull{border:0;padding:0;margin:0;inset:0;
+    width:100%;height:100%;max-width:100%;max-height:100%;
+    overflow:hidden;background:#eef3e6;color:var(--ink)}
+  #playFull::backdrop{background:#eef3e6}
   body.pf-open{overflow:hidden}
   body.pf-open nav,body.pf-open header,body.pf-open #subnav,body.pf-open .fab{display:none!important}
   #pfMap{position:absolute;inset:0;overflow:hidden;touch-action:none}
@@ -1581,6 +1593,42 @@ Zwei Massnahmen:
    schlechter lesbar auf.
 tests.js prueft die Formen direkt gegeneinander (Abschnitt 24h).
 
+### Nachhaltige Loesung: Top Layer statt position:fixed (v1.83)
+Sieben Anlaeufe mit `position:fixed` sind gescheitert. Die Messung hatte den Grund geliefert:
+`bottom:0` loest gegen das **Initial Containing Block** auf, und dessen Hoehe war auf dem Geraet
+56 px kuerzer als der Bildschirm (`clientH 649` vs `innerH 705`). Jede Korrektur ueber gemessene
+Hoehen wurde damit zum Wettlauf mit der Adressleiste — die Ebene schrumpfte bei jeder Beruehrung.
+
+**Ein modales `<dialog>` liegt im TOP LAYER.** Sein Bezugsrahmen ist der Viewport selbst:
+unabhaengig vom ICB, von Vorfahren mit `transform`, von der Adressleiste und vom z-index-Stapel.
+`width:100%; height:100%` genuegt.
+
+Was dabei zu beachten ist — und in tests.js geprueft wird:
+- **Browser-Vorgaben zuruecksetzen**, vor allem `max-width`/`max-height` (Standard
+  `calc(100% - 6px - 2em)`), sonst bleibt ringsum ein Rand. Dazu `border`, `padding`, `margin`
+  und `::backdrop`.
+- **`showModal()`**, nicht `show()` — nur modal landet im Top Layer.
+- **`cancel` abfangen:** Escape schliesst ein modales Dialog selbst. Ohne Abfangen bliebe
+  `PLAY.mapFocus` auf `true` und die Eingabemaske wuerde nicht gezeichnet — die laufende Runde
+  waere unsichtbar. `close` stellt den Zustand ebenfalls her.
+- **`open` statt Klasse abfragen:** der popstate-Handler prueft jetzt `pf.open`.
+- **Fallback** fuer Browser ohne `showModal`: das `open`-Attribut plus die alte Klassenlogik.
+
+**Ersatzlos entfallen:** `pfViewportH`, `pfApplyHeight`, `pfVerify`, `_pfMaxH` und alle
+zugehoerigen resize-Listener. `pfFacts()`/`pfDiagShow()` bleiben als Diagnose — sie haben die
+Ursache gefunden und koennen es beim naechsten Layout-Raetsel wieder.
+
+### Die letzte Falle: die Adressleiste (v1.82)
+Nach dem Hoehenfix oeffnete die Ebene korrekt — schrumpfte aber bei JEDER Beruehrung wieder.
+Ursache: Chrome auf Android blendet bei Interaktionen die Adressleiste ein und aus. Jedes Mal
+feuert `resize`, die Messung liefert einen KLEINEREN Wert, und `pfApplyHeight()` setzte ihn
+brav — die Ebene wurde bei jedem Knopfdruck ein Stueck kleiner.
+
+**Die Hoehe darf nur WACHSEN.** `_pfMaxH` haelt den groessten waehrend einer Oeffnung gemessenen
+Wert; `pfApplyHeight()` und `pfVerify()` setzen nie weniger. Zurueckgesetzt wird er nur beim
+Oeffnen und beim Drehen — nur dort aendert sich die Bildschirmgeometrie tatsaechlich.
+`pfRender()` ruft `pfApplyHeight()` mit auf, damit die Hoehe auch nach jeder Interaktion haelt.
+
 ### Die Messung hat es entschieden (v1.81)
 Auf dem Geraet gemessen:
 
@@ -2328,6 +2376,24 @@ erkennbar ist, dass es ein Video gab.
 ## Changelog
 > **Regel:** Bei JEDER inhaltlichen Änderung hier oben einen datierten Eintrag ergänzen (neueste
 > zuerst): Datum · was geändert · betroffene Bereiche. Kurz halten.
+
+- **v1.83.0 · 2026-08-09** — **Vollbild als `<dialog>` im Top Layer — nachhaltige Lösung.**
+  Sieben Anläufe mit `position:fixed` sind an einer Eigenheit des Geräts gescheitert: `bottom:0`
+  löst gegen das Initial Containing Block auf, das 56 px kürzer ist als der Bildschirm
+  (clientH 649 vs innerH 705). Jede Höhenkorrektur wurde zum Wettlauf mit der Adressleiste.
+  Ein modales `<dialog>` liegt im **Top Layer**, sein Bezugsrahmen ist der Viewport selbst —
+  unabhängig von ICB, Vorfahren, Adressleiste und z-index. Browser-Vorgaben zurückgesetzt
+  (vor allem `max-width`/`max-height`), `cancel`/`close` abgefangen (Escape schließt ein Dialog
+  sonst selbst und die Runde wäre unsichtbar), popstate prüft `open` statt der Klasse, Fallback
+  für Browser ohne `showModal`. **Ersatzlos entfallen:** `pfViewportH`, `pfApplyHeight`,
+  `pfVerify`, `_pfMaxH` und alle resize-Listener. `pfFacts`/`pfDiagShow` bleiben als Diagnose.
+
+- **v1.82.0 · 2026-08-09** — **Die Ebene schrumpfte bei jeder Berührung: die Adressleiste.**
+  Chrome auf Android blendet bei Interaktionen die Adressleiste ein und aus; jedes `resize`
+  lieferte einen kleineren Messwert, den `pfApplyHeight()` brav setzte. Neu: `_pfMaxH` hält den
+  größten während einer Öffnung gemessenen Wert — die Höhe kann nur **wachsen**, nie schrumpfen.
+  Zurückgesetzt nur beim Öffnen und beim Drehen. `pfRender()` ruft `pfApplyHeight()` mit auf,
+  damit die Höhe auch nach jedem Knopfdruck hält. Im Prüfstand als Rechnung festgeschrieben.
 
 - **v1.81.0 · 2026-08-09** — **Vollbild-Höhe gelöst: `clientHeight` ist 56 px kürzer als der Bildschirm.**
   Die Messung auf dem Gerät: `offsetParent: null` (kein Vorfahre kapert die Positionierung),
@@ -3437,13 +3503,13 @@ erkennbar ist, dass es ein Video gab.
 
 <div class="backdrop" id="backdrop"></div>
 <div class="sheet" id="sheet"><div class="sheet-x-bar"><button class="sheet-x" id="sheetClose" aria-label="Schließen">✕</button></div><div class="grab"></div><div id="sheetBody"></div></div>
-<div id="playFull" aria-hidden="true">
+<dialog id="playFull" aria-label="Spielmodus · Karte">
   <div id="pfMap"></div>
   <div id="pfTop" class="pf-top"></div>
   <div id="pfCaddy" class="pf-caddy"></div>
   <div class="play-map-ctrls" id="pfCtrls"></div>
   <div id="pfBottom" class="pf-bottom"></div>
-</div>
+</dialog>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
 <script>
@@ -16899,28 +16965,26 @@ function pfOpen(){
   const el=document.getElementById("playFull");
   if(!el){ logErr("pfOpen", new Error("#playFull fehlt im DOM"), true);
     PLAY.mapFocus=false; renderPlay(); return; }
-  /* DAS EREIGNIS GAR NICHT ERST AUSLOESEN.
-     closeSheet() baut seinen History-Eintrag ueber history.back() ab; das
-     loest ein popstate aus, und der Handler schliesst das Vollbild wieder.
 
-     Ein ZEITFENSTER reicht dagegen NICHT — genau daran ist v1.72 gescheitert:
-     pfOpen ruft anschliessend playMapRender(), und das braucht mit Monte-Carlo
-     und Satellitenkacheln regelmaessig ueber eine Sekunde. Das popstate liegt
-     so lange in der Warteschlange und trifft NACH dem Fenster ein. Das Vollbild
-     blitzte auf und verschwand.
-
-     Deshalb: `_sheetHist` VOR dem Schliessen zuruecksetzen — dann unterlaesst
-     closeSheet() das history.back() und es entsteht kein popstate. Der
-     gepushte Eintrag bleibt liegen, und das ist genau richtig: der naechste
-     Druck auf Zurueck verbraucht ihn und schliesst das Vollbild. */
+  /* `_sheetHist` VOR closeSheet() zuruecksetzen: sonst baut closeSheet seinen
+     History-Eintrag ueber history.back() ab, und das ausgeloeste popstate
+     schliesst die gerade geoeffnete Ebene sofort wieder. Der Eintrag bleibt
+     liegen — richtig so, der naechste Druck auf Zurueck verbraucht ihn. */
   try{ _sheetHist=false; }catch(e){ logErr("pfOpen", e, true); }
   closeSheet();
-  el.classList.add("on"); el.setAttribute("aria-hidden","false");
+
+  /* TOP LAYER statt position:fixed. showModal() hebt das Element aus dem
+     normalen Stapel: kein z-index-Wettbewerb, kein Bezug auf das Initial
+     Containing Block (das auf dem Geraet 56 px zu kurz war), keine
+     Hoehenmessung, kein Wettlauf mit der Adressleiste.
+     Fallback fuer Browser ohne dialog-Unterstuetzung: das offene Attribut. */
+  try{
+    if(typeof el.showModal==="function"){ if(!el.open) el.showModal(); }
+    else { el.setAttribute("open",""); el.classList.add("on"); }
+  }catch(e){ logErr("pfOpen:showModal", e, true);
+    el.setAttribute("open",""); el.classList.add("on"); }
   document.body.classList.add("pf-open");
-  /* KEINE JS-Groesse mehr (v1.79). Jede gesetzte `height` schlaegt das
-     gepinnte `bottom:0` — und beim Lochwechsel oder nach einem `resize` blieb
-     ein zu kleiner Wert stehen, worauf die Ebene schrumpfte. Mit top+bottom
-     allein ergibt sich die Hoehe korrekt aus dem Initial Containing Block. */
+
   PLAY.mapFocus=true;
   pfRender();
   playStartLive();
@@ -16929,9 +16993,6 @@ function pfOpen(){
      erscheint die Ebene erst danach und es sieht aus, als haenge die App. */
   setTimeout(()=>{ if(PLAY.active && PLAY.mapFocus) playMapRender(); }, 0);
   // Nach dem Einschwingen (Adressleiste animiert) nachmessen und ggf. korrigieren.
-  pfApplyHeight();                       // sofort, gegen den kurzen Bezugsrahmen
-  setTimeout(()=>{ pfApplyHeight(); pfVerify(); }, 400);
-  setTimeout(()=>{ pfApplyHeight(); pfVerify(); }, 1200);
 }
 /* ==========================================================================
    LAYOUT-DIAGNOSE (v1.80)
@@ -16955,62 +17016,24 @@ function pfFacts(){
     innerH:window.innerHeight||0,
     clientH:(document.documentElement&&document.documentElement.clientHeight)||0,
     vvH:(window.visualViewport&&Math.round(window.visualViewport.height))||0,
+    offen: !!el.open,
     offsetParent: el.offsetParent ? (el.offsetParent.id||el.offsetParent.tagName||"?") : "null",
     position: cs.position||"?", inlineH: el.style.height||"–"
   };
 }
 /* ==========================================================================
-   DIE MESSUNG HAT ES ENTSCHIEDEN (v1.81)
-   Auf dem Geraet gemessen:
-       offsetParent: null      -> KEIN Vorfahre kapert die Positionierung
-       position: fixed         -> korrekt angewandt
-       innerH:  705            -> sichtbare Hoehe
-       clientH: 649            -> Bezugsrahmen, gegen den bottom:0 rechnet
-   56 Pixel Differenz. `position:fixed` loest `bottom:0` gegen das Initial
-   Containing Block auf, und dessen Hoehe ist `documentElement.clientHeight` —
-   hier 56 px KUERZER als der sichtbare Bereich. Genau der Streifen unten.
+   HOEHENMECHANIK ERSATZLOS ENTFERNT (v1.83)
+   pfViewportH / pfApplyHeight / pfVerify / _pfMaxH und die zugehoerigen
+   resize-Listener sind entfallen. Sie waren der Versuch, `position:fixed`
+   gegen ein zu kurzes Initial Containing Block zu korrigieren — ein Wettlauf
+   mit der Adressleiste, den man nicht gewinnen kann.
 
-   Alle bisherigen Erklaerungen waren damit falsch: es lag weder an dvh noch an
-   visualViewport noch an einem transform-Vorfahren. Und es erklaert auch,
-   warum jede reine CSS-Loesung scheitern MUSSTE: `bottom:0` kann nicht weiter
-   reichen als sein Bezugsrahmen.
+   Mit `<dialog>` + `showModal()` liegt die Ebene im TOP LAYER; ihr
+   Bezugsrahmen ist der Viewport selbst. `width:100%; height:100%` reicht.
 
-   Konsequenz: Die Hoehe wird gesetzt, und zwar auf das MAXIMUM der drei Masse.
-   Frueher scheiterte das nur, weil ich `100dvh` bzw. `visualViewport.height`
-   nahm — also den KLEINSTEN Wert. Das Maximum ist immer mindestens so gross
-   wie der Bezugsrahmen und deckt den sichtbaren Bereich vollstaendig ab. */
-function pfViewportH(){
-  return Math.max(
-    window.innerHeight||0,
-    (document.documentElement && document.documentElement.clientHeight)||0,
-    (window.visualViewport && window.visualViewport.height)||0);
-}
-function pfApplyHeight(){
-  const el=document.getElementById("playFull");
-  if(!el||!el.classList.contains("on")) return;
-  const h=pfViewportH();
-  if(h>0) el.style.height=h+"px";
-}
-
-/* Nachkontrolle: reicht die Ebene wirklich bis unten? Falls nicht, um GENAU
-   die gemessene Differenz nachhelfen. */
-function pfVerify(){
-  const el=document.getElementById("playFull");
-  if(!el||!el.classList.contains("on")) return;
-  const f=pfFacts(); if(!f) return;
-  const soll=Math.max(f.innerH, f.clientH, f.vvH);
-  const ist=f.rectTop + f.rectH;                 // Unterkante im Bildschirm
-  if(soll-ist > 24){
-    el.style.height=(soll-f.rectTop)+"px";
-    logErr("pfVerify", new Error("Ebene zu kurz, korrigiert: "+JSON.stringify(f)), true);
-  }
-}
-/* Auch bei Drehen und beim Ein-/Ausfahren der Adressleiste nachmessen. */
-window.addEventListener("resize", ()=>setTimeout(()=>{pfApplyHeight();pfVerify();},60));
-window.addEventListener("orientationchange", ()=>setTimeout(()=>{pfApplyHeight();pfVerify();},200));
-if(window.visualViewport) window.visualViewport.addEventListener("resize",
-  ()=>setTimeout(()=>{pfApplyHeight();pfVerify();},60));
-
+   `pfFacts()` und `pfDiagShow()` bleiben als Diagnose erhalten — sie haben
+   die Ursache gefunden und koennen es beim naechsten Layout-Raetsel wieder.
+   ========================================================================== */
 function pfDiagShow(){
   const f=pfFacts();
   if(!f){ toast("Vollbild nicht im DOM"); return; }
@@ -17037,11 +17060,24 @@ function pfDiagShow(){
 
 function pfClose(){
   const el=document.getElementById("playFull"); if(!el) return;
-  el.classList.remove("on"); el.setAttribute("aria-hidden","true");
-  el.style.height=""; el.style.width=""; el.style.top=""; el.style.left="";
-  el.style.right=""; el.style.bottom="";
+  try{ if(el.open && typeof el.close==="function") el.close(); }
+  catch(e){ logErr("pfClose", e, true); }
+  el.removeAttribute("open"); el.classList.remove("on");
   document.body.classList.remove("pf-open");
 }
+
+/* Ein modales <dialog> reagiert selbst auf Escape und schliesst sich. Ohne
+   dieses Abfangen bliebe PLAY.mapFocus auf true, die Eingabemaske wuerde nicht
+   gezeichnet — und man saehe die laufende Runde nicht mehr. */
+(function(){
+  const el=document.getElementById("playFull"); if(!el) return;
+  el.addEventListener("cancel", ev=>{ ev.preventDefault(); pfHide(); });
+  el.addEventListener("close", ()=>{
+    document.body.classList.remove("pf-open");
+    if(PLAY.active && PLAY.mapFocus){ PLAY.mapFocus=false; renderPlay(); }
+  });
+})();
+
 /* Umschalten zwischen Vollbild und Eingabemaske. Die Wahl wird gemerkt. */
 /* Vollbild verlassen OHNE die Vorliebe zu aendern — fuer die Zurueck-Taste.
    FEHLER in v1.69: dort rief der popstate-Handler playToggleFocusMap(), und
@@ -20835,7 +20871,9 @@ window.addEventListener("popstate",()=>{                    // Zurück-Taste (An
      keines. Das Fenster schluckte dafuer den ECHTEN Zurueck-Druck, wenn er
      kurz nach dem Oeffnen kam. Jetzt eindeutig: Vollbild offen -> Zurueck
      schliesst es. */
-  if(pf && pf.classList.contains("on")){ pfHide(); return; }
+  /* Seit v1.83 ist die Ebene ein <dialog>: massgeblich ist `open`, nicht mehr
+     die Klasse. Die Klasse bleibt nur fuer den Fallback ohne dialog. */
+  if(pf && (pf.open || pf.classList.contains("on"))){ pfHide(); return; }
   if(sheet.classList.contains("open")){ _sheetHist=false; closeSheet(); }
 });
 window.addEventListener("keydown",e=>{                      // Escape (Desktop/Tastatur)
@@ -22276,7 +22314,7 @@ function openComp(idx){
 /* ================= NAV ================= */
 let current="dash";
 const FAB_ACTION={rounds:startRound,comp:openAddComp,notes:openAddNote,swing:openSwingEdit};
-const APP_VERSION="1.81.0"; // App-Anzeigeversion (NICHT SEED.version! Diese bei jeder Änderung erhöhen)
+const APP_VERSION="1.83.0"; // App-Anzeigeversion (NICHT SEED.version! Diese bei jeder Änderung erhöhen)
 /* ---------- Darstellung: Hell/Dunkel (DB.ui.theme = "auto" | "light" | "dark") ---------- */
 const _darkMQ = (window.matchMedia? window.matchMedia("(prefers-color-scheme: dark)") : null);
 function themeSetting(){ return (DB && DB.ui && DB.ui.theme) || "auto"; }

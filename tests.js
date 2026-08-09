@@ -1371,6 +1371,34 @@ group("pfViewportH — warum jede CSS-Lösung scheitern musste");
      [[705,649,705],[600,800,600],[900,900,120]].every(([a,b,c])=>H(a,b,c)>=b));
 }
 
+/* ============ 24n. Vollbild als <dialog> im Top Layer ============ */
+group("Top Layer — warum die Höhenmechanik entfallen konnte");
+{
+  const src=fs.readFileSync(FILE,"utf8");
+  /* Sieben Anläufe mit position:fixed sind gescheitert: `bottom:0` löst gegen
+     das Initial Containing Block auf, und das war auf dem Gerät 56 px kürzer
+     als der Bildschirm (clientH 649 vs innerH 705). Ein modales <dialog> liegt
+     im Top Layer — sein Bezugsrahmen ist der Viewport selbst. */
+  ok("Ebene ist ein <dialog>", /<dialog[^>]*id="playFull"/.test(src));
+  ok("wird per showModal() geöffnet", /showModal\(\)/.test(src));
+  ok("Fallback für Browser ohne dialog vorhanden",
+     /typeof el\.showModal\s*===\s*"function"/.test(src));
+  /* Escape schließt ein modales <dialog> selbst — ohne Abfangen bliebe
+     PLAY.mapFocus true und die Eingabemaske würde nicht gezeichnet. */
+  ok("cancel-Ereignis wird abgefangen", /addEventListener\("cancel"/.test(src));
+  ok("close-Ereignis stellt den Zustand her", /addEventListener\("close"/.test(src));
+  /* Die Browser-Vorgaben für dialog müssen zurückgesetzt sein, sonst bleibt
+     ringsum ein Rand (Standard: max-width/max-height calc(100% - 6px - 2em)). */
+  ok("max-width zurückgesetzt", /#playFull\{[^}]*max-width:100%/.test(src));
+  ok("max-height zurückgesetzt", /#playFull\{[^}]*max-height:100%/.test(src));
+  ok("Rahmen und Innenabstand entfernt", /#playFull\{border:0;padding:0/.test(src));
+  /* Die Höhenmechanik MUSS weg sein — sie war der Wettlauf mit der
+     Adressleiste, den der Top Layer überflüssig macht. */
+  const js=src.replace(/\/\*[\s\S]*?\*\//g,"");
+  ok("keine Höhenmechanik mehr im Code",
+     !/function pfApplyHeight|function pfViewportH|_pfMaxH\s*=/.test(js));
+}
+
 /* ================= 25. Gepflegt vs. gemessen ================= */
 group("clubMeasured — gepflegte gegen gemessene Schlägerlängen");
 {
