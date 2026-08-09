@@ -1,0 +1,150 @@
+/* =============================================================================
+   Service Worker — Golf Training PWA
+   -----------------------------------------------------------------------------
+   WARUM ES IHN GIBT
+   Die App hiess bisher PWA, war aber keine: kein Manifest, kein Service Worker.
+   Die DATEN lagen sicher (IndexedDB + localStorage) — die App-HUELLE aber nicht.
+   Ob index.html im Funkloch startet, hing allein am HTTP-Cache des Browsers;
+   GitHub Pages liefert ein kurzes max-age. Nach dessen Ablauf stand auf dem
+   14. Loch eine Fehlerseite, waehrend alle Runden wohlbehalten im Geraet lagen.
+
+   STRATEGIEN
+   · App-Huelle (index.html):  stale-while-revalidate.
+     Sofort aus dem Cache anzeigen, im Hintergrund erneuern. Damit startet die
+     App IMMER, auch ohne Netz, und ist trotzdem nie mehr als einen Start alt.
+   · Kartenkacheln (Luftbild):  cache-first, LRU-begrenzt.
+     Genau die Bilder, die man auf dem Platz braucht und dort am schlechtesten
+     nachladen kann. Begrenzt, damit der Speicher nicht unbemerkt volllaeuft.
+   · Daten (trainingsdaten.json, Worker, Open-Meteo):  NIE cachen.
+     Der Rundenstand muss frisch sein; ein gecachter Entwurf wuerde die
+     Uhr-Kopplung und den SHA-Tuersteher in cloudSave unterlaufen.
+
+   VERSION
+   CACHE_VERSION bei jeder Aenderung an dieser Datei erhoehen — sonst behalten
+   bereits installierte Geraete den alten Worker.
+   ========================================================================== */
+
+const CACHE_VERSION = "v1";
+const SHELL_CACHE = "golf-shell-" + CACHE_VERSION;
+const TILE_CACHE  = "golf-tiles-" + CACHE_VERSION;
+const TILE_MAX    = 400;          // ca. 20–40 MB, reicht fuer mehrere Plaetze
+
+// Hosts, deren Antworten NIEMALS aus dem Cache kommen duerfen
+const NEVER_CACHE = [
+  "workers.dev",                  // Cloudflare Worker (Lesen/Schreiben Repo)
+  "api.open-meteo.com",           // Wetter und Hoehe
+  "api.github.com",               // Commit-Historie
+];
+const isNeverCache = url =>
+  NEVER_CACHE.some(h => url.hostname.endsWith(h)) ||
+  url.pathname.endsWith("trainingsdaten.json") ||
+  url.search.includes("fresh=1");
+
+// Kartenkacheln erkennt man am Pfadmuster /z/x/y.ext
+const isTile = url =>
+  /\/\d+\/\d+\/\d+(@2x)?\.(png|jpe?g|webp)/.test(url.pathname) ||
+  /tile|wmts|arcgis|basemap/i.test(url.hostname);
+
+self.addEventListener("install", ev => {
+  // Huelle vorwaermen; scheitert das (offline beim ersten Start), ist es kein
+  // Grund die Installation abzubrechen.
+  ev.waitUntil(
+    caches.open(SHELL_CACHE)
+      .then(c => c.addAll(["./", "./index.html"]).catch(() => null))
+      .then(() => self.skipWaiting())
+  );
+});
+
+self.addEventListener("activate", ev => {
+  ev.waitUntil(
+    caches.keys()
+      .then(ks => Promise.all(
+        ks.filter(k => k.startsWith("golf-") && k !== SHELL_CACHE && k !== TILE_CACHE)
+          .map(k => caches.delete(k))
+      ))
+      .then(() => self.clients.claim())
+  );
+});
+
+// Kachel-Cache in Grenzen halten (FIFO — aeltester Eintrag zuerst raus)
+async function trimTiles() {
+  const c = await caches.open(TILE_CACHE);
+  const keys = await c.keys();
+  if (keys.length <= TILE_MAX) return;
+  for (const k of keys.slice(0, keys.length - TILE_MAX)) await c.delete(k);
+}
+
+self.addEventListener("fetch", ev => {
+  const req = ev.request;
+  if (req.method !== "GET") return;
+
+  let url;
+  try { url = new URL(req.url); } catch (_) { return; }
+
+  if (isNeverCache(url)) return;                    // durchreichen, nicht anfassen
+
+  // ---- App-Huelle: stale-while-revalidate ----
+  const isShell =
+    req.mode === "navigate" ||
+    (url.origin === self.location.origin &&
+      (url.pathname.endsWith("/") || url.pathname.endsWith("index.html")));
+
+  if (isShell) {
+    ev.respondWith((async () => {
+      const c = await caches.open(SHELL_CACHE);
+      const cached = await c.match("./index.html");
+      const net = fetch(req)
+        .then(r => { if (r && r.ok) c.put("./index.html", r.clone()); return r; })
+        .catch(() => null);
+      // Cache zuerst — die App startet damit auch im Funkloch sofort.
+      return cached || (await net) || new Response(
+        "<h1>Offline</h1><p>Die App wurde noch nicht für den Offline-Betrieb " +
+        "gespeichert. Einmal mit Netz öffnen, danach geht es auch ohne.</p>",
+        { headers: { "Content-Type": "text/html; charset=utf-8" }, status: 503 }
+      );
+    })());
+    return;
+  }
+
+  // ---- Kartenkacheln: cache-first ----
+  if (isTile(url)) {
+    ev.respondWith((async () => {
+      const c = await caches.open(TILE_CACHE);
+      const hit = await c.match(req);
+      if (hit) return hit;
+      try {
+        const r = await fetch(req);
+        // opaque (no-cors) Antworten sind ok — sie lassen sich zwar nicht
+        // pruefen, aber anzeigen; genau darum geht es beim Luftbild.
+        if (r && (r.ok || r.type === "opaque")) { await c.put(req, r.clone()); trimTiles(); }
+        return r;
+      } catch (_) {
+        return hit || Response.error();
+      }
+    })());
+  }
+});
+
+// Von der App aus ausloesbar: Kacheln des aktuellen Platzes vorladen
+self.addEventListener("message", ev => {
+  const d = ev.data || {};
+  if (d.type === "PRECACHE_TILES" && Array.isArray(d.urls)) {
+    ev.waitUntil((async () => {
+      const c = await caches.open(TILE_CACHE);
+      let n = 0;
+      for (const u of d.urls.slice(0, 300)) {
+        try {
+          if (await c.match(u)) continue;
+          const r = await fetch(u, { mode: "no-cors" });
+          if (r) { await c.put(u, r.clone()); n++; }
+        } catch (_) { /* einzelne Kachel darf fehlschlagen */ }
+      }
+      await trimTiles();
+      const cs = await self.clients.matchAll();
+      cs.forEach(cl => cl.postMessage({ type: "PRECACHE_DONE", count: n }));
+    })());
+  }
+  if (d.type === "CLEAR_TILES") {
+    ev.waitUntil(caches.delete(TILE_CACHE));
+  }
+});
