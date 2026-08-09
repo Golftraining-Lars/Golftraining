@@ -575,6 +575,20 @@
   /* Feste Lochnavigation: das Blatt im Spielmodus ist lang (Eingaben, Caddy,
      Karte, Details). Ohne dieses Band muss man fuer JEDEN Lochwechsel ganz
      nach oben scrollen — 18-mal pro Runde. */
+  /* Kartenmodus: die Karte bekommt den Platz, den sie im Feld braucht. */
+  .pm-head{display:flex;align-items:center;gap:12px;margin:2px 0 10px}
+  .pm-hole{flex:0 0 auto;width:52px;height:52px;border-radius:15px;background:var(--pine);
+    color:#fff;font-weight:800;font-size:24px;font-family:var(--mono);
+    display:flex;align-items:center;justify-content:center}
+  .pm-meta{flex:1;font-size:13px;line-height:1.35}
+  .pm-score{flex:0 0 auto;text-align:center;min-width:56px}
+  .pm-score b{display:block;font-family:var(--mono);font-size:26px;font-weight:800;line-height:1.1}
+  .play-map-wrap.pm-big{height:min(58vh,520px)}
+  .pm-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
+  .pm-actions .btn{margin:0}
+  .wrec{display:flex;align-items:center;gap:10px;background:var(--gold-soft);
+    border:1px solid var(--gold);border-radius:13px;padding:10px 12px;margin:8px 0}
+  .wrec .grow{flex:1;font-size:13px}
   .play-navbar{position:sticky;bottom:0;z-index:12;display:flex;gap:8px;align-items:center;
     margin:14px -16px -12px;padding:9px 16px calc(9px + env(safe-area-inset-bottom));
     background:color-mix(in srgb,var(--surface) 92%,transparent);backdrop-filter:blur(9px);
@@ -1475,6 +1489,31 @@ Kurzreferenz — die Logik steht jeweils im Abschnitt der zugehoerigen Funktion:
   Approach-Fehler, Tee-Schlaeger, Bunker, Strafart, Quality) — bewusst SICHTBAR, nicht in der
   Klappe; siehe Abschnitt „Eingabe nach Wichtigkeit".
 
+### Kartenmodus & geraeteuebergreifende Schlagaufnahme (v1.68)
+**Kartenmodus.** Der Spielmodus war ein Formular MIT Karte. Im Feld ist es umgekehrt: die
+Scorekarte fuehrt die UHR, das Handy dient der Umgebungsanzeige und den Detailempfehlungen.
+Eine Runde startet deshalb in `renderPlayMapMode()` — kompakte Kopfzeile (Loch, Par, HCP,
+Gruenmasse, Score), Caddy-Zeile, GROSSE Karte (58 vh), Fahnensteuerung, zwei Aktionsknoepfe
+(Schlag tracken · Eingabe & Details) und die feste Lochnavigation. Die vollstaendige
+Eingabemaske ist einen Tipp entfernt und unveraendert. `PLAY.mapFocus` steuert es,
+`playToggleFocusMap()` schaltet um, `DB.ui.playMapFocus` merkt die Wahl.
+`playFocusDefault()` liefert die gemerkte Vorgabe (Standard: Kartenmodus an).
+
+**Schlagaufnahme ueber beide Geraete.** `_draftRound.live` traegt zusaetzlich
+`rec = {src, club, at, lat, lng}`. Beginnt die UHR eine Aufnahme, zeigt das Handy
+`watchRecBanner()` mit Schlaeger, gelaufener Distanz und Dauer — und kann den Schlag mit
+`watchRecFinish()` selbst abschliessen: Startpunkt von der Uhr, Endpunkt vom Handy. Beide sind
+am selben Ball, also ist es dieselbe Messung. Danach wird `rec` aus dem Zeiger entfernt; die
+Uhr erkennt das (`RepoDraft.recSrc == null` bei `liveSrc=="phone"`) und beendet ihre eigene
+Aufnahme — ohne das wuerde derselbe Schlag ZWEIMAL erfasst. Eine Aufnahme aelter als 30 Minuten
+gilt als vergessen und wird ignoriert.
+
+**Approach-Bewertung (`_aimApproachEv`).** Bis v1.68 hatte nur der ABSCHLAG Prozentzahlen:
+`evs` bekommt einen Eintrag je Wegpunkt, der Gruen-Punkt ist aber keiner. Auf einem Par 4 hiess
+das „FW 78 %" am Tee und nichts beim Approach. Jetzt bekommt der letzte Schlag eine eigene
+Bewertung ueber `STRAT.approach()` — und dort zaehlt eine ANDERE Zahl: nicht Fairwayquote,
+sondern **Gruen getroffen** (plus Sand ab 8 %, Strafe ab 5 %).
+
 ### Bedienbarkeit (v1.67)
 Ergebnisse eines systematischen Durchgangs durch die Oberflaeche:
 - **toast(msg, aktion?)** — der Timer wurde vorher NICHT zurueckgesetzt: bei zwei Meldungen
@@ -1963,6 +2002,20 @@ erkennbar ist, dass es ein Video gab.
 ## Changelog
 > **Regel:** Bei JEDER inhaltlichen Änderung hier oben einen datierten Eintrag ergänzen (neueste
 > zuerst): Datum · was geändert · betroffene Bereiche. Kurz halten.
+
+- **v1.68.0 · 2026-08-09** — **Kartenmodus · Schlagaufnahme über beide Geräte · Approach-Prozente.**
+  (1) Der Spielmodus startet jetzt im **Kartenmodus** (`renderPlayMapMode`): große Karte,
+  kompakte Kopfzeile, zwei Aktionsknöpfe, feste Lochnavigation. Die volle Eingabemaske ist einen
+  Tipp entfernt (`playToggleFocusMap`), die Wahl wird gemerkt. Hintergrund: die Scorekarte führt
+  die Uhr, das Handy dient der Umgebungsanzeige.
+  (2) **`_draftRound.live.rec`** neu — beginnt die Uhr eine Schlagaufnahme, zeigt das Handy
+  Schläger, gelaufene Distanz und Dauer und kann den Schlag selbst abschließen
+  (`watchRecFinish`): Startpunkt von der Uhr, Endpunkt vom Handy. Die Uhr erkennt den Abschluss
+  und beendet ihre Aufnahme — sonst würde derselbe Schlag zweimal erfasst.
+  (3) **`_aimApproachEv`**: Der Schlag aufs Grün hatte KEINE Bewertung — `evs` bekommt einen
+  Eintrag je Wegpunkt, der Grün-Punkt ist keiner. Deshalb erschienen die Prozentzahlen nur am
+  Abschlag. Jetzt mit eigener Bewertung, und dort steht die passende Größe: **Grün getroffen**
+  statt Fairwayquote.
 
 - **v1.67.0 · 2026-08-09** — **Bedienbarkeit: sieben Befunde aus dem Oberflächen-Durchgang.**
   (1) BUGFIX Toast: Timer wurde nicht zurückgesetzt, die zweite von zwei schnellen Meldungen
@@ -11903,12 +11956,65 @@ function maybeCheckpointDraft(r){
   }
 }
 // Live-Zeiger des Handys aus der laufenden Session bauen
+/* Der Live-Zeiger traegt seit v1.68 auch eine LAUFENDE SCHLAGAUFNAHME (`rec`).
+   Damit sieht das jeweils andere Geraet, dass gerade getrackt wird, und kann
+   den Schlag selbst abschliessen. Vertrag:
+     rec = {src, club, at, lat, lng}   — Start der Aufnahme
+   Fehlt `rec`, laeuft keine Aufnahme. Wer den Schlag speichert, entfernt es. */
 function _phoneLive(r){
   try{
     const h=PLAY.holes[PLAY.idx];
-    return {src:"phone", hole:h?h.hole:1, at:new Date().toISOString(),
+    const o={src:"phone", hole:h?h.hole:1, at:new Date().toISOString(),
       course:PLAY.course, tee:PLAY.tee, date:PLAY.date, side:PLAY.side};
+    if(PLAY.rec && PLAY.rec.club){
+      o.rec={src:"phone", club:PLAY.rec.club, at:PLAY.rec.at||new Date().toISOString(),
+        lat:PLAY.rec.startPos?PLAY.rec.startPos[0]:null,
+        lng:PLAY.rec.startPos?PLAY.rec.startPos[1]:null};
+    }
+    return o;
+  }catch(e){ logErr("_phoneLive", e, true); return null; }
+}
+
+/* Laeuft auf der UHR eine Aufnahme? Dann hier anzeigen und abschliessbar machen. */
+function watchRec(){
+  try{
+    const d=DB._draftRound, lv=d&&d.live;
+    if(!lv||!lv.rec||lv.rec.src==="phone") return null;
+    // Aelter als 30 Minuten ist keine laufende Aufnahme mehr, sondern ein Rest
+    if(lv.rec.at && (Date.now()-new Date(lv.rec.at).getTime())>1800000) return null;
+    return lv.rec;
   }catch(e){ return null; }
+}
+function watchRecBanner(){
+  const r=watchRec(); if(!r) return "";
+  const seit=r.at?Math.max(0,Math.round((Date.now()-new Date(r.at).getTime())/1000)):null;
+  const d=(r.lat!=null&&PLAY.here)?Math.round(geoDist([r.lat,r.lng],PLAY.here)):null;
+  return `<div class="wrec">
+    <span>⌚</span>
+    <div class="grow"><b>Uhr trackt: ${escShort(r.club||"?")}</b>
+      <div class="r-s">${d!=null?`${d} m gelaufen`:"Position wird ermittelt"}${seit!=null?` · seit ${seit<90?seit+" s":Math.round(seit/60)+" min"}`:""}</div></div>
+    <button class="btn" type="button" style="width:auto;padding:9px 12px;margin:0"
+      onclick="watchRecFinish()">✔ Speichern</button>
+  </div>`;
+}
+/* Den auf der Uhr begonnenen Schlag HIER abschliessen. Der Startpunkt kommt
+   von der Uhr, der Endpunkt vom Handy — beide Geraete sind am selben Ball. */
+function watchRecFinish(){
+  const r=watchRec(); if(!r){ toast("Keine Aufnahme aktiv"); return; }
+  if(!PLAY.here){ toast("Noch keine GPS-Position"); return; }
+  if(r.lat==null){ toast("Startpunkt der Uhr fehlt"); return; }
+  const h=PLAY.holes[PLAY.idx];
+  const dist=Math.round(geoDist([r.lat,r.lng],PLAY.here));
+  RTRACK[h.hole]=RTRACK[h.hole]||[];
+  if(!RTRACK[h.hole].length) RTRACK[h.hole].push({lat:r.lat,lng:r.lng,club:r.club});
+  RTRACK[h.hole].push({lat:PLAY.here[0],lng:PLAY.here[1],club:r.club});
+  ensureGps();
+  DB.gpsShots.push({id:"G"+Date.now(), ts:new Date().toISOString(), club:r.club,
+    dist, latA:r.lat, lngA:r.lng, latB:PLAY.here[0], lngB:PLAY.here[1], hole:h.hole});
+  // Aufnahme im Live-Zeiger loeschen, damit die Uhr sie beendet
+  try{ if(DB._draftRound&&DB._draftRound.live) delete DB._draftRound.live.rec; }catch(e){ logErr("watchRecFinish", e, true); }
+  playSaveDraft(); persist(); playLivePush(); renderPlay();
+  toast(clubShort(r.club)+": "+dist+" m gespeichert");
 }
 // Push, der nicht still verschluckt wird: laeuft gerade ein Sync (cloudBusy),
 // wird ueber scheduleCloudSync nachgezogen statt den Aufruf zu verlieren.
@@ -15986,7 +16092,7 @@ function playBegin(course,tee,kindIdx){
   const k=ROUND_KINDS[kindIdx||0], type=k[1], side=k[2];
   const hs=activeHoles(course,tee,side).map(h=>({hole:h.hole,par:h.par,si:h.si,len:h.len}));
   if(!hs.length){ toast("Keine Löcher für Platz/Tee"); return; }
-  PLAY={active:true,course,tee,side,type,roundId:"R"+Date.now(),date:new Date().toISOString().slice(0,10),
+  PLAY={active:true,mapFocus:playFocusDefault(),course,tee,side,type,roundId:"R"+Date.now(),date:new Date().toISOString().slice(0,10),
     hi:(DB.profile.hcpIndex!=null?DB.profile.hcpIndex:DB.profile.currentHcp),holes:hs,idx:0,
     here:null,live:false,auto:true,greenRing:{},startTime:new Date().toTimeString().slice(0,5),endTime:null,rec:null};
   RTRACK={}; hs.forEach(h=>{ if(h.shots) RTRACK[h.hole]=h.shots; });
@@ -15997,7 +16103,7 @@ function playContinue(round){
   const side=round.side||"18 Loch";
   const base=activeHoles(round.course,round.tee,side).map(h=>({hole:h.hole,par:h.par,si:h.si,len:h.len}));
   (round.holes||[]).forEach(sh=>{ const t=base.find(x=>x.hole===sh.hole); if(t) Object.assign(t,sh); });
-  PLAY={active:true,course:round.course,tee:round.tee,side,type:round.type||"18 Loch",
+  PLAY={active:true,mapFocus:playFocusDefault(),course:round.course,tee:round.tee,side,type:round.type||"18 Loch",
     roundId:round.id||"R"+Date.now(),date:round.date||new Date().toISOString().slice(0,10),hi:round.hi,
     holes:base,idx:0,here:null,live:false,auto:true,greenRing:{},startTime:round.startTime||new Date().toTimeString().slice(0,5),endTime:null,rec:null};
   RTRACK={}; base.forEach(h=>{ if(h.shots) RTRACK[h.hole]=h.shots; });
@@ -16225,8 +16331,64 @@ function shotRecHtml(){ const h=PLAY.holes[PLAY.idx]; const rec=PLAY.rec;
       <button class="btn ghost" type="button" style="margin-top:6px" onclick="playRecCancel()">Abbrechen</button></div>`; }
   const n=shotCount(RTRACK[h.hole]);
   return `<button class="shot-trk-b" type="button" onclick="playRecBegin()">🎯 Schlag aufnehmen${n?` · ${n} erfasst`:""}</button>`; }
+/* ==========================================================================
+   KARTENMODUS (v1.68)
+   Der Spielmodus war ein Formular mit Karte darin. Im Feld ist es umgekehrt:
+   Die Scorekarte fuehrt die UHR, das Handy dient der Umgebungsanzeige und den
+   Detailempfehlungen. Deshalb startet eine Runde jetzt im Kartenmodus —
+   grosse Karte, kompakte Kopfzeile, eine Leiste mit Aktionen. Die vollstaendige
+   Eingabemaske ist einen Tipp entfernt und bleibt unveraendert erhalten.
+   PLAY.mapFocus steuert das; playToggleFocusMap() schaltet um.
+   ========================================================================== */
+function playToggleFocusMap(){
+  PLAY.mapFocus=!PLAY.mapFocus;
+  DB.ui=DB.ui||{}; DB.ui.playMapFocus=PLAY.mapFocus; persistSoon();
+  PLAY.mapView=null;                       // Ausschnitt neu bestimmen
+  renderPlay();
+}
+function playFocusDefault(){ return !(DB.ui && DB.ui.playMapFocus===false); }
+
+function renderPlayMapMode(){
+  const h=PLAY.holes[PLAY.idx]; const N=PLAY.holes.length;
+  const geo=playGeo(); const gd=geo&&greenDims(geo,h.hole);
+  let op=0, pl=0; PLAY.holes.forEach(x=>{ if(x.score!=null){ op+=(x.score-x.par); pl++; } });
+  const opTxt = pl ? (op>0?"+"+op:op<0?String(op):"E") : "–";
+  const rec=PLAY.rec;
+  const html=`<div class="pm-head">
+      <div class="pm-hole">${h.hole}</div>
+      <div class="pm-meta"><b>Par ${h.par}</b> · HCP ${h.si}${h.len?` · ${h.len} m`:""}
+        ${gd?`<br><span class="r-s">Grün ${gd.depth}×${gd.width} m</span>`:""}</div>
+      <div class="pm-score">
+        <div class="r-s">Score</div>
+        <b>${h.score!=null?h.score:"–"}</b>
+        <div class="r-s">${pl?"Par "+opTxt:""}</div>
+      </div>
+    </div>
+    <div id="playInfo">${playInfoHtml()}</div>
+    ${watchRecBanner()}
+    <div class="play-map-wrap pm-big" id="playMapWrap">
+      <div class="play-map-ctrls" id="playMapCtrls">${playMapCtrlsHtml()}</div>
+      <div id="playMapSlot"></div>
+    </div>
+    ${pinCtrlHtml()}
+    <div class="pm-actions">
+      <button class="btn ${rec?'':'ghost'}" type="button" onclick="playRecBegin()">🎯 ${rec?"Aufnahme läuft":"Schlag tracken"}</button>
+      <button class="btn ghost" type="button" onclick="playToggleFocusMap()">✎ Eingabe &amp; Details</button>
+    </div>
+    ${rec?shotRecHtml():""}
+    <div class="play-navbar">
+      <button class="btn ghost" type="button" onclick="playPrev()" ${PLAY.idx===0?"disabled":""}>◀</button>
+      <span class="pn-mid">${h.hole} · ${PLAY.idx+1}/${N}</span>
+      <button class="btn" type="button" onclick="playNext()">${PLAY.idx>=N-1?"Beenden":"Weiter ▶"}</button>
+    </div>`;
+  openSheet(html);
+  playStartLive();
+  playMapRender();
+}
+
 function renderPlay(){
   const h=PLAY.holes[PLAY.idx]; if(!h){ toast("Keine Löcher"); return; }
+  if(PLAY.mapFocus) return renderPlayMapMode();
   const N=PLAY.holes.length, geo=playGeo();
   const gd = geo && greenDims(geo,h.hole);
   // über Par (nur gespielte Löcher)
@@ -16262,6 +16424,7 @@ function renderPlay(){
     </div>
     ${playWichtigHtml()}
     <div id="playInfo">${playInfoHtml()}</div>
+    ${watchRecBanner()}
     ${pinCtrlHtml()}
     <div class="play-map-wrap" id="playMapWrap">
       <div class="play-map-ctrls" id="playMapCtrls">${playMapCtrlsHtml()}</div>
@@ -16438,6 +16601,26 @@ function _aimTeeEv(geo,h){                   // Caddy-Bewertung des Abschlags (g
   try{ ev=STRAT.tee(geo,PLAY.course,h.hole,caddyMode(),STRAT.esHcp())||null; }catch(_){ ev=null; }
   _aimCache[k]=ev; return ev;
 }
+/* Bewertung des SCHLAGS AUFS GRUEN. Hier zaehlt eine ANDERE Zahl als am
+   Abschlag: nicht die Fairwayquote, sondern „Gruen getroffen". Ohne diese
+   Funktion blieb der letzte Schlag der Kette ganz ohne Bewertung. */
+function _aimApproachEv(geo,h,from){
+  const hr=geo.holes&&geo.holes[h.hole]; if(!hr||!hr.green) return null;
+  const rest=Math.round(geoDist(from,hr.green));
+  if(rest<8||rest>200) return null;                 // approach() bewertet nur volle Schlaeger
+  const k="A|"+PLAY.course+"|"+h.hole+"|"+caddyMode()+"|"+
+    from[0].toFixed(4)+","+from[1].toFixed(4);
+  if(k in _aimCache) return _aimCache[k];
+  let ev=null;
+  try{
+    const pin=playPinRec();
+    const F=pin?pinPoint(geo,h.hole,pin.d,pin.q):null;
+    const ap=STRAT.approach(geo,PLAY.course,h.hole,from,rest,caddyMode(),STRAT.esHcp(),F||undefined);
+    if(ap) ev={best:ap.best, desc:ap.desc,
+               fracs:{gruen:ap.fracs.green, sand:ap.fracs.sand, pen:ap.fracs.pen}};
+  }catch(e){ logErr("_aimApproachEv", e, true); }
+  _aimCache[k]=ev; return ev;
+}
 function _aimNextEv(geo,h,from){             // dasselbe fuer einen Folgeschlag
   // Ausgangspunkt auf ~3 m gerundet in den Schluessel: beim Ziehen sonst
   // eine komplette Monte-Carlo-Runde pro Pixel.
@@ -16490,6 +16673,15 @@ function _aimBuild(strategic){
     }
   }
   pts.push(hr.green);
+
+  /* Der letzte Schlag (auf das Gruen) hatte bis v1.68 KEINE Bewertung: evs
+     bekommt einen Eintrag je Wegpunkt, der Gruen-Punkt ist aber keiner. Auf
+     einem Par 4 hiess das Prozentzahlen am Abschlag und nichts beim Approach. */
+  if(strategic && pts.length>=2){
+    const li=pts.length-2;
+    if(!evs[li]){ try{ evs[li]=_aimApproachEv(geo,h,pts[li]); }
+      catch(e){ logErr("_aimBuild:approach", e, true); } }
+  }
 
   const legs=[];
   for(let i=0;i<pts.length-1;i++){
@@ -16830,7 +17022,7 @@ function playStartLive(){
 }
 function playRecBegin(){
   if(!navigator.geolocation){ toast("GPS nicht verfügbar"); return; }
-  PLAY.rec={club:null,startPos:PLAY.here||null};
+  PLAY.rec={club:null,startPos:PLAY.here||null,at:new Date().toISOString()};
   if(!PLAY.live) playStartLive();
   renderPlay();
 }
@@ -21224,7 +21416,7 @@ function openComp(idx){
 /* ================= NAV ================= */
 let current="dash";
 const FAB_ACTION={rounds:startRound,comp:openAddComp,notes:openAddNote,swing:openSwingEdit};
-const APP_VERSION="1.67.0"; // App-Anzeigeversion (NICHT SEED.version! Diese bei jeder Änderung erhöhen)
+const APP_VERSION="1.68.0"; // App-Anzeigeversion (NICHT SEED.version! Diese bei jeder Änderung erhöhen)
 /* ---------- Darstellung: Hell/Dunkel (DB.ui.theme = "auto" | "light" | "dark") ---------- */
 const _darkMQ = (window.matchMedia? window.matchMedia("(prefers-color-scheme: dark)") : null);
 function themeSetting(){ return (DB && DB.ui && DB.ui.theme) || "auto"; }

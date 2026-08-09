@@ -32,26 +32,27 @@ const FILE = path.join(__dirname, "index.html");
    schlaegt Abschnitt 16 fehl. Wer Altbestand testet, streicht ihn hier.
    --------------------------------------------------------------------------- */
 const COVERAGE_BASELINE_FUNCS = (
-    "_aimBuild _aimNextEv _aimTeeEv _centroid _distToLine _fitProject _flagSvg _linePath" +" "+
-    "_merLat _merLng _merX _merY _mkHoles _mkTee _projPerp _ringPath _satTiles _teeSC" +" "+
-    "_tileLat applyGeoOverrides approachStrength bandT bindPanZoom blockFind buildHoleGeo" +" "+
-    "caddyBlockHtml caddyPlan caddyPositionPlan clubFamily clubPlan compass8 computeRound" +" "+
-    "computeTotal courseSVG deleteNote distToRing featBbox featPoints finalizeGeo fitFind" +" "+
-    "fmtDur fmtN geoBBox geoEdDown geoEdHoleFixHtml geoEdMove geoLL goalFind golfLinkify" +" "+
-    "greenAxisEdges greenFMB greenRingFor holeHistory holeSpine holeTrouble idbGet idbImgDel" +" "+
-    "idbImgGet idbImgSet idbSatDel idbSet idbVidDel idbVidGet idbVidSet isVideoUrl ladder" +" "+
-    "lateralHazards lineChart lineLenM linkHref liveStart lmBuildRecs lmCarryStrip" +" "+
-    "lmDiagScatter lmDispersion lmGet lmPct lmPearson lmStatObj lvlChip manualTipHtml mapLL" +" "+
-    "mkLink nearestHole normalizeClub openAddComp openAddNote openAddRound openBlockEditor" +" "+
-    "openCourseEditor openFitnessDetail openGoalEditor openKraftEditor openRound openTest" +" "+
-    "openYogaEditor parseGeoJSONCourse parseOverpassCourse playAimChain playCaddyHtml" +" "+
-    "playField playMapBind playMapClamp playNum playSel qaExpand qaFold qaSearch qaSections" +" "+
-    "qaStem rateAbs rateR rateSmash rateStd refreshRepoSection renderGeoImport roundKPIs" +" "+
-    "roundLL roundWeatherHtml satCourseSrc satCourseTiles satLayer satSrcFor satTileKey" +" "+
-    "satTilePx satTileRes selOpts sgCoverageHtml sgDashHtml sgDisasterHtml sgLeerHtml" +" "+
-    "sparkline strkDown strkZoomAt strkZoomBtn swDaysSince swNormTag targetFor teeNames" +" "+
-    "thinRing warmupBloeckeHtml weatherByGeo weatherEffectHtml wikiCountCat wikiCountGrp" +" "+
-    "wikiEsc wikiGroupIcon wikiGroupOf wikiNormTag wikiSuggest wikiTagsOf windArrowChar"
+    "_aimApproachEv _aimBuild _aimNextEv _aimTeeEv _centroid _distToLine _fitProject _flagSvg" +" "+
+    "_linePath _merLat _merLng _merX _merY _mkHoles _mkTee _phoneLive _projPerp _ringPath" +" "+
+    "_satTiles _teeSC _tileLat applyGeoOverrides approachStrength bandT bindPanZoom blockFind" +" "+
+    "buildHoleGeo caddyBlockHtml caddyPlan caddyPositionPlan clubFamily clubPlan compass8" +" "+
+    "computeRound computeTotal courseSVG deleteNote distToRing featBbox featPoints" +" "+
+    "finalizeGeo fitFind fmtDur fmtN geoBBox geoEdDown geoEdHoleFixHtml geoEdMove geoLL" +" "+
+    "goalFind golfLinkify greenAxisEdges greenFMB greenRingFor holeHistory holeSpine" +" "+
+    "holeTrouble idbGet idbImgDel idbImgGet idbImgSet idbSatDel idbSet idbVidDel idbVidGet" +" "+
+    "idbVidSet isVideoUrl ladder lateralHazards lineChart lineLenM linkHref liveStart" +" "+
+    "lmBuildRecs lmCarryStrip lmDiagScatter lmDispersion lmGet lmPct lmPearson lmStatObj" +" "+
+    "lvlChip manualTipHtml mapLL mkLink nearestHole normalizeClub openAddComp openAddNote" +" "+
+    "openAddRound openBlockEditor openCourseEditor openFitnessDetail openGoalEditor" +" "+
+    "openKraftEditor openRound openTest openYogaEditor parseGeoJSONCourse parseOverpassCourse" +" "+
+    "playAimChain playCaddyHtml playField playMapBind playMapClamp playNum playSel qaExpand" +" "+
+    "qaFold qaSearch qaSections qaStem rateAbs rateR rateSmash rateStd refreshRepoSection" +" "+
+    "renderGeoImport roundKPIs roundLL roundWeatherHtml satCourseSrc satCourseTiles satLayer" +" "+
+    "satSrcFor satTileKey satTilePx satTileRes selOpts sgCoverageHtml sgDashHtml" +" "+
+    "sgDisasterHtml sgLeerHtml sparkline strkDown strkZoomAt strkZoomBtn swDaysSince" +" "+
+    "swNormTag targetFor teeNames thinRing warmupBloeckeHtml weatherByGeo weatherEffectHtml" +" "+
+    "wikiCountCat wikiCountGrp wikiEsc wikiGroupIcon wikiGroupOf wikiNormTag wikiSuggest" +" "+
+    "wikiTagsOf windArrowChar"
 ).split(" ");
 
 const COVERAGE_BASELINE_STRAT = (
