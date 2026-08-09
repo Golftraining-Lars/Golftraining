@@ -994,7 +994,7 @@ Wichtigste Felder:
   Spiellinie nach oben (Tee unten) — NUR wo keine Pixel-Inverse läuft (nicht GEOED/STRK). Satellit:
   `_satTiles` (Esri, Zoom auto 14–19, ≤28 Kacheln, Affin-Matrix je Kachel). Editor mit Pinch-Zoom
   (`GEOED`, `geoEd*`). Gefahren auf der Linie: `hazardsOnLine`, seitlich: `lateralHazards`.
-  Front/Mitte/Back: `greenFMB`; Fahne/Pin: `greenAxisEdges` + `pinPoint`.
+  Front/Mitte/Back: `greenFMB`. (Fahnensteuerung in v1.90 entfernt — Ziel ist die Gruenmitte.)
 - **Spielmodus (On-Course):** State `PLAY`, `renderPlay()` (grosses Loch, Live-F/M/B-Distanzen,
   Fahnen-Steuerung, Caddy-Zeile, Score/Putts-Stepper, GIR, „Schlaege tracken", naechstes Loch),
   GPS-Loch-Erkennung (`nearestHole`), Live-Tracking (`liveStart`/`liveStop`, `LIVEPOS`).
@@ -1204,13 +1204,12 @@ zusaetzlich Gebaeude/Wege/Parkplaetze/„other" (nichts wird verworfen).
 
 **Gefahren & Distanzen:** `hazardsOnLine(here,green,feats,kinds)` (Ring- + Linien-Kreuzungen via
 `segIntersect`). `lateralHazards` (seitliche OB/Penalty). `greenFMB(here,n)` = Front/Mitte/Back.
-`greenDims(geo,n)` = Grün-**Tiefe** (entlang Spiellinie) × **Breite** (senkrecht). `greenAxisEdges`
-+ `pinPoint(geo,n,d,q?)` = tagesgenaue Fahne (`d`=Tiefe 0..1 entlang Tee→Grün, `q`=Seite −1…+1
-  der halben Grünbreite, 85 % Reichweite damit nie auf der Kante; ab v1.50). Bis dahin lag die
-  Fahne IMMER auf der Mittelachse — Short-Side ist aber überwiegend ein seitliches Problem.
-  Setzen: `playSetPinDepth(d)` / `playSetPinSide(q)` / `playPinSlide(v)`; Speicher
-  `DB.pins["<course>|<hole>"]={d,q,date}`. UI: `pinCtrlHtml` mit zwei Segment-Leisten.
-  `greenRingFor(geo,n)`
++ **Fahnensteuerung ENTFERNT (v1.90).** `pinPoint`, `greenAxisEdges`, `playPinRec`,
+  `pinCtrlHtml` und die Setzer sind entfallen, `DB.pins` wird nicht mehr gefuehrt. Als Ziel gilt
+  durchgaengig die **Gruenmitte** (`F = null` fuer `STRAT.approach`). Begruendung: eine
+  Handeingabe pro Loch, die im Alltag nicht gepflegt wurde — und ungepflegte Werte
+  verschlechtern die Rechnung, statt sie zu verbessern. Die Gruenmasse
+  (`greenDims`, `greenFMB`) bleiben. `greenRingFor(geo,n)`
 waehlt die Grünfläche (erst `pointInRing`, sonst nächste <30 m).
 
 ## 11. Caddy & Spielmodus im Detail
@@ -1943,6 +1942,19 @@ dialog-Sonderbehandlung (`showModal`/`cancel`/`close`) und die popstate-Verrenku
 Zurueck-Taste erkennt den Spielmodus an `body.play-mode`. `pfFacts()`/`pfDbgRender()` bleiben als
 Messanzeige (ⓘ in der Kartenleiste, `DB.ui.pfDebug`).
 
+**Aufgabenteilung der beiden Modi (v1.89).** Karte und Fahnensteuerung standen in BEIDEN —
+seit der Spielmodus im Kartenmodus startet, ist das doppelt. Jetzt:
+- **Kartenmodus:** grosse Karte, Kartenschalter, Caddy-Zeile und die Fahnensteuerung
+  („Fahne heute"). Letztere haengt an der AUFGEKLAPPTEN Caddy-Anzeige, damit sie die Karte nicht
+  dauerhaft verdeckt — und sie gehoert dorthin, weil man die Fahnenlage im Bild einschaetzt.
+- **Eingabemaske:** reine Eingabe. Kein Kartenausschnitt, keine Fahnensteuerung, aber weiterhin
+  `playInfoHtml()` — die Distanzen zur Fahne braucht man auch beim Eintragen. Die Karte erreicht
+  man mit „🗺 Vollbild-Karte" ganz oben.
+Wichtig nebenbei: Der kleine Kartenausschnitt in der Eingabemaske loeste dieselbe teure
+Berechnung aus wie die grosse (Geo-Raster, Kacheln, Monte-Carlo). Mit ihm entfaellt auch der
+`playMapRender()`-Aufruf dort — es gibt keinen Container mehr, der Aufruf haette nichts
+gezeichnet und trotzdem gerechnet.
+
 **Lehre:** Wenn eine Technik nach mehreren fundierten Korrekturen weiter nicht traegt, ist die
 Technik das Problem — nicht die Korrektur. Zwoelf Runden haetten sich durch die Frage „geht das
 auch ohne Overlay?" ersparen lassen.
@@ -2451,6 +2463,24 @@ erkennbar ist, dass es ein Video gab.
 ## Changelog
 > **Regel:** Bei JEDER inhaltlichen Änderung hier oben einen datierten Eintrag ergänzen (neueste
 > zuerst): Datum · was geändert · betroffene Bereiche. Kurz halten.
+
+- **v1.90.0 · 2026-08-09** — **Fahnensteuerung vollständig entfernt.** `pinPoint`,
+  `greenAxisEdges`, `playPinRec`, `pinCtrlHtml`, `playSetPinDepth`/`-Side`, `playPinSlide`,
+  `playPinCommit` und `playClearPin` sind entfallen; `DB.pins` wird nicht mehr geführt und
+  vorhandener Altbestand einmalig **geleert** (nicht gelöscht — `mergeDB` kann Löschungen über
+  `Object.assign` nicht ausdrücken). Als Ziel gilt durchgängig die **Grünmitte**: `F = null` ist
+  für `STRAT.approach()` genau das. Begründung: eine Handeingabe pro Loch, die im Alltag nicht
+  gepflegt wurde — und ungepflegte Werte verschlechtern die Rechnung, statt sie zu verbessern.
+  Die Grünmaße (`greenDims`, `greenFMB`) bleiben unverändert. Elf Prüfungen sichern ab, dass
+  keiner der Namen in den ausführbaren Code zurückkehrt.
+
+- **v1.89.0 · 2026-08-09** — **Eingabemaske ohne Karte und Fahnensteuerung.** Beides stand in
+  beiden Modi; seit der Spielmodus im Kartenmodus startet, ist das doppelt. Die Eingabemaske ist
+  jetzt reine Eingabe — die Distanzanzeige (`playInfoHtml`) bleibt, weil man sie beim Eintragen
+  braucht. Die Fahnensteuerung wandert in den Kartenmodus an die aufgeklappte Caddy-Anzeige;
+  dort gehört sie hin, weil man die Fahnenlage im Bild einschätzt. **Nebeneffekt:** Der kleine
+  Kartenausschnitt löste dieselbe teure Berechnung aus wie die große (Geo-Raster, Kacheln,
+  Monte-Carlo) — der `playMapRender()`-Aufruf in der Eingabemaske entfällt mit.
 
 - **v1.88.0 · 2026-08-09** — **Spielmodus ist jetzt eine normale Ansicht, kein Overlay.**
   Zwölf Anläufe mit `position:fixed`, `<dialog>` im Top Layer und gemessenen Höhen sind daran
@@ -3772,50 +3802,50 @@ function showErrLog(){
    Luecke nicht weiter, ohne dass man erst 335 Eintraege nachschreiben muss.
    Wer Altbestand dokumentiert, darf ihn hier streichen. */
 const SELFCHECK_BASELINE = (
-  "_aimBuild _aimChainKey _aimLerp _aimNextEv _aimTeeEv _aimToView _centroid _distPtSeg _dl"
-  + " " + "_draftTomb _linePath _merLat _merLng _merX _merY _mergeTs _mkHoles _mkTee _projPerp"
-  + " " + "_ringPath _teeSC _tileLat _tileX _tileY accClass applyAllMeasured applyLoaded"
-  + " " + "applyMeasuredClub approachStrength bandT benchRow benchValue bindGpsActions blockFind"
-  + " " + "caddyBlockHtml chooseExportCourse clearDraft clearReference cloudCfg cloudConfigured"
-  + " " + "clubFamily clubPickHtml clubPlan clubPlanText compass8 computeTotal countrySelect"
-  + " " + "courseNames courseTee cpGeo cpLocate cpManual cpPar cpRenderBody cpSetLie cpToggleLive"
-  + " " + "currentBlock currentPhase daysSince defFor deleteNote distToRing draftBanner draftHoles"
-  + " " + "dueTests elevGet elevKey emptyNotesTrash ensureGps est1RM featBbox featPoints fitFind"
-  + " " + "fitSorted flushCloudNow fmtBytes fmtDT fmtDur fmtN focusList focusOn geoBBox geoEdApplyView"
-  + " " + "geoEdCancelArea geoEdClick geoEdDown geoEdFinishArea geoEdFinishLine geoEdGpsPoint geoEdHole"
-  + " " + "geoEdHoleFixHtml geoEdLL geoEdMove geoEdResetView geoEdSwapTeeGreen geoEdTool geoEdUndoPt"
-  + " " + "geoEdUp geoEdZoomAt geoEdZoomBtn geoImportText geoInterp geoLL goalCurrent goalFind"
-  + " " + "gpCheckAll gpsActionsHtml gpsAnchor gpsArrive gpsCancelClub gpsDelShot gpsRefresh gpsReset"
-  + " " + "gpsSaveShot gpsSrcMode gpsSrcSet holeHistory holeSpine holeTrouble idbGet idbImgDel"
-  + " " + "idbImgGet idbImgKeys idbImgSet idbReady idbSatClear idbSatDel idbSatGet idbSatKeys idbSatSet"
-  + " " + "idbSet idbVidDel idbVidKeys idbVidSet isVideoUrl isoWeek kraftVolume ladder ladderPos latest"
-  + " " + "lineChart lineLenM linkHref liveDist lmAllClubs lmBind lmBuildRecs lmCarryStrip lmClean"
-  + " " + "lmDiagScatter lmDispersion lmGet lmImport lmMatchCol lmNum lmParse lmPct lmPearson"
-  + " " + "lmSessionsSorted lmSplit lmStatObj lvlColor lvlLabel macroFind mapAddPoint mapLocate"
-  + " " + "mapSelHole mapToggleLive markSaved median nextTournament noteCat noteDaysLeft notesTrashHtml"
-  + " " + "openBlockEditor openBucketEditor openCaddyPosition openCourseEditor openCourseMap openDocs"
-  + " " + "openFitnessDetail openGeoEditor openGoalEditor openGpLibSheet openKraftEditor openLMsession"
-  + " " + "openLightbox openMacroEditor openPlayedEditor openSwingDetail openTest openTournamentEditor"
-  + " " + "openTroubleEditor openWarmupSheet openWikiTagSheet openYogaEditor pearson pill placeSub"
-  + " " + "playAimKey playAimMoved playAimReport playAimToggle playBearing playClearPin playGeo"
-  + " " + "playLiveRefresh playLiveRemote playMapApply playMapVB playPinCommit playRecCancel"
-  + " " + "playStopSync qaBind qaClear qaExpand qaFold qaHtml qaSections qaStem qaTok rateAbs rateR"
-  + " " + "rateSmash rateStd refreshCaddy refreshRepoSection releaseWake renderCaddyPosition renderComp"
-  + " " + "renderCourseMap renderDash renderFitness renderGeoEditor renderGps renderHeader renderHeute"
-  + " " + "renderKorrelation renderLaunch renderPlaces renderPlanung renderPlaySetup renderRecords"
-  + " " + "renderRepoHistory renderRounds renderSwing renderTests ringCentroid roundDurationMin"
-  + " " + "roundKPIs roundLL satCourseSrc satDetailSet satHost satSrcSet satSrcSetting satTileRes"
-  + " " + "satUiPaintAll selOpts shotRecHtml shotTrackAdd sortedComps sortedRounds sparkline startPlay"
-  + " " + "startWatch stopWatch stratCalcSet stratCommitGet strkApplyView strkClick strkDown strkMove"
-  + " " + "strkResetView strkUp strkVB strkZoomAt strkZoomBtn swAddFault swDaysSince swDelete"
-  + " " + "swDrawImgs swDrawVids swList swSave swSetRate swSorted swViewLabel syncTime targetFor"
-  + " " + "teeNames testsFor themeSetting tierIndex todayISO toggleFocus toggleNotePin tournFind"
-  + " " + "trendArrow updateSaveBadge watchLiveDismissedFor watchLiveStart weatherFresh whsIndexOf"
-  + " " + "whsSeries wikiAddTagToField wikiAllTags wikiArts wikiCats wikiCatsSorted wikiCompressImage"
-  + " " + "wikiCountCat wikiCountGrp wikiDeleteArticle wikiEsc wikiFilter wikiGroupIcon"
-  + " " + "wikiGroupsPresent wikiImgSyncFlag wikiImgSyncOn wikiInsertAtCursor wikiInsertLink"
-  + " " + "wikiInsertYt wikiNewImgId wikiNewVidId wikiPaintLibStat wikiPaintVidStat wikiResetFilter"
-  + " " + "wikiSetCat wikiSetGroup wikiTagsOf wikiToggleFav wikiToggleTag windArrowChar ytIdFrom"
+ "_aimBuild _aimChainKey _aimLerp _aimNextEv _aimTeeEv _aimToView _centroid _distPtSeg _dl"
+ + " " + "_draftTomb _linePath _merLat _merLng _merX _merY _mergeTs _mkHoles _mkTee _projPerp"
+ + " " + "_ringPath _teeSC _tileLat _tileX _tileY accClass applyAllMeasured applyLoaded"
+ + " " + "applyMeasuredClub approachStrength bandT benchRow benchValue bindGpsActions blockFind"
+ + " " + "caddyBlockHtml chooseExportCourse clearDraft clearReference cloudCfg cloudConfigured"
+ + " " + "clubFamily clubPickHtml clubPlan clubPlanText compass8 computeTotal countrySelect"
+ + " " + "courseNames courseTee cpGeo cpLocate cpManual cpPar cpRenderBody cpSetLie cpToggleLive"
+ + " " + "currentBlock currentPhase daysSince defFor deleteNote distToRing draftBanner draftHoles"
+ + " " + "dueTests elevGet elevKey emptyNotesTrash ensureGps est1RM featBbox featPoints fitFind"
+ + " " + "fitSorted flushCloudNow fmtBytes fmtDT fmtDur fmtN focusList focusOn geoBBox geoEdApplyView"
+ + " " + "geoEdCancelArea geoEdClick geoEdDown geoEdFinishArea geoEdFinishLine geoEdGpsPoint geoEdHole"
+ + " " + "geoEdHoleFixHtml geoEdLL geoEdMove geoEdResetView geoEdSwapTeeGreen geoEdTool geoEdUndoPt"
+ + " " + "geoEdUp geoEdZoomAt geoEdZoomBtn geoImportText geoInterp geoLL goalCurrent goalFind"
+ + " " + "gpCheckAll gpsActionsHtml gpsAnchor gpsArrive gpsCancelClub gpsDelShot gpsRefresh gpsReset"
+ + " " + "gpsSaveShot gpsSrcMode gpsSrcSet holeHistory holeSpine holeTrouble idbGet idbImgDel"
+ + " " + "idbImgGet idbImgKeys idbImgSet idbReady idbSatClear idbSatDel idbSatGet idbSatKeys idbSatSet"
+ + " " + "idbSet idbVidDel idbVidKeys idbVidSet isVideoUrl isoWeek kraftVolume ladder ladderPos latest"
+ + " " + "lineChart lineLenM linkHref liveDist lmAllClubs lmBind lmBuildRecs lmCarryStrip lmClean"
+ + " " + "lmDiagScatter lmDispersion lmGet lmImport lmMatchCol lmNum lmParse lmPct lmPearson"
+ + " " + "lmSessionsSorted lmSplit lmStatObj lvlColor lvlLabel macroFind mapAddPoint mapLocate"
+ + " " + "mapSelHole mapToggleLive markSaved median nextTournament noteCat noteDaysLeft notesTrashHtml"
+ + " " + "openBlockEditor openBucketEditor openCaddyPosition openCourseEditor openCourseMap openDocs"
+ + " " + "openFitnessDetail openGeoEditor openGoalEditor openGpLibSheet openKraftEditor openLMsession"
+ + " " + "openLightbox openMacroEditor openPlayedEditor openSwingDetail openTest openTournamentEditor"
+ + " " + "openTroubleEditor openWarmupSheet openWikiTagSheet openYogaEditor pearson pill placeSub"
+ + " " + "playAimKey playAimMoved playAimReport playAimToggle playBearing playGeo"
+ + " " + "playLiveRefresh playLiveRemote playMapApply playMapVB playRecCancel"
+ + " " + "playStopSync qaBind qaClear qaExpand qaFold qaHtml qaSections qaStem qaTok rateAbs rateR"
+ + " " + "rateSmash rateStd refreshCaddy refreshRepoSection releaseWake renderCaddyPosition renderComp"
+ + " " + "renderCourseMap renderDash renderFitness renderGeoEditor renderGps renderHeader renderHeute"
+ + " " + "renderKorrelation renderLaunch renderPlaces renderPlanung renderPlaySetup renderRecords"
+ + " " + "renderRepoHistory renderRounds renderSwing renderTests ringCentroid roundDurationMin"
+ + " " + "roundKPIs roundLL satCourseSrc satDetailSet satHost satSrcSet satSrcSetting satTileRes"
+ + " " + "satUiPaintAll selOpts shotRecHtml shotTrackAdd sortedComps sortedRounds sparkline startPlay"
+ + " " + "startWatch stopWatch stratCalcSet stratCommitGet strkApplyView strkClick strkDown strkMove"
+ + " " + "strkResetView strkUp strkVB strkZoomAt strkZoomBtn swAddFault swDaysSince swDelete"
+ + " " + "swDrawImgs swDrawVids swList swSave swSetRate swSorted swViewLabel syncTime targetFor"
+ + " " + "teeNames testsFor themeSetting tierIndex todayISO toggleFocus toggleNotePin tournFind"
+ + " " + "trendArrow updateSaveBadge watchLiveDismissedFor watchLiveStart weatherFresh whsIndexOf"
+ + " " + "whsSeries wikiAddTagToField wikiAllTags wikiArts wikiCats wikiCatsSorted wikiCompressImage"
+ + " " + "wikiCountCat wikiCountGrp wikiDeleteArticle wikiEsc wikiFilter wikiGroupIcon"
+ + " " + "wikiGroupsPresent wikiImgSyncFlag wikiImgSyncOn wikiInsertAtCursor wikiInsertLink"
+ + " " + "wikiInsertYt wikiNewImgId wikiNewVidId wikiPaintLibStat wikiPaintVidStat wikiResetFilter"
+ + " " + "wikiSetCat wikiSetGroup wikiTagsOf wikiToggleFav wikiToggleTag windArrowChar ytIdFrom"
 ).split(" ");
 
 function selfCheck(src){
@@ -16587,34 +16617,6 @@ function greenFMB(here,n){ const geo=playGeo(); if(!geo||!geo.holes[n]||!geo.hol
   if(ring&&ring.length>2){ let mn=Infinity,mx=0; ring.forEach(p=>{ const d=geoDist(here,p); if(d<mn)mn=d; if(d>mx)mx=d; });
     return {front:Math.round(mn), mid, back:Math.round(mx)}; }
   return {front:null, mid, back:null}; }
-function greenAxisEdges(geo,n){
-  const ring=greenRingFor(geo,n), center=geo.holes[n]&&geo.holes[n].green; if(!ring||!center) return null;
-  const from=(geo.holes[n]&&geo.holes[n].tee)||(geo.holes[n]&&geo.holes[n].line&&geo.holes[n].line[0])||center;
-  const pj=p=>geoProject(p[0],p[1],center[0],center[1]);
-  const O=pj(center), F=pj(from); let ax=O.x-F.x, ay=O.y-F.y; const L=Math.hypot(ax,ay)||1; ax/=L; ay/=L;
-  let mn=Infinity,mx=-Infinity,fp=null,bp=null;
-  ring.forEach(p=>{ const P=pj(p), proj=P.x*ax+P.y*ay; if(proj<mn){mn=proj;fp=p;} if(proj>mx){mx=proj;bp=p;} });
-  return {front:fp, back:bp, center};
-}
-/* Fahne = Tiefe UND Seite.
-   Bisher war die Fahne ein reiner Tiefenwert 0..1 auf der Mittelachse. Short-
-   side ist aber ueberwiegend ein SEITLICHES Problem: Fahne rechts hinter dem
-   Bunker ist eine voellig andere Aufgabe als Fahne links. q laeuft von -1
-   (ganz links) ueber 0 (Mitte) bis +1 (ganz rechts) der halben Gruenbreite. */
-function pinPoint(geo,n,d,q){ const e=greenAxisEdges(geo,n); const ctr=geo.holes[n]&&geo.holes[n].green;
-  if(!e) return ctr;
-  d=Math.max(0,Math.min(1,d==null?0.5:d));
-  const base=[ e.front[0]+(e.back[0]-e.front[0])*d, e.front[1]+(e.back[1]-e.front[1])*d ];
-  q=Math.max(-1,Math.min(1,q==null?0:q));
-  if(!q||!ctr) return base;
-  const dims=greenDims(geo,n); const half=dims?dims.width/2:0;
-  if(!(half>2)) return base;
-  // senkrecht zur Achse Front->Back versetzen
-  const mLat=111320, mLng=111320*Math.cos((ctr[0]||0)*Math.PI/180);
-  let ax=(e.back[1]-e.front[1])*mLng, ay=(e.back[0]-e.front[0])*mLat;
-  const L=Math.hypot(ax,ay)||1; ax/=L; ay/=L;
-  const off=q*half*0.85;                       // 85 %: nicht bis auf die Kante
-  return [ base[0]+(-ax*off)/mLat, base[1]+(ay*off)/mLng ]; }
 function greenDims(geo,n){
   const ring=greenRingFor(geo,n), center=geo && geo.holes[n] && geo.holes[n].green; if(!ring||!center) return null;
   const from=(geo.holes[n]&&geo.holes[n].tee)||center;
@@ -16626,19 +16628,6 @@ function greenDims(geo,n){
     if(a<minA)minA=a; if(a>maxA)maxA=a; if(b<minP)minP=b; if(b>maxP)maxP=b; });
   return { depth:Math.round(maxA-minA), width:Math.round(maxP-minP) };
 }
-function playPinRec(){ const h=PLAY.holes[PLAY.idx]; if(!h) return null; const k=PLAY.course+"|"+h.hole; return (DB.pins&&DB.pins[k])||null; }
-function playSetPinDepth(d){ const h=PLAY.holes[PLAY.idx],k=PLAY.course+"|"+h.hole; if(!DB.pins)DB.pins={};
-  const cur=DB.pins[k]||{};
-  DB.pins[k]={d:Math.max(0,Math.min(1,d)),q:cur.q||0,date:todayISO()}; persistSoon(); renderPlay(); }
-function playSetPinSide(q){ const h=PLAY.holes[PLAY.idx],k=PLAY.course+"|"+h.hole; if(!DB.pins)DB.pins={};
-  const cur=DB.pins[k]||{};
-  DB.pins[k]={d:(cur.d!=null?cur.d:0.5),q:Math.max(-1,Math.min(1,q)),date:todayISO()};
-  persistSoon(); renderPlay(); }
-function playPinSlide(v){ const h=PLAY.holes[PLAY.idx],k=PLAY.course+"|"+h.hole; if(!DB.pins)DB.pins={};
-  const cur=DB.pins[k]||{};
-  DB.pins[k]={d:Math.max(0,Math.min(1,v/100)),q:cur.q||0,date:todayISO()}; playLiveRefresh(); }
-function playPinCommit(){ persist(); }
-function playClearPin(){ const h=PLAY.holes[PLAY.idx],k=PLAY.course+"|"+h.hole; if(DB.pins) delete DB.pins[k]; persist(); renderPlay(); }
 
 function startPlay(){ renderPlaySetup(getDraftAny()); }
 /* B5: Gameplan-Sheet — erstellt (falls nötig) und zeigt den windneutralen Plan */
@@ -16900,8 +16889,12 @@ function playCaddyHtml(mid,par){
      Caddy-Block lahm. Jetzt EINMAL hier oben, sichtbar fuer die ganze
      Funktion. (Das Fehlerprotokoll hat ihn mit Funktionsnamen geliefert —
      genau dafuer wurde es in v1.60 erweitert.) */
-  const pinRec0=playPinRec();
-  const F = pinRec0 ? pinPoint(geo,h.hole,pinRec0.d,pinRec0.q) : null;
+  /* Fahnensteuerung ENTFERNT (v1.90). Als Ziel gilt durchgaengig die
+     Gruenmitte: `F = null` bedeutet fuer STRAT.approach() genau das.
+     Die tagesgenaue Fahnenlage war eine Handeingabe pro Loch, die im Alltag
+     nicht gepflegt wurde — und ohne gepflegte Werte verschlechtert sie die
+     Rechnung, statt sie zu verbessern. */
+  const F = null;
 
   // ---- STRAT (B3): am ABSCHLAG mit Geo-Daten übernimmt die EV-Engine ----
   PLAY.stratOval=null;
@@ -16927,7 +16920,6 @@ function playCaddyHtml(mid,par){
   // ---- STRAT (B4): Approach mit Fahnen-Bezug (8–200 m, nicht auf dem Grün) ----
   const lieNow=(lieAt(geo,PLAY.here)||"fairway");
   if(!onTee && stratOn() && mid>=8 && mid<=200 && lieNow!=="green"){
-    const pin=playPinRec();
     const ap=STRAT.approach(geo,PLAY.course,h.hole,PLAY.here,mid,caddyMode(),null,F||undefined);
     if(ap){
       const b=ap.best;
@@ -17019,8 +17011,8 @@ function playInfoHtml(){
     if(g-base>=3 || g*3.6>=28) out+=`<div class="play-gust">⚠ Böen bis <b>${(g*3.6).toFixed(0)} km/h</b> (Grundwind ${(base*3.6).toFixed(0)}) – ruhiger schwingen, eher mehr Schläger</div>`; }
   const fmb=greenFMB(PLAY.here,h.hole);
   if(fmb){
-    const pin=playPinRec(); let fahne=null;
-    if(pin){ const pp=pinPoint(geo,h.hole,pin.d,pin.q); if(pp) fahne=Math.round(geoDist(PLAY.here,pp)); }
+    let fahne=null;   // Fahnensteuerung entfernt (v1.90): Ziel ist die Gruenmitte
+
     const midTile = pin
       ? `<div class="pd mid"><span>🚩 Fahne</span><b>${fahne!=null?fahne:"–"}</b></div>`
       : `<div class="pd mid"><span>Mitte</span><b>${fmb.mid}</b></div>`;
@@ -17084,17 +17076,6 @@ function playDetailsHtml(){ const h=PLAY.holes[PLAY.idx];
       ${playSel('ss','Sand Save (Override)',['Ja','Nein'])}
     </div></div>
   </details>`; }
-function pinCtrlHtml(){ const geo=playGeo(); const h=PLAY.holes[PLAY.idx];
-  if(!geo || !greenRingFor(geo,h.hole)) return "";
-  const pin=playPinRec(); const pp=pin?(pin.d<=0.34?'v':pin.d>=0.66?'h':'m'):null;
-  const q=pin&&pin.q!=null?pin.q:0; const ps=pin?(q<=-0.3?'l':q>=0.3?'r':'m'):null;
-  return `<div class="play-pin">
-    <div class="pp-head"><span>🚩 Fahne heute</span>${pin?`<button type="button" class="pp-clear" onclick="playClearPin()">zurücksetzen</button>`:`<span class="r-s">= Grünmitte</span>`}</div>
-    <div class="risk-seg pp-seg"><button type="button" class="${pp==='v'?'on':''}" onclick="playSetPinDepth(0.12)">Vorne</button><button type="button" class="${pp==='m'?'on':''}" onclick="playSetPinDepth(0.5)">Mitte</button><button type="button" class="${pp==='h'?'on':''}" onclick="playSetPinDepth(0.88)">Hinten</button></div>
-    <input class="pp-slider" type="range" min="0" max="100" value="${pin?Math.round(pin.d*100):50}" oninput="playPinSlide(this.value)" onchange="playPinCommit()">
-    <div class="risk-seg pp-seg" style="margin-top:6px"><button type="button" class="${ps==='l'?'on':''}" onclick="playSetPinSide(-0.7)">Links</button><button type="button" class="${ps==='m'?'on':''}" onclick="playSetPinSide(0)">Mitte</button><button type="button" class="${ps==='r'?'on':''}" onclick="playSetPinSide(0.7)">Rechts</button></div>
-    <div class="r-s" style="margin-top:2px">Seite zählt für Short-Side und die Schlagempfehlung</div>
-  </div>`; }
 // ---- In-Place-Schlagaufnahme (kein Kartenwechsel) ----
 function shotRecHtml(){ const h=PLAY.holes[PLAY.idx]; const rec=PLAY.rec;
   if(rec && rec.club){ const d=(PLAY.here&&rec.startPos)?Math.round(geoDist(rec.startPos,PLAY.here)):0;
@@ -17230,10 +17211,8 @@ function pfCaddyKurz(){
         📍 <b>${tf>=1000?(tf/1000).toFixed(1).replace(".",",")+" km":tf+" m"}</b> — zu weit${esc(plan)}
         <span class="pf-cad-more">▾</span></button>`; } }
   const fmb=greenFMB(PLAY.here,h.hole);
-  const pin=playPinRec();
-  let rest=null;
-  if(pin){ const pp=pinPoint(geo,h.hole,pin.d,pin.q); if(pp) rest=Math.round(geoDist(PLAY.here,pp)); }
-  if(rest==null && fmb) rest=fmb.mid;
+  // Ziel ist die Gruenmitte (Fahnensteuerung entfernt, v1.90)
+  const rest = fmb ? fmb.mid : null;
   let empf="";
   try{ const ch=playAimChain(); const L=ch&&ch.legs&&ch.legs[0];
     if(L&&L.club) empf=" · "+escShort(L.club)+(L.dist?` ${L.dist} m`:""); }catch(e){ logErr("pfCaddyKurz", e, true); }
@@ -17264,6 +17243,10 @@ function pfRender(){
      Karte: drei Riesenzahlen, Erwartungswert, Caddy-Begruendung, Wetterzeile.
      Auf dem Platz braucht man EINE Zeile — Rest zur Fahne und die Empfehlung.
      Alles Weitere per Tipp. `PLAY.pfInfoOpen` merkt den Zustand. */
+  /* Fahnensteuerung („Fahne heute") gehoert ab v1.89 AUSSCHLIESSLICH hierher.
+     Sie stand vorher in der Eingabemaske — dort doppelt und ohne Karte
+     sinnlos, weil man die Fahnenlage im Bild einschaetzt. Sie haengt an der
+     aufgeklappten Caddy-Anzeige, damit sie die Karte nicht dauerhaft verdeckt. */
   const cad=document.getElementById("pfCaddy");
   if(cad){
     cad.className = "pf-caddy" + (PLAY.pfInfoOpen ? " open" : "");
@@ -17359,13 +17342,17 @@ function renderPlay(){
       ${playNum('distToPin','Rest zur Fahne nach Approach (m)')}
     </div>
     ${playWichtigHtml()}
+    <!-- KARTE UND FAHNENSTEUERUNG NUR NOCH IM KARTENMODUS (v1.89).
+         Beides stand hier ein zweites Mal: die Karte als kleiner Ausschnitt,
+         die Fahnensteuerung darueber. Seit der Spielmodus im Kartenmodus
+         startet, ist das doppelt — und der kleine Kartenausschnitt hat den
+         Nachteil, dass er dieselbe teure Berechnung ausloest wie die grosse.
+         Die Eingabemaske ist jetzt reine Eingabe; die Karte erreicht man mit
+         „🗺 Vollbild-Karte" ganz oben.
+         playInfoHtml() BLEIBT: die Distanzen zur Fahne braucht man auch beim
+         Eintragen. -->
     <div id="playInfo">${playInfoHtml()}</div>
     ${watchRecBanner()}
-    ${pinCtrlHtml()}
-    <div class="play-map-wrap" id="playMapWrap">
-      <div class="play-map-ctrls" id="playMapCtrls">${playMapCtrlsHtml()}</div>
-      <div id="playMapSlot"></div>
-    </div>
     ${playDetailsHtml()}
     <button class="btn ${PLAY.auto?'':'ghost'}" type="button" style="margin-top:10px;width:100%" onclick="playToggleAuto()">📍 Auto-Loch (GPS): ${PLAY.auto?"an":"aus"}</button>
     ${shotRecHtml()}
@@ -17377,7 +17364,9 @@ function renderPlay(){
     </div>`;
   openSheet(html);
   playStartLive();
-  playMapRender();
+  /* KEIN playMapRender() mehr: die Eingabemaske hat seit v1.89 keinen
+     Kartencontainer. Der Aufruf haette nichts gezeichnet, aber die teure
+     Vorbereitung (Geo-Raster, Kacheln) trotzdem angestossen. */
 }
 function playToggleAuto(){ PLAY.auto=!PLAY.auto; renderPlay(); toast(PLAY.auto?"Auto-Loch an – wechselt per GPS":"Auto-Loch aus"); }
 function playLiveRefresh(){
@@ -17551,8 +17540,7 @@ function _aimApproachEv(geo,h,from){
   if(k in _aimCache) return _aimCache[k];
   let ev=null;
   try{
-    const pin=playPinRec();
-    const F=pin?pinPoint(geo,h.hole,pin.d,pin.q):null;
+    const F=null;   // Gruenmitte (Fahnensteuerung entfernt, v1.90)
     const ap=STRAT.approach(geo,PLAY.course,h.hole,from,rest,caddyMode(),STRAT.esHcp(),F||undefined);
     /* WICHTIG: approach() liefert `best` in EINER ANDEREN FORM als tee() und
        nextShot() — dort liegen es/pen unter best.ev, hier direkt auf best.
@@ -22426,7 +22414,7 @@ function openComp(idx){
 /* ================= NAV ================= */
 let current="dash";
 const FAB_ACTION={rounds:startRound,comp:openAddComp,notes:openAddNote,swing:openSwingEdit};
-const APP_VERSION="1.88.0"; // App-Anzeigeversion (NICHT SEED.version! Diese bei jeder Änderung erhöhen)
+const APP_VERSION="1.90.0"; // App-Anzeigeversion (NICHT SEED.version! Diese bei jeder Änderung erhöhen)
 /* ---------- Darstellung: Hell/Dunkel (DB.ui.theme = "auto" | "light" | "dark") ---------- */
 const _darkMQ = (window.matchMedia? window.matchMedia("(prefers-color-scheme: dark)") : null);
 function themeSetting(){ return (DB && DB.ui && DB.ui.theme) || "auto"; }
@@ -23064,7 +23052,10 @@ function ensureDefaults(){
     DB.approachMiss=["Grün getroffen","Kurz","Lang","Links","Rechts",
                      "Kurz links","Kurz rechts","Lang links","Lang rechts"];
   let changed=false;
-  if(!DB.pins) DB.pins={};
+  /* Fahnensteuerung entfernt (v1.90): das Feld wird nicht mehr angelegt und
+     Altbestand einmal geraeumt. Kein Loeschen des Schluessels — mergeDB kann
+     Loeschungen nicht ausdruecken (Object.assign), also AKTIV leeren. */
+  if(DB.pins && Object.keys(DB.pins).length) DB.pins={};
   if(!DB.ui) DB.ui={};
   // STRAT (DECADE): additiv — SEED.version wird BEWUSST NICHT erhöht (das würde
   // laut load()-Mechanik den lokalen Stand verwerfen, siehe Doku "Datenversion")

@@ -38,21 +38,21 @@ const COVERAGE_BASELINE_FUNCS = (
     "buildHoleGeo caddyBlockHtml caddyPlan caddyPositionPlan clubFamily clubPlan compass8" +" "+
     "computeRound computeTotal courseSVG deleteNote distToRing featBbox featPoints" +" "+
     "finalizeGeo fitFind fmtDur fmtN geoBBox geoEdDown geoEdHoleFixHtml geoEdMove geoLL" +" "+
-    "goalFind golfLinkify greenAxisEdges greenFMB greenRingFor holeHistory holeSpine" +" "+
-    "holeTrouble idbGet idbImgDel idbImgGet idbImgSet idbSatDel idbSet idbVidDel idbVidGet" +" "+
-    "idbVidSet isVideoUrl ladder lateralHazards lineChart lineLenM linkHref liveStart" +" "+
-    "lmBuildRecs lmCarryStrip lmDiagScatter lmDispersion lmGet lmPct lmPearson lmStatObj" +" "+
-    "lvlChip manualTipHtml mapLL mkLink nearestHole normalizeClub openAddComp openAddNote" +" "+
-    "openAddRound openBlockEditor openCourseEditor openFitnessDetail openGoalEditor" +" "+
-    "openKraftEditor openRound openTest openYogaEditor parseGeoJSONCourse parseOverpassCourse" +" "+
-    "playCaddyHtml playField playMapBind playMapClamp playNum playSel playTooFarHtml qaExpand" +" "+
-    "qaFold qaSearch qaSections qaStem rateAbs rateR rateSmash rateStd refreshRepoSection" +" "+
-    "renderGeoImport roundKPIs roundLL roundWeatherHtml satCourseSrc satCourseTiles satLayer" +" "+
-    "satSrcFor satTileKey satTilePx satTileRes selOpts sgCoverageHtml sgDashHtml" +" "+
-    "sgDisasterHtml sgLeerHtml sparkline strkDown strkZoomAt strkZoomBtn swDaysSince" +" "+
-    "swNormTag targetFor teeNames thinRing warmupBloeckeHtml weatherByGeo weatherEffectHtml" +" "+
-    "wikiCountCat wikiCountGrp wikiEsc wikiGroupIcon wikiGroupOf wikiNormTag wikiSuggest" +" "+
-    "wikiTagsOf windArrowChar"
+    "goalFind golfLinkify greenRingFor holeHistory holeSpine holeTrouble idbGet idbImgDel" +" "+
+    "idbImgGet idbImgSet idbSatDel idbSet idbVidDel idbVidGet idbVidSet isVideoUrl ladder" +" "+
+    "lateralHazards lineChart lineLenM linkHref liveStart lmBuildRecs lmCarryStrip" +" "+
+    "lmDiagScatter lmDispersion lmGet lmPct lmPearson lmStatObj lvlChip manualTipHtml mapLL" +" "+
+    "mkLink nearestHole normalizeClub openAddComp openAddNote openAddRound openBlockEditor" +" "+
+    "openCourseEditor openFitnessDetail openGoalEditor openKraftEditor openRound openTest" +" "+
+    "openYogaEditor parseGeoJSONCourse parseOverpassCourse playCaddyHtml playField" +" "+
+    "playMapBind playMapClamp playNum playSel playTooFarHtml qaExpand qaFold qaSearch" +" "+
+    "qaSections qaStem rateAbs rateR rateSmash rateStd refreshRepoSection renderGeoImport" +" "+
+    "roundKPIs roundLL roundWeatherHtml satCourseSrc satCourseTiles satLayer satSrcFor" +" "+
+    "satTileKey satTilePx satTileRes selOpts sgCoverageHtml sgDashHtml sgDisasterHtml" +" "+
+    "sgLeerHtml sparkline strkDown strkZoomAt strkZoomBtn swDaysSince swNormTag targetFor" +" "+
+    "teeNames thinRing warmupBloeckeHtml weatherByGeo weatherEffectHtml wikiCountCat" +" "+
+    "wikiCountGrp wikiEsc wikiGroupIcon wikiGroupOf wikiNormTag wikiSuggest wikiTagsOf" +" "+
+    "windArrowChar"
 ).split(" ");
 
 const COVERAGE_BASELINE_STRAT = (
@@ -1400,6 +1400,43 @@ group("Kein Overlay mehr — der Spielmodus ist eine Ansicht");
   ok("keine dialog-Sonderbehandlung mehr", !/el\.showModal|\.showModal\(\)/.test(js));
   ok("Zurück-Taste erkennt den Spielmodus an der body-Klasse",
      /classList\.contains\("play-mode"\)[\s\S]{0,60}pfHide/.test(src));
+}
+
+/* ============ 24n2. Eingabemaske ohne Karte und Fahnensteuerung ============ */
+group("Keine Doppelungen zwischen Karten- und Eingabemodus");
+{
+  const src=fs.readFileSync(FILE,"utf8");
+  const i=src.indexOf("function renderPlay(){");
+  const j=src.indexOf("\n}\n", i);
+  const form=src.slice(i,j).replace(/\/\*[\s\S]*?\*\//g,"");   // ohne Kommentare
+  /* Karte und Fahnensteuerung standen in BEIDEN Modi. Seit der Spielmodus im
+     Kartenmodus startet, ist das doppelt — und der kleine Kartenausschnitt
+     löste dieselbe teure Berechnung aus wie die große. */
+  ok("Eingabemaske ohne Kartencontainer", form.indexOf("playMapWrap")<0);
+  ok("Eingabemaske ohne Kartenschalter", form.indexOf("playMapCtrlsHtml")<0);
+  ok("Eingabemaske ohne Fahnensteuerung", form.indexOf("pinCtrlHtml")<0);
+  ok("Eingabemaske rechnet die Karte nicht mehr", form.indexOf("playMapRender()")<0);
+  /* Die Distanzen zur Fahne bleiben — die braucht man auch beim Eintragen. */
+  ok("Distanzanzeige bleibt in der Eingabemaske", form.indexOf("playInfoHtml()")>=0);
+  /* Fahnensteuerung v1.90 KOMPLETT entfernt: sie war eine Handeingabe pro
+     Loch, die im Alltag nicht gepflegt wurde — und ungepflegte Werte
+     verschlechtern die Rechnung, statt sie zu verbessern. Ziel ist jetzt
+     durchgängig die Grünmitte (F = null für STRAT.approach). */
+  /* NUR den ausführbaren Code prüfen: Doku und Changelog nennen die entfernten
+     Funktionen weiterhin — als historische Begründung, das ist gewollt. */
+  const nurCode = [...src.matchAll(/<script([^>]*)>([\s\S]*?)<\/script>/g)]
+    .filter(m=>!/\bsrc=|application\/json|text\/markdown|devdocs/.test(m[1]))
+    .map(m=>m[2]).join("\n");
+  const ohneKomm = nurCode.replace(/\/\*[\s\S]*?\*\//g,"").replace(/\/\/[^\n]*/g,"");
+  ["pinCtrlHtml","playPinRec","pinPoint","playSetPinDepth","playSetPinSide",
+   "playPinSlide","playPinCommit","playClearPin","greenAxisEdges"].forEach(f=>{
+     ok("entfernt: "+f, ohneKomm.indexOf(f)<0);
+  });
+  ok("Grünmitte als Ziel (F=null)", /const F\s*=\s*null/.test(ohneKomm));
+  /* Altbestand wird AKTIV geleert, nicht gelöscht — mergeDB kann Löschungen
+     nicht ausdrücken (Object.assign). */
+  ok("DB.pins wird geleert statt gelöscht",
+     /DB\.pins=\{\}/.test(ohneKomm) && !/delete DB\.pins/.test(ohneKomm));
 }
 
 /* ============ 24o. Version sichtbar, Cache nicht im Weg ============ */
