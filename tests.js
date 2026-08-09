@@ -45,20 +45,19 @@ const COVERAGE_BASELINE_FUNCS = (
     "lvlChip manualTipHtml mapLL mkLink nearestHole normalizeClub openAddComp openAddNote" +" "+
     "openAddRound openBlockEditor openCourseEditor openFitnessDetail openGoalEditor" +" "+
     "openKraftEditor openRound openTest openYogaEditor parseGeoJSONCourse parseOverpassCourse" +" "+
-    "playAimChain playCaddyHtml playField playMapBind playMapClamp playNum playSel qaExpand" +" "+
-    "qaFold qaSearch qaSections qaStem rateAbs rateR rateSmash rateStd refreshRepoSection" +" "+
-    "renderGeoImport roundKPIs roundLL roundWeatherHtml satCourseSrc satCourseTiles satLayer" +" "+
-    "satSrcFor satTileKey satTilePx satTileRes selOpts sgCoverageHtml sgDashHtml" +" "+
-    "sgDisasterHtml sgLeerHtml sparkline strkDown strkZoomAt strkZoomBtn swDaysSince" +" "+
-    "swNormTag targetFor teeNames thinRing warmupBloeckeHtml weatherByGeo weatherEffectHtml" +" "+
-    "wikiCountCat wikiCountGrp wikiEsc wikiGroupIcon wikiGroupOf wikiNormTag wikiSuggest" +" "+
-    "wikiTagsOf windArrowChar"
+    "playAimChain playCaddyHtml playField playMapBind playMapClamp playNum playSel" +" "+
+    "playTooFarHtml qaExpand qaFold qaSearch qaSections qaStem rateAbs rateR rateSmash" +" "+
+    "rateStd refreshRepoSection renderGeoImport roundKPIs roundLL roundWeatherHtml" +" "+
+    "satCourseSrc satCourseTiles satLayer satSrcFor satTileKey satTilePx satTileRes selOpts" +" "+
+    "sgCoverageHtml sgDashHtml sgDisasterHtml sgLeerHtml sparkline strkDown strkZoomAt" +" "+
+    "strkZoomBtn swDaysSince swNormTag targetFor teeNames thinRing warmupBloeckeHtml" +" "+
+    "weatherByGeo weatherEffectHtml wikiCountCat wikiCountGrp wikiEsc wikiGroupIcon" +" "+
+    "wikiGroupOf wikiNormTag wikiSuggest wikiTagsOf windArrowChar"
 ).split(" ");
 
 const COVERAGE_BASELINE_STRAT = (
-    "_fp _halton _interp _invNorm _off _segDist approach esHcp esOffset grid learnFromGps" +" "+
-    "learnLateralFromRounds nextShot planCourse planFor planHole playingLevel pointESTo" +" "+
-    "samples shotEV"
+    "_fp _halton _interp _invNorm _off _segDist esHcp esOffset grid learnFromGps" +" "+
+    "learnLateralFromRounds planCourse planFor planHole playingLevel pointESTo samples shotEV"
 ).split(" ");
 
 let pass = 0, fail = 0;
@@ -1256,6 +1255,46 @@ group("playMapSlot — eine Stelle für den Kartencontainer");
     P.mapFocus=false;
     ok("außerhalb ebenfalls", slot()!==null && slot()!==undefined);
     P.mapFocus=true;
+  }
+}
+
+/* ============ 24k. Entfernungs-Plausibilität ============ */
+group("playTooFar — der Caddy schweigt außerhalb des Platzes");
+{
+  const tf=G("playTooFar"), P=G("PLAY"), DB=G("DB");
+  if (typeof tf === "function" && P && DB) {
+    const mLat=111320, mLng=65500;
+    const at=(m)=>[54.0+m/mLat, 10.0];
+    const geo={holes:{1:{tee:[54.0,10.0], green:at(387)}}};
+    DB.courses=[{name:"T", geo}];
+    P.course="T"; P.holes=[{hole:1,par:4,len:387,si:3}]; P.idx=0;
+
+    /* Am Abschlag eines 387-m-Lochs sind 387 m normal — hier darf NICHTS
+       unterdrückt werden. Erst deutlich jenseits der Lochlänge wird es
+       Unsinn: mit 2 km Entfernung empfahl der Caddy „3 Wood, lässt 1962 m". */
+    P.here=at(0);
+    ok("am Abschlag: Empfehlung erlaubt", tf()===null);
+    P.here=at(-100);
+    ok("100 m hinter dem Tee: noch erlaubt", tf()===null);
+    P.here=at(200);
+    ok("mitten auf der Bahn: erlaubt", tf()===null);
+    P.here=at(-2000);
+    ok("2 km entfernt: unterdrückt", tf()!==null, "Rückgabe "+tf());
+    const d=tf();
+    ok("liefert die Entfernung zurück", d>2300 && d<2500, "d="+d);
+
+    // Ohne bekannte Länge greift die absolute Schwelle
+    P.holes=[{hole:1,par:4,si:3}];
+    /* ACHTUNG beim Testen: gemessen wird zum GRÜN, nicht zum Tee.
+       at(-200) liegt 200 m hinter dem Tee, also 587 m vom Grün. */
+    P.here=at(-200);
+    ok("ohne Lochlänge: 587 m zum Grün noch erlaubt", tf()===null, "d="+tf());
+    P.here=at(-1400);
+    ok("ohne Lochlänge: 1400 m unterdrückt", tf()!==null);
+
+    P.here=null;
+    ok("ohne GPS keine Aussage", tf()===null);
+    DB.courses=[]; P.holes=[]; P.course=null;
   }
 }
 

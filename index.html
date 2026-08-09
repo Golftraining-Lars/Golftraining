@@ -578,31 +578,50 @@
   /* ---------- VOLLBILD-KARTE (v1.69) ----------
      Kein Blatt mit Karte darin, sondern eine eigene Ebene ueber allem: die
      Karte fuellt den Bildschirm, alles andere liegt als Overlay darauf. */
-  #playFull{position:fixed;inset:0;z-index:70;display:none;background:#eef3e6}
+  /* Beide Kanten pinnen UND dvh setzen: `inset:0` allein deckte auf dem Geraet
+     nur rund drei Viertel ab. 100dvh folgt der dynamischen Adressleiste auf
+     Android; pfSize() setzt zusaetzlich den gemessenen Wert per JS. */
+  #playFull{position:fixed;top:0;left:0;right:0;bottom:0;width:100%;height:100vh;height:100dvh;
+    z-index:70;display:none;background:#eef3e6}
   #playFull.on{display:block}
   body.pf-open{overflow:hidden}
   body.pf-open nav,body.pf-open header,body.pf-open #subnav,body.pf-open .fab{display:none!important}
   #pfMap{position:absolute;inset:0;overflow:hidden;touch-action:none}
   #pfMap svg{display:block;width:100%;height:100%}
-  .pf-top{position:absolute;top:0;left:0;right:0;z-index:6;display:flex;align-items:flex-start;
-    gap:8px;padding:calc(env(safe-area-inset-top) + 10px) 12px 10px;pointer-events:none;
+  .pf-top{position:absolute;top:0;left:0;right:0;z-index:6;display:flex;align-items:center;
+    gap:8px;padding:calc(env(safe-area-inset-top) + 8px) 12px 8px;pointer-events:none;
     background:linear-gradient(to bottom,rgba(8,26,15,.62),rgba(8,26,15,0))}
   .pf-top>*{pointer-events:auto}
   .pf-hole{display:flex;align-items:center;gap:9px;background:rgba(12,32,20,.72);
     backdrop-filter:blur(8px);border-radius:14px;padding:7px 12px;color:#fff}
-  .pf-hole b{font-family:var(--mono);font-size:23px;font-weight:800;line-height:1}
-  .pf-hole span{font-size:11.5px;opacity:.9;line-height:1.25}
+  .pf-hole b{font-family:var(--mono);font-size:20px;font-weight:800;line-height:1}
+  .pf-hole span{font-size:11.5px;opacity:.9;line-height:1.2}
   .pf-score{margin-left:auto;background:rgba(12,32,20,.72);backdrop-filter:blur(8px);
     border-radius:14px;padding:7px 13px;color:#fff;text-align:center}
-  .pf-score b{display:block;font-family:var(--mono);font-size:23px;font-weight:800;line-height:1}
+  .pf-score b{display:block;font-family:var(--mono);font-size:20px;font-weight:800;line-height:1}
   .pf-score span{font-size:11px;opacity:.85}
-  .pf-caddy{position:absolute;left:12px;right:66px;top:calc(env(safe-area-inset-top) + 70px);
-    z-index:6;background:rgba(12,32,20,.78);backdrop-filter:blur(8px);border-radius:14px;
-    padding:10px 13px;color:#fff;font-size:13px;line-height:1.4;max-height:32vh;overflow:auto}
+  /* Zugeklappt EINE Zeile, aufgeklappt hoechstens die halbe Hoehe. Vorher nahm
+     der Block bis zu 40 % des Bildschirms und verdeckte genau die Bahn, wegen
+     der man hinschaut. */
+  .pf-caddy{position:absolute;left:12px;right:66px;top:calc(env(safe-area-inset-top) + 58px);
+    z-index:6;color:#fff}
   .pf-caddy:empty{display:none}
+  .pf-cad-line{display:block;width:100%;text-align:left;border:none;cursor:pointer;
+    background:rgba(12,32,20,.8);backdrop-filter:blur(8px);border-radius:13px;
+    padding:9px 12px;color:#fff;font-size:14px;font-weight:650}
+  .pf-cad-line b{font-family:var(--mono);font-size:17px;font-weight:800}
+  .pf-cad-more{float:right;opacity:.7}
+  .pf-caddy.open{background:rgba(12,32,20,.86);backdrop-filter:blur(9px);border-radius:14px;
+    padding:8px 12px 12px;max-height:52vh;overflow:auto;font-size:13px;line-height:1.4}
+  .pf-cad-x{border:none;background:none;color:rgba(255,255,255,.75);font-size:12.5px;
+    font-weight:700;padding:2px 0 8px;cursor:pointer}
+  /* Die grossen F/M/B-Zahlen im Vollbild kleiner halten */
+  .pf-caddy.open .play-dist{gap:6px}
+  .pf-caddy.open .play-dist b,.pf-caddy.open .pd-v{font-size:22px!important}
+  .pf-caddy.open .play-dist>div{padding:6px 8px!important}
   .pf-caddy .pc-head,.pf-caddy b{color:#fff}
   .pf-caddy .pc-why,.pf-caddy .r-s,.pf-caddy .pc-plan{color:rgba(255,255,255,.85)}
-  #playFull .play-map-ctrls{position:absolute;top:calc(env(safe-area-inset-top) + 70px);right:10px;z-index:7}
+  #playFull .play-map-ctrls{position:absolute;top:calc(env(safe-area-inset-top) + 58px);right:10px;z-index:7}
   .pf-bottom{position:absolute;left:0;right:0;bottom:0;z-index:6;
     padding:10px 12px calc(env(safe-area-inset-bottom) + 12px);
     background:linear-gradient(to top,rgba(8,26,15,.66),rgba(8,26,15,0))}
@@ -1562,6 +1581,39 @@ Zwei Massnahmen:
    schlechter lesbar auf.
 tests.js prueft die Formen direkt gegeneinander (Abschnitt 24h).
 
+### Entfernungs-Plausibilitaet (v1.77)
+Steht man weit vom Loch entfernt — zu Hause, auf dem Weg zum Platz, oder weil das GPS
+abgedriftet ist — rechnete der Caddy trotzdem weiter: „3 Wood → 3 Wood · bringt dich ~211 m
+voran, laesst 1962 m", dazu „Erwartete Schlaege von hier: 14,0". Das ist nicht falsch gerechnet,
+aber es ist Unsinn: eine Schlagfolge ueber 2 km hat mit Golf nichts zu tun, und der
+Erwartungswert ist nur noch eine Extrapolation der ES-Tabelle weit ausserhalb ihres
+Stuetzbereichs.
+
+`playTooFar()` liefert die Entfernung zum GRUEN, wenn sie unplausibel ist, sonst `null`.
+Schwelle: **Lochlaenge + 150 m** (Zugabe fuer Positionen hinter dem Tee, Umwege und
+GPS-Ungenauigkeit), mindestens aber 650 m — laenger ist kein Loch. Wirkt an drei Stellen:
+`playInfoHtml` (volle Anzeige), `pfCaddyKurz` (Kurzzeile im Vollbild) und `playAimChain`,
+das erst gar keine Monte-Carlo-Runde startet.
+
+Score-Eingabe, Karte und Lochwechsel bleiben nutzbar — nur die Empfehlung schweigt.
+`playTooFarHtml(d)` baut den Hinweistext (km ab 1000 m).
+
+### Vollbild-Aufteilung (v1.76)
+Nach dem Freeze-Fix war die Ebene zwar stabil, aber unbedienbar: Die Caddy-Anzeige nahm bis zu
+40 % des Bildschirms — drei Riesenzahlen (F/M/B), Erwartungswert, Begruendung, Wetterzeile — und
+verdeckte genau die Bahn, wegen der man hinschaut.
+
+**Jetzt zweistufig.** Zugeklappt EINE Zeile (`pfCaddyKurz()`): Rest zur Fahne, empfohlener
+Schlaeger mit Distanz, Windgeschwindigkeit. Ein Tipp klappt die vollstaendige Anzeige auf
+(`pfInfoToggle()`, Zustand in `PLAY.pfInfoOpen`), begrenzt auf 52 vh und mit kleineren
+F/M/B-Zahlen. Die Kopfzeile ist einzeilig statt dreizeilig — die Gruenmasse stehen ohnehin in der
+aufgeklappten Anzeige.
+
+**Zur Hoehe:** `#playFull` pinnt jetzt alle vier Kanten UND setzt `height:100dvh` (folgt der
+dynamischen Adressleiste auf Android). `pfSize()` setzt zusaetzlich den gemessenen Wert, aber
+**ohne** `bottom:auto` — das war in v1.75 kontraproduktiv: stimmte die gemessene Hoehe nicht,
+blieb unten eine Luecke, statt dass die gepinnte Kante gegriffen haette.
+
 ### Einfrieren und Dreiviertel-Bild (v1.75)
 **Das Einfrieren.** `playMapTick()` suchte nur `#playMapSlot`. Im Vollbild zeichnet die Karte
 aber nach `#pfMap` — der Slot war dort `null`, und damit fiel JEDER GPS-Tick in den teuren
@@ -2175,6 +2227,22 @@ erkennbar ist, dass es ein Video gab.
 ## Changelog
 > **Regel:** Bei JEDER inhaltlichen Änderung hier oben einen datierten Eintrag ergänzen (neueste
 > zuerst): Datum · was geändert · betroffene Bereiche. Kurz halten.
+
+- **v1.77.0 · 2026-08-09** — **Caddy schweigt außerhalb des Platzes.** Bei 2 km Entfernung gab er
+  weiter Empfehlungen („3 Wood, lässt 1962 m") und einen Erwartungswert von 14,0 — korrekt
+  gerechnet, aber sinnlos: die ES-Tabelle wird dort weit außerhalb ihres Stützbereichs
+  extrapoliert. Neu `playTooFar()`: Schwelle Lochlänge + 150 m, mindestens 650 m. Wirkt in
+  `playInfoHtml`, `pfCaddyKurz` und `playAimChain` (dort wird gar keine Monte-Carlo-Runde mehr
+  gestartet). Score-Eingabe, Karte und Lochwechsel bleiben nutzbar. Im Prüfstand gegen
+  realistische Fälle abgesichert: am Abschlag und auf der Bahn erlaubt, 2 km unterdrückt.
+
+- **v1.76.0 · 2026-08-09** — **Vollbild bedienbar: Caddy-Anzeige zweistufig, Kopfzeile einzeilig.**
+  Die Caddy-Anzeige nahm bis zu 40 % des Bildschirms und verdeckte die Bahn. Jetzt zugeklappt
+  EINE Zeile (`pfCaddyKurz`: Rest zur Fahne · empfohlener Schläger · Wind), ein Tipp klappt die
+  vollständige Anzeige auf (`pfInfoToggle`, max. 52 vh, kleinere F/M/B-Zahlen). Kopfzeile
+  einzeilig. **Höhe:** alle vier Kanten gepinnt plus `height:100dvh`; `pfSize()` setzt den
+  gemessenen Wert, aber ohne `bottom:auto` — das ließ in v1.75 unten eine Lücke, statt die
+  gepinnte Kante greifen zu lassen.
 
 - **v1.75.0 · 2026-08-09** — **Einfrieren behoben · Vollbild deckt jetzt wirklich den Bildschirm.**
   (1) **URSACHE DES EINFRIERENS:** `playMapTick()` suchte nur `#playMapSlot`, im Vollbild zeichnet
@@ -16510,10 +16578,39 @@ function manualTipHtml(courseName,n){
   if(tr.tip) bits.push(esc(tr.tip));
   return bits.length? `<div class="pc-tip">💡 ${bits.join(" · ")}</div>` : "";
 }
+/* ==========================================================================
+   PLAUSIBILITAET DER ENTFERNUNG (v1.77)
+   Steht man 2 km vom Loch entfernt — zu Hause, auf dem Weg zum Platz, oder
+   weil das GPS abgedriftet ist — rechnet der Caddy trotzdem weiter und gibt
+   Empfehlungen aus („3 Wood, laesst 1962 m"). Das ist nicht falsch gerechnet,
+   aber es ist Unsinn: eine Schlagfolge ueber 2 km hat mit Golf nichts zu tun,
+   und die erwarteten Schlaege (14,0) sind nur noch eine Extrapolation der
+   ES-Tabelle weit ausserhalb ihres Stuetzbereichs.
+
+   Schwelle: Lochlaenge + 150 m Zugabe (fuer Abschlag hinter dem Tee, Umwege,
+   GPS-Ungenauigkeit). Ohne bekannte Laenge 650 m — laenger ist kein Loch.
+   Liefert die Entfernung, wenn sie UNPLAUSIBEL ist, sonst null. */
+function playTooFar(){
+  const geo=playGeo(), h=PLAY.holes&&PLAY.holes[PLAY.idx];
+  if(!geo||!h||!PLAY.here) return null;
+  const hr=geo.holes&&geo.holes[h.hole];
+  if(!hr||!hr.green) return null;
+  const d=Math.round(geoDist(PLAY.here,hr.green));
+  const grenze=(h.len>0?h.len:500)+150;
+  return d>Math.max(grenze,650) ? d : null;
+}
+function playTooFarHtml(d){
+  return `<div class="play-dist-empty">📍 <b>${d>=1000?(d/1000).toFixed(1).replace(".",",")+" km":d+" m"}</b>
+    vom Grün entfernt — zu weit für eine sinnvolle Empfehlung.<br>
+    <span class="r-s">Der Caddy rechnet ab dem Platz. Bis dahin bleiben Score-Eingabe und
+    Kartenansicht nutzbar.</span></div>`;
+}
+
 function playInfoHtml(){
   const geo=playGeo(); const h=PLAY.holes[PLAY.idx];
   if(!geo) return `<div class="play-dist-empty">Keine Platz-Geodaten – für Distanzen die OSM-Karte importieren (Plätze → Karte). Score-Eingabe funktioniert trotzdem.</div>`;
   if(!PLAY.here) return `<div class="play-dist-empty">📡 GPS wird gesucht …</div>`;
+  { const tf=playTooFar(); if(tf!=null) return playTooFarHtml(tf); }
   let out="";
   { const nh=nearestHole(geo,PLAY.here); if(nh&&nh.hole!==h.hole) out+=`<div class="play-detect" onclick="playGoHole(${nh.hole})">📍 GPS erkennt Loch ${nh.hole} · wechseln</div>`; }
   if(WEATHER && WEATHER.gustMs!=null){ const g=WEATHER.gustMs, base=WEATHER.windMs||0;
@@ -16667,8 +16764,12 @@ function pfSize(){
   const el=document.getElementById("playFull"); if(!el||!el.classList.contains("on")) return;
   const h=(window.visualViewport && window.visualViewport.height) || window.innerHeight || 0;
   const w=(window.visualViewport && window.visualViewport.width) || window.innerWidth || 0;
-  if(h>0){ el.style.height=h+"px"; el.style.width=(w>0?w:window.innerWidth)+"px";
-    el.style.top="0"; el.style.left="0"; el.style.right="auto"; el.style.bottom="auto"; }
+  /* NICHT bottom:auto setzen — das war kontraproduktiv: stimmte die gemessene
+     Hoehe nicht, blieb unten eine Luecke. Beide Kanten bleiben gepinnt, die
+     Hoehe ist nur die zusaetzliche Absicherung. */
+  el.style.top="0"; el.style.left="0"; el.style.right="0"; el.style.bottom="0";
+  if(h>0) el.style.height=h+"px";
+  if(w>0) el.style.width=w+"px";
 }
 /* Adressleiste ein-/ausblenden und Drehen aendern die sichtbare Hoehe. */
 window.addEventListener("resize", pfSize);
@@ -16717,6 +16818,32 @@ function playFocusDefault(){ return true; }
 
 /* Nur die Overlays neu zeichnen — die KARTE bleibt stehen. Sonst wuerde bei
    jedem GPS-Tick der Ausschnitt zurueckspringen. */
+/* Eine Zeile: Rest zur Fahne, Schlaegerempfehlung, Wind. Mehr nicht. */
+function pfCaddyKurz(){
+  const geo=playGeo(), h=PLAY.holes[PLAY.idx];
+  if(!geo) return `<button type="button" class="pf-cad-line" onclick="pfInfoToggle()">
+    Keine Platzdaten · Score-Eingabe geht trotzdem ▾</button>`;
+  if(!PLAY.here) return `<button type="button" class="pf-cad-line" onclick="pfInfoToggle()">
+    📡 GPS wird gesucht … ▾</button>`;
+  { const tf=playTooFar();
+    if(tf!=null) return `<button type="button" class="pf-cad-line" onclick="pfInfoToggle()">
+      📍 ${tf>=1000?(tf/1000).toFixed(1).replace(".",",")+" km":tf+" m"} vom Grün — zu weit
+      <span class="pf-cad-more">▾</span></button>`; }
+  const fmb=greenFMB(PLAY.here,h.hole);
+  const pin=playPinRec();
+  let rest=null;
+  if(pin){ const pp=pinPoint(geo,h.hole,pin.d,pin.q); if(pp) rest=Math.round(geoDist(PLAY.here,pp)); }
+  if(rest==null && fmb) rest=fmb.mid;
+  let empf="";
+  try{ const ch=playAimChain(); const L=ch&&ch.legs&&ch.legs[0];
+    if(L&&L.club) empf=" · "+escShort(L.club)+(L.dist?` ${L.dist} m`:""); }catch(e){ logErr("pfCaddyKurz", e, true); }
+  const wind = (WEATHER&&WEATHER.windMs!=null)
+    ? ` · ${Math.round(WEATHER.windMs*3.6)} km/h` : "";
+  return `<button type="button" class="pf-cad-line" onclick="pfInfoToggle()">
+    <b>${rest!=null?rest+" m":"–"}</b>${esc(empf)}${esc(wind)} <span class="pf-cad-more">▾</span></button>`;
+}
+function pfInfoToggle(){ PLAY.pfInfoOpen=!PLAY.pfInfoOpen; pfRender(); }
+
 function pfRender(){
   if(!PLAY.active || !PLAY.mapFocus) return;
   const h=PLAY.holes[PLAY.idx]; if(!h) return;
@@ -16726,13 +16853,25 @@ function pfRender(){
   const opTxt = pl ? (op>0?"+"+op:op<0?String(op):"E") : "–";
 
   const top=document.getElementById("pfTop");
+  /* EINZEILIG. Vorher drei Zeilen (Par/HCP, Laenge, Gruenmasse) — die
+     Gruenmasse stehen ohnehin in der aufgeklappten Caddy-Anzeige. */
   if(top) top.innerHTML=`
     <div class="pf-hole"><b>${h.hole}</b>
-      <span>Par ${h.par} · HCP ${h.si}${h.len?`<br>${h.len} m`:""}${gd?`<br>Grün ${gd.depth}×${gd.width} m`:""}</span></div>
-    <div class="pf-score"><b>${h.score!=null?h.score:"–"}</b><span>${pl?"Par "+opTxt:"Score"}</span></div>`;
+      <span>Par ${h.par} · HCP ${h.si}${h.len?` · ${h.len} m`:""}</span></div>
+    <div class="pf-score"><b>${h.score!=null?h.score:"–"}</b><span>${pl?opTxt:"Score"}</span></div>`;
 
+  /* KOMPAKT statt vollstaendig. Im Vollbild verdeckte playInfoHtml() die halbe
+     Karte: drei Riesenzahlen, Erwartungswert, Caddy-Begruendung, Wetterzeile.
+     Auf dem Platz braucht man EINE Zeile — Rest zur Fahne und die Empfehlung.
+     Alles Weitere per Tipp. `PLAY.pfInfoOpen` merkt den Zustand. */
   const cad=document.getElementById("pfCaddy");
-  if(cad) cad.innerHTML=playInfoHtml();
+  if(cad){
+    cad.className = "pf-caddy" + (PLAY.pfInfoOpen ? " open" : "");
+    cad.innerHTML = PLAY.pfInfoOpen
+      ? `<button type="button" class="pf-cad-x" onclick="pfInfoToggle()">▲ weniger</button>`
+        + playInfoHtml()
+      : pfCaddyKurz();
+  }
 
   const ctr=document.getElementById("pfCtrls");
   if(ctr) ctr.innerHTML=playMapCtrlsHtml();
@@ -17096,6 +17235,9 @@ function _aimBuild(strategic){
 }
 
 function playAimChain(force){
+  /* Weit ausserhalb des Platzes keine Schlagfolge rechnen — das waere eine
+     Monte-Carlo-Runde ueber 2 km fuer eine Darstellung, die niemandem hilft. */
+  if(playTooFar()!=null){ PLAY.aimChain=null; PLAY.aimChainKey=null; return null; }
   const key=_aimChainKey();
   if(!force && !_aimDragging && PLAY.aimChain && PLAY.aimChainKey===key) return PLAY.aimChain;
   const ch=_aimBuild(!_aimDragging);
@@ -21856,7 +21998,7 @@ function openComp(idx){
 /* ================= NAV ================= */
 let current="dash";
 const FAB_ACTION={rounds:startRound,comp:openAddComp,notes:openAddNote,swing:openSwingEdit};
-const APP_VERSION="1.75.0"; // App-Anzeigeversion (NICHT SEED.version! Diese bei jeder Änderung erhöhen)
+const APP_VERSION="1.77.0"; // App-Anzeigeversion (NICHT SEED.version! Diese bei jeder Änderung erhöhen)
 /* ---------- Darstellung: Hell/Dunkel (DB.ui.theme = "auto" | "light" | "dark") ---------- */
 const _darkMQ = (window.matchMedia? window.matchMedia("(prefers-color-scheme: dark)") : null);
 function themeSetting(){ return (DB && DB.ui && DB.ui.theme) || "auto"; }
