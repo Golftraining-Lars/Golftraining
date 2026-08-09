@@ -1581,6 +1581,28 @@ Zwei Massnahmen:
    schlechter lesbar auf.
 tests.js prueft die Formen direkt gegeneinander (Abschnitt 24h).
 
+### Messen statt raten (v1.80)
+Fuenf Anlaeufe, fuenf Hypothesen — dvh, visualViewport, ein Vorfahre mit transform, die
+Adressleiste — und die Ebene fuellt den Bildschirm weiter nicht. Statt einer sechsten Hypothese
+wird jetzt GEMESSEN:
+
+- **`pfFacts()`** liefert `getBoundingClientRect()`, `innerHeight`, `documentElement.clientHeight`,
+  `visualViewport.height`, die berechnete `position` — und vor allem **`offsetParent`**.
+  Bei `position:fixed` MUSS der null sein; steht dort ein Element, hat ein Vorfahre einen
+  eigenen Bezugsrahmen aufgespannt (transform/filter/contain/will-change/perspective), und
+  `bottom:0` rechnet gegen dieses Element statt gegen den Bildschirm. Das wuerde alle Symptome
+  auf einen Schlag erklaeren.
+- **`pfVerify()`** vergleicht `rectTop + rectH` mit der Bildschirmhoehe und korrigiert bei einer
+  Luecke ueber 24 px um GENAU die gemessene Differenz. Das ist kein Raten mehr — die Korrektur
+  kommt aus dem tatsaechlichen Rechteck. Laeuft 400 ms und 1200 ms nach dem Oeffnen sowie bei
+  `resize`/`orientationchange`; jede Korrektur landet still im Fehlerprotokoll.
+- **`pfDiagShow()`** zeigt die Werte (Mehr → Daten → Diagnose → „📐 Layout-Diagnose") mit
+  Kopier-Knopf.
+
+Falls `offsetParent` NICHT null ist, waere der saubere Weg ein `<dialog>` mit `showModal()`:
+Elemente im Top Layer positionieren sich unabhaengig von jedem Vorfahren. Das ist der naechste
+Schritt, wenn die Messung das bestaetigt.
+
 ### Warum die Ebene immer wieder schrumpfte (v1.79)
 Vier Anlaeufe, und die Ursache war die ganze Zeit dieselbe — MEINE eigene Absicherung:
 
@@ -2280,6 +2302,16 @@ erkennbar ist, dass es ein Video gab.
 ## Changelog
 > **Regel:** Bei JEDER inhaltlichen Änderung hier oben einen datierten Eintrag ergänzen (neueste
 > zuerst): Datum · was geändert · betroffene Bereiche. Kurz halten.
+
+- **v1.80.0 · 2026-08-09** — **Messen statt raten.** Nach fünf erfolglosen Hypothesen zur
+  Vollbild-Höhe jetzt eine Messung: `pfFacts()` liefert Rechteck, Viewport-Maße, berechnete
+  `position` und vor allem **`offsetParent`** — bei `position:fixed` muss der null sein, sonst hat
+  ein Vorfahre einen eigenen Bezugsrahmen aufgespannt. `pfVerify()` vergleicht Unterkante mit
+  Bildschirmhöhe und korrigiert bei einer Lücke >24 px um genau die gemessene Differenz (400 ms
+  und 1200 ms nach dem Öffnen, dazu bei `resize`/`orientationchange`); jede Korrektur landet im
+  Fehlerprotokoll. Neuer Knopf „📐 Layout-Diagnose" unter Mehr → Daten → Diagnose zeigt die Werte
+  mit Kopier-Funktion. Zeigt `offsetParent` ein Element, ist der nächste Schritt ein `<dialog>`
+  mit `showModal()` (Top Layer, unabhängig von Vorfahren).
 
 - **v1.79.0 · 2026-08-09** — **Die Ebene schrumpfte wegen meiner eigenen Absicherung.**
   Bei `position:fixed` mit `top:0` definieren top+height die Box — eine gesetzte `height`
@@ -16861,7 +16893,73 @@ function pfOpen(){
      Monte-Carlo und Kacheln oft ueber eine Sekunde — laeuft es hier synchron,
      erscheint die Ebene erst danach und es sieht aus, als haenge die App. */
   setTimeout(()=>{ if(PLAY.active && PLAY.mapFocus) playMapRender(); }, 0);
+  // Nach dem Einschwingen (Adressleiste animiert) nachmessen und ggf. korrigieren.
+  setTimeout(pfVerify, 400);
+  setTimeout(pfVerify, 1200);
 }
+/* ==========================================================================
+   LAYOUT-DIAGNOSE (v1.80)
+   Fuenf Anlaeufe, die Ebene fuellt den Bildschirm nicht. Alle bisherigen
+   Erklaerungen waren Hypothesen: dvh, visualViewport, ein Vorfahre mit
+   transform. Statt einer sechsten Hypothese wird jetzt GEMESSEN — und die
+   Messung korrigiert sich selbst.
+
+   Der entscheidende Wert ist `el.offsetParent`. Bei `position:fixed` ist er
+   NULL, wenn der Viewport der Bezug ist. Ist er NICHT null, hat ein Vorfahre
+   einen containing block aufgespannt (transform, filter, contain,
+   will-change, perspective) — dann rechnet `bottom:0` gegen DIESES Element
+   und nicht gegen den Bildschirm. Genau das wuerde alle Symptome erklaeren.
+   ========================================================================== */
+function pfFacts(){
+  const el=document.getElementById("playFull"); if(!el) return null;
+  const r=el.getBoundingClientRect();
+  const cs=window.getComputedStyle?getComputedStyle(el):{};
+  return {
+    rectTop:Math.round(r.top), rectH:Math.round(r.height), rectW:Math.round(r.width),
+    innerH:window.innerHeight||0,
+    clientH:(document.documentElement&&document.documentElement.clientHeight)||0,
+    vvH:(window.visualViewport&&Math.round(window.visualViewport.height))||0,
+    offsetParent: el.offsetParent ? (el.offsetParent.id||el.offsetParent.tagName||"?") : "null",
+    position: cs.position||"?", inlineH: el.style.height||"–"
+  };
+}
+/* Nach dem Oeffnen pruefen, ob die Ebene wirklich bis unten reicht — und wenn
+   nicht, GENAU um die gemessene Differenz nachhelfen. Das ist kein Raten mehr:
+   die Korrektur kommt aus dem tatsaechlichen Rechteck. */
+function pfVerify(){
+  const el=document.getElementById("playFull");
+  if(!el||!el.classList.contains("on")) return;
+  const f=pfFacts(); if(!f) return;
+  const soll=Math.max(f.innerH, f.clientH, f.vvH);
+  const ist=f.rectTop + f.rectH;                 // Unterkante im Bildschirm
+  if(soll-ist > 24){
+    el.style.height=(soll-f.rectTop)+"px";
+    logErr("pfVerify", new Error("Ebene zu kurz, korrigiert: "+JSON.stringify(f)), true);
+  }
+}
+/* Auch bei Drehen und beim Ein-/Ausfahren der Adressleiste nachmessen. */
+window.addEventListener("resize", ()=>setTimeout(pfVerify,60));
+window.addEventListener("orientationchange", ()=>setTimeout(pfVerify,200));
+if(window.visualViewport) window.visualViewport.addEventListener("resize", ()=>setTimeout(pfVerify,60));
+
+function pfDiagShow(){
+  const f=pfFacts();
+  if(!f){ toast("Vollbild nicht im DOM"); return; }
+  openSheet(`<h2>Layout-Diagnose</h2>
+    <div class="sub">Messwerte der Vollbild-Ebene — für die Fehlersuche.</div>
+    <div class="card pad">
+      ${Object.entries(f).map(([k,v])=>`<div class="stat-line"><span>${esc(k)}</span><b>${esc(String(v))}</b></div>`).join("")}
+    </div>
+    <p class="note"><b>offsetParent</b> ist der wichtigste Wert: bei
+    <code>position:fixed</code> muss er <b>null</b> sein. Steht dort ein Element, hat ein
+    Vorfahre einen eigenen Bezugsrahmen aufgespannt (transform/filter/contain) — dann rechnet
+    <code>bottom:0</code> gegen dieses Element statt gegen den Bildschirm.<br>
+    Ebenso aufschlussreich: <b>rectTop + rectH</b> gegen <b>innerH</b>. Klafft da eine Lücke,
+    endet die Ebene zu früh.</p>
+    <button class="btn" style="margin-top:10px" onclick="navigator.clipboard&&navigator.clipboard.writeText(${JSON.stringify(JSON.stringify(f))}).then(()=>toast('Kopiert'))">📋 Werte kopieren</button>
+    <button class="btn ghost" style="margin-top:8px" onclick="closeSheet()">Schließen</button>`);
+}
+
 function pfClose(){
   const el=document.getElementById("playFull"); if(!el) return;
   el.classList.remove("on"); el.setAttribute("aria-hidden","true");
@@ -20449,6 +20547,7 @@ function renderData(){
   <div class="card pad">
     <button class="btn ghost" type="button" onclick="showErrLog()">🐞 Fehlerprotokoll (${ERRLOG.length})</button>
     <button class="btn ghost" type="button" style="margin-top:8px" onclick="runSelfCheck()">🔍 Selbstprüfung</button>
+    <button class="btn ghost" type="button" style="margin-top:8px" onclick="pfDiagShow()">📐 Layout-Diagnose (Vollbild)</button>
     <button class="btn ghost" type="button" style="margin-top:8px" onclick="swPrecacheTiles()">🗺 Luftbild des Platzes offline sichern</button>
     <button class="btn ghost" type="button" style="margin-top:8px" onclick="swClearTiles()">🧹 Kartenspeicher leeren</button>
     <p class="note" style="margin-bottom:0">Das Fehlerprotokoll bleibt über Neustarts erhalten und
@@ -22102,7 +22201,7 @@ function openComp(idx){
 /* ================= NAV ================= */
 let current="dash";
 const FAB_ACTION={rounds:startRound,comp:openAddComp,notes:openAddNote,swing:openSwingEdit};
-const APP_VERSION="1.79.0"; // App-Anzeigeversion (NICHT SEED.version! Diese bei jeder Änderung erhöhen)
+const APP_VERSION="1.80.0"; // App-Anzeigeversion (NICHT SEED.version! Diese bei jeder Änderung erhöhen)
 /* ---------- Darstellung: Hell/Dunkel (DB.ui.theme = "auto" | "light" | "dark") ---------- */
 const _darkMQ = (window.matchMedia? window.matchMedia("(prefers-color-scheme: dark)") : null);
 function themeSetting(){ return (DB && DB.ui && DB.ui.theme) || "auto"; }
