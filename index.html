@@ -1562,6 +1562,30 @@ Zwei Massnahmen:
    schlechter lesbar auf.
 tests.js prueft die Formen direkt gegeneinander (Abschnitt 24h).
 
+### Die eigentliche Ursache: der Merge (v1.74)
+Drei Anlaeufe, drei Teilursachen — die letzte war die entscheidende und lag NICHT im Vollbildcode:
+
+    out.ui = Object.assign({}, R.ui||{}, L.ui||{});   // lokal gewinnt
+
+**Ein Object.assign-Merge kann LOESCHUNGEN nicht ausdruecken.** Der lokal geloeschte Schluessel
+ist im linken Objekt schlicht nicht vorhanden, also bleibt die Repo-Fassung stehen. Das von
+v1.69 faelschlich gespeicherte `DB.ui.playMapFocus=false` kam damit bei JEDEM Sync zurueck — das
+Vollbild ging nie auf, obwohl die Ursache im Code laengst behoben war.
+
+**Konsequenz:** `playFocusDefault()` liest gar nichts mehr und liefert immer `true`; der Knopf
+„✎ Eingabe" wechselt nur innerhalb der laufenden Runde und speichert nichts. „Karte beim
+Rundenstart" ist keine Einstellung, sondern das gewuenschte Verhalten. Der Altwert wird in
+`ensureDefaults` einmal AKTIV auf `true` gesetzt (nicht geloescht), damit er auch aus dem Repo
+verschwindet.
+
+**Merkregel fuer kuenftige Aenderungen:** Wer einen synchronisierten Wert zuruecknehmen will,
+muss ihn AKTIV ueberschreiben — Loeschen genuegt nicht. Oder man persistiert ihn gar nicht.
+
+Ausserdem ist das 700-ms-Zeitfenster im popstate-Handler ERSATZLOS entfallen: Seit `pfOpen()`
+`_sheetHist` vorher zuruecksetzt, entsteht gar kein unerwuenschtes popstate — das Fenster
+schluckte dafuer den ECHTEN Zurueck-Druck, wenn er kurz nach dem Oeffnen kam. Jetzt eindeutig:
+Vollbild offen → Zurueck schliesst es.
+
 ### Die dritte Falle: Zeitfenster reichen nicht (v1.73)
 v1.70 loeste das popstate-Problem ueber ein 700-ms-Schutzfenster. Das genuegte NICHT: `pfOpen()`
 ruft anschliessend `playMapRender()`, und das braucht mit Monte-Carlo und Satellitenkacheln
@@ -2132,6 +2156,18 @@ erkennbar ist, dass es ein Video gab.
 ## Changelog
 > **Regel:** Bei JEDER inhaltlichen Änderung hier oben einen datierten Eintrag ergänzen (neueste
 > zuerst): Datum · was geändert · betroffene Bereiche. Kurz halten.
+
+- **v1.74.0 · 2026-08-09** — **Vollbild: die eigentliche Ursache lag im MERGE, nicht im Vollbildcode.**
+  `mergeDB` führt `ui` über `Object.assign({}, R.ui, L.ui)` zusammen — **ein Object.assign-Merge
+  kann Löschungen nicht ausdrücken.** Das von v1.69 fälschlich gespeicherte
+  `DB.ui.playMapFocus=false` kam deshalb bei jedem Repo-Sync zurück, und das Vollbild ging nie
+  auf, obwohl die Ursache im Code längst behoben war. Jetzt liest `playFocusDefault()` gar nichts
+  mehr und liefert immer `true`; der Knopf „✎ Eingabe" wechselt nur innerhalb der laufenden Runde.
+  Der Altwert wird einmal aktiv auf `true` gesetzt statt gelöscht, damit er auch aus dem Repo
+  verschwindet. **Das 700-ms-Zeitfenster im popstate-Handler ist ersatzlos entfallen** — es
+  schluckte den echten Zurück-Druck; seit `pfOpen()` das popstate an der Quelle verhindert, wird
+  es nicht mehr gebraucht. Verhalten in `tests.js` festgeschrieben (351 Prüfungen), inklusive
+  der Merge-Eigenschaft selbst.
 
 - **v1.73.0 · 2026-08-09** — **Vollbild blitzte auf und schloss sich: Zeitfenster reichte nicht.**
   v1.70 fing das popstate von `closeSheet()` über ein 700-ms-Fenster ab. Das genügte nicht, weil
@@ -16559,9 +16595,10 @@ function shotRecHtml(){ const h=PLAY.holes[PLAY.idx]; const rec=PLAY.rec;
    deshalb ZUERST #pfMap — so bleibt der gesamte uebrige Kartencode (Pan, Zoom,
    Zielkette, Live-Position) unveraendert nutzbar.
    ========================================================================== */
-let _pfAt=0;
 function pfOpen(){
-  const el=document.getElementById("playFull"); if(!el) return;
+  const el=document.getElementById("playFull");
+  if(!el){ logErr("pfOpen", new Error("#playFull fehlt im DOM"), true);
+    PLAY.mapFocus=false; renderPlay(); return; }
   /* DAS EREIGNIS GAR NICHT ERST AUSLOESEN.
      closeSheet() baut seinen History-Eintrag ueber history.back() ab; das
      loest ein popstate aus, und der Handler schliesst das Vollbild wieder.
@@ -16578,7 +16615,6 @@ function pfOpen(){
      Druck auf Zurueck verbraucht ihn und schliesst das Vollbild. */
   try{ _sheetHist=false; }catch(e){ logErr("pfOpen", e, true); }
   closeSheet();
-  _pfAt=Date.now();                 // zusaetzliche Absicherung, nicht der Kern
   el.classList.add("on"); el.setAttribute("aria-hidden","false");
   document.body.classList.add("pf-open");
   PLAY.mapFocus=true;
@@ -16605,12 +16641,27 @@ function pfClose(){
 function pfHide(){ pfClose(); PLAY.mapFocus=false; renderPlay(); }
 
 function playToggleFocusMap(){
+  // Bewusst OHNE persist: siehe playFocusDefault().
   PLAY.mapFocus=!PLAY.mapFocus;
-  DB.ui=DB.ui||{}; DB.ui.playMapFocus=PLAY.mapFocus; persistSoon();
   PLAY.mapView=null;
   if(PLAY.mapFocus){ pfOpen(); } else { pfClose(); renderPlay(); }
 }
-function playFocusDefault(){ return !(DB.ui && DB.ui.playMapFocus===false); }
+/* Der Spielmodus startet IMMER im Vollbild — ohne gespeicherte Vorliebe.
+
+   WARUM NICHT GESPEICHERT: Der Wert lag in `DB.ui`, und mergeDB fuehrt das
+   ueber `Object.assign({}, R.ui, L.ui)` zusammen. Damit kann eine LOESCHUNG
+   nie gewinnen: der Schluessel fehlt lokal einfach, also bleibt die
+   Repo-Fassung stehen. Das von v1.69 faelschlich gespeicherte
+   `playMapFocus:false` kam so bei jedem Sync zurueck — und das Vollbild ging
+   nie auf, egal wie oft die Ursache im Code behoben war.
+
+   ALLGEMEIN MERKEN: Ein Object.assign-Merge kann LOESCHUNGEN nicht ausdruecken.
+   Wer einen Wert zuruecknehmen will, muss ihn AKTIV ueberschreiben — oder ihn
+   gar nicht erst persistieren. Hier ist Letzteres richtig: „Karte beim
+   Rundenstart" ist keine Einstellung, sondern das gewuenschte Verhalten.
+   Der Knopf „✎ Eingabe" wechselt innerhalb der laufenden Runde; beim naechsten
+   Rundenstart ist wieder die Karte da. */
+function playFocusDefault(){ return true; }
 
 /* Nur die Overlays neu zeichnen — die KARTE bleibt stehen. Sonst wuerde bei
    jedem GPS-Tick der Ausschnitt zurueckspringen. */
@@ -20295,7 +20346,12 @@ window.addEventListener("popstate",()=>{                    // Zurück-Taste (An
   /* Reihenfolge zaehlt: liegt das Vollbild oben, muss ZUERST es weichen —
      sonst landet man mit einem Tipp aus der Runde heraus. */
   const pf=document.getElementById("playFull");
-  if(pf && pf.classList.contains("on") && Date.now()-_pfAt>700){ pfHide(); return; }
+  /* KEIN Zeitfenster mehr. Es war der Versuch, ein unerwuenschtes popstate zu
+     ueberholen — seit pfOpen() `_sheetHist` vorher zuruecksetzt, entsteht gar
+     keines. Das Fenster schluckte dafuer den ECHTEN Zurueck-Druck, wenn er
+     kurz nach dem Oeffnen kam. Jetzt eindeutig: Vollbild offen -> Zurueck
+     schliesst es. */
+  if(pf && pf.classList.contains("on")){ pfHide(); return; }
   if(sheet.classList.contains("open")){ _sheetHist=false; closeSheet(); }
 });
 window.addEventListener("keydown",e=>{                      // Escape (Desktop/Tastatur)
@@ -21736,7 +21792,7 @@ function openComp(idx){
 /* ================= NAV ================= */
 let current="dash";
 const FAB_ACTION={rounds:startRound,comp:openAddComp,notes:openAddNote,swing:openSwingEdit};
-const APP_VERSION="1.73.0"; // App-Anzeigeversion (NICHT SEED.version! Diese bei jeder Änderung erhöhen)
+const APP_VERSION="1.74.0"; // App-Anzeigeversion (NICHT SEED.version! Diese bei jeder Änderung erhöhen)
 /* ---------- Darstellung: Hell/Dunkel (DB.ui.theme = "auto" | "light" | "dark") ---------- */
 const _darkMQ = (window.matchMedia? window.matchMedia("(prefers-color-scheme: dark)") : null);
 function themeSetting(){ return (DB && DB.ui && DB.ui.theme) || "auto"; }
@@ -22356,10 +22412,10 @@ function ensureDefaults(){
      Nutzerentscheidung unterscheiden, deshalb wird er genau EINMAL
      zurueckgesetzt und das ueber ein Merkzeichen festgehalten. */
   DB.ui=DB.ui||{};
-  if(!DB.ui.pfFocusReset){
-    DB.ui.pfFocusReset=true;
-    if(DB.ui.playMapFocus===false) delete DB.ui.playMapFocus;
-  }
+  /* Den Altwert AKTIV auf true setzen statt ihn zu loeschen — eine Loeschung
+     kann sich gegen die Repo-Fassung nicht durchsetzen (Object.assign-Merge).
+     Wird nicht mehr gelesen, aber so verschwindet er auch aus dem Repo. */
+  if(DB.ui.playMapFocus===false) DB.ui.playMapFocus=true;
   /* Approach-Fehlerrichtung (v1.57). Beim Abschlag gab es Kurz/Lang/Links/
      Rechts seit jeher, beim Approach nur die Lage — dabei ist „systematisch zu
      kurz" der haeufigste und am schnellsten abstellbare Amateurfehler. */

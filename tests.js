@@ -1213,6 +1213,34 @@ group("Bewertungs-Objekte — gleiche Form, sonst stirbt die Zielkette");
   }
 }
 
+/* ============ 24i. Vollbild-Vorgabe & Merge-Loeschungen ============ */
+group("Vollbild startet immer — und warum die Vorliebe NICHT gespeichert wird");
+{
+  const pfd=G("playFocusDefault"), merge=G("mergeDB"), DB=G("DB");
+  if (typeof pfd === "function" && DB) {
+    ok("ohne Einstellung: Vollbild an", pfd()===true);
+    DB.ui=DB.ui||{}; DB.ui.playMapFocus=false;
+    /* DER KERN: Ein alter gespeicherter Wert darf das Vollbild NICHT mehr
+       verhindern. v1.69 hatte `false` versehentlich geschrieben, und über den
+       Repo-Merge kam es immer wieder zurück — das Vollbild ging monatelang
+       nicht auf, obwohl die Ursache im Code längst behoben war. */
+    ok("alter gespeicherter Wert wirkt nicht mehr", pfd()===true);
+    delete DB.ui.playMapFocus;
+  }
+  if (typeof merge === "function") {
+    /* Warum der Wert immer zurückkam: mergeDB führt ui über
+       Object.assign({}, R.ui, L.ui) zusammen. Ein lokal GELÖSCHTER Schlüssel
+       ist dort schlicht nicht vorhanden — die Repo-Fassung bleibt stehen.
+       Object.assign-Merges können Löschungen nicht ausdrücken. */
+    const a=merge({ui:{}}, {ui:{playMapFocus:false}});
+    eq("lokale Löschung verliert gegen das Repo", a.ui.playMapFocus, false);
+    const b=merge({ui:{playMapFocus:true}}, {ui:{playMapFocus:false}});
+    eq("aktives Überschreiben gewinnt", b.ui.playMapFocus, true);
+    const c=merge({ui:{x:1}}, {ui:{y:2}});
+    ok("beide Seiten bleiben erhalten", c.ui.x===1 && c.ui.y===2);
+  }
+}
+
 /* ================= 25. Gepflegt vs. gemessen ================= */
 group("clubMeasured — gepflegte gegen gemessene Schlägerlängen");
 {
