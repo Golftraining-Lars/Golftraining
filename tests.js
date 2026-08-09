@@ -1371,43 +1371,35 @@ group("pfViewportH — warum jede CSS-Lösung scheitern musste");
      [[705,649,705],[600,800,600],[900,900,120]].every(([a,b,c])=>H(a,b,c)>=b));
 }
 
-/* ============ 24n. Vollbild als <dialog> im Top Layer ============ */
-group("Top Layer — warum die Höhenmechanik entfallen konnte");
+/* ============ 24n. Spielmodus als normale Ansicht ============ */
+group("Kein Overlay mehr — der Spielmodus ist eine Ansicht");
 {
   const src=fs.readFileSync(FILE,"utf8");
-  /* Sieben Anläufe mit position:fixed sind gescheitert: `bottom:0` löst gegen
-     das Initial Containing Block auf, und das war auf dem Gerät 56 px kürzer
-     als der Bildschirm (clientH 649 vs innerH 705). Ein modales <dialog> liegt
-     im Top Layer — sein Bezugsrahmen ist der Viewport selbst. */
-  ok("Ebene ist ein <dialog>", /<dialog[^>]*id="playFull"/.test(src));
-  ok("wird per showModal() geöffnet", /showModal\(\)/.test(src));
-  ok("Fallback für Browser ohne dialog vorhanden",
-     /typeof el\.showModal\s*===\s*"function"/.test(src));
-  /* Escape schließt ein modales <dialog> selbst — ohne Abfangen bliebe
-     PLAY.mapFocus true und die Eingabemaske würde nicht gezeichnet. */
-  ok("cancel-Ereignis wird abgefangen", /addEventListener\("cancel"/.test(src));
-  ok("close-Ereignis stellt den Zustand her", /addEventListener\("close"/.test(src));
-  /* Die Browser-Vorgaben für dialog müssen zurückgesetzt sein, sonst bleibt
-     ringsum ein Rand (Standard: max-width/max-height calc(100% - 6px - 2em)). */
-  const regel=(src.match(/#playFull\{[^}]*\}/)||[""])[0];
-  ok("max-width zurückgesetzt", /max-width:none/.test(regel), regel.slice(0,120));
-  ok("max-height zurückgesetzt", /max-height:none/.test(regel));
-  ok("Rahmen, Innen- und Außenabstand entfernt",
-     /border:0/.test(regel) && /padding:0/.test(regel) && /margin:0/.test(regel));
-  /* Die Box MUSS über die Kanten definiert sein. `width/height:100%` löst
-     gegen den Containing Block auf — und genau dessen Höhe war das Problem. */
-  ok("Box über inset, nicht über Prozenthöhen",
-     /inset:0/.test(regel) && /width:auto/.test(regel) && /height:auto/.test(regel));
-  ok("position:fixed ausdrücklich gesetzt (UA-Vorgabe ist absolute)",
-     /position:fixed/.test(regel));
-  /* el.close() feuert `close`; ruft der Aufrufer danach selbst renderPlay(),
-     wird doppelt gezeichnet — das sah aus wie ein Aufhängen. */
-  ok("programmgesteuertes Schließen ist markiert", /_pfClosing/.test(src));
-  /* Die Höhenmechanik MUSS weg sein — sie war der Wettlauf mit der
-     Adressleiste, den der Top Layer überflüssig macht. */
+  /* Zwölf Anläufe mit Overlay-Techniken (position:fixed, <dialog> im Top
+     Layer, gemessene Höhen) scheiterten daran, dass der Browser den
+     Bezugsrahmen anders berechnet als erwartet: gemessen 506 statt 649 px,
+     bei offsetParent null und position fixed — formal also korrekt.
+     Eine Ansicht im Dokumentfluss hat nichts zu überdecken. */
+  ok("eigene Ansicht v-play vorhanden",
+     /<section[^>]*class="view"[^>]*id="v-play"/.test(src));
+  ok("kein <dialog> mehr", !/<dialog[^>]*id="playFull"/.test(src));
+  ok("in VIEW_RENDER eingetragen (sonst bleibt sie leer)",
+     /VIEW_RENDER[\s\S]{0,900}play:pfRender/.test(src));
+  ok("Flex-Layout: Karte dehnbar", /\.pv-map\{[^}]*flex:1/.test(src));
+  ok("Aktionsleiste im Fluss, nicht absolut",
+     /\.pf-bottom\{flex:0 0 auto/.test(src));
+  ok("Navigation wird im Spielmodus ausgeblendet",
+     /body\.play-mode[^{]*nav[^{]*\{[^}]*display:none/.test(src));
+  /* Die gesamte Höhenmechanik MUSS weg sein — sie war der Versuch, gegen
+     einen falsch berechneten Bezugsrahmen anzurechnen. */
   const js=src.replace(/\/\*[\s\S]*?\*\//g,"");
-  ok("keine Höhenmechanik mehr im Code",
-     !/function pfApplyHeight|function pfViewportH|_pfMaxH\s*=/.test(js));
+  ok("keine Höhenmechanik mehr",
+     !/function pfFit|function pfViewportH|function pfApplyHeight|function pfVerify/.test(js));
+  /* Kommentare enthalten den Begriff weiterhin (als Begründung) — geprüft
+     wird der ausführbare Aufruf. */
+  ok("keine dialog-Sonderbehandlung mehr", !/el\.showModal|\.showModal\(\)/.test(js));
+  ok("Zurück-Taste erkennt den Spielmodus an der body-Klasse",
+     /classList\.contains\("play-mode"\)[\s\S]{0,60}pfHide/.test(src));
 }
 
 /* ============ 24o. Version sichtbar, Cache nicht im Weg ============ */
@@ -1434,31 +1426,6 @@ group("Warum Korrekturen wirkungslos SCHIENEN");
     ok("Cache bleibt als Rückfall (Startgarantie im Funkloch)",
        /return cached \|\|/.test(sw));
   }
-}
-
-/* ============ 24p. Höhe aus der Messung ============ */
-group("pfFit — der Zielwert ist gemessen, nicht geraten");
-{
-  const src=fs.readFileSync(FILE,"utf8");
-  /* Auf dem Gerät gemessen: dialog 360×506, aber innerH/clientH/vvH alle 649.
-     Das <dialog> streckt sich mit inset:0 nicht auf die volle Höhe — der
-     Grund ist unklar, das Ziel aber eindeutig, weil alle drei Quellen
-     übereinstimmen. Frühere Versuche nahmen 100dvh bzw. visualViewport,
-     also den KLEINSTEN Wert; richtig ist das MAXIMUM. */
-  ok("pfFit vorhanden", /function pfFit/.test(src));
-  ok("nimmt das Maximum der drei Maße",
-     /pfFit[\s\S]{0,400}Math\.max[\s\S]{0,200}clientHeight[\s\S]{0,200}innerHeight/.test(src));
-  ok("wird beim Öffnen angewandt", /pfFit\(\);\s*\/\/ gemessenen Zielwert/.test(src));
-  ok("wird nach Interaktionen gehalten", /pfFit\(\);\s*\/\/ haelt die Hoehe/.test(src));
-  ok("wird beim Schließen zurückgesetzt",
-     /pfClose[\s\S]{0,400}style\.height=""/.test(src));
-
-  const H=(c,i,v)=>Math.max(c||0,i||0,v||0);
-  eq("Gerätefall 649/649/649", H(649,649,649), 649);
-  eq("nie der kleinste Wert", H(649,506,649), 649);
-  ok("Maximum ≥ jedem Einzelwert",
-     [[649,649,649],[600,700,650],[0,0,705]].every(([a,b,c])=>{
-       const m=H(a,b,c); return m>=a && m>=b && m>=c; }));
 }
 
 /* ================= 25. Gepflegt vs. gemessen ================= */

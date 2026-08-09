@@ -578,37 +578,30 @@
   /* ---------- VOLLBILD-KARTE (v1.69) ----------
      Kein Blatt mit Karte darin, sondern eine eigene Ebene ueber allem: die
      Karte fuellt den Bildschirm, alles andere liegt als Overlay darauf. */
-  /* ---------- TOP LAYER statt position:fixed (v1.83) ----------
-     Sieben Anlaeufe mit `position:fixed` sind gescheitert: `bottom:0` loest
-     gegen das Initial Containing Block auf, und dessen Hoehe war auf dem Geraet
-     56 px kuerzer als der Bildschirm (gemessen: clientH 649 vs innerH 705).
-     Jede Korrektur ueber gemessene Hoehen wurde damit zum Wettlauf mit der
-     Adressleiste — sie schrumpfte bei jeder Beruehrung.
+  /* ---------- SPIELMODUS ALS NORMALE ANSICHT (v1.88) ----------
+     Kein Overlay mehr. Die Ansicht liegt im Dokumentfluss wie „Heute" oder
+     „Runden" — es gibt nichts zu ueberdecken und damit keinen Bezugsrahmen,
+     der falsch sein koennte. Waehrend des Spielmodus blenden wir Kopfzeile,
+     Unternavigation und Hauptnavigation aus; die Karte ist der einzige Inhalt.
 
-     Ein MODALES <dialog> liegt im TOP LAYER. Sein Bezugsrahmen ist der
-     Viewport selbst: unabhaengig vom ICB, von Vorfahren mit transform und von
-     der Adressleiste. Damit entfaellt die ganze Messerei ersatzlos.
-
-     Die Browser-Vorgaben fuer <dialog> MUESSEN zurueckgesetzt werden — vor
-     allem `max-width`/`max-height` (Standard: calc(100% - 6px - 2em)), sonst
-     bleibt ringsum ein Rand. */
-  /* WICHTIG: die Box ueber die KANTEN definieren, nicht ueber `width/height:100%`.
-     Prozentwerte loesen gegen den Containing Block auf — und genau dessen
-     Hoehe war das Problem (ICB 56 px zu kurz). Mit `inset:0` und `width/height:auto`
-     ergibt sich die Box direkt aus den vier Kanten des Top Layers.
-     `position:fixed` ausdruecklich setzen: die UA-Vorgabe fuer <dialog> ist
-     `absolute`, nur `dialog:modal` bekommt `fixed` — verlassen wir uns nicht
-     darauf. `margin:0` hebt die Zentrierung der UA-Vorgabe auf. */
-  #playFull{position:fixed;inset:0;width:auto;height:auto;
-    border:0;padding:0;margin:0;max-width:none;max-height:none;
-    overflow:hidden;background:#eef3e6;color:var(--ink)}
-  #playFull::backdrop{background:#eef3e6}
-  body.pf-open{overflow:hidden}
-  body.pf-open nav,body.pf-open header,body.pf-open #subnav,body.pf-open .fab{display:none!important}
+     Innen ein FLEX-Layout: Karte dehnbar (flex:1), Aktionsleiste im Fluss
+     darunter. Die Leiste sitzt damit IMMER am Ende des Inhalts — unabhaengig
+     davon, wie hoch der Browser den Viewport haelt. Bleibt unten Platz uebrig,
+     hat er dieselbe Farbe wie die Karte und faellt nicht auf. */
+  body.play-mode{background:#eef3e6;padding-bottom:0}
+  body.play-mode header,body.play-mode nav,body.play-mode #subnav,
+  body.play-mode .fab{display:none!important}
+  body.play-mode main{padding:0;margin:0;max-width:none}
+  #v-play{padding:0;margin:0}
+  .pv-wrap{display:flex;flex-direction:column;
+    min-height:100vh;min-height:100dvh;background:#eef3e6}
+  .pv-map{position:relative;flex:1 1 auto;min-height:0;overflow:hidden}
   #pfMap{position:absolute;inset:0;overflow:hidden;touch-action:none}
   #pfMap svg{display:block;width:100%;height:100%}
+  body.pf-open{overflow:hidden}
+  body.pf-open nav,body.pf-open header,body.pf-open #subnav,body.pf-open .fab{display:none!important}
   .pf-top{position:absolute;top:0;left:0;right:0;z-index:6;display:flex;align-items:center;
-    gap:8px;padding:calc(env(safe-area-inset-top) + 8px) 12px 8px;pointer-events:none;
+    gap:8px;padding:8px 12px;pointer-events:none;
     background:linear-gradient(to bottom,rgba(8,26,15,.62),rgba(8,26,15,0))}
   .pf-top>*{pointer-events:auto}
   .pf-hole{display:flex;align-items:center;gap:9px;background:rgba(12,32,20,.72);
@@ -622,7 +615,7 @@
   /* Zugeklappt EINE Zeile, aufgeklappt hoechstens die halbe Hoehe. Vorher nahm
      der Block bis zu 40 % des Bildschirms und verdeckte genau die Bahn, wegen
      der man hinschaut. */
-  .pf-caddy{position:absolute;left:12px;right:66px;top:calc(env(safe-area-inset-top) + 58px);
+  .pf-caddy{position:absolute;left:12px;right:66px;top:58px;
     z-index:6;color:#fff}
   .pf-caddy:empty{display:none}
   .pf-cad-line{display:block;width:100%;text-align:left;border:none;cursor:pointer;
@@ -640,14 +633,15 @@
   .pf-caddy.open .play-dist>div{padding:6px 8px!important}
   .pf-caddy .pc-head,.pf-caddy b{color:#fff}
   .pf-caddy .pc-why,.pf-caddy .r-s,.pf-caddy .pc-plan{color:rgba(255,255,255,.85)}
-  #playFull .play-map-ctrls{position:absolute;top:calc(env(safe-area-inset-top) + 58px);right:10px;z-index:7}
+  #pfCtrls{position:absolute;top:58px;right:10px;z-index:7}
   /* Messwert-Anzeige: bewusst haesslich und klein, sie ist ein Werkzeug. */
-  #pfDbg{position:absolute;left:6px;right:6px;top:calc(env(safe-area-inset-top) + 4px);
+  #pfDbg{position:absolute;left:6px;right:6px;top:4px;
     z-index:9;background:rgba(0,0,0,.82);color:#8fe3b0;font-family:var(--mono);
     font-size:9.5px;line-height:1.35;padding:4px 6px;border-radius:7px;word-break:break-all}
-  .pf-bottom{position:absolute;left:0;right:0;bottom:0;z-index:6;
+  /* IM FLUSS, nicht absolut: so sitzt sie immer am Ende des Inhalts. */
+  .pf-bottom{flex:0 0 auto;z-index:6;
     padding:10px 12px calc(env(safe-area-inset-bottom) + 12px);
-    background:linear-gradient(to top,rgba(8,26,15,.66),rgba(8,26,15,0))}
+    background:linear-gradient(to top,rgba(8,26,15,.82),rgba(8,26,15,.55))}
   .pf-acts{display:grid;grid-template-columns:auto 1fr 1fr auto;gap:8px;align-items:center}
   .pf-acts button{border:none;border-radius:14px;padding:13px 8px;font-size:13.5px;font-weight:700;
     background:rgba(255,255,255,.93);color:var(--pine-deep);cursor:pointer;
@@ -1915,37 +1909,44 @@ Jetzt eine zentrale `playDefaults()`; beide Startpfade laufen ueber
 `Object.assign(playDefaults(), {...})`. **Ein neues Feld dort wirkt automatisch ueberall** —
 die ganze Fehlerklasse ist damit erledigt.
 
-### Vollbild-Karte im Spielmodus (v1.69)
-Der Spielmodus war ein Formular MIT Karte; v1.68 machte die Karte nur groesser. Richtig ist das
-Gegenteil: **die Karte IST der Bildschirm**, alles andere schwebt als Overlay darueber. Die
-Scorekarte fuehrt ohnehin die UHR — das Handy dient der Umgebungsanzeige und den
-Detailempfehlungen.
+### Spielmodus als normale Ansicht (v1.88) — nach zwoelf gescheiterten Overlay-Anlaeufen
+Der Spielmodus ist eine **regulaere Ansicht** `#v-play` im Dokumentfluss, wie „Heute" oder
+„Runden". Waehrend der Runde traegt `<body>` die Klasse `play-mode`, die Kopfzeile,
+Unternavigation, Hauptnavigation und den FAB ausblendet; die Karte ist der einzige Inhalt.
 
-Dafuer eine eigene Ebene `#playFull` AUSSERHALB des Blatt-Systems (`position:fixed; inset:0`),
-mit `body.pf-open` werden Kopfzeile, Navigation und FAB ausgeblendet:
-- `#pfMap` — die Karte, `position:absolute; inset:0`
-- `#pfTop` — Loch, Par, HCP, Gruenmasse, Score (Verlauf nach unten transparent)
-- `#pfCaddy` — die Caddy-Empfehlung, der eigentliche Grund aufs Handy zu schauen
-- `#pfCtrls` — Kartenschalter (Satellit, Ringe, Zielkette)
-- `#pfBottom` — Aktionsleiste: ◀ · 🎯 Schlag · ✎ Eingabe · ▶, darueber bei laufender Aufnahme
-  das gelbe Band (eigene ODER die der Uhr)
+**Warum nicht als Overlay.** Zwoelf Anlaeufe mit `position:fixed`, `<dialog>` im Top Layer und
+gemessenen Hoehen sind daran gescheitert, dass der Browser den Bezugsrahmen anders berechnet als
+erwartet. Die Live-Messung auf dem Geraet:
 
-**Der Trick, der den restlichen Kartencode unveraendert laesst:** `playMapRender()` sucht im
-Vollbildmodus zuerst `#pfMap` statt `#playMapSlot`. Pan, Zoom, Zielkette, Live-Position, Fahne —
-alles haengt am Slot, nicht am Modus, und funktioniert unveraendert weiter.
+    dialog 360x506 @0                    <- die Ebene wurde nur 506 hoch
+    innerH 649 · clientH 649 · vvH 649   <- der Bildschirm ist 649 hoch
+    pos fixed · offsetParent null        <- formal alles korrekt
 
-**`pfRender()` zeichnet NUR die Overlays neu, nie die Karte.** Sonst spraenge bei jedem GPS-Tick
-der Ausschnitt zurueck. Die Karte wird ausschliesslich ueber `playMapRender()` erneuert
-(Lochwechsel) bzw. `playMapTick()` (Position).
+Eine Ansicht im Dokumentfluss hat **nichts zu ueberdecken** — es gibt keinen Bezugsrahmen, der
+falsch sein koennte. Das Ansichtensystem traegt seit Monaten 18 Ansichten zuverlaessig; wir
+nutzen den bewaehrten Mechanismus, statt einen zweiten daneben zu bauen.
 
-**`playAfterHole()`** ersetzt an allen Lochwechseln das fruehere `renderPlay(); playLivePush();` —
-im Vollbild darf kein Blatt geoeffnet werden, sonst verdeckt es die Ebene.
+**Aufbau (`.pv-wrap`):** Flex-Spalte mit `min-height:100dvh`. Darin die Karte (`.pv-map`,
+`flex:1`, `position:relative`) mit den Overlays (Kopfzeile, Caddy-Zeile, Kartenschalter,
+Messanzeige) und darunter **im Fluss** die Aktionsleiste `.pf-bottom`. Sie sitzt damit IMMER am
+Ende des Inhalts, unabhaengig davon, wie hoch der Browser den Viewport haelt. Bleibt unten Platz
+uebrig, hat er dieselbe Farbe wie die Karte (`#eef3e6` auf `body.play-mode`) und faellt nicht auf.
 
-**Zurueck-Taste:** Der `popstate`-Handler schliesst ZUERST das Vollbild, dann erst ein Blatt.
-Ohne diese Reihenfolge landet ein Tipp mitten aus der Runde heraus.
+**Funktionen:** `pfRestoreView()` stellt die Ausgangsansicht wieder her. `pfOpen()` = `setView("play")` plus body-Klasse · `pfClose()` nimmt die Klasse
+weg · `pfHide()` wechselt zur Eingabemaske (Zurueck-Taste) · `pfRestoreView()` kehrt am
+Rundenende zur Ausgangsansicht zurueck (`_pfVorher`) · `playToggleFocusMap()` schaltet um.
+**`play:pfRender` MUSS in `VIEW_RENDER` stehen**, sonst bliebe die Ansicht leer — Selbstpruefung
+Nr. 8 faengt das ab.
 
-`PLAY.mapFocus` steuert den Modus, `playToggleFocusMap()` schaltet um, `playFocusDefault()`
-liefert die gemerkte Vorgabe (`DB.ui.playMapFocus`, Standard: Vollbild an).
+**Ersatzlos entfallen:** `pfFit`, `pfViewportH`, `pfApplyHeight`, `pfVerify`, `_pfMaxH`, die
+dialog-Sonderbehandlung (`showModal`/`cancel`/`close`) und die popstate-Verrenkungen. Die
+Zurueck-Taste erkennt den Spielmodus an `body.play-mode`. `pfFacts()`/`pfDbgRender()` bleiben als
+Messanzeige (ⓘ in der Kartenleiste, `DB.ui.pfDebug`).
+
+**Lehre:** Wenn eine Technik nach mehreren fundierten Korrekturen weiter nicht traegt, ist die
+Technik das Problem — nicht die Korrektur. Zwoelf Runden haetten sich durch die Frage „geht das
+auch ohne Overlay?" ersparen lassen.
+
 
 ### Geraeteuebergreifende Schlagaufnahme (v1.68)
 `_draftRound.live` traegt zusaetzlich `rec = {src, club, at, lat, lng}`. Beginnt die UHR eine
@@ -2450,6 +2451,17 @@ erkennbar ist, dass es ein Video gab.
 ## Changelog
 > **Regel:** Bei JEDER inhaltlichen Änderung hier oben einen datierten Eintrag ergänzen (neueste
 > zuerst): Datum · was geändert · betroffene Bereiche. Kurz halten.
+
+- **v1.88.0 · 2026-08-09** — **Spielmodus ist jetzt eine normale Ansicht, kein Overlay.**
+  Zwölf Anläufe mit `position:fixed`, `<dialog>` im Top Layer und gemessenen Höhen sind daran
+  gescheitert, dass der Browser den Bezugsrahmen anders berechnet als erwartet (gemessen 506
+  statt 649 px bei `offsetParent: null` und `position: fixed`). Neu: eigene Ansicht `#v-play`
+  im Dokumentfluss, `body.play-mode` blendet Kopfzeile/Navigation/FAB aus, innen Flex-Spalte mit
+  dehnbarer Karte und Aktionsleiste **im Fluss** — sie sitzt damit immer am Ende des Inhalts.
+  Bleibt unten Platz, hat er dieselbe Farbe wie die Karte und fällt nicht auf.
+  **Ersatzlos entfallen:** `pfFit`, `pfViewportH`, `pfApplyHeight`, `pfVerify`, `_pfMaxH`, die
+  dialog-Sonderbehandlung und die popstate-Verrenkungen. Die Zurück-Taste erkennt den Spielmodus
+  an der body-Klasse. `pfRestoreView()` kehrt am Rundenende zur Ausgangsansicht zurück.
 
 - **v1.87.0 · 2026-08-09** — **Vollbild-Höhe: der gemessene Wert wird gesetzt.**
   Live-Messung bei offener Ebene: `dialog 360×506`, aber `innerH/clientH/vvH` alle **649** —
@@ -3601,6 +3613,23 @@ erkennbar ist, dass es ein Video gab.
   <section class="view" id="v-wissen"></section>
   <!-- DATEN -->
   <section class="view" id="v-data"></section>
+  <!-- SPIELMODUS · KARTE. Bewusst eine GANZ NORMALE Ansicht, kein Overlay:
+       zwoelf Anlaeufe mit position:fixed und <dialog> sind daran gescheitert,
+       dass der Browser den Bezugsrahmen anders berechnet als erwartet
+       (gemessen: 506 statt 649 px). Eine Ansicht im Dokumentfluss hat nichts
+       zu ueberdecken — es gibt keinen Bezugsrahmen, der falsch sein koennte. -->
+  <section class="view" id="v-play">
+    <div class="pv-wrap">
+      <div class="pv-map" id="pfMapWrap">
+        <div id="pfMap"></div>
+        <div id="pfTop" class="pf-top"></div>
+        <div id="pfCaddy" class="pf-caddy"></div>
+        <div class="play-map-ctrls" id="pfCtrls"></div>
+        <div id="pfDbg" style="display:none"></div>
+      </div>
+      <div id="pfBottom" class="pf-bottom"></div>
+    </div>
+  </section>
 </main>
 
 <button class="fab" id="fab" style="display:none">＋</button>
@@ -3616,14 +3645,6 @@ erkennbar ist, dass es ein Video gab.
 
 <div class="backdrop" id="backdrop"></div>
 <div class="sheet" id="sheet"><div class="sheet-x-bar"><button class="sheet-x" id="sheetClose" aria-label="Schließen">✕</button></div><div class="grab"></div><div id="sheetBody"></div></div>
-<dialog id="playFull" aria-label="Spielmodus · Karte">
-  <div id="pfMap"></div>
-  <div id="pfTop" class="pf-top"></div>
-  <div id="pfCaddy" class="pf-caddy"></div>
-  <div class="play-map-ctrls" id="pfCtrls"></div>
-  <div id="pfBottom" class="pf-bottom"></div>
-  <div id="pfDbg" style="display:none"></div>
-</dialog>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
 <script>
@@ -17104,174 +17125,95 @@ function shotRecHtml(){ const h=PLAY.holes[PLAY.idx]; const rec=PLAY.rec;
    deshalb ZUERST #pfMap — so bleibt der gesamte uebrige Kartencode (Pan, Zoom,
    Zielkette, Live-Position) unveraendert nutzbar.
    ========================================================================== */
-function pfOpen(){
-  const el=document.getElementById("playFull");
-  if(!el){ logErr("pfOpen", new Error("#playFull fehlt im DOM"), true);
-    PLAY.mapFocus=false; renderPlay(); return; }
+/* ==========================================================================
+   SPIELMODUS ALS NORMALE ANSICHT (v1.88)
+   Zwoelf Anlaeufe mit Overlay-Techniken (position:fixed, <dialog> im Top
+   Layer, gemessene Hoehen) sind daran gescheitert, dass der Browser den
+   Bezugsrahmen anders berechnet als erwartet — gemessen 506 statt 649 px, bei
+   `offsetParent: null` und `position: fixed`, also formal korrekt.
 
-  /* `_sheetHist` VOR closeSheet() zuruecksetzen: sonst baut closeSheet seinen
-     History-Eintrag ueber history.back() ab, und das ausgeloeste popstate
-     schliesst die gerade geoeffnete Ebene sofort wieder. Der Eintrag bleibt
-     liegen — richtig so, der naechste Druck auf Zurueck verbraucht ihn. */
+   Konsequenz: KEIN Overlay mehr. Der Spielmodus ist eine Ansicht wie „Heute"
+   oder „Runden", im normalen Dokumentfluss. Es gibt nichts zu ueberdecken —
+   und damit keinen Bezugsrahmen, der falsch sein koennte. Das Ansichten-
+   system traegt seit Monaten 18 Ansichten zuverlaessig; wir nutzen den einen
+   Mechanismus, der sich bewaehrt hat, statt einen zweiten daneben zu bauen.
+
+   Ersatzlos entfallen: pfFit, pfViewportH, pfApplyHeight, pfVerify, die
+   dialog-Sonderbehandlung (showModal/cancel/close) und die popstate-
+   Verrenkungen. `pfFacts`/`pfDbgRender` bleiben als Diagnose.
+   ========================================================================== */
+let _pfVorher=null;                 // Ansicht, aus der heraus gestartet wurde
+
+function pfOpen(){
+  const el=document.getElementById("v-play");
+  if(!el){ logErr("pfOpen", new Error("#v-play fehlt im DOM"), true);
+    PLAY.mapFocus=false; renderPlay(); return; }
+  /* Das Blatt schliessen, ohne ein popstate auszuloesen (siehe closeSheet). */
   try{ _sheetHist=false; }catch(e){ logErr("pfOpen", e, true); }
   closeSheet();
 
-  /* TOP LAYER statt position:fixed. showModal() hebt das Element aus dem
-     normalen Stapel: kein z-index-Wettbewerb, kein Bezug auf das Initial
-     Containing Block (das auf dem Geraet 56 px zu kurz war), keine
-     Hoehenmessung, kein Wettlauf mit der Adressleiste.
-     Fallback fuer Browser ohne dialog-Unterstuetzung: das offene Attribut. */
-  try{
-    if(typeof el.showModal==="function"){ if(!el.open) el.showModal(); }
-    else { el.setAttribute("open",""); el.classList.add("on"); }
-  }catch(e){ logErr("pfOpen:showModal", e, true);
-    el.setAttribute("open",""); el.classList.add("on"); }
-  document.body.classList.add("pf-open");
-  pfFit();                    // gemessenen Zielwert sofort setzen
-  setTimeout(pfFit, 350);     // Adressleiste animiert
-  setTimeout(pfFit, 1200);
-
+  if(!_pfVorher && typeof current!=="undefined") _pfVorher=current;
+  document.body.classList.add("play-mode");
   PLAY.mapFocus=true;
+  setView("play");                  // regulaerer Ansichtswechsel
   pfRender();
   playStartLive();
-  /* Die Karte ERST NACH dem ersten Bild rechnen. playMapRender() blockiert mit
-     Monte-Carlo und Kacheln oft ueber eine Sekunde — laeuft es hier synchron,
-     erscheint die Ebene erst danach und es sieht aus, als haenge die App. */
+  /* Karte erst nach dem ersten Bild rechnen — playMapRender() blockiert mit
+     Monte-Carlo und Kacheln oft ueber eine Sekunde. */
   setTimeout(()=>{ if(PLAY.active && PLAY.mapFocus) playMapRender(); }, 0);
-  // Nach dem Einschwingen (Adressleiste animiert) nachmessen und ggf. korrigieren.
-}
-/* ==========================================================================
-   LAYOUT-DIAGNOSE (v1.80)
-   Fuenf Anlaeufe, die Ebene fuellt den Bildschirm nicht. Alle bisherigen
-   Erklaerungen waren Hypothesen: dvh, visualViewport, ein Vorfahre mit
-   transform. Statt einer sechsten Hypothese wird jetzt GEMESSEN — und die
-   Messung korrigiert sich selbst.
-
-   Der entscheidende Wert ist `el.offsetParent`. Bei `position:fixed` ist er
-   NULL, wenn der Viewport der Bezug ist. Ist er NICHT null, hat ein Vorfahre
-   einen containing block aufgespannt (transform, filter, contain,
-   will-change, perspective) — dann rechnet `bottom:0` gegen DIESES Element
-   und nicht gegen den Bildschirm. Genau das wuerde alle Symptome erklaeren.
-   ========================================================================== */
-function pfFacts(){
-  const el=document.getElementById("playFull"); if(!el) return null;
-  const r=el.getBoundingClientRect();
-  const cs=window.getComputedStyle?getComputedStyle(el):{};
-  return {
-    rectTop:Math.round(r.top), rectH:Math.round(r.height), rectW:Math.round(r.width),
-    innerH:window.innerHeight||0,
-    clientH:(document.documentElement&&document.documentElement.clientHeight)||0,
-    vvH:(window.visualViewport&&Math.round(window.visualViewport.height))||0,
-    offen: !!el.open,
-    offsetParent: el.offsetParent ? (el.offsetParent.id||el.offsetParent.tagName||"?") : "null",
-    position: cs.position||"?", inlineH: el.style.height||"–"
-  };
-}
-/* ==========================================================================
-   HOEHENMECHANIK ERSATZLOS ENTFERNT (v1.83)
-   pfViewportH / pfApplyHeight / pfVerify / _pfMaxH und die zugehoerigen
-   resize-Listener sind entfallen. Sie waren der Versuch, `position:fixed`
-   gegen ein zu kurzes Initial Containing Block zu korrigieren — ein Wettlauf
-   mit der Adressleiste, den man nicht gewinnen kann.
-
-   Mit `<dialog>` + `showModal()` liegt die Ebene im TOP LAYER; ihr
-   Bezugsrahmen ist der Viewport selbst. `width:100%; height:100%` reicht.
-
-   `pfFacts()` und `pfDiagShow()` bleiben als Diagnose erhalten — sie haben
-   die Ursache gefunden und koennen es beim naechsten Layout-Raetsel wieder.
-   ========================================================================== */
-function pfDiagShow(){
-  const f=pfFacts();
-  if(!f){ toast("Vollbild nicht im DOM"); return; }
-  openSheet(`<h2>Layout-Diagnose</h2>
-    <div class="sub">Messwerte der Vollbild-Ebene — für die Fehlersuche.</div>
-    <div class="card pad">
-      ${Object.entries(f).map(([k,v])=>`<div class="stat-line"><span>${esc(k)}</span><b>${esc(String(v))}</b></div>`).join("")}
-    </div>
-    ${f.rectH===0?`<p class="note" style="color:var(--gold-ink)"><b>Hinweis:</b> Die Ebene ist
-      gerade geschlossen, deshalb sind rect* alle 0. Aussagekräftig bleiben innerH, clientH und
-      offsetParent.</p>`:""}
-    <p class="note">Auf diesem Gerät gemessen: <b>innerH ${f.innerH}</b> gegen
-    <b>clientH ${f.clientH}</b>. Die Differenz ist genau der Streifen, der unten fehlte —
-    <code>bottom:0</code> rechnet gegen clientH.</p>
-    <p class="note"><b>offsetParent</b> ist der wichtigste Wert: bei
-    <code>position:fixed</code> muss er <b>null</b> sein. Steht dort ein Element, hat ein
-    Vorfahre einen eigenen Bezugsrahmen aufgespannt (transform/filter/contain) — dann rechnet
-    <code>bottom:0</code> gegen dieses Element statt gegen den Bildschirm.<br>
-    Ebenso aufschlussreich: <b>rectTop + rectH</b> gegen <b>innerH</b>. Klafft da eine Lücke,
-    endet die Ebene zu früh.</p>
-    <button class="btn" style="margin-top:10px" onclick="navigator.clipboard&&navigator.clipboard.writeText(${JSON.stringify(JSON.stringify(f))}).then(()=>toast('Kopiert'))">📋 Werte kopieren</button>
-    <button class="btn ghost" style="margin-top:8px" onclick="closeSheet()">Schließen</button>`);
 }
 
-/* `el.close()` loest das `close`-Ereignis aus, und dessen Handler zeichnet die
-   Eingabemaske. Ruft der Aufrufer danach SELBST renderPlay() (pfHide,
-   playToggleFocusMap), wird zweimal gezeichnet und zweimal ein Blatt geoeffnet —
-   mit der Kartenberechnung dazwischen sah das aus wie ein Aufhaengen.
-   `_pfClosing` markiert das programmgesteuerte Schliessen; der Handler haelt
-   sich dann heraus. */
-let _pfClosing=false;
 function pfClose(){
-  const el=document.getElementById("playFull"); if(!el) return;
-  _pfClosing=true;
-  try{ if(el.open && typeof el.close==="function") el.close(); }
-  catch(e){ logErr("pfClose", e, true); }
-  finally{ _pfClosing=false; }
-  el.removeAttribute("open"); el.classList.remove("on");
-  el.style.height=""; el.style.width=""; el.style.top=""; el.style.left="";
-  document.body.classList.remove("pf-open");
+  document.body.classList.remove("play-mode");
 }
 
-/* Ein modales <dialog> reagiert selbst auf Escape und schliesst sich. Ohne
-   dieses Abfangen bliebe PLAY.mapFocus auf true, die Eingabemaske wuerde nicht
-   gezeichnet — und man saehe die laufende Runde nicht mehr. */
-(function(){
-  const el=document.getElementById("playFull"); if(!el) return;
-  el.addEventListener("cancel", ev=>{ ev.preventDefault(); pfHide(); });
-  el.addEventListener("close", ()=>{
-    document.body.classList.remove("pf-open");
-    // Nur reagieren, wenn der Browser von sich aus geschlossen hat (Escape).
-    if(_pfClosing) return;
-    if(PLAY.active && PLAY.mapFocus){ PLAY.mapFocus=false; renderPlay(); }
-  });
-})();
+/* Vollbild verlassen OHNE die Vorliebe zu aendern — fuer die Zurueck-Taste. */
+function pfHide(){ PLAY.mapFocus=false; pfClose(); renderPlay(); }
 
-/* Umschalten zwischen Vollbild und Eingabemaske. Die Wahl wird gemerkt. */
-/* Vollbild verlassen OHNE die Vorliebe zu aendern — fuer die Zurueck-Taste.
-   FEHLER in v1.69: dort rief der popstate-Handler playToggleFocusMap(), und
-   das SPEICHERT `DB.ui.playMapFocus=false`. Weil v1.69 das Vollbild wegen der
-   history.back()-Falle sofort selbst wieder schloss, schrieb jedes Aufblitzen
-   „Vollbild aus" dauerhaft in die Einstellungen — danach oeffnete es nie mehr,
-   auch nach dem Fix nicht. Nur der ausdrueckliche Knopf „✎ Eingabe" aendert
-   die Vorliebe. */
-function pfHide(){ pfClose(); PLAY.mapFocus=false; renderPlay(); }
-
+/* Umschalten zwischen Karte und Eingabemaske. Bewusst OHNE persist:
+   „Karte beim Rundenstart" ist kein Einstellungswert, sondern das gewuenschte
+   Verhalten (siehe playFocusDefault). */
 function playToggleFocusMap(){
-  // Bewusst OHNE persist: siehe playFocusDefault().
   PLAY.mapFocus=!PLAY.mapFocus;
   PLAY.mapView=null;
   if(PLAY.mapFocus){ pfOpen(); } else { pfClose(); renderPlay(); }
 }
-/* Der Spielmodus startet IMMER im Vollbild — ohne gespeicherte Vorliebe.
-
-   WARUM NICHT GESPEICHERT: Der Wert lag in `DB.ui`, und mergeDB fuehrt das
-   ueber `Object.assign({}, R.ui, L.ui)` zusammen. Damit kann eine LOESCHUNG
-   nie gewinnen: der Schluessel fehlt lokal einfach, also bleibt die
-   Repo-Fassung stehen. Das von v1.69 faelschlich gespeicherte
-   `playMapFocus:false` kam so bei jedem Sync zurueck — und das Vollbild ging
-   nie auf, egal wie oft die Ursache im Code behoben war.
-
-   ALLGEMEIN MERKEN: Ein Object.assign-Merge kann LOESCHUNGEN nicht ausdruecken.
-   Wer einen Wert zuruecknehmen will, muss ihn AKTIV ueberschreiben — oder ihn
-   gar nicht erst persistieren. Hier ist Letzteres richtig: „Karte beim
-   Rundenstart" ist keine Einstellung, sondern das gewuenschte Verhalten.
-   Der Knopf „✎ Eingabe" wechselt innerhalb der laufenden Runde; beim naechsten
-   Rundenstart ist wieder die Karte da. */
 function playFocusDefault(){ return true; }
 
-/* Nur die Overlays neu zeichnen — die KARTE bleibt stehen. Sonst wuerde bei
-   jedem GPS-Tick der Ausschnitt zurueckspringen. */
-/* Eine Zeile: Rest zur Fahne, Schlaegerempfehlung, Wind. Mehr nicht. */
+/* Nach dem Verlassen des Spielmodus zurueck zur vorherigen Ansicht. */
+function pfRestoreView(){
+  document.body.classList.remove("play-mode");
+  const z=_pfVorher||"rounds"; _pfVorher=null;
+  try{ setView(z); }catch(e){ logErr("pfRestoreView", e, true); }
+}
+
+/* Messwerte zur Fehlersuche — haben die Ursache gefunden und bleiben. */
+function pfFacts(){
+  const el=document.getElementById("pfMapWrap"); if(!el) return null;
+  const r=el.getBoundingClientRect();
+  const cs=window.getComputedStyle?getComputedStyle(el):{};
+  return { rectTop:Math.round(r.top), rectH:Math.round(r.height), rectW:Math.round(r.width),
+    innerH:window.innerHeight||0,
+    clientH:(document.documentElement&&document.documentElement.clientHeight)||0,
+    vvH:(window.visualViewport&&Math.round(window.visualViewport.height))||0,
+    position: cs.position||"?" };
+}
+function pfDbgToggle(){
+  DB.ui=DB.ui||{}; DB.ui.pfDebug=!DB.ui.pfDebug; persistSoon(); pfRender();
+}
+function pfDbgRender(){
+  const box=document.getElementById("pfDbg"); if(!box) return;
+  if(!(DB.ui&&DB.ui.pfDebug)){ box.style.display="none"; return; }
+  box.style.display="block";
+  const f=pfFacts(); if(!f) return;
+  const b=document.getElementById("pfBottom");
+  const rb=b?b.getBoundingClientRect():null;
+  box.innerHTML=`<b>v${esc(APP_VERSION)}</b> · Karte ${f.rectW}×${f.rectH} @${f.rectTop}
+    · Leiste unten ${rb?Math.round(rb.bottom):0}
+    · innerH ${f.innerH} clientH ${f.clientH} vvH ${f.vvH}
+    · Lücke ${Math.round((f.innerH||0)-(rb?rb.bottom:0))} px`;
+}
+
 function pfCaddyKurz(){
   const geo=playGeo(), h=PLAY.holes[PLAY.idx];
   if(!geo) return `<button type="button" class="pf-cad-line" onclick="pfInfoToggle()">
@@ -17299,84 +17241,6 @@ function pfCaddyKurz(){
     ? ` · ${Math.round(WEATHER.windMs*3.6)} km/h` : "";
   return `<button type="button" class="pf-cad-line" onclick="pfInfoToggle()">
     <b>${rest!=null?rest+" m":"–"}</b>${esc(empf)}${esc(wind)} <span class="pf-cad-more">▾</span></button>`;
-}
-/* ==========================================================================
-   LIVE-MESSUNG IM VOLLBILD (v1.85)
-   Zehn Anlaeufe ohne Erfolg heissen: es fehlt Information, nicht Ideen. Diese
-   Anzeige misst die TATSAECHLICHEN Rechtecke waehrend die Ebene offen ist —
-   die frueheren Messungen liefen bei geschlossener Ebene und waren wertlos.
-   Sie zeigt ausserdem die laufende VERSION: der Service Worker liefert die
-   App-Huelle nach stale-while-revalidate, man sieht also beim ersten Start
-   nach einem Update noch die ALTE Fassung. Ohne diese Anzeige ist nicht
-   unterscheidbar, ob eine Korrektur nicht wirkt oder gar nicht ankommt.
-   ========================================================================== */
-/* ==========================================================================
-   GEMESSEN, NICHT GERATEN (v1.87)
-   Die Live-Messung auf dem Geraet:
-       dialog 360x506 @0        <- die Ebene wird nur 506 hoch
-       innerH 649 / clientH 649 / vvH 649   <- der Bildschirm ist 649 hoch
-       pos fixed · offsetParent null        <- Positionierung korrekt
-       Luecke unten 143 px
-
-   Alle drei Viewport-Masse stimmen ueberein. Trotzdem streckt sich das
-   <dialog> mit `inset:0; height:auto` nicht auf die volle Hoehe — warum, kann
-   ich nicht erklaeren. Ich muss es auch nicht: Das ZIEL ist eindeutig und
-   messbar, und alle drei Quellen sagen dasselbe.
-
-   Deshalb wird die Hoehe explizit gesetzt. Frueher scheiterte genau das —
-   aber aus einem anderen Grund: damals nahm ich `100dvh` bzw.
-   `visualViewport.height`, also den KLEINSTEN Wert, waehrend die Masse
-   auseinanderliefen. Jetzt sind sie identisch (649), und es wird das Maximum
-   genommen. Das ist keine Vermutung mehr, sondern die Uebernahme eines
-   gemessenen Werts.
-   ========================================================================== */
-function pfFit(){
-  const el=document.getElementById("playFull");
-  if(!el || !(el.open||el.classList.contains("on"))) return;
-  const h=Math.max(
-    (document.documentElement && document.documentElement.clientHeight)||0,
-    window.innerHeight||0,
-    (window.visualViewport && Math.round(window.visualViewport.height))||0);
-  const w=Math.max(
-    (document.documentElement && document.documentElement.clientWidth)||0,
-    window.innerWidth||0);
-  if(h>0) el.style.height=h+"px";
-  if(w>0) el.style.width=w+"px";
-  el.style.top="0"; el.style.left="0";
-}
-/* Nach dem Oeffnen, nach dem Einschwingen der Adressleiste und bei jeder
-   Groessenaenderung nachziehen. */
-window.addEventListener("resize", ()=>setTimeout(pfFit,60));
-window.addEventListener("orientationchange", ()=>setTimeout(pfFit,220));
-if(window.visualViewport) window.visualViewport.addEventListener("resize", ()=>setTimeout(pfFit,60));
-
-function pfDbgToggle(){
-  DB.ui=DB.ui||{}; DB.ui.pfDebug=!DB.ui.pfDebug; persistSoon(); pfRender();
-}
-function pfDbgRender(){
-  const box=document.getElementById("pfDbg"); if(!box) return;
-  if(!(DB.ui&&DB.ui.pfDebug)){ box.style.display="none"; return; }
-  box.style.display="block";
-  const el=document.getElementById("playFull");
-  const r=el?el.getBoundingClientRect():null;
-  const m=document.getElementById("pfMap");
-  const rm=m?m.getBoundingClientRect():null;
-  const b=document.getElementById("pfBottom");
-  const rb=b?b.getBoundingClientRect():null;
-  const cs=el&&window.getComputedStyle?getComputedStyle(el):null;
-  const z=(x)=>x?Math.round(x):0;
-  const t=document.getElementById("pfTop");
-  const rt=t?t.getBoundingClientRect():null;
-  box.innerHTML=`<b>v${esc(APP_VERSION)}</b>
-    · dialog ${z(r&&r.width)}×${z(r&&r.height)} @${z(r&&r.top)}
-    · map ${z(rm&&rm.width)}×${z(rm&&rm.height)} @${z(rm&&rm.top)}
-    · bar unten ${z(rb&&rb.bottom)}
-    · innerH ${z(window.innerHeight)} clientH ${z(document.documentElement&&document.documentElement.clientHeight)}
-      vvH ${z(window.visualViewport&&window.visualViewport.height)}
-    · pos ${esc(cs?cs.position:"?")} · offsetParent ${esc(el&&el.offsetParent?(el.offsetParent.id||el.offsetParent.tagName):"null")}
-    · open ${el&&el.open?"ja":"nein"}
-    · top-Leiste @${z(rt&&rt.top)}
-    · Lücke unten ${z((window.innerHeight||0)-(rb?rb.bottom:0))} px`;
 }
 function pfInfoToggle(){ PLAY.pfInfoOpen=!PLAY.pfInfoOpen; pfRender(); }
 
@@ -17413,14 +17277,13 @@ function pfRender(){
   if(ctr) ctr.innerHTML=playMapCtrlsHtml()
     + `<button type="button" class="${DB.ui&&DB.ui.pfDebug?'on':''}" onclick="pfDbgToggle()"
         title="Layout-Messwerte einblenden">ⓘ</button>`;
-  pfFit();                    // haelt die Hoehe nach jeder Interaktion
   pfDbgRender();
   /* Laufend nachmessen: die interessanten Aenderungen passieren NACH dem
      Zeichnen (Adressleiste, Kartenaufbau). Ein Intervall statt einmalig. */
   if(!PLAY._dbgT && DB.ui && DB.ui.pfDebug){
     PLAY._dbgT=setInterval(()=>{
-      const el=document.getElementById("playFull");
-      if(!el || !(el.open||el.classList.contains("on"))){ clearInterval(PLAY._dbgT); PLAY._dbgT=null; return; }
+      if(!document.body.classList.contains("play-mode")){
+        clearInterval(PLAY._dbgT); PLAY._dbgT=null; return; }
       pfDbgRender();
     }, 1000);
   }
@@ -20907,7 +20770,7 @@ function renderData(){
   <div class="card pad">
     <button class="btn ghost" type="button" onclick="showErrLog()">🐞 Fehlerprotokoll (${ERRLOG.length})</button>
     <button class="btn ghost" type="button" style="margin-top:8px" onclick="runSelfCheck()">🔍 Selbstprüfung</button>
-    <button class="btn ghost" type="button" style="margin-top:8px" onclick="pfDiagShow()">📐 Layout-Diagnose (Vollbild)</button>
+    <button class="btn ghost" type="button" style="margin-top:8px" onclick="pfDbgToggle()">📐 Messwerte im Spielmodus ein/aus</button>
     <div class="stat-line" style="margin-top:10px"><span>Laufende Version</span><b>v${esc(APP_VERSION)}</b></div>
     <button class="btn sec" type="button" style="margin-top:8px" onclick="swForceUpdate()">⟳ Neueste Fassung laden (Cache leeren)</button>
     <p class="note" style="margin-bottom:0">Der Offline-Cache liefert beim Start bewusst die
@@ -21119,15 +20982,10 @@ function closeSheet(){
 window.addEventListener("popstate",()=>{                    // Zurück-Taste (Android/Browser)
   /* Reihenfolge zaehlt: liegt das Vollbild oben, muss ZUERST es weichen —
      sonst landet man mit einem Tipp aus der Runde heraus. */
-  const pf=document.getElementById("playFull");
-  /* KEIN Zeitfenster mehr. Es war der Versuch, ein unerwuenschtes popstate zu
-     ueberholen — seit pfOpen() `_sheetHist` vorher zuruecksetzt, entsteht gar
-     keines. Das Fenster schluckte dafuer den ECHTEN Zurueck-Druck, wenn er
-     kurz nach dem Oeffnen kam. Jetzt eindeutig: Vollbild offen -> Zurueck
-     schliesst es. */
-  /* Seit v1.83 ist die Ebene ein <dialog>: massgeblich ist `open`, nicht mehr
-     die Klasse. Die Klasse bleibt nur fuer den Fallback ohne dialog. */
-  if(pf && (pf.open || pf.classList.contains("on"))){ pfHide(); return; }
+  /* Im Karten-Spielmodus fuehrt Zurueck zur Eingabemaske, nicht aus der App.
+     Erkennbar an der body-Klasse — seit v1.88 gibt es keinen Overlay-Zustand
+     mehr, den man abfragen muesste. */
+  if(document.body.classList.contains("play-mode")){ pfHide(); return; }
   if(sheet.classList.contains("open")){ _sheetHist=false; closeSheet(); }
 });
 window.addEventListener("keydown",e=>{                      // Escape (Desktop/Tastatur)
@@ -22568,7 +22426,7 @@ function openComp(idx){
 /* ================= NAV ================= */
 let current="dash";
 const FAB_ACTION={rounds:startRound,comp:openAddComp,notes:openAddNote,swing:openSwingEdit};
-const APP_VERSION="1.87.0"; // App-Anzeigeversion (NICHT SEED.version! Diese bei jeder Änderung erhöhen)
+const APP_VERSION="1.88.0"; // App-Anzeigeversion (NICHT SEED.version! Diese bei jeder Änderung erhöhen)
 /* ---------- Darstellung: Hell/Dunkel (DB.ui.theme = "auto" | "light" | "dark") ---------- */
 const _darkMQ = (window.matchMedia? window.matchMedia("(prefers-color-scheme: dark)") : null);
 function themeSetting(){ return (DB && DB.ui && DB.ui.theme) || "auto"; }
@@ -22747,7 +22605,10 @@ const VIEW_RENDER = {
   rounds:renderRounds, comp:renderComp, places:renderPlaces,
   swing:renderSwing, launch:renderLaunch, gps:renderGps,
   fitness:renderFitness, planung:renderPlanung, notes:renderNotes,
-  bag:renderBag, wissen:renderWiki, data:renderData
+  bag:renderBag, wissen:renderWiki, data:renderData,
+  /* Der Spielmodus ist seit v1.88 eine regulaere Ansicht. Ohne diesen Eintrag
+     bliebe sie leer — Selbstpruefung Nr. 8 faengt genau das ab. */
+  play:pfRender
 };
 const viewDirty = new Set(Object.keys(VIEW_RENDER));
 
