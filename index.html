@@ -2426,6 +2426,15 @@ erkennbar ist, dass es ein Video gab.
 > **Regel:** Bei JEDER inhaltlichen Änderung hier oben einen datierten Eintrag ergänzen (neueste
 > zuerst): Datum · was geändert · betroffene Bereiche. Kurz halten.
 
+- **v1.86.0 · 2026-08-09** — **Messanzeige startet eingeschaltet.** v1.85 läuft nachweislich auf
+  dem Gerät, der Fehler besteht fort — die CSS-Regel ist geprüft korrekt und steht auf oberster
+  Ebene (der vermeintliche Treffer „Regel in einem Medienblock" war ein Artefakt meines
+  Prüfskripts, das CSS-Kommentare nicht entfernt). Damit fehlen nur noch echte Zahlen: Die
+  Live-Messung (`DB.ui.pfDebug`) ist beim ersten Start automatisch an, misst jede Sekunde nach
+  (die interessanten Änderungen passieren NACH dem Zeichnen) und weist zusätzlich die
+  **Lücke unten in Pixeln** sowie die Position der Kopfleiste aus. Der ⓘ-Schalter in der
+  Kartenleiste blendet sie wieder aus.
+
 - **v1.85.0 · 2026-08-09** — **Vermutlich testete das Gerät die ganze Zeit eine alte Version.**
   Der Service Worker lieferte `index.html` nach *stale-while-revalidate*: beim Start kommt die
   gespeicherte Fassung, die neue erst beim nächsten Start. Wer nach jedem Upload einmal neu lädt,
@@ -17278,6 +17287,8 @@ function pfDbgRender(){
   const rb=b?b.getBoundingClientRect():null;
   const cs=el&&window.getComputedStyle?getComputedStyle(el):null;
   const z=(x)=>x?Math.round(x):0;
+  const t=document.getElementById("pfTop");
+  const rt=t?t.getBoundingClientRect():null;
   box.innerHTML=`<b>v${esc(APP_VERSION)}</b>
     · dialog ${z(r&&r.width)}×${z(r&&r.height)} @${z(r&&r.top)}
     · map ${z(rm&&rm.width)}×${z(rm&&rm.height)} @${z(rm&&rm.top)}
@@ -17285,7 +17296,9 @@ function pfDbgRender(){
     · innerH ${z(window.innerHeight)} clientH ${z(document.documentElement&&document.documentElement.clientHeight)}
       vvH ${z(window.visualViewport&&window.visualViewport.height)}
     · pos ${esc(cs?cs.position:"?")} · offsetParent ${esc(el&&el.offsetParent?(el.offsetParent.id||el.offsetParent.tagName):"null")}
-    · open ${el&&el.open?"ja":"nein"}`;
+    · open ${el&&el.open?"ja":"nein"}
+    · top-Leiste @${z(rt&&rt.top)}
+    · Lücke unten ${z((window.innerHeight||0)-(rb?rb.bottom:0))} px`;
 }
 function pfInfoToggle(){ PLAY.pfInfoOpen=!PLAY.pfInfoOpen; pfRender(); }
 
@@ -17323,6 +17336,15 @@ function pfRender(){
     + `<button type="button" class="${DB.ui&&DB.ui.pfDebug?'on':''}" onclick="pfDbgToggle()"
         title="Layout-Messwerte einblenden">ⓘ</button>`;
   pfDbgRender();
+  /* Laufend nachmessen: die interessanten Aenderungen passieren NACH dem
+     Zeichnen (Adressleiste, Kartenaufbau). Ein Intervall statt einmalig. */
+  if(!PLAY._dbgT && DB.ui && DB.ui.pfDebug){
+    PLAY._dbgT=setInterval(()=>{
+      const el=document.getElementById("playFull");
+      if(!el || !(el.open||el.classList.contains("on"))){ clearInterval(PLAY._dbgT); PLAY._dbgT=null; return; }
+      pfDbgRender();
+    }, 1000);
+  }
 
   const bot=document.getElementById("pfBottom");
   if(bot){
@@ -22467,7 +22489,7 @@ function openComp(idx){
 /* ================= NAV ================= */
 let current="dash";
 const FAB_ACTION={rounds:startRound,comp:openAddComp,notes:openAddNote,swing:openSwingEdit};
-const APP_VERSION="1.85.0"; // App-Anzeigeversion (NICHT SEED.version! Diese bei jeder Änderung erhöhen)
+const APP_VERSION="1.86.0"; // App-Anzeigeversion (NICHT SEED.version! Diese bei jeder Änderung erhöhen)
 /* ---------- Darstellung: Hell/Dunkel (DB.ui.theme = "auto" | "light" | "dark") ---------- */
 const _darkMQ = (window.matchMedia? window.matchMedia("(prefers-color-scheme: dark)") : null);
 function themeSetting(){ return (DB && DB.ui && DB.ui.theme) || "auto"; }
@@ -23087,6 +23109,10 @@ function ensureDefaults(){
      Nutzerentscheidung unterscheiden, deshalb wird er genau EINMAL
      zurueckgesetzt und das ueber ein Merkzeichen festgehalten. */
   DB.ui=DB.ui||{};
+  /* Die Messanzeige EINMAL automatisch einschalten. Ohne echte Zahlen vom
+     Geraet ist die Vollbild-Fehlersuche Raten — und Raten hat zehn Runden
+     gekostet. Der ⓘ-Schalter in der Kartenleiste blendet sie wieder aus. */
+  if(DB.ui.pfDebug===undefined) DB.ui.pfDebug=true;
   /* Den Altwert AKTIV auf true setzen statt ihn zu loeschen — eine Loeschung
      kann sich gegen die Repo-Fassung nicht durchsetzen (Object.assign-Merge).
      Wird nicht mehr gelesen, aber so verschwindet er auch aus dem Repo. */

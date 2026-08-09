@@ -1420,7 +1420,9 @@ group("Warum Korrekturen wirkungslos SCHIENEN");
      Start. Während der Entwicklung testet man damit stundenlang eine Version
      zu alt — und hält jede Korrektur für wirkungslos. */
   ok("Live-Messung im Vollbild vorhanden", /function pfDbgRender/.test(src));
-  ok("Version wird im Vollbild angezeigt", /pfDbgRender[\s\S]{0,600}APP_VERSION/.test(src));
+  ok("Version wird im Vollbild angezeigt", /pfDbgRender[\s\S]{0,1400}APP_VERSION/.test(src));
+  ok("Messanzeige startet eingeschaltet", /pfDebug===undefined\) DB\.ui\.pfDebug=true/.test(src));
+  ok("Lücke unten wird ausgewiesen", /Lücke unten/.test(src));
   ok("Version steht in der Diagnose", /Laufende Version/.test(src));
   ok("Update-Erzwingen vorhanden", /function swForceUpdate/.test(src));
   ok("Update leert nur den Hüllen-Cache, nicht die Kacheln",
