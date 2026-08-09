@@ -1361,6 +1361,16 @@ bleibt) — Balken je Kategorie, groesste Luecke hervorgehoben, dazu ein Uebungs
 Bogey?" (Strafschlag / 3 Putts / Bunker sowie die SG-schwaechste Phase je Katastrophenloch) —
 fuer den Weg zu einstellig ist das die handlungsleitendere Frage als die Birdie-Quote.
 
+### Approach-Schlaeger (v1.72)
+`apprClub` — WELCHER Schlaeger den Approach gespielt hat. Bisher wurde nur der TEE-Schlaeger
+erfasst (`club`). Damit liess sich die Streuung je Schlaeger nur fuer den Abschlag lernen; fuer
+die Eisen und Wedges — also fuer die Schlaege, aus denen die meisten Schlaege verlorengehen —
+gab es keine Zuordnung. Mit `apprClub` laesst sich `learnLateralFromRounds()` kuenftig auch fuer
+Approaches je Schlaeger rechnen, und die Auswertung kann „mit welchem Schlaeger bin ich
+systematisch zu kurz?" beantworten.
+Vorhanden in allen drei Eingaben: Spielmodus (WICHTIG-Block), manueller Rundeneditor und Uhr
+(Seite 2, direkt nach der Approach-Distanz). Auswahl aus `DB.clubDistances`.
+
 ### Approach-Fehlerrichtung (v1.57)
 Beim Abschlag gab es seit jeher acht Auspraegungen inkl. **Kurz/Lang**, beim Approach nur die
 Lage. Dabei ist „systematisch zu kurz" der haeufigste und am schnellsten abstellbare
@@ -2107,6 +2117,19 @@ erkennbar ist, dass es ein Video gab.
 ## Changelog
 > **Regel:** Bei JEDER inhaltlichen Änderung hier oben einen datierten Eintrag ergänzen (neueste
 > zuerst): Datum · was geändert · betroffene Bereiche. Kurz halten.
+
+- **v1.72.0 · 2026-08-09** — **Approach-Schläger · Vollbild-Ursache gefunden · Fehlerzähler.**
+  (1) **`apprClub`** in allen drei Eingaben (Spielmodus, manueller Editor, Uhr Seite 2) — bisher
+  wurde nur der TEE-Schläger erfasst, womit sich die Streuung je Schläger nur für den Abschlag
+  lernen ließ, nicht für Eisen und Wedges. Auf der Uhr brauchte das einen neuen Parameter
+  `clubNames`, weil `opts.teeClubs` nur Kategorien enthält.
+  (2) **Warum das Vollbild nie aufging:** Der popstate-Handler rief `playToggleFocusMap()` — und
+  das SPEICHERT die Vorliebe. Da v1.69 das Vollbild wegen der `history.back()`-Falle sofort
+  selbst wieder schloss, schrieb jedes Aufblitzen dauerhaft „Vollbild aus" in `DB.ui`. Auch nach
+  dem Fix von v1.70 blieb es deshalb aus. Neu: `pfHide()` verlässt das Vollbild OHNE die
+  Vorliebe zu ändern (nur der Knopf „✎ Eingabe" tut das), plus eine einmalige Bereinigung des
+  fälschlich gespeicherten Werts (`DB.ui.pfFocusReset`).
+  (3) **Fehlerzähler** im Knopf wird nach dem Leeren aktualisiert (`renderData()` fehlte).
 
 - **v1.71.0 · 2026-08-09** — **BUGFIX `_aimBuild`: „Cannot read properties of undefined (toFixed)".**
   `STRAT.approach()` legt `es`/`pen` unter `best.ev` ab, `tee()`/`nextShot()` direkt auf `best`.
@@ -3211,7 +3234,7 @@ function showErrLog(){
     Neustarts erhalten.</div>
     <div class="card" style="margin-top:12px"><div style="padding:4px 0">${rows}</div></div>
     <button class="btn" style="margin-top:12px" onclick="errLogCopy()">📋 Protokoll kopieren</button>
-    <button class="btn ghost" style="margin-top:8px" onclick="errLogClear();closeSheet();toast('Protokoll geleert')">Leeren</button>
+    <button class="btn ghost" style="margin-top:8px" onclick="errLogClear();closeSheet();renderData();toast('Protokoll geleert')">Leeren</button>
     <button class="btn ghost" style="margin-top:8px" onclick="closeSheet()">Schließen</button>`);
 }
 
@@ -16442,6 +16465,7 @@ function playNum(field,label,ph){ const h=PLAY.holes[PLAY.idx];
    Strafart trennen die Ursachen. */
 function playWichtigHtml(){
   return `<div class="play-quick2" style="grid-template-columns:1fr 1fr">
+      ${playSel('apprClub','Approach-Schläger ⭐',(DB.clubDistances||[]).map(c=>c.club).filter(Boolean))}
       ${playSel('lie','Approach-Lage ⭐',DB.approachLies||[])}
       ${playSel('apprMiss','Approach-Fehler ⭐',DB.approachMiss||[])}
       ${playSel('club','Tee-Schläger',DB.teeClubs||[])}
@@ -16534,6 +16558,15 @@ function pfClose(){
   document.body.classList.remove("pf-open");
 }
 /* Umschalten zwischen Vollbild und Eingabemaske. Die Wahl wird gemerkt. */
+/* Vollbild verlassen OHNE die Vorliebe zu aendern — fuer die Zurueck-Taste.
+   FEHLER in v1.69: dort rief der popstate-Handler playToggleFocusMap(), und
+   das SPEICHERT `DB.ui.playMapFocus=false`. Weil v1.69 das Vollbild wegen der
+   history.back()-Falle sofort selbst wieder schloss, schrieb jedes Aufblitzen
+   „Vollbild aus" dauerhaft in die Einstellungen — danach oeffnete es nie mehr,
+   auch nach dem Fix nicht. Nur der ausdrueckliche Knopf „✎ Eingabe" aendert
+   die Vorliebe. */
+function pfHide(){ pfClose(); PLAY.mapFocus=false; renderPlay(); }
+
 function playToggleFocusMap(){
   PLAY.mapFocus=!PLAY.mapFocus;
   DB.ui=DB.ui||{}; DB.ui.playMapFocus=PLAY.mapFocus; persistSoon();
@@ -20225,7 +20258,7 @@ window.addEventListener("popstate",()=>{                    // Zurück-Taste (An
   /* Reihenfolge zaehlt: liegt das Vollbild oben, muss ZUERST es weichen —
      sonst landet man mit einem Tipp aus der Runde heraus. */
   const pf=document.getElementById("playFull");
-  if(pf && pf.classList.contains("on") && Date.now()-_pfAt>700){ playToggleFocusMap(); return; }
+  if(pf && pf.classList.contains("on") && Date.now()-_pfAt>700){ pfHide(); return; }
   if(sheet.classList.contains("open")){ _sheetHist=false; closeSheet(); }
 });
 window.addEventListener("keydown",e=>{                      // Escape (Desktop/Tastatur)
@@ -20372,7 +20405,8 @@ function openAddRound(existing, draftRound){
     const teeOpts=DB.teeResults.map(t=>`<option value="${t}">${t}</option>`).join("");
     const opt=(arr)=>`<option value="">–</option>`+arr.map(x=>`<option value="${esc(x)}">${esc(x)}</option>`).join("");
     const fpOpts=opt(DB.firstPuttDist||[]), qOpts=opt(DB.qualityOpts||[]), clubOpts=opt(DB.teeClubs||[]),
-      lieOpts=opt(DB.approachLies||[]), amOpts=opt(DB.approachMiss||[]), btOpts=opt(DB.bunkerTypes||[]), ptOpts=opt(DB.penaltyTypes||[]), jn=opt(["Ja","Nein"]);
+      lieOpts=opt(DB.approachLies||[]), amOpts=opt(DB.approachMiss||[]),
+    acOpts=opt((DB.clubDistances||[]).map(c=>c.club).filter(Boolean)), btOpts=opt(DB.bunkerTypes||[]), ptOpts=opt(DB.penaltyTypes||[]), jn=opt(["Ja","Nein"]);
     const fS="margin:0";
     $("#r_holes").innerHTML=hs.map(hd=>{
       const ex=existingHole(hd.hole)||{};
@@ -20407,6 +20441,7 @@ function openAddRound(existing, draftRound){
              Approach-Fehler ist trainingsrelevant ("systematisch zu kurz") ·
              Bunker und Strafart trennen die URSACHEN. -->
         <div class="in-grid" style="grid-template-columns:1fr 1fr;gap:9px;margin-top:8px">
+          <div class="field" style="${fS}"><label>Approach-Schläger ⭐</label><select class="hin" data-f="apprClub">${acOpts}</select></div>
           <div class="field" style="${fS}"><label>Approach-Lage ⭐</label><select class="hin" data-f="lie">${lieOpts}</select></div>
           <div class="field" style="${fS}"><label>Approach-Fehler ⭐</label><select class="hin" data-f="apprMiss">${amOpts}</select></div>
           <div class="field" style="${fS}"><label>Tee-Schläger</label><select class="hin" data-f="club">${clubOpts}</select></div>
@@ -21664,7 +21699,7 @@ function openComp(idx){
 /* ================= NAV ================= */
 let current="dash";
 const FAB_ACTION={rounds:startRound,comp:openAddComp,notes:openAddNote,swing:openSwingEdit};
-const APP_VERSION="1.71.0"; // App-Anzeigeversion (NICHT SEED.version! Diese bei jeder Änderung erhöhen)
+const APP_VERSION="1.72.0"; // App-Anzeigeversion (NICHT SEED.version! Diese bei jeder Änderung erhöhen)
 /* ---------- Darstellung: Hell/Dunkel (DB.ui.theme = "auto" | "light" | "dark") ---------- */
 const _darkMQ = (window.matchMedia? window.matchMedia("(prefers-color-scheme: dark)") : null);
 function themeSetting(){ return (DB && DB.ui && DB.ui.theme) || "auto"; }
@@ -22279,6 +22314,15 @@ function seedCourseTees2(){
 }
 
 function ensureDefaults(){
+  /* Einmalige Bereinigung: v1.69 hat `playMapFocus=false` versehentlich
+     gespeichert (siehe pfHide). Der Wert laesst sich nicht von einer echten
+     Nutzerentscheidung unterscheiden, deshalb wird er genau EINMAL
+     zurueckgesetzt und das ueber ein Merkzeichen festgehalten. */
+  DB.ui=DB.ui||{};
+  if(!DB.ui.pfFocusReset){
+    DB.ui.pfFocusReset=true;
+    if(DB.ui.playMapFocus===false) delete DB.ui.playMapFocus;
+  }
   /* Approach-Fehlerrichtung (v1.57). Beim Abschlag gab es Kurz/Lang/Links/
      Rechts seit jeher, beim Approach nur die Lage — dabei ist „systematisch zu
      kurz" der haeufigste und am schnellsten abstellbare Amateurfehler. */
