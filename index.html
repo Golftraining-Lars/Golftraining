@@ -592,8 +592,15 @@
      Die Browser-Vorgaben fuer <dialog> MUESSEN zurueckgesetzt werden — vor
      allem `max-width`/`max-height` (Standard: calc(100% - 6px - 2em)), sonst
      bleibt ringsum ein Rand. */
-  #playFull{border:0;padding:0;margin:0;inset:0;
-    width:100%;height:100%;max-width:100%;max-height:100%;
+  /* WICHTIG: die Box ueber die KANTEN definieren, nicht ueber `width/height:100%`.
+     Prozentwerte loesen gegen den Containing Block auf — und genau dessen
+     Hoehe war das Problem (ICB 56 px zu kurz). Mit `inset:0` und `width/height:auto`
+     ergibt sich die Box direkt aus den vier Kanten des Top Layers.
+     `position:fixed` ausdruecklich setzen: die UA-Vorgabe fuer <dialog> ist
+     `absolute`, nur `dialog:modal` bekommt `fixed` — verlassen wir uns nicht
+     darauf. `margin:0` hebt die Zentrierung der UA-Vorgabe auf. */
+  #playFull{position:fixed;inset:0;width:auto;height:auto;
+    border:0;padding:0;margin:0;max-width:none;max-height:none;
     overflow:hidden;background:#eef3e6;color:var(--ink)}
   #playFull::backdrop{background:#eef3e6}
   body.pf-open{overflow:hidden}
@@ -1603,7 +1610,22 @@ Hoehen wurde damit zum Wettlauf mit der Adressleiste — die Ebene schrumpfte be
 unabhaengig vom ICB, von Vorfahren mit `transform`, von der Adressleiste und vom z-index-Stapel.
 `width:100%; height:100%` genuegt.
 
-Was dabei zu beachten ist — und in tests.js geprueft wird:
+**Zwei Nachbesserungen (v1.84):**
+- **Box ueber die KANTEN definieren, nicht ueber `width/height:100%`.** Prozentwerte loesen gegen
+  den Containing Block auf — und genau dessen Hoehe war das urspruengliche Problem. Mit
+  `inset:0` plus `width:auto; height:auto` ergibt sich die Box direkt aus den vier Kanten.
+  Sonst blieb unten ein heller Balken: die Ebene war ganzflaechig, ihre absolut positionierten
+  Kinder (Karte, Aktionsleiste) rechneten aber gegen eine kuerzere Box.
+  `position:fixed` wird ausdruecklich gesetzt — die UA-Vorgabe fuer `<dialog>` ist `absolute`,
+  nur `dialog:modal` bekommt `fixed`; darauf sollte man sich nicht verlassen.
+- **`_pfClosing` gegen die Rueckkopplung.** `el.close()` loest das `close`-Ereignis aus, und
+  dessen Handler zeichnet die Eingabemaske. Ruft der Aufrufer danach SELBST `renderPlay()`
+  (`pfHide`, `playToggleFocusMap`), wird zweimal gezeichnet und zweimal ein Blatt geoeffnet —
+  mit der Kartenberechnung dazwischen sah das aus wie ein Aufhaengen. Das Flag markiert das
+  programmgesteuerte Schliessen; der Handler haelt sich dann heraus und reagiert nur noch auf
+  Escape. In der Simulation nachgewiesen: ein `openSheet`-Aufruf statt zwei.
+
+Was ausserdem zu beachten ist — und in tests.js geprueft wird:
 - **Browser-Vorgaben zuruecksetzen**, vor allem `max-width`/`max-height` (Standard
   `calc(100% - 6px - 2em)`), sonst bleibt ringsum ein Rand. Dazu `border`, `padding`, `margin`
   und `::backdrop`.
@@ -2376,6 +2398,17 @@ erkennbar ist, dass es ein Video gab.
 ## Changelog
 > **Regel:** Bei JEDER inhaltlichen Änderung hier oben einen datierten Eintrag ergänzen (neueste
 > zuerst): Datum · was geändert · betroffene Bereiche. Kurz halten.
+
+- **v1.84.0 · 2026-08-09** — **Heller Balken unten und Aufhängen nach „Eingabe" behoben.**
+  (1) Die Dialog-Box wird jetzt über `inset:0` plus `width/height:auto` definiert statt über
+  `width/height:100%`. Prozentwerte lösen gegen den Containing Block auf — dessen Höhe war genau
+  das ursprüngliche Problem; die Ebene war ganzflächig, ihre absolut positionierten Kinder
+  rechneten aber gegen eine kürzere Box, daher der Balken. `position:fixed` wird ausdrücklich
+  gesetzt (UA-Vorgabe für `<dialog>` ist `absolute`).
+  (2) **`_pfClosing`:** `el.close()` feuert `close`, dessen Handler die Eingabemaske zeichnet —
+  und der Aufrufer zeichnete danach nochmal. Zweimal Rendern plus Kartenberechnung sah aus wie
+  ein Aufhängen. Der Handler reagiert jetzt nur noch auf Escape. In der Simulation nachgewiesen:
+  ein `openSheet`-Aufruf statt zwei.
 
 - **v1.83.0 · 2026-08-09** — **Vollbild als `<dialog>` im Top Layer — nachhaltige Lösung.**
   Sieben Anläufe mit `position:fixed` sind an einer Eigenheit des Geräts gescheitert: `bottom:0`
@@ -17058,10 +17091,19 @@ function pfDiagShow(){
     <button class="btn ghost" style="margin-top:8px" onclick="closeSheet()">Schließen</button>`);
 }
 
+/* `el.close()` loest das `close`-Ereignis aus, und dessen Handler zeichnet die
+   Eingabemaske. Ruft der Aufrufer danach SELBST renderPlay() (pfHide,
+   playToggleFocusMap), wird zweimal gezeichnet und zweimal ein Blatt geoeffnet —
+   mit der Kartenberechnung dazwischen sah das aus wie ein Aufhaengen.
+   `_pfClosing` markiert das programmgesteuerte Schliessen; der Handler haelt
+   sich dann heraus. */
+let _pfClosing=false;
 function pfClose(){
   const el=document.getElementById("playFull"); if(!el) return;
+  _pfClosing=true;
   try{ if(el.open && typeof el.close==="function") el.close(); }
   catch(e){ logErr("pfClose", e, true); }
+  finally{ _pfClosing=false; }
   el.removeAttribute("open"); el.classList.remove("on");
   document.body.classList.remove("pf-open");
 }
@@ -17074,6 +17116,8 @@ function pfClose(){
   el.addEventListener("cancel", ev=>{ ev.preventDefault(); pfHide(); });
   el.addEventListener("close", ()=>{
     document.body.classList.remove("pf-open");
+    // Nur reagieren, wenn der Browser von sich aus geschlossen hat (Escape).
+    if(_pfClosing) return;
     if(PLAY.active && PLAY.mapFocus){ PLAY.mapFocus=false; renderPlay(); }
   });
 })();
@@ -22314,7 +22358,7 @@ function openComp(idx){
 /* ================= NAV ================= */
 let current="dash";
 const FAB_ACTION={rounds:startRound,comp:openAddComp,notes:openAddNote,swing:openSwingEdit};
-const APP_VERSION="1.83.0"; // App-Anzeigeversion (NICHT SEED.version! Diese bei jeder Änderung erhöhen)
+const APP_VERSION="1.84.0"; // App-Anzeigeversion (NICHT SEED.version! Diese bei jeder Änderung erhöhen)
 /* ---------- Darstellung: Hell/Dunkel (DB.ui.theme = "auto" | "light" | "dark") ---------- */
 const _darkMQ = (window.matchMedia? window.matchMedia("(prefers-color-scheme: dark)") : null);
 function themeSetting(){ return (DB && DB.ui && DB.ui.theme) || "auto"; }

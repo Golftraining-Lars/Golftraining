@@ -1389,9 +1389,20 @@ group("Top Layer — warum die Höhenmechanik entfallen konnte");
   ok("close-Ereignis stellt den Zustand her", /addEventListener\("close"/.test(src));
   /* Die Browser-Vorgaben für dialog müssen zurückgesetzt sein, sonst bleibt
      ringsum ein Rand (Standard: max-width/max-height calc(100% - 6px - 2em)). */
-  ok("max-width zurückgesetzt", /#playFull\{[^}]*max-width:100%/.test(src));
-  ok("max-height zurückgesetzt", /#playFull\{[^}]*max-height:100%/.test(src));
-  ok("Rahmen und Innenabstand entfernt", /#playFull\{border:0;padding:0/.test(src));
+  const regel=(src.match(/#playFull\{[^}]*\}/)||[""])[0];
+  ok("max-width zurückgesetzt", /max-width:none/.test(regel), regel.slice(0,120));
+  ok("max-height zurückgesetzt", /max-height:none/.test(regel));
+  ok("Rahmen, Innen- und Außenabstand entfernt",
+     /border:0/.test(regel) && /padding:0/.test(regel) && /margin:0/.test(regel));
+  /* Die Box MUSS über die Kanten definiert sein. `width/height:100%` löst
+     gegen den Containing Block auf — und genau dessen Höhe war das Problem. */
+  ok("Box über inset, nicht über Prozenthöhen",
+     /inset:0/.test(regel) && /width:auto/.test(regel) && /height:auto/.test(regel));
+  ok("position:fixed ausdrücklich gesetzt (UA-Vorgabe ist absolute)",
+     /position:fixed/.test(regel));
+  /* el.close() feuert `close`; ruft der Aufrufer danach selbst renderPlay(),
+     wird doppelt gezeichnet — das sah aus wie ein Aufhängen. */
+  ok("programmgesteuertes Schließen ist markiert", /_pfClosing/.test(src));
   /* Die Höhenmechanik MUSS weg sein — sie war der Wettlauf mit der
      Adressleiste, den der Top Layer überflüssig macht. */
   const js=src.replace(/\/\*[\s\S]*?\*\//g,"");
