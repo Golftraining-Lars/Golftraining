@@ -1179,6 +1179,40 @@ group("sgHoleShots — SG aus GPS-Schlägen statt aus Annahmen");
   }
 }
 
+/* ============ 24h. Form der Bewertungen (tee / nextShot / approach) ============ */
+group("Bewertungs-Objekte — gleiche Form, sonst stirbt die Zielkette");
+{
+  const S=G("STRAT");
+  if (S && S.tee && S.approach) {
+    const mLat=111320, mLng=65500;
+    const P=(n,e)=>[54.0+n/mLat, 10.0+e/mLng];
+    const ring=(n,e,r)=>[P(n-r,e-r),P(n-r,e+r),P(n+r,e+r),P(n+r,e-r)];
+    const geo={holes:{1:{tee:P(0,0), green:P(350,0),
+      fairway:[{ring:ring(175,0,60)}]}}};
+    const DB=G("DB");
+    DB.clubDistances=[{club:"Driver",carry:215,reach:232},{club:"7-Eisen",carry:140,reach:143},
+      {club:"PW",carry:104,reach:106},{club:"SW",carry:78,reach:80}];
+    DB.courses=[{name:"T", geo}];
+
+    const t=S.tee(geo,"T",1,"bal",20);
+    const a=S.approach(geo,"T",1,P(215,0),135,"bal",20,null);
+    ok("tee() liefert eine Bewertung", !!t);
+    ok("approach() liefert eine Bewertung", !!a);
+    if (t && a) {
+      /* DER PUNKT: tee().best trägt es/pen DIREKT, approach().best legt sie
+         unter best.ev ab. Wer das verwechselt, greift auf undefined zu und
+         stirbt an `.toFixed` — genau der Fehler aus v1.68. */
+      ok("tee().best.es ist eine Zahl", isFinite(t.best.es));
+      ok("tee().best.pen ist eine Zahl", isFinite(t.best.pen));
+      ok("approach().best.es ist NICHT direkt gesetzt", !isFinite(a.best.es));
+      ok("approach().best.ev.es ist die Zahl", isFinite(a.best.ev.es));
+      ok("approach().fracs.green ist die Grünquote",
+         isFinite(a.fracs.green) && a.fracs.green>=0 && a.fracs.green<=100);
+    }
+    DB.courses=[]; DB.clubDistances=[];
+  }
+}
+
 /* ================= 25. Gepflegt vs. gemessen ================= */
 group("clubMeasured — gepflegte gegen gemessene Schlägerlängen");
 {

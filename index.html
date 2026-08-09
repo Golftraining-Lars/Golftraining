@@ -1534,6 +1534,24 @@ Kurzreferenz — die Logik steht jeweils im Abschnitt der zugehoerigen Funktion:
   Approach-Fehler, Tee-Schlaeger, Bunker, Strafart, Quality) — bewusst SICHTBAR, nicht in der
   Klappe; siehe Abschnitt „Eingabe nach Wichtigkeit".
 
+### Bewertungs-Objekte haben NICHT dieselbe Form (v1.71)
+Eine Falle, die zweimal zugeschnappt hat und deshalb hier festgehalten wird:
+
+    STRAT.tee()      -> best.es , best.pen        (direkt auf best)
+    STRAT.nextShot() -> best.es , best.pen        (direkt auf best)
+    STRAT.approach() -> best.ev.es , best.ev.pen  (eine Ebene TIEFER)
+
+`_aimBuild` liest `ev.best.es` und ruft `.toFixed(2)` darauf. Beim Approach war das `undefined`
+— TypeError, und weil `playAimDraw` auch aus `elevEnsure().then()` heraus laeuft, zusaetzlich
+als UNBEHANDELTE Promise-Ablehnung (im Protokoll ohne Funktionsnamen, nur „Promise: …").
+Zwei Massnahmen:
+1. `_aimApproachEv` bringt `best` in die Form von `tee()` — `{club, lineDeg, brg, es, pen, sg}`.
+2. `_aimBuild` prueft mit `isFinite()` statt nur auf Vorhandensein. Das faengt die ganze Klasse
+   ab, auch fuer kuenftige Bewertungsquellen.
+3. Der `.then()` in `playMapRender` hat jetzt ein `.catch` — sonst tauchen Fehler doppelt und
+   schlechter lesbar auf.
+tests.js prueft die Formen direkt gegeneinander (Abschnitt 24h).
+
 ### Zwei Fallen beim Vollbild (v1.70)
 **1. `closeSheet()` loest ein popstate aus.** Es baut seinen History-Eintrag ueber
 `history.back()` ab. Rief `pfOpen()` erst `classList.add("on")` und DANN `closeSheet()`, sah der
@@ -2089,6 +2107,16 @@ erkennbar ist, dass es ein Video gab.
 ## Changelog
 > **Regel:** Bei JEDER inhaltlichen Änderung hier oben einen datierten Eintrag ergänzen (neueste
 > zuerst): Datum · was geändert · betroffene Bereiche. Kurz halten.
+
+- **v1.71.0 · 2026-08-09** — **BUGFIX `_aimBuild`: „Cannot read properties of undefined (toFixed)".**
+  `STRAT.approach()` legt `es`/`pen` unter `best.ev` ab, `tee()`/`nextShot()` direkt auf `best`.
+  Mein Adapter aus v1.68 hat das nicht angeglichen — `_aimBuild` griff auf `best.es` zu, bekam
+  `undefined` und starb an `.toFixed`. Trat doppelt auf: 2× als TypeError und 3× als unbehandelte
+  Promise-Ablehnung über `elevEnsure().then() → playLiveRefresh → playAimDraw`, dort ohne
+  Funktionsnamen im Protokoll. Drei Korrekturen: Adapter bringt `best` in die Form von `tee()`;
+  `_aimBuild` prüft mit `isFinite()` statt nur auf Vorhandensein (fängt die ganze Klasse ab);
+  der `.then()` in `playMapRender` bekommt ein `.catch`. Prüfstand vergleicht die Formen jetzt
+  direkt gegeneinander (346 Prüfungen).
 
 - **v1.70.0 · 2026-08-09** — **Vollbild repariert · `PLAY.aim`-Verlust behoben.**
   (1) Das Vollbild öffnete und schloss sofort wieder: `closeSheet()` baut seinen History-Eintrag
@@ -16797,8 +16825,15 @@ function _aimApproachEv(geo,h,from){
     const pin=playPinRec();
     const F=pin?pinPoint(geo,h.hole,pin.d,pin.q):null;
     const ap=STRAT.approach(geo,PLAY.course,h.hole,from,rest,caddyMode(),STRAT.esHcp(),F||undefined);
-    if(ap) ev={best:ap.best, desc:ap.desc,
-               fracs:{gruen:ap.fracs.green, sand:ap.fracs.sand, pen:ap.fracs.pen}};
+    /* WICHTIG: approach() liefert `best` in EINER ANDEREN FORM als tee() und
+       nextShot() — dort liegen es/pen unter best.ev, hier direkt auf best.
+       Ohne diese Angleichung greift _aimBuild auf best.es zu und bekommt
+       undefined. */
+    if(ap) ev={
+      best:{ club:ap.best.club, lineDeg:0, brg:ap.best.brg,
+             es:ap.best.ev.es, pen:ap.best.ev.pen, sg:ap.best.sg },
+      desc:ap.desc,
+      fracs:{gruen:ap.fracs.green, sand:ap.fracs.sand, pen:ap.fracs.pen}};
   }catch(e){ logErr("_aimApproachEv", e, true); }
   _aimCache[k]=ev; return ev;
 }
@@ -16874,8 +16909,13 @@ function _aimBuild(strategic){
     legs.push({from:pts[i], to:pts[i+1], dist:d, club:cl?cl.name:null,
       role: last?"Grün":(i===0?"Abschlag":"Layup"),
       wp: last?-1:i, moved: ov[i]!=null,
-      fracs: ev?ev.fracs:null, es: ev&&ev.best?+ev.best.es.toFixed(2):null,
-      risk: ev&&ev.best?Math.round(ev.best.pen*100):null});
+      fracs: ev?ev.fracs:null, /* Defensiv: NICHT jede Bewertung fuellt dieselben Felder. approach()
+         legt es/pen unter best.ev ab, tee()/nextShot() direkt auf best.
+         Ohne isFinite-Pruefung stirbt hier `.toFixed` an undefined — genau
+         das war der Fehler aus v1.68. Der Adapter in _aimApproachEv bringt
+         die Form in Ordnung, diese Pruefung faengt die ganze Klasse ab. */
+      es: (ev&&ev.best&&isFinite(ev.best.es))?+ev.best.es.toFixed(2):null,
+      risk: (ev&&ev.best&&isFinite(ev.best.pen))?Math.round(ev.best.pen*100):null});
   }
   return {pts,legs,ov,nShots,strategic:!!strategic};
 }
@@ -17035,8 +17075,14 @@ function playMapRender(){
   const geo=playGeo(); const h=PLAY.holes[PLAY.idx];
   // Hoehen fuer Abschlag/Gruen/Standort holen (gebuendelt, gecacht, still)
   try{ const hr=holeRef(geo,h&&h.hole);
+    /* .catch NICHT vergessen: Wirft der Rueckruf (playLiveRefresh -> Zielkette),
+       landet das als UNBEHANDELTE Promise-Ablehnung — im Protokoll ohne
+       Funktionsnamen, nur „Promise: …". Genau so tauchte der toFixed-Fehler
+       dreimal zusaetzlich und schlechter lesbar auf. */
     if(hr) elevEnsure([hr.tee,hr.green,PLAY.here].filter(Boolean))
-      .then(()=>{ if(PLAY.active) playLiveRefresh&&playLiveRefresh(); }); }catch(_){ logErr("catch", _, true); }
+      .then(()=>{ if(PLAY.active) playLiveRefresh&&playLiveRefresh(); })
+      .catch(e=>logErr("playMapRender:elev", e, true));
+  }catch(_){ logErr("catch", _, true); }
   if(!slot||!geo){ return; }
   // tight:true = identische Einpassung wie in der Einzelschlag-Ansicht:
   // der Loch-Korridor fuellt die Breite, Abschlag unten / Gruen oben.
@@ -21618,7 +21664,7 @@ function openComp(idx){
 /* ================= NAV ================= */
 let current="dash";
 const FAB_ACTION={rounds:startRound,comp:openAddComp,notes:openAddNote,swing:openSwingEdit};
-const APP_VERSION="1.70.0"; // App-Anzeigeversion (NICHT SEED.version! Diese bei jeder Änderung erhöhen)
+const APP_VERSION="1.71.0"; // App-Anzeigeversion (NICHT SEED.version! Diese bei jeder Änderung erhöhen)
 /* ---------- Darstellung: Hell/Dunkel (DB.ui.theme = "auto" | "light" | "dark") ---------- */
 const _darkMQ = (window.matchMedia? window.matchMedia("(prefers-color-scheme: dark)") : null);
 function themeSetting(){ return (DB && DB.ui && DB.ui.theme) || "auto"; }
