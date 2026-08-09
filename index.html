@@ -1581,6 +1581,32 @@ Zwei Massnahmen:
    schlechter lesbar auf.
 tests.js prueft die Formen direkt gegeneinander (Abschnitt 24h).
 
+### Die Messung hat es entschieden (v1.81)
+Auf dem Geraet gemessen:
+
+    offsetParent: null      -> KEIN Vorfahre kapert die Positionierung
+    position: fixed         -> korrekt angewandt
+    innerH:  705            -> sichtbare Hoehe
+    clientH: 649            -> Bezugsrahmen, gegen den bottom:0 rechnet
+
+**56 Pixel Differenz.** `position:fixed` loest `bottom:0` gegen das Initial Containing Block auf,
+und dessen Hoehe ist `documentElement.clientHeight` — hier 56 px kuerzer als der sichtbare
+Bereich. Genau der Streifen, der unten fehlte.
+
+Damit sind alle sechs frueheren Erklaerungen widerlegt: es lag weder an `100dvh` noch an
+`visualViewport` noch an einem `transform`-Vorfahren noch an der Adressleiste. Und es erklaert,
+warum **jede reine CSS-Loesung scheitern MUSSTE**: `bottom:0` kann nicht weiter reichen als sein
+Bezugsrahmen.
+
+`pfViewportH()` nimmt jetzt das **MAXIMUM** aus `innerHeight`, `documentElement.clientHeight` und
+`visualViewport.height`. Die frueheren Versuche scheiterten, weil sie das MINIMUM nahmen —
+`100dvh` und `visualViewport.height` sind beide der kleinste Wert. `pfApplyHeight()` setzt die
+Hoehe beim Oeffnen sofort und bei jeder Groessenaenderung; `pfVerify()` bleibt als Nachkontrolle.
+
+**Lehre:** Sechs Runden Hypothesen haetten sich durch EINE Messung ersparen lassen. Bei einem
+Layout-Problem, das nach zwei Korrekturen nicht weicht, gehoert die Diagnose ins Programm — nicht
+die naechste Vermutung.
+
 ### Messen statt raten (v1.80)
 Fuenf Anlaeufe, fuenf Hypothesen — dvh, visualViewport, ein Vorfahre mit transform, die
 Adressleiste — und die Ebene fuellt den Bildschirm weiter nicht. Statt einer sechsten Hypothese
@@ -2302,6 +2328,15 @@ erkennbar ist, dass es ein Video gab.
 ## Changelog
 > **Regel:** Bei JEDER inhaltlichen Änderung hier oben einen datierten Eintrag ergänzen (neueste
 > zuerst): Datum · was geändert · betroffene Bereiche. Kurz halten.
+
+- **v1.81.0 · 2026-08-09** — **Vollbild-Höhe gelöst: `clientHeight` ist 56 px kürzer als der Bildschirm.**
+  Die Messung auf dem Gerät: `offsetParent: null` (kein Vorfahre kapert die Positionierung),
+  `position: fixed` korrekt, aber **innerH 705 gegen clientH 649**. `bottom:0` löst gegen das
+  Initial Containing Block auf, dessen Höhe `documentElement.clientHeight` ist — deshalb konnte
+  keine reine CSS-Lösung funktionieren. `pfViewportH()` nimmt jetzt das **Maximum** der drei
+  Maße; alle früheren Versuche nahmen mit `100dvh` bzw. `visualViewport.height` das Minimum.
+  `pfApplyHeight()` setzt es beim Öffnen und bei jeder Größenänderung, `pfVerify()` bleibt als
+  Nachkontrolle. Im Prüfstand als reine Rechnung festgeschrieben.
 
 - **v1.80.0 · 2026-08-09** — **Messen statt raten.** Nach fünf erfolglosen Hypothesen zur
   Vollbild-Höhe jetzt eine Messung: `pfFacts()` liefert Rechteck, Viewport-Maße, berechnete
@@ -16894,8 +16929,9 @@ function pfOpen(){
      erscheint die Ebene erst danach und es sieht aus, als haenge die App. */
   setTimeout(()=>{ if(PLAY.active && PLAY.mapFocus) playMapRender(); }, 0);
   // Nach dem Einschwingen (Adressleiste animiert) nachmessen und ggf. korrigieren.
-  setTimeout(pfVerify, 400);
-  setTimeout(pfVerify, 1200);
+  pfApplyHeight();                       // sofort, gegen den kurzen Bezugsrahmen
+  setTimeout(()=>{ pfApplyHeight(); pfVerify(); }, 400);
+  setTimeout(()=>{ pfApplyHeight(); pfVerify(); }, 1200);
 }
 /* ==========================================================================
    LAYOUT-DIAGNOSE (v1.80)
@@ -16923,9 +16959,41 @@ function pfFacts(){
     position: cs.position||"?", inlineH: el.style.height||"–"
   };
 }
-/* Nach dem Oeffnen pruefen, ob die Ebene wirklich bis unten reicht — und wenn
-   nicht, GENAU um die gemessene Differenz nachhelfen. Das ist kein Raten mehr:
-   die Korrektur kommt aus dem tatsaechlichen Rechteck. */
+/* ==========================================================================
+   DIE MESSUNG HAT ES ENTSCHIEDEN (v1.81)
+   Auf dem Geraet gemessen:
+       offsetParent: null      -> KEIN Vorfahre kapert die Positionierung
+       position: fixed         -> korrekt angewandt
+       innerH:  705            -> sichtbare Hoehe
+       clientH: 649            -> Bezugsrahmen, gegen den bottom:0 rechnet
+   56 Pixel Differenz. `position:fixed` loest `bottom:0` gegen das Initial
+   Containing Block auf, und dessen Hoehe ist `documentElement.clientHeight` —
+   hier 56 px KUERZER als der sichtbare Bereich. Genau der Streifen unten.
+
+   Alle bisherigen Erklaerungen waren damit falsch: es lag weder an dvh noch an
+   visualViewport noch an einem transform-Vorfahren. Und es erklaert auch,
+   warum jede reine CSS-Loesung scheitern MUSSTE: `bottom:0` kann nicht weiter
+   reichen als sein Bezugsrahmen.
+
+   Konsequenz: Die Hoehe wird gesetzt, und zwar auf das MAXIMUM der drei Masse.
+   Frueher scheiterte das nur, weil ich `100dvh` bzw. `visualViewport.height`
+   nahm — also den KLEINSTEN Wert. Das Maximum ist immer mindestens so gross
+   wie der Bezugsrahmen und deckt den sichtbaren Bereich vollstaendig ab. */
+function pfViewportH(){
+  return Math.max(
+    window.innerHeight||0,
+    (document.documentElement && document.documentElement.clientHeight)||0,
+    (window.visualViewport && window.visualViewport.height)||0);
+}
+function pfApplyHeight(){
+  const el=document.getElementById("playFull");
+  if(!el||!el.classList.contains("on")) return;
+  const h=pfViewportH();
+  if(h>0) el.style.height=h+"px";
+}
+
+/* Nachkontrolle: reicht die Ebene wirklich bis unten? Falls nicht, um GENAU
+   die gemessene Differenz nachhelfen. */
 function pfVerify(){
   const el=document.getElementById("playFull");
   if(!el||!el.classList.contains("on")) return;
@@ -16938,9 +17006,10 @@ function pfVerify(){
   }
 }
 /* Auch bei Drehen und beim Ein-/Ausfahren der Adressleiste nachmessen. */
-window.addEventListener("resize", ()=>setTimeout(pfVerify,60));
-window.addEventListener("orientationchange", ()=>setTimeout(pfVerify,200));
-if(window.visualViewport) window.visualViewport.addEventListener("resize", ()=>setTimeout(pfVerify,60));
+window.addEventListener("resize", ()=>setTimeout(()=>{pfApplyHeight();pfVerify();},60));
+window.addEventListener("orientationchange", ()=>setTimeout(()=>{pfApplyHeight();pfVerify();},200));
+if(window.visualViewport) window.visualViewport.addEventListener("resize",
+  ()=>setTimeout(()=>{pfApplyHeight();pfVerify();},60));
 
 function pfDiagShow(){
   const f=pfFacts();
@@ -16950,6 +17019,12 @@ function pfDiagShow(){
     <div class="card pad">
       ${Object.entries(f).map(([k,v])=>`<div class="stat-line"><span>${esc(k)}</span><b>${esc(String(v))}</b></div>`).join("")}
     </div>
+    ${f.rectH===0?`<p class="note" style="color:var(--gold-ink)"><b>Hinweis:</b> Die Ebene ist
+      gerade geschlossen, deshalb sind rect* alle 0. Aussagekräftig bleiben innerH, clientH und
+      offsetParent.</p>`:""}
+    <p class="note">Auf diesem Gerät gemessen: <b>innerH ${f.innerH}</b> gegen
+    <b>clientH ${f.clientH}</b>. Die Differenz ist genau der Streifen, der unten fehlte —
+    <code>bottom:0</code> rechnet gegen clientH.</p>
     <p class="note"><b>offsetParent</b> ist der wichtigste Wert: bei
     <code>position:fixed</code> muss er <b>null</b> sein. Steht dort ein Element, hat ein
     Vorfahre einen eigenen Bezugsrahmen aufgespannt (transform/filter/contain) — dann rechnet
@@ -22201,7 +22276,7 @@ function openComp(idx){
 /* ================= NAV ================= */
 let current="dash";
 const FAB_ACTION={rounds:startRound,comp:openAddComp,notes:openAddNote,swing:openSwingEdit};
-const APP_VERSION="1.80.0"; // App-Anzeigeversion (NICHT SEED.version! Diese bei jeder Änderung erhöhen)
+const APP_VERSION="1.81.0"; // App-Anzeigeversion (NICHT SEED.version! Diese bei jeder Änderung erhöhen)
 /* ---------- Darstellung: Hell/Dunkel (DB.ui.theme = "auto" | "light" | "dark") ---------- */
 const _darkMQ = (window.matchMedia? window.matchMedia("(prefers-color-scheme: dark)") : null);
 function themeSetting(){ return (DB && DB.ui && DB.ui.theme) || "auto"; }

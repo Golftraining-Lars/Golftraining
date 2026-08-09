@@ -1352,6 +1352,25 @@ group("Kennzahl je Phase — nie „undefined%“ auf der Karte");
        .every(x=>x.indexOf("undefined")<0));
 }
 
+/* ============ 24m. Vollbild-Höhe: das Maximum, nicht das Minimum ============ */
+group("pfViewportH — warum jede CSS-Lösung scheitern musste");
+{
+  /* Auf dem Gerät gemessen: innerH 705, clientH 649, vvH 705.
+     `position:fixed` löst `bottom:0` gegen das Initial Containing Block auf,
+     dessen Höhe `documentElement.clientHeight` ist — hier 56 px kürzer als der
+     sichtbare Bereich. Deshalb KONNTE keine reine CSS-Lösung funktionieren:
+     bottom:0 reicht nie weiter als sein Bezugsrahmen.
+     Die früheren Versuche scheiterten, weil sie das MINIMUM nahmen
+     (100dvh bzw. visualViewport.height). Richtig ist das MAXIMUM. */
+  const H = (inner, client, vv) => Math.max(inner||0, client||0, vv||0);
+  eq("gemessener Gerätefall: 705 statt 649", H(705, 649, 705), 705);
+  eq("dvh/visualViewport allein wäre zu klein", Math.min(705, 649, 705), 649);
+  eq("fehlende Werte stören nicht", H(0, 649, 0), 649);
+  eq("alles leer → 0", H(0,0,0), 0);
+  ok("Maximum ist nie kleiner als der Bezugsrahmen",
+     [[705,649,705],[600,800,600],[900,900,120]].every(([a,b,c])=>H(a,b,c)>=b));
+}
+
 /* ================= 25. Gepflegt vs. gemessen ================= */
 group("clubMeasured — gepflegte gegen gemessene Schlägerlängen");
 {
