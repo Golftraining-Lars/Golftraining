@@ -1562,6 +1562,25 @@ Zwei Massnahmen:
    schlechter lesbar auf.
 tests.js prueft die Formen direkt gegeneinander (Abschnitt 24h).
 
+### Einfrieren und Dreiviertel-Bild (v1.75)
+**Das Einfrieren.** `playMapTick()` suchte nur `#playMapSlot`. Im Vollbild zeichnet die Karte
+aber nach `#pfMap` — der Slot war dort `null`, und damit fiel JEDER GPS-Tick in den teuren
+Zweig `if(!svg){ playMapRender(); }`: Monte-Carlo, Kachel-Abrufe, kompletter SVG-Neubau. Bei
+laufendem GPS ist das Dauerlast, die Oberflaeche steht.
+
+Konsequenz: **EINE** Funktion bestimmt den Container, `playMapSlot()`. Alle Aufrufer
+(`playMapRender`, `playMapTick`, `playAutoView`, `playMapFit`) nutzen sie. Wer das dupliziert,
+baut den naechsten Freeze ein — eine Funktion findet den Slot, die andere nicht. Bei
+`playAutoView`/`playMapFit` kam ausserdem ein falsches Seitenverhaeltnis heraus, weil sie die
+Groesse des unsichtbaren Blatt-Containers massen.
+
+**Das Dreiviertel-Bild.** `position:fixed; inset:0` sollte den Bildschirm fuellen. Statt die
+Ursache im CSS-Umfeld zu suchen (ein Vorfahre mit `transform`/`filter` kann `fixed` kapern,
+ebenso die dynamische Adressleiste auf Android), setzt `pfSize()` Breite und Hoehe per JS aus
+`visualViewport` bzw. `innerHeight` — das ist genau der sichtbare Bereich und gilt unabhaengig
+von jedem CSS. Neu gemessen wird bei `resize`, `orientationchange` und
+`visualViewport.resize` (Adressleiste). Beim Schliessen werden die Inline-Werte entfernt.
+
 ### Die eigentliche Ursache: der Merge (v1.74)
 Drei Anlaeufe, drei Teilursachen — die letzte war die entscheidende und lag NICHT im Vollbildcode:
 
@@ -2156,6 +2175,18 @@ erkennbar ist, dass es ein Video gab.
 ## Changelog
 > **Regel:** Bei JEDER inhaltlichen Änderung hier oben einen datierten Eintrag ergänzen (neueste
 > zuerst): Datum · was geändert · betroffene Bereiche. Kurz halten.
+
+- **v1.75.0 · 2026-08-09** — **Einfrieren behoben · Vollbild deckt jetzt wirklich den Bildschirm.**
+  (1) **URSACHE DES EINFRIERENS:** `playMapTick()` suchte nur `#playMapSlot`, im Vollbild zeichnet
+  die Karte aber nach `#pfMap`. Der Slot war null, also fiel JEDER GPS-Tick in den teuren Zweig
+  und rief `playMapRender()` — Monte-Carlo, Kachel-Abrufe, SVG-Neubau. Bei laufendem GPS
+  Dauerlast. Neu bestimmt **eine** Funktion `playMapSlot()` den Container; `playMapRender`,
+  `playMapTick`, `playAutoView` und `playMapFit` nutzen sie. Die beiden letzten maßen zudem das
+  Seitenverhältnis am unsichtbaren Blatt-Container — der Ausschnitt war dadurch verzerrt.
+  (2) **Dreiviertel-Bild:** `pfSize()` setzt Breite und Höhe per JS aus `visualViewport` bzw.
+  `innerHeight`, statt sich auf `position:fixed; inset:0` zu verlassen — das kann von einem
+  Vorfahren mit `transform`/`filter` oder von der dynamischen Adressleiste unterlaufen werden.
+  Neu gemessen bei `resize`, `orientationchange` und `visualViewport.resize`.
 
 - **v1.74.0 · 2026-08-09** — **Vollbild: die eigentliche Ursache lag im MERGE, nicht im Vollbildcode.**
   `mergeDB` führt `ui` über `Object.assign({}, R.ui, L.ui)` zusammen — **ein Object.assign-Merge
@@ -16617,6 +16648,13 @@ function pfOpen(){
   closeSheet();
   el.classList.add("on"); el.setAttribute("aria-hidden","false");
   document.body.classList.add("pf-open");
+  /* Groesse ZUSAETZLICH per JS setzen. `position:fixed; inset:0` sollte den
+     Bildschirm fuellen — im Feld deckte die Ebene aber nur rund drei Viertel
+     ab. Statt die Ursache im CSS-Umfeld zu suchen (ein Vorfahre mit transform
+     oder filter kann `fixed` kapern, ebenso die dynamische Adressleiste auf
+     Android), wird die Hoehe hier aus `innerHeight` gesetzt: das ist genau der
+     sichtbare Bereich, und es gilt unabhaengig von jedem CSS. */
+  pfSize();
   PLAY.mapFocus=true;
   pfRender();
   playStartLive();
@@ -16625,9 +16663,23 @@ function pfOpen(){
      erscheint die Ebene erst danach und es sieht aus, als haenge die App. */
   setTimeout(()=>{ if(PLAY.active && PLAY.mapFocus) playMapRender(); }, 0);
 }
+function pfSize(){
+  const el=document.getElementById("playFull"); if(!el||!el.classList.contains("on")) return;
+  const h=(window.visualViewport && window.visualViewport.height) || window.innerHeight || 0;
+  const w=(window.visualViewport && window.visualViewport.width) || window.innerWidth || 0;
+  if(h>0){ el.style.height=h+"px"; el.style.width=(w>0?w:window.innerWidth)+"px";
+    el.style.top="0"; el.style.left="0"; el.style.right="auto"; el.style.bottom="auto"; }
+}
+/* Adressleiste ein-/ausblenden und Drehen aendern die sichtbare Hoehe. */
+window.addEventListener("resize", pfSize);
+window.addEventListener("orientationchange", ()=>setTimeout(pfSize,120));
+if(window.visualViewport) window.visualViewport.addEventListener("resize", pfSize);
+
 function pfClose(){
   const el=document.getElementById("playFull"); if(!el) return;
   el.classList.remove("on"); el.setAttribute("aria-hidden","true");
+  el.style.height=""; el.style.width=""; el.style.top=""; el.style.left="";
+  el.style.right=""; el.style.bottom="";
   document.body.classList.remove("pf-open");
 }
 /* Umschalten zwischen Vollbild und Eingabemaske. Die Wahl wird gemerkt. */
@@ -16866,7 +16918,9 @@ function playMapCtrlsRefresh(){ const el=document.getElementById("playMapCtrls")
 function playAutoView(){
   if(PLAY.mapManual) return null;
   const geo=playGeo(), h=PLAY.holes[PLAY.idx]; if(!geo||!h||!PLAY.mapM) return null;
-  const slot=document.getElementById("playMapSlot");
+  // playMapSlot(): im Vollbild #pfMap. Sonst waere das Seitenverhaeltnis dort
+  // falsch und der Ausschnitt verzerrt.
+  const slot=playMapSlot();
   const asp=slot&&slot.clientHeight?slot.clientWidth/slot.clientHeight:1;
   const full=playMapInitView(geo,h,PLAY.mapM,asp||1);
   const hr=holeRef(geo,h.hole);
@@ -17186,13 +17240,16 @@ function playHereEdge(){
     ${d!=null?`<text x="${px.toFixed(1)}" y="${(py+r*2.1).toFixed(1)}" font-size="${(r*1.15).toFixed(1)}" fill="#1a73e8" text-anchor="middle" font-weight="700" paint-order="stroke" stroke="#fff" stroke-width="${(r*0.5).toFixed(1)}" stroke-linejoin="round">${d} m</text>`:""}`;
   vg.appendChild(g);
 }
+/* EINE Stelle, die den Kartencontainer bestimmt. Im Vollbild #pfMap, sonst
+   #playMapSlot. Wer das dupliziert, baut den naechsten Freeze ein: eine
+   Funktion findet den Slot, die andere nicht. */
+function playMapSlot(){
+  if(PLAY.mapFocus){ const p=document.getElementById("pfMap"); if(p) return p; }
+  return document.getElementById("playMapSlot");
+}
+
 function playMapRender(){
-  /* Im Vollbildmodus zeichnet die Karte in #pfMap. Alles andere (Pan, Zoom,
-     Zielkette, Live-Position) bleibt unveraendert — es haengt am Slot, nicht
-     am Modus. */
-  const slot=document.getElementById("pfMap") && PLAY.mapFocus
-    ? document.getElementById("pfMap")
-    : document.getElementById("playMapSlot");
+  const slot=playMapSlot();
   const geo=playGeo(); const h=PLAY.holes[PLAY.idx];
   // Hoehen fuer Abschlag/Gruen/Standort holen (gebuendelt, gecacht, still)
   try{ const hr=holeRef(geo,h&&h.hole);
@@ -17244,7 +17301,14 @@ function playSatPrefetchNext(){
   }, 1200);
 }
 function playMapTick(){
-  const svg=document.getElementById("playMapSlot") && document.getElementById("playMapSvg");
+  /* DIE URSACHE DES EINFRIERENS (bis v1.74): hier wurde nur `#playMapSlot`
+     gesucht. Im Vollbild zeichnet die Karte aber nach `#pfMap` — der Slot ist
+     dort `null`, also fiel JEDER GPS-Tick in den teuren Zweig und rief
+     playMapRender(): Monte-Carlo, Kachel-Abrufe, kompletter SVG-Neubau.
+     Bei laufendem GPS ist das Dauerlast und die Oberflaeche steht.
+     Der Slot muss ueberall gleich bestimmt werden — deshalb playMapSlot(). */
+  const slot=playMapSlot();
+  const svg=slot && document.getElementById("playMapSvg");
   if(!svg){ if(PLAY.live) playMapRender(); return; }
   const geo=playGeo(); const h=PLAY.holes[PLAY.idx]; if(!geo) return;
   const sv=courseSVG(geo,{w:660,hole:h.hole,here:PLAY.here,fitHere:false,rings:ringsOn(),rotate:true,sat:satOn(),tight:true,osm:osmOn(),flag:true,corridor:46,measure:PLAY.measure||null,oval:PLAY.stratOval||null});
@@ -17263,7 +17327,7 @@ function playMapZoom(f){ if(!PLAY.mapView) return; PLAY.mapManual=true; const v=
   const cx=v.x+v.w/2, cy=v.y+v.h/2; const nw=v.w*f, nh=v.h*f;
   PLAY.mapView=playMapClamp({x:cx-nw/2,y:cy-nh/2,w:nw,h:nh}); playMapApply(); }
 function playMapFit(){ const geo=playGeo(); const h=PLAY.holes[PLAY.idx]; if(!geo||!PLAY.mapM) return;
-  const slot=document.getElementById("playMapSlot"); const asp=slot?slot.clientWidth/Math.max(1,slot.clientHeight):1;
+  const slot=playMapSlot(); const asp=slot?slot.clientWidth/Math.max(1,slot.clientHeight):1;
   PLAY.mapManual=false;                       // ⤢ schaltet die Automatik wieder ein
   PLAY.mapView=playMapInitView(geo,h,PLAY.mapM,asp||1); PLAY.mapViewHole=h.hole;
   playAutoApply(); playMapApply(); playMapCtrlsRefresh(); toast("Automatischer Ausschnitt an"); }
@@ -21792,7 +21856,7 @@ function openComp(idx){
 /* ================= NAV ================= */
 let current="dash";
 const FAB_ACTION={rounds:startRound,comp:openAddComp,notes:openAddNote,swing:openSwingEdit};
-const APP_VERSION="1.74.0"; // App-Anzeigeversion (NICHT SEED.version! Diese bei jeder Änderung erhöhen)
+const APP_VERSION="1.75.0"; // App-Anzeigeversion (NICHT SEED.version! Diese bei jeder Änderung erhöhen)
 /* ---------- Darstellung: Hell/Dunkel (DB.ui.theme = "auto" | "light" | "dark") ---------- */
 const _darkMQ = (window.matchMedia? window.matchMedia("(prefers-color-scheme: dark)") : null);
 function themeSetting(){ return (DB && DB.ui && DB.ui.theme) || "auto"; }

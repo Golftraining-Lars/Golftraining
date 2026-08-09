@@ -1241,6 +1241,24 @@ group("Vollbild startet immer — und warum die Vorliebe NICHT gespeichert wird"
   }
 }
 
+/* ============ 24j. Kartencontainer im Vollbild ============ */
+group("playMapSlot — eine Stelle für den Kartencontainer");
+{
+  const slot=G("playMapSlot"), P=G("PLAY");
+  if (typeof slot === "function" && P) {
+    /* URSACHE DES EINFRIERENS bis v1.74: playMapTick() suchte nur
+       #playMapSlot. Im Vollbild zeichnet die Karte nach #pfMap — der Slot war
+       dort null, und JEDER GPS-Tick fiel in den teuren Zweig mit
+       playMapRender() (Monte-Carlo, Kacheln, SVG-Neubau). Dauerlast.
+       Deshalb bestimmt EINE Funktion den Container. */
+    P.mapFocus=true;
+    ok("im Vollbild wird ein Container geliefert", slot()!==null && slot()!==undefined);
+    P.mapFocus=false;
+    ok("außerhalb ebenfalls", slot()!==null && slot()!==undefined);
+    P.mapFocus=true;
+  }
+}
+
 /* ================= 25. Gepflegt vs. gemessen ================= */
 group("clubMeasured — gepflegte gegen gemessene Schlägerlängen");
 {
