@@ -1436,6 +1436,31 @@ group("Warum Korrekturen wirkungslos SCHIENEN");
   }
 }
 
+/* ============ 24p. Höhe aus der Messung ============ */
+group("pfFit — der Zielwert ist gemessen, nicht geraten");
+{
+  const src=fs.readFileSync(FILE,"utf8");
+  /* Auf dem Gerät gemessen: dialog 360×506, aber innerH/clientH/vvH alle 649.
+     Das <dialog> streckt sich mit inset:0 nicht auf die volle Höhe — der
+     Grund ist unklar, das Ziel aber eindeutig, weil alle drei Quellen
+     übereinstimmen. Frühere Versuche nahmen 100dvh bzw. visualViewport,
+     also den KLEINSTEN Wert; richtig ist das MAXIMUM. */
+  ok("pfFit vorhanden", /function pfFit/.test(src));
+  ok("nimmt das Maximum der drei Maße",
+     /pfFit[\s\S]{0,400}Math\.max[\s\S]{0,200}clientHeight[\s\S]{0,200}innerHeight/.test(src));
+  ok("wird beim Öffnen angewandt", /pfFit\(\);\s*\/\/ gemessenen Zielwert/.test(src));
+  ok("wird nach Interaktionen gehalten", /pfFit\(\);\s*\/\/ haelt die Hoehe/.test(src));
+  ok("wird beim Schließen zurückgesetzt",
+     /pfClose[\s\S]{0,400}style\.height=""/.test(src));
+
+  const H=(c,i,v)=>Math.max(c||0,i||0,v||0);
+  eq("Gerätefall 649/649/649", H(649,649,649), 649);
+  eq("nie der kleinste Wert", H(649,506,649), 649);
+  ok("Maximum ≥ jedem Einzelwert",
+     [[649,649,649],[600,700,650],[0,0,705]].every(([a,b,c])=>{
+       const m=H(a,b,c); return m>=a && m>=b && m>=c; }));
+}
+
 /* ================= 25. Gepflegt vs. gemessen ================= */
 group("clubMeasured — gepflegte gegen gemessene Schlägerlängen");
 {

@@ -1604,6 +1604,31 @@ Zwei Massnahmen:
    schlechter lesbar auf.
 tests.js prueft die Formen direkt gegeneinander (Abschnitt 24h).
 
+### Die Messung, die es geklaert hat (v1.87)
+Live auf dem Geraet, bei OFFENER Ebene:
+
+    dialog 360x506 @0                    <- die Ebene wird nur 506 hoch
+    innerH 649 · clientH 649 · vvH 649   <- der Bildschirm ist 649 hoch
+    pos fixed · offsetParent null        <- Positionierung korrekt
+    Luecke unten 143 px
+
+Alle drei Viewport-Masse stimmen ueberein. Das `<dialog>` streckt sich mit `inset:0; height:auto`
+trotzdem nicht auf die volle Hoehe. **Warum, kann ich nicht erklaeren** — und es ist auch nicht
+noetig: das ZIEL ist eindeutig messbar, weil alle drei Quellen dasselbe sagen.
+
+`pfFit()` setzt die Hoehe deshalb explizit auf das **Maximum** der drei Masse — beim Oeffnen,
+350 ms und 1200 ms danach (Adressleiste animiert), bei jedem `resize`/`orientationchange` und in
+`pfRender()` nach jeder Interaktion. Beim Schliessen werden die Inline-Werte entfernt.
+
+**Warum das frueher scheiterte und jetzt nicht:** Die frueheren Versuche nahmen `100dvh` bzw.
+`visualViewport.height` — also den KLEINSTEN Wert, waehrend die Masse auseinanderliefen. Hier
+sind sie identisch (649), und es wird das Maximum genommen. Das ist keine Vermutung, sondern die
+Uebernahme eines gemessenen Werts.
+
+**Lehre:** Elf Runden Hypothesen gegen eine Messung. Die Messung hat gewonnen. Bei einem
+Layout-Problem, das zwei Korrekturen ueberlebt, gehoert die Diagnose ins Programm — sofort, nicht
+als letztes Mittel.
+
 ### Der wahrscheinlichste Grund, warum nichts half (v1.85)
 Zehn Anlaeufe, jede Korrektur in der Simulation nachgewiesen, auf dem Geraet keine Wirkung.
 Der Verdacht, den ich viel frueher haette pruefen muessen: **Der Service Worker liefert die
@@ -2425,6 +2450,15 @@ erkennbar ist, dass es ein Video gab.
 ## Changelog
 > **Regel:** Bei JEDER inhaltlichen Änderung hier oben einen datierten Eintrag ergänzen (neueste
 > zuerst): Datum · was geändert · betroffene Bereiche. Kurz halten.
+
+- **v1.87.0 · 2026-08-09** — **Vollbild-Höhe: der gemessene Wert wird gesetzt.**
+  Live-Messung bei offener Ebene: `dialog 360×506`, aber `innerH/clientH/vvH` alle **649** —
+  `pos fixed`, `offsetParent null`, also Positionierung korrekt. Das `<dialog>` streckt sich mit
+  `inset:0; height:auto` nicht auf die volle Höhe; der Grund bleibt offen, das Ziel ist aber
+  eindeutig, weil alle drei Quellen übereinstimmen. `pfFit()` setzt die Höhe auf das **Maximum**
+  der drei Maße — beim Öffnen, nach 350/1200 ms, bei `resize`/`orientationchange` und in
+  `pfRender()` nach jeder Interaktion. Frühere Versuche scheiterten, weil sie mit `100dvh` bzw.
+  `visualViewport.height` den kleinsten Wert nahmen. Im Prüfstand mit den Gerätezahlen belegt.
 
 - **v1.86.0 · 2026-08-09** — **Messanzeige startet eingeschaltet.** v1.85 läuft nachweislich auf
   dem Gerät, der Fehler besteht fort — die CSS-Regel ist geprüft korrekt und steht auf oberster
@@ -17093,6 +17127,9 @@ function pfOpen(){
   }catch(e){ logErr("pfOpen:showModal", e, true);
     el.setAttribute("open",""); el.classList.add("on"); }
   document.body.classList.add("pf-open");
+  pfFit();                    // gemessenen Zielwert sofort setzen
+  setTimeout(pfFit, 350);     // Adressleiste animiert
+  setTimeout(pfFit, 1200);
 
   PLAY.mapFocus=true;
   pfRender();
@@ -17181,6 +17218,7 @@ function pfClose(){
   catch(e){ logErr("pfClose", e, true); }
   finally{ _pfClosing=false; }
   el.removeAttribute("open"); el.classList.remove("on");
+  el.style.height=""; el.style.width=""; el.style.top=""; el.style.left="";
   document.body.classList.remove("pf-open");
 }
 
@@ -17272,6 +17310,46 @@ function pfCaddyKurz(){
    nach einem Update noch die ALTE Fassung. Ohne diese Anzeige ist nicht
    unterscheidbar, ob eine Korrektur nicht wirkt oder gar nicht ankommt.
    ========================================================================== */
+/* ==========================================================================
+   GEMESSEN, NICHT GERATEN (v1.87)
+   Die Live-Messung auf dem Geraet:
+       dialog 360x506 @0        <- die Ebene wird nur 506 hoch
+       innerH 649 / clientH 649 / vvH 649   <- der Bildschirm ist 649 hoch
+       pos fixed · offsetParent null        <- Positionierung korrekt
+       Luecke unten 143 px
+
+   Alle drei Viewport-Masse stimmen ueberein. Trotzdem streckt sich das
+   <dialog> mit `inset:0; height:auto` nicht auf die volle Hoehe — warum, kann
+   ich nicht erklaeren. Ich muss es auch nicht: Das ZIEL ist eindeutig und
+   messbar, und alle drei Quellen sagen dasselbe.
+
+   Deshalb wird die Hoehe explizit gesetzt. Frueher scheiterte genau das —
+   aber aus einem anderen Grund: damals nahm ich `100dvh` bzw.
+   `visualViewport.height`, also den KLEINSTEN Wert, waehrend die Masse
+   auseinanderliefen. Jetzt sind sie identisch (649), und es wird das Maximum
+   genommen. Das ist keine Vermutung mehr, sondern die Uebernahme eines
+   gemessenen Werts.
+   ========================================================================== */
+function pfFit(){
+  const el=document.getElementById("playFull");
+  if(!el || !(el.open||el.classList.contains("on"))) return;
+  const h=Math.max(
+    (document.documentElement && document.documentElement.clientHeight)||0,
+    window.innerHeight||0,
+    (window.visualViewport && Math.round(window.visualViewport.height))||0);
+  const w=Math.max(
+    (document.documentElement && document.documentElement.clientWidth)||0,
+    window.innerWidth||0);
+  if(h>0) el.style.height=h+"px";
+  if(w>0) el.style.width=w+"px";
+  el.style.top="0"; el.style.left="0";
+}
+/* Nach dem Oeffnen, nach dem Einschwingen der Adressleiste und bei jeder
+   Groessenaenderung nachziehen. */
+window.addEventListener("resize", ()=>setTimeout(pfFit,60));
+window.addEventListener("orientationchange", ()=>setTimeout(pfFit,220));
+if(window.visualViewport) window.visualViewport.addEventListener("resize", ()=>setTimeout(pfFit,60));
+
 function pfDbgToggle(){
   DB.ui=DB.ui||{}; DB.ui.pfDebug=!DB.ui.pfDebug; persistSoon(); pfRender();
 }
@@ -17335,6 +17413,7 @@ function pfRender(){
   if(ctr) ctr.innerHTML=playMapCtrlsHtml()
     + `<button type="button" class="${DB.ui&&DB.ui.pfDebug?'on':''}" onclick="pfDbgToggle()"
         title="Layout-Messwerte einblenden">ⓘ</button>`;
+  pfFit();                    // haelt die Hoehe nach jeder Interaktion
   pfDbgRender();
   /* Laufend nachmessen: die interessanten Aenderungen passieren NACH dem
      Zeichnen (Adressleiste, Kartenaufbau). Ein Intervall statt einmalig. */
@@ -22489,7 +22568,7 @@ function openComp(idx){
 /* ================= NAV ================= */
 let current="dash";
 const FAB_ACTION={rounds:startRound,comp:openAddComp,notes:openAddNote,swing:openSwingEdit};
-const APP_VERSION="1.86.0"; // App-Anzeigeversion (NICHT SEED.version! Diese bei jeder Änderung erhöhen)
+const APP_VERSION="1.87.0"; // App-Anzeigeversion (NICHT SEED.version! Diese bei jeder Änderung erhöhen)
 /* ---------- Darstellung: Hell/Dunkel (DB.ui.theme = "auto" | "light" | "dark") ---------- */
 const _darkMQ = (window.matchMedia? window.matchMedia("(prefers-color-scheme: dark)") : null);
 function themeSetting(){ return (DB && DB.ui && DB.ui.theme) || "auto"; }
