@@ -1581,6 +1581,35 @@ Zwei Massnahmen:
    schlechter lesbar auf.
 tests.js prueft die Formen direkt gegeneinander (Abschnitt 24h).
 
+### Drei Nachbesserungen am Vollbild (v1.78)
+**1. Unterer Streifen blieb ungenutzt.** `pfSize()` mass gegen `visualViewport.height` — das ist
+der aktuell SICHTBARE Ausschnitt und auf Android bei ausgefahrener Adressleiste KLEINER als das
+Initial Containing Block. `position:fixed` rechnet aber gegen Letzteres, dessen Hoehe
+`documentElement.clientHeight` ist. Zu kleine Hoehe + `top:0` schlaegt das gepinnte `bottom:0` —
+daher der Streifen. Jetzt wird das MAXIMUM aus `clientHeight`, `visualViewport.height` und
+`innerHeight` genommen, und 350 ms nach dem Oeffnen erneut gemessen (die Adressleiste animiert).
+
+**2. Kein Weg zurueck.** „✎ Eingabe" schaltet in die Eingabemaske — dort fehlte das
+Gegenstueck. Neu ganz oben im Formular: „🗺 Vollbild-Karte".
+
+**3. Zu weit weg heisst nicht plan-los — die Kette wird WEITER GEZEICHNET.**
+Nachgewiesen: Am Abschlag und aus 2 km Entfernung liefert `playAimChain()` dieselbe Folge
+(Driver 216 m → 7-Eisen 170 m), und ihr Startpunkt ist in beiden Faellen exakt das Tee.
+`playAimDraw()` haengt nur an der Kette und an `PLAY.mapM`/`PLAY.mapView`, NICHT an `PLAY.here` —
+gezeichnet wird also unveraendert. Der Kartenausschnitt bleibt ebenfalls korrekt:
+`playMapInitView()` schliesst `PLAY.here` bewusst aus (die ganze Bahn soll im Bild sein), und
+`playAutoView()` zoomt erst naeher heran, wenn man tatsaechlich Fortschritt gemacht hat
+(`dGreen <= dHole*0.92`) — aus 2 km ist das nicht erfuellt, es bleibt die volle Bahn.
+Beides ist in tests.js abgesichert.
+
+ `_aimBuild()` startet ohnehin am ABSCHLAG (`hr.tee`),
+nicht an der eigenen Position — die Schlagfolge ist also auch von weit weg korrekt und genau das,
+was man sehen will. Der Riegel in `playAimChain` aus v1.77 war deshalb falsch und ist entfernt.
+Unplausibel sind nur die ENTFERNUNGEN ab eigener Position. Gezeigt wird jetzt beides: der
+„zu weit"-Hinweis UND `playTeePlanHtml()` — der Plan fuer das Loch, ausdruecklich als „gerechnet
+ab Tee, nicht ab deiner Position" gekennzeichnet. Die Kurzzeile im Vollbild nennt zusaetzlich den
+ersten Schlaeger („2,4 km — zu weit · ab Tee Driver 219 m").
+
 ### Entfernungs-Plausibilitaet (v1.77)
 Steht man weit vom Loch entfernt — zu Hause, auf dem Weg zum Platz, oder weil das GPS
 abgedriftet ist — rechnete der Caddy trotzdem weiter: „3 Wood → 3 Wood · bringt dich ~211 m
@@ -2227,6 +2256,25 @@ erkennbar ist, dass es ein Video gab.
 ## Changelog
 > **Regel:** Bei JEDER inhaltlichen Änderung hier oben einen datierten Eintrag ergänzen (neueste
 > zuerst): Datum · was geändert · betroffene Bereiche. Kurz halten.
+
+- **v1.78.1 · 2026-08-09** — **Nachgewiesen: Schlagfolge wird auch von weit weg gezeichnet.**
+  Ende-zu-Ende geprüft — am Abschlag und aus 2 km Entfernung liefert `playAimChain()` dieselbe
+  Folge mit dem Tee als Startpunkt; `playAimDraw()` hängt nicht an `PLAY.here`. Zusätzlich
+  abgesichert, dass `playMapInitView()` die eigene Position NICHT in den Ausschnitt einbezieht
+  (sonst spannte die Karte über 2 km und die Bahn wäre ein Strich) und `playAutoView()` erst bei
+  echtem Fortschritt näher heranzoomt.
+
+- **v1.78.0 · 2026-08-09** — **Vollbild: Höhe, Rückweg, Plan trotz Entfernung.**
+  (1) `pfSize()` maß gegen `visualViewport.height` — den sichtbaren Ausschnitt, auf Android
+  kleiner als das Initial Containing Block, gegen das `position:fixed` rechnet. Zu kleine Höhe
+  plus `top:0` schlägt das gepinnte `bottom:0`; daher der ungenutzte Streifen unten. Jetzt das
+  Maximum aus `documentElement.clientHeight`, `visualViewport.height` und `innerHeight`, plus
+  Nachmessen 350 ms nach dem Öffnen (die Adressleiste animiert).
+  (2) **Rückweg ergänzt:** „🗺 Vollbild-Karte" ganz oben in der Eingabemaske — „✎ Eingabe" hatte
+  kein Gegenstück, man kam nicht mehr zurück.
+  (3) **Der Riegel aus v1.77 war falsch:** `_aimBuild()` startet ohnehin am Abschlag, die
+  Schlagfolge ist also auch von weit weg korrekt. Entfernt. Gezeigt wird jetzt der „zu weit"-Hinweis
+  UND `playTeePlanHtml()` — der Plan fürs Loch, gekennzeichnet als „gerechnet ab Tee".
 
 - **v1.77.0 · 2026-08-09** — **Caddy schweigt außerhalb des Platzes.** Bei 2 km Entfernung gab er
   weiter Empfehlungen („3 Wood, lässt 1962 m") und einen Erwartungswert von 14,0 — korrekt
@@ -16599,6 +16647,23 @@ function playTooFar(){
   const grenze=(h.len>0?h.len:500)+150;
   return d>Math.max(grenze,650) ? d : null;
 }
+/* Der Plan fuer das Loch, gerechnet vom ABSCHLAG. Wird gezeigt, wenn die
+   eigene Position zu weit weg ist: die Empfehlung bleibt sinnvoll, nur der
+   Bezugspunkt ist ein anderer — und das steht dabei. */
+function playTeePlanHtml(){
+  let ch=null;
+  try{ ch=playAimChain(); }catch(e){ logErr("playTeePlanHtml", e, true); }
+  if(!ch||!ch.legs||!ch.legs.length) return "";
+  const zeilen=ch.legs.map((L,i)=>{
+    const q=L.fracs ? (L.fracs.gruen!=null?` · Grün ${L.fracs.gruen} %`:` · FW ${L.fracs.fw} %`) : "";
+    return `<div class="stat-line"><span>${i+1}. ${esc(L.role||"")}</span>
+      <b>${escShort(L.club||"–")}${L.dist?` · ${L.dist} m`:""}<span class="r-s">${esc(q)}</span></b></div>`;
+  }).join("");
+  return `<div class="pc-plan" style="margin-top:8px">
+    <b>📋 Plan vom Abschlag</b>
+    <div class="r-s" style="margin-bottom:4px">Gerechnet ab Tee, nicht ab deiner Position.</div>
+    ${zeilen}</div>`;
+}
 function playTooFarHtml(d){
   return `<div class="play-dist-empty">📍 <b>${d>=1000?(d/1000).toFixed(1).replace(".",",")+" km":d+" m"}</b>
     vom Grün entfernt — zu weit für eine sinnvolle Empfehlung.<br>
@@ -16610,7 +16675,9 @@ function playInfoHtml(){
   const geo=playGeo(); const h=PLAY.holes[PLAY.idx];
   if(!geo) return `<div class="play-dist-empty">Keine Platz-Geodaten – für Distanzen die OSM-Karte importieren (Plätze → Karte). Score-Eingabe funktioniert trotzdem.</div>`;
   if(!PLAY.here) return `<div class="play-dist-empty">📡 GPS wird gesucht …</div>`;
-  { const tf=playTooFar(); if(tf!=null) return playTooFarHtml(tf); }
+  /* Zu weit weg: Entfernungen und Erwartungswert ab eigener Position waeren
+     Unsinn — der PLAN fuer das Loch ist es nicht. Also beides zeigen. */
+  { const tf=playTooFar(); if(tf!=null) return playTooFarHtml(tf)+playTeePlanHtml(); }
   let out="";
   { const nh=nearestHole(geo,PLAY.here); if(nh&&nh.hole!==h.hole) out+=`<div class="play-detect" onclick="playGoHole(${nh.hole})">📍 GPS erkennt Loch ${nh.hole} · wechseln</div>`; }
   if(WEATHER && WEATHER.gustMs!=null){ const g=WEATHER.gustMs, base=WEATHER.windMs||0;
@@ -16752,6 +16819,8 @@ function pfOpen(){
      Android), wird die Hoehe hier aus `innerHeight` gesetzt: das ist genau der
      sichtbare Bereich, und es gilt unabhaengig von jedem CSS. */
   pfSize();
+  // Die Adressleiste animiert; nach dem Einschwingen erneut messen.
+  setTimeout(pfSize, 350);
   PLAY.mapFocus=true;
   pfRender();
   playStartLive();
@@ -16762,8 +16831,17 @@ function pfOpen(){
 }
 function pfSize(){
   const el=document.getElementById("playFull"); if(!el||!el.classList.contains("on")) return;
-  const h=(window.visualViewport && window.visualViewport.height) || window.innerHeight || 0;
-  const w=(window.visualViewport && window.visualViewport.width) || window.innerWidth || 0;
+  /* GEGEN DIE RICHTIGE BOX MESSEN. `position:fixed` rechnet gegen das INITIAL
+     CONTAINING BLOCK — und dessen Hoehe ist `documentElement.clientHeight`,
+     NICHT `visualViewport.height`. Letzteres ist der aktuell sichtbare
+     Ausschnitt und auf Android bei ausgefahrener Adressleiste KLEINER; genau
+     daher kam der ungenutzte Streifen unten: top:0 + zu kleine Hoehe schlaegt
+     das gepinnte bottom:0. Der groessere der beiden Werte ist der richtige. */
+  const dh=document.documentElement ? document.documentElement.clientHeight : 0;
+  const vh=(window.visualViewport && window.visualViewport.height) || 0;
+  const h=Math.max(dh, vh, window.innerHeight||0);
+  const w=Math.max(document.documentElement?document.documentElement.clientWidth:0,
+                   window.innerWidth||0);
   /* NICHT bottom:auto setzen — das war kontraproduktiv: stimmte die gemessene
      Hoehe nicht, blieb unten eine Luecke. Beide Kanten bleiben gepinnt, die
      Hoehe ist nur die zusaetzliche Absicherung. */
@@ -16826,9 +16904,14 @@ function pfCaddyKurz(){
   if(!PLAY.here) return `<button type="button" class="pf-cad-line" onclick="pfInfoToggle()">
     📡 GPS wird gesucht … ▾</button>`;
   { const tf=playTooFar();
-    if(tf!=null) return `<button type="button" class="pf-cad-line" onclick="pfInfoToggle()">
-      📍 ${tf>=1000?(tf/1000).toFixed(1).replace(".",",")+" km":tf+" m"} vom Grün — zu weit
-      <span class="pf-cad-more">▾</span></button>`; }
+    if(tf!=null){
+      let plan="";
+      try{ const ch=playAimChain(); const L=ch&&ch.legs&&ch.legs[0];
+        if(L&&L.club) plan=" · ab Tee "+escShort(L.club)+(L.dist?` ${L.dist} m`:""); }
+      catch(e){ logErr("pfCaddyKurz:far", e, true); }
+      return `<button type="button" class="pf-cad-line" onclick="pfInfoToggle()">
+        📍 <b>${tf>=1000?(tf/1000).toFixed(1).replace(".",",")+" km":tf+" m"}</b> — zu weit${esc(plan)}
+        <span class="pf-cad-more">▾</span></button>`; } }
   const fmb=greenFMB(PLAY.here,h.hole);
   const pin=playPinRec();
   let rest=null;
@@ -16925,6 +17008,9 @@ function renderPlay(){
       <button class="btn ghost" type="button" onclick="playPrev()" ${PLAY.idx===0?"disabled":""}>◀</button>
       <button class="btn" type="button" onclick="playNext()">${PLAY.idx>=N-1?"Runde beenden":"Nächstes Loch ▶"}</button>
     </div>
+    <!-- OHNE diesen Knopf gibt es keinen Weg zurueck ins Vollbild: „✎ Eingabe"
+         schaltet dorthin, aber im Formular fehlte das Gegenstueck. -->
+    <button class="btn sec" type="button" style="margin:0 0 10px" onclick="playToggleFocusMap()">🗺 Vollbild-Karte</button>
     <div class="play-hole"><div class="play-num">${h.hole}</div>
       <div class="play-meta">Par ${h.par}<br>HCP ${h.si}${h.len?`<br>${h.len} m`:""}</div></div>
     ${gd?`<div class="r-s" style="text-align:center;margin:-2px 0 8px">Grün ca. <b>${gd.depth} m</b> tief · <b>${gd.width} m</b> breit</div>`:""}
@@ -17235,9 +17321,11 @@ function _aimBuild(strategic){
 }
 
 function playAimChain(force){
-  /* Weit ausserhalb des Platzes keine Schlagfolge rechnen — das waere eine
-     Monte-Carlo-Runde ueber 2 km fuer eine Darstellung, die niemandem hilft. */
-  if(playTooFar()!=null){ PLAY.aimChain=null; PLAY.aimChainKey=null; return null; }
+  /* KEIN Riegel hier. _aimBuild() startet ohnehin am ABSCHLAG (hr.tee), nicht
+     an der aktuellen Position — die Schlagfolge ist also auch von weit weg
+     korrekt und genau das, was man sehen will: der Plan fuer dieses Loch.
+     Unplausibel sind nur die ENTFERNUNGEN ab der eigenen Position; die werden
+     getrennt behandelt (playTooFar). */
   const key=_aimChainKey();
   if(!force && !_aimDragging && PLAY.aimChain && PLAY.aimChainKey===key) return PLAY.aimChain;
   const ch=_aimBuild(!_aimDragging);
@@ -21998,7 +22086,7 @@ function openComp(idx){
 /* ================= NAV ================= */
 let current="dash";
 const FAB_ACTION={rounds:startRound,comp:openAddComp,notes:openAddNote,swing:openSwingEdit};
-const APP_VERSION="1.77.0"; // App-Anzeigeversion (NICHT SEED.version! Diese bei jeder Änderung erhöhen)
+const APP_VERSION="1.78.1"; // App-Anzeigeversion (NICHT SEED.version! Diese bei jeder Änderung erhöhen)
 /* ---------- Darstellung: Hell/Dunkel (DB.ui.theme = "auto" | "light" | "dark") ---------- */
 const _darkMQ = (window.matchMedia? window.matchMedia("(prefers-color-scheme: dark)") : null);
 function themeSetting(){ return (DB && DB.ui && DB.ui.theme) || "auto"; }

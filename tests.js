@@ -45,14 +45,14 @@ const COVERAGE_BASELINE_FUNCS = (
     "lvlChip manualTipHtml mapLL mkLink nearestHole normalizeClub openAddComp openAddNote" +" "+
     "openAddRound openBlockEditor openCourseEditor openFitnessDetail openGoalEditor" +" "+
     "openKraftEditor openRound openTest openYogaEditor parseGeoJSONCourse parseOverpassCourse" +" "+
-    "playAimChain playCaddyHtml playField playMapBind playMapClamp playNum playSel" +" "+
-    "playTooFarHtml qaExpand qaFold qaSearch qaSections qaStem rateAbs rateR rateSmash" +" "+
-    "rateStd refreshRepoSection renderGeoImport roundKPIs roundLL roundWeatherHtml" +" "+
-    "satCourseSrc satCourseTiles satLayer satSrcFor satTileKey satTilePx satTileRes selOpts" +" "+
-    "sgCoverageHtml sgDashHtml sgDisasterHtml sgLeerHtml sparkline strkDown strkZoomAt" +" "+
-    "strkZoomBtn swDaysSince swNormTag targetFor teeNames thinRing warmupBloeckeHtml" +" "+
-    "weatherByGeo weatherEffectHtml wikiCountCat wikiCountGrp wikiEsc wikiGroupIcon" +" "+
-    "wikiGroupOf wikiNormTag wikiSuggest wikiTagsOf windArrowChar"
+    "playCaddyHtml playField playMapBind playMapClamp playNum playSel playTooFarHtml qaExpand" +" "+
+    "qaFold qaSearch qaSections qaStem rateAbs rateR rateSmash rateStd refreshRepoSection" +" "+
+    "renderGeoImport roundKPIs roundLL roundWeatherHtml satCourseSrc satCourseTiles satLayer" +" "+
+    "satSrcFor satTileKey satTilePx satTileRes selOpts sgCoverageHtml sgDashHtml" +" "+
+    "sgDisasterHtml sgLeerHtml sparkline strkDown strkZoomAt strkZoomBtn swDaysSince" +" "+
+    "swNormTag targetFor teeNames thinRing warmupBloeckeHtml weatherByGeo weatherEffectHtml" +" "+
+    "wikiCountCat wikiCountGrp wikiEsc wikiGroupIcon wikiGroupOf wikiNormTag wikiSuggest" +" "+
+    "wikiTagsOf windArrowChar"
 ).split(" ");
 
 const COVERAGE_BASELINE_STRAT = (
@@ -1291,6 +1291,39 @@ group("playTooFar — der Caddy schweigt außerhalb des Platzes");
     ok("ohne Lochlänge: 587 m zum Grün noch erlaubt", tf()===null, "d="+tf());
     P.here=at(-1400);
     ok("ohne Lochlänge: 1400 m unterdrückt", tf()!==null);
+
+    /* WICHTIG: Die Zielkette startet am ABSCHLAG, nicht an der eigenen
+       Position — sie ist also auch von weit weg korrekt und soll dann NICHT
+       unterdrückt werden. Nur die Entfernungen ab eigener Position sind
+       Unsinn. Ein Riegel in playAimChain wäre falsch. */
+    const chain=G("playAimChain");
+    if (typeof chain === "function") {
+      P.here=at(-2000);
+      let ch=null; try{ ch=chain(true); }catch(e){ ch=null; }
+      ok("Plan wird auch von weit weg gerechnet (ab Tee)",
+         ch===null || (ch && ch.pts && ch.pts.length>=2),
+         "Kette: "+(ch?ch.pts.length+" Punkte":"null"));
+    }
+
+    /* DER KERN DER ANFORDERUNG: Von weit weg soll die Schlagfolge ab dem Tee
+       trotzdem GEZEICHNET werden — und dafür muss der Kartenausschnitt die
+       ganze Bahn zeigen, nicht auf die eigene Position zoomen. */
+    const iv=G("playMapInitView");
+    if (typeof iv === "function") {
+      const M={ W:2000, H:2000, s:1,
+                map:(la,lo)=>[(lo-10.0)*65500, -(la-54.0)*111320] };
+      P.mapBase={W:2000,H:2000};
+      P.here=at(-2000);                       // 2 km hinter dem Tee
+      const v=iv(geo,{hole:1},M,1.0);
+      const tee=M.map(54.0,10.0), gruen=M.map(...at(387));
+      const drin=(p)=> p[0]>=v.x-1 && p[0]<=v.x+v.w+1 && p[1]>=v.y-1 && p[1]<=v.y+v.h+1;
+      ok("Abschlag im Bild", drin(tee), JSON.stringify(v));
+      ok("Grün im Bild", drin(gruen));
+      /* Würde die eigene Position einbezogen, müsste der Ausschnitt über
+         2 km spannen — die Bahn wäre ein Strich. */
+      ok("eigene Position wird NICHT einbezogen", v.h < 1500,
+         "Höhe "+Math.round(v.h)+" px (2 km wären >2000)");
+    }
 
     P.here=null;
     ok("ohne GPS keine Aussage", tf()===null);
