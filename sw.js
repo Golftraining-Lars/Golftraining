@@ -24,7 +24,10 @@
    bereits installierte Geraete den alten Worker.
    ========================================================================== */
 
-const CACHE_VERSION = "v1";
+/* Bei jeder Aenderung erhoehen — sonst behalten installierte Geraete den alten
+   Worker. v2: Die Huelle wird nicht mehr blind aus dem Cache geliefert, wenn
+   das Netz erreichbar ist (siehe unten). */
+const CACHE_VERSION = "v2";
 const SHELL_CACHE = "golf-shell-" + CACHE_VERSION;
 const TILE_CACHE  = "golf-tiles-" + CACHE_VERSION;
 const TILE_MAX    = 400;          // ca. 20–40 MB, reicht fuer mehrere Plaetze
@@ -96,7 +99,21 @@ self.addEventListener("fetch", ev => {
       const net = fetch(req)
         .then(r => { if (r && r.ok) c.put("./index.html", r.clone()); return r; })
         .catch(() => null);
-      // Cache zuerst — die App startet damit auch im Funkloch sofort.
+
+      /* NETZ ZUERST, ABER MIT KURZEM ZEITLIMIT (v2).
+         Reines stale-while-revalidate lieferte immer die gespeicherte Fassung —
+         eine neue Version erschien erst beim UEBERNAECHSTEN Start. Waehrend der
+         Entwicklung heisst das: man testet stundenlang eine Version zu alt und
+         haelt jede Korrektur fuer wirkungslos.
+         Jetzt: hoechstens 1,5 s auf das Netz warten. Kommt eine Antwort, ist sie
+         aktuell. Kommt keine (Funkloch auf dem Platz), greift sofort der Cache —
+         die Startgarantie bleibt also erhalten. */
+      const frisch = await Promise.race([
+        net,
+        new Promise(res => setTimeout(() => res(null), 1500))
+      ]);
+      if (frisch && frisch.ok) return frisch;
+
       return cached || (await net) || new Response(
         "<h1>Offline</h1><p>Die App wurde noch nicht für den Offline-Betrieb " +
         "gespeichert. Einmal mit Netz öffnen, danach geht es auch ohne.</p>",

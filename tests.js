@@ -1410,6 +1410,30 @@ group("Top Layer — warum die Höhenmechanik entfallen konnte");
      !/function pfApplyHeight|function pfViewportH|_pfMaxH\s*=/.test(js));
 }
 
+/* ============ 24o. Version sichtbar, Cache nicht im Weg ============ */
+group("Warum Korrekturen wirkungslos SCHIENEN");
+{
+  const src=fs.readFileSync(FILE,"utf8");
+  const swPfad=path.join(__dirname,"sw.js");
+  /* Der Service Worker lieferte die App-Hülle nach stale-while-revalidate:
+     beim Start kam die gespeicherte Fassung, die neue erst beim ÜBERNÄCHSTEN
+     Start. Während der Entwicklung testet man damit stundenlang eine Version
+     zu alt — und hält jede Korrektur für wirkungslos. */
+  ok("Live-Messung im Vollbild vorhanden", /function pfDbgRender/.test(src));
+  ok("Version wird im Vollbild angezeigt", /pfDbgRender[\s\S]{0,600}APP_VERSION/.test(src));
+  ok("Version steht in der Diagnose", /Laufende Version/.test(src));
+  ok("Update-Erzwingen vorhanden", /function swForceUpdate/.test(src));
+  ok("Update leert nur den Hüllen-Cache, nicht die Kacheln",
+     /golf-shell/.test(src) && !/caches\.delete\(k\)\s*\)\s*\)[\s\S]{0,40}tiles/.test(src));
+  if (fs.existsSync(swPfad)) {
+    const sw=fs.readFileSync(swPfad,"utf8");
+    eq("CACHE_VERSION erhöht", (sw.match(/CACHE_VERSION\s*=\s*"(\w+)"/)||[])[1], "v2");
+    ok("Netz zuerst, mit Zeitlimit", /Promise\.race/.test(sw) && /1500/.test(sw));
+    ok("Cache bleibt als Rückfall (Startgarantie im Funkloch)",
+       /return cached \|\|/.test(sw));
+  }
+}
+
 /* ================= 25. Gepflegt vs. gemessen ================= */
 group("clubMeasured — gepflegte gegen gemessene Schlägerlängen");
 {

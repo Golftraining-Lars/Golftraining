@@ -641,6 +641,10 @@
   .pf-caddy .pc-head,.pf-caddy b{color:#fff}
   .pf-caddy .pc-why,.pf-caddy .r-s,.pf-caddy .pc-plan{color:rgba(255,255,255,.85)}
   #playFull .play-map-ctrls{position:absolute;top:calc(env(safe-area-inset-top) + 58px);right:10px;z-index:7}
+  /* Messwert-Anzeige: bewusst haesslich und klein, sie ist ein Werkzeug. */
+  #pfDbg{position:absolute;left:6px;right:6px;top:calc(env(safe-area-inset-top) + 4px);
+    z-index:9;background:rgba(0,0,0,.82);color:#8fe3b0;font-family:var(--mono);
+    font-size:9.5px;line-height:1.35;padding:4px 6px;border-radius:7px;word-break:break-all}
   .pf-bottom{position:absolute;left:0;right:0;bottom:0;z-index:6;
     padding:10px 12px calc(env(safe-area-inset-bottom) + 12px);
     background:linear-gradient(to top,rgba(8,26,15,.66),rgba(8,26,15,0))}
@@ -1600,6 +1604,29 @@ Zwei Massnahmen:
    schlechter lesbar auf.
 tests.js prueft die Formen direkt gegeneinander (Abschnitt 24h).
 
+### Der wahrscheinlichste Grund, warum nichts half (v1.85)
+Zehn Anlaeufe, jede Korrektur in der Simulation nachgewiesen, auf dem Geraet keine Wirkung.
+Der Verdacht, den ich viel frueher haette pruefen muessen: **Der Service Worker liefert die
+App-Huelle nach *stale-while-revalidate*.** Beim Start kommt die Fassung aus dem Cache, die neue
+wird im Hintergrund geholt und erscheint erst beim NAECHSTEN Start. Wer nach jedem Upload einmal
+neu laedt, testet dauerhaft eine Version zu alt — und haelt jede Korrektur fuer wirkungslos.
+
+Drei Gegenmassnahmen:
+1. **`sw.js` v2: Netz zuerst, mit 1,5-s-Zeitlimit.** Kommt eine Antwort, ist sie aktuell. Kommt
+   keine (Funkloch auf dem Platz), greift sofort der Cache — die Startgarantie bleibt erhalten.
+   `CACHE_VERSION` auf `v2`, sonst behalten installierte Geraete den alten Worker.
+2. **`swForceUpdate()`** unter Mehr → Daten → Diagnose: leert den Huellen-Cache, aktualisiert den
+   Worker und laedt mit Einmal-Parameter neu. Der Kachel-Cache bleibt — Luftbilder muessen nicht
+   neu gezogen werden. Daneben steht die **laufende Versionsnummer**.
+3. **Live-Messung im Vollbild** (`pfDbgRender`, ein-/ausgeschaltet ueber `pfDbgToggle()`,
+   Schalter ⓘ in der Kartenleiste, Zustand in `DB.ui.pfDebug`): zeigt Version,
+   die tatsaechlichen Rechtecke von Dialog, Karte und Aktionsleiste, `innerH`/`clientH`/`vvH`,
+   `position`, `offsetParent` und `open` — waehrend die Ebene OFFEN ist. Die frueheren Messungen
+   liefen bei geschlossener Ebene und waren wertlos.
+
+**Lehre:** Wenn mehrere nachweislich korrekte Korrekturen keine Wirkung zeigen, ist die
+naechstliegende Frage nicht „was ist noch falsch?", sondern „kommt der Code ueberhaupt an?".
+
 ### Nachhaltige Loesung: Top Layer statt position:fixed (v1.83)
 Sieben Anlaeufe mit `position:fixed` sind gescheitert. Die Messung hatte den Grund geliefert:
 `bottom:0` loest gegen das **Initial Containing Block** auf, und dessen Hoehe war auf dem Geraet
@@ -2398,6 +2425,16 @@ erkennbar ist, dass es ein Video gab.
 ## Changelog
 > **Regel:** Bei JEDER inhaltlichen Änderung hier oben einen datierten Eintrag ergänzen (neueste
 > zuerst): Datum · was geändert · betroffene Bereiche. Kurz halten.
+
+- **v1.85.0 · 2026-08-09** — **Vermutlich testete das Gerät die ganze Zeit eine alte Version.**
+  Der Service Worker lieferte `index.html` nach *stale-while-revalidate*: beim Start kommt die
+  gespeicherte Fassung, die neue erst beim nächsten Start. Wer nach jedem Upload einmal neu lädt,
+  testet dauerhaft eine Version zu alt. **`sw.js` v2:** Netz zuerst mit 1,5-s-Zeitlimit, Cache als
+  Rückfall — die Startgarantie im Funkloch bleibt. **`swForceUpdate()`** (Mehr → Daten → Diagnose)
+  leert den Hüllen-Cache und lädt frisch; daneben steht die laufende Versionsnummer.
+  **Live-Messung im Vollbild** (`pfDbgRender`, Schalter ⓘ): Version, echte Rechtecke von Dialog,
+  Karte und Aktionsleiste, Viewport-Maße, `position`, `offsetParent`, `open` — bei OFFENER Ebene.
+  Die bisherigen Messungen liefen bei geschlossener Ebene und waren wertlos.
 
 - **v1.84.0 · 2026-08-09** — **Heller Balken unten und Aufhängen nach „Eingabe" behoben.**
   (1) Die Dialog-Box wird jetzt über `inset:0` plus `width/height:auto` definiert statt über
@@ -3542,6 +3579,7 @@ erkennbar ist, dass es ein Video gab.
   <div id="pfCaddy" class="pf-caddy"></div>
   <div class="play-map-ctrls" id="pfCtrls"></div>
   <div id="pfBottom" class="pf-bottom"></div>
+  <div id="pfDbg" style="display:none"></div>
 </dialog>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
@@ -3858,6 +3896,35 @@ function swPrecacheTiles(){
   navigator.serviceWorker.controller.postMessage({type:"PRECACHE_TILES",urls});
   toast("Sichere "+urls.length+" Kacheln …");
 }
+/* ==========================================================================
+   UPDATE ERZWINGEN (v1.85)
+   Der Service Worker liefert die App-Huelle nach *stale-while-revalidate*:
+   beim Start kommt die Fassung aus dem Cache, die neue wird im Hintergrund
+   geholt und erscheint erst beim NAECHSTEN Start. Das ist fuer den Platz
+   richtig (die App startet immer sofort, auch ohne Netz) — waehrend der
+   Entwicklung fuehrt es aber dazu, dass man stundenlang eine Version zu alt
+   testet und jede Korrektur wirkungslos erscheint.
+   Dieser Knopf raeumt den Huellen-Cache und laedt frisch. Der Kachel-Cache
+   bleibt erhalten — die Luftbilder muessen nicht neu gezogen werden.
+   ========================================================================== */
+async function swForceUpdate(){
+  toast("Lade neueste Fassung …");
+  try{
+    if(window.caches){
+      const ks=await caches.keys();
+      await Promise.all(ks.filter(k=>k.indexOf("golf-shell")===0).map(k=>caches.delete(k)));
+    }
+    if(navigator.serviceWorker){
+      const rs=await navigator.serviceWorker.getRegistrations();
+      await Promise.all(rs.map(r=>r.update().catch(()=>null)));
+    }
+  }catch(e){ logErr("swForceUpdate", e, true); }
+  // Cache-Umgehung ueber einen Einmal-Parameter
+  const u=new URL(location.href);
+  u.searchParams.set("v", Date.now());
+  location.replace(u.toString());
+}
+
 function swClearTiles(){
   if(navigator.serviceWorker && navigator.serviceWorker.controller){
     navigator.serviceWorker.controller.postMessage({type:"CLEAR_TILES"});
@@ -17186,6 +17253,40 @@ function pfCaddyKurz(){
   return `<button type="button" class="pf-cad-line" onclick="pfInfoToggle()">
     <b>${rest!=null?rest+" m":"–"}</b>${esc(empf)}${esc(wind)} <span class="pf-cad-more">▾</span></button>`;
 }
+/* ==========================================================================
+   LIVE-MESSUNG IM VOLLBILD (v1.85)
+   Zehn Anlaeufe ohne Erfolg heissen: es fehlt Information, nicht Ideen. Diese
+   Anzeige misst die TATSAECHLICHEN Rechtecke waehrend die Ebene offen ist —
+   die frueheren Messungen liefen bei geschlossener Ebene und waren wertlos.
+   Sie zeigt ausserdem die laufende VERSION: der Service Worker liefert die
+   App-Huelle nach stale-while-revalidate, man sieht also beim ersten Start
+   nach einem Update noch die ALTE Fassung. Ohne diese Anzeige ist nicht
+   unterscheidbar, ob eine Korrektur nicht wirkt oder gar nicht ankommt.
+   ========================================================================== */
+function pfDbgToggle(){
+  DB.ui=DB.ui||{}; DB.ui.pfDebug=!DB.ui.pfDebug; persistSoon(); pfRender();
+}
+function pfDbgRender(){
+  const box=document.getElementById("pfDbg"); if(!box) return;
+  if(!(DB.ui&&DB.ui.pfDebug)){ box.style.display="none"; return; }
+  box.style.display="block";
+  const el=document.getElementById("playFull");
+  const r=el?el.getBoundingClientRect():null;
+  const m=document.getElementById("pfMap");
+  const rm=m?m.getBoundingClientRect():null;
+  const b=document.getElementById("pfBottom");
+  const rb=b?b.getBoundingClientRect():null;
+  const cs=el&&window.getComputedStyle?getComputedStyle(el):null;
+  const z=(x)=>x?Math.round(x):0;
+  box.innerHTML=`<b>v${esc(APP_VERSION)}</b>
+    · dialog ${z(r&&r.width)}×${z(r&&r.height)} @${z(r&&r.top)}
+    · map ${z(rm&&rm.width)}×${z(rm&&rm.height)} @${z(rm&&rm.top)}
+    · bar unten ${z(rb&&rb.bottom)}
+    · innerH ${z(window.innerHeight)} clientH ${z(document.documentElement&&document.documentElement.clientHeight)}
+      vvH ${z(window.visualViewport&&window.visualViewport.height)}
+    · pos ${esc(cs?cs.position:"?")} · offsetParent ${esc(el&&el.offsetParent?(el.offsetParent.id||el.offsetParent.tagName):"null")}
+    · open ${el&&el.open?"ja":"nein"}`;
+}
 function pfInfoToggle(){ PLAY.pfInfoOpen=!PLAY.pfInfoOpen; pfRender(); }
 
 function pfRender(){
@@ -17218,7 +17319,10 @@ function pfRender(){
   }
 
   const ctr=document.getElementById("pfCtrls");
-  if(ctr) ctr.innerHTML=playMapCtrlsHtml();
+  if(ctr) ctr.innerHTML=playMapCtrlsHtml()
+    + `<button type="button" class="${DB.ui&&DB.ui.pfDebug?'on':''}" onclick="pfDbgToggle()"
+        title="Layout-Messwerte einblenden">ⓘ</button>`;
+  pfDbgRender();
 
   const bot=document.getElementById("pfBottom");
   if(bot){
@@ -20703,6 +20807,11 @@ function renderData(){
     <button class="btn ghost" type="button" onclick="showErrLog()">🐞 Fehlerprotokoll (${ERRLOG.length})</button>
     <button class="btn ghost" type="button" style="margin-top:8px" onclick="runSelfCheck()">🔍 Selbstprüfung</button>
     <button class="btn ghost" type="button" style="margin-top:8px" onclick="pfDiagShow()">📐 Layout-Diagnose (Vollbild)</button>
+    <div class="stat-line" style="margin-top:10px"><span>Laufende Version</span><b>v${esc(APP_VERSION)}</b></div>
+    <button class="btn sec" type="button" style="margin-top:8px" onclick="swForceUpdate()">⟳ Neueste Fassung laden (Cache leeren)</button>
+    <p class="note" style="margin-bottom:0">Der Offline-Cache liefert beim Start bewusst die
+    gespeicherte Fassung — die neue erscheint sonst erst beim <b>nächsten</b> Start. Nach einem
+    Update hier tippen, dann stimmt die Versionsnummer sofort.</p>
     <button class="btn ghost" type="button" style="margin-top:8px" onclick="swPrecacheTiles()">🗺 Luftbild des Platzes offline sichern</button>
     <button class="btn ghost" type="button" style="margin-top:8px" onclick="swClearTiles()">🧹 Kartenspeicher leeren</button>
     <p class="note" style="margin-bottom:0">Das Fehlerprotokoll bleibt über Neustarts erhalten und
@@ -22358,7 +22467,7 @@ function openComp(idx){
 /* ================= NAV ================= */
 let current="dash";
 const FAB_ACTION={rounds:startRound,comp:openAddComp,notes:openAddNote,swing:openSwingEdit};
-const APP_VERSION="1.84.0"; // App-Anzeigeversion (NICHT SEED.version! Diese bei jeder Änderung erhöhen)
+const APP_VERSION="1.85.0"; // App-Anzeigeversion (NICHT SEED.version! Diese bei jeder Änderung erhöhen)
 /* ---------- Darstellung: Hell/Dunkel (DB.ui.theme = "auto" | "light" | "dark") ---------- */
 const _darkMQ = (window.matchMedia? window.matchMedia("(prefers-color-scheme: dark)") : null);
 function themeSetting(){ return (DB && DB.ui && DB.ui.theme) || "auto"; }
