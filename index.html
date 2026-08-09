@@ -1534,6 +1534,26 @@ Kurzreferenz — die Logik steht jeweils im Abschnitt der zugehoerigen Funktion:
   Approach-Fehler, Tee-Schlaeger, Bunker, Strafart, Quality) — bewusst SICHTBAR, nicht in der
   Klappe; siehe Abschnitt „Eingabe nach Wichtigkeit".
 
+### Zwei Fallen beim Vollbild (v1.70)
+**1. `closeSheet()` loest ein popstate aus.** Es baut seinen History-Eintrag ueber
+`history.back()` ab. Rief `pfOpen()` erst `classList.add("on")` und DANN `closeSheet()`, sah der
+popstate-Handler ein offenes Vollbild und schloss es sofort wieder — das Vollbild blitzte auf
+und verschwand. Jetzt: **zuerst schliessen, dann oeffnen**, plus ein 700-ms-Schutzfenster
+(`_pfAt`), weil das popstate asynchron eintrifft.
+
+**2. `closeSheet()` wuergt GPS und Schlagaufnahme ab** (`liveStop()`, `PLAY.live=false`,
+`PLAY.rec=null`). Im Vollbild laeuft die Runde weiter, auch wenn ein Blatt schliesst — dort
+darf das nicht passieren. Guard `_pfAn`.
+
+### PLAY-Vorgaben (v1.70)
+`playBegin()` und `playContinue()` ersetzten das GESAMTE `PLAY`-Objekt, und keiner der beiden
+fuehrte `aim` mit. Nach jedem Rundenstart war `PLAY.aim` also `undefined`, und JEDES Ziehen
+eines Wegpunkts warf „Cannot read properties of undefined" — 144-mal in einer Sitzung, ohne dass
+die Oberflaeche etwas gezeigt haette (gefunden ueber das Fehlerprotokoll).
+Jetzt eine zentrale `playDefaults()`; beide Startpfade laufen ueber
+`Object.assign(playDefaults(), {...})`. **Ein neues Feld dort wirkt automatisch ueberall** —
+die ganze Fehlerklasse ist damit erledigt.
+
 ### Vollbild-Karte im Spielmodus (v1.69)
 Der Spielmodus war ein Formular MIT Karte; v1.68 machte die Karte nur groesser. Richtig ist das
 Gegenteil: **die Karte IST der Bildschirm**, alles andere schwebt als Overlay darueber. Die
@@ -2069,6 +2089,19 @@ erkennbar ist, dass es ein Video gab.
 ## Changelog
 > **Regel:** Bei JEDER inhaltlichen Änderung hier oben einen datierten Eintrag ergänzen (neueste
 > zuerst): Datum · was geändert · betroffene Bereiche. Kurz halten.
+
+- **v1.70.0 · 2026-08-09** — **Vollbild repariert · `PLAY.aim`-Verlust behoben.**
+  (1) Das Vollbild öffnete und schloss sofort wieder: `closeSheet()` baut seinen History-Eintrag
+  über `history.back()` ab, das ausgelöste popstate schloss die gerade geöffnete Ebene.
+  Jetzt zuerst schließen, dann öffnen, plus 700-ms-Schutzfenster (`_pfAt`), weil popstate
+  asynchron eintrifft. Zusätzlich würgte `closeSheet()` GPS und eine laufende Schlagaufnahme ab
+  — im Vollbild läuft die Runde weiter (Guard `_pfAn`).
+  (2) **`playDefaults()`**: `playBegin`/`playContinue` ersetzten das ganze `PLAY`-Objekt ohne
+  `aim` — nach jedem Rundenstart war `PLAY.aim` undefined und jedes Ziehen eines Wegpunkts warf
+  einen Fehler (144× protokolliert, in der Oberfläche unsichtbar). Beide Startpfade laufen jetzt
+  über zentrale Vorgaben; ein neues Feld dort wirkt automatisch überall.
+  Der dritte protokollierte Fehler („Failed to fetch" in `freshRepoFetch`, 7×) ist **kein Bug**:
+  das ist der Sync ohne Netz und wird korrekt abgefangen.
 
 - **v1.69.0 · 2026-08-09** — **Echte Vollbild-Karte.** v1.68 machte die Karte nur größer — sie
   steckte weiter in einem Blatt. Jetzt eine eigene Ebene `#playFull` außerhalb des Blatt-Systems:
@@ -15934,10 +15967,20 @@ function renderGps(){
 
 /* ================= RENDER: COMPETITIONS ================= */
 /* ===================== SPIELMODUS (On-Course) ===================== */
-let PLAY={active:false, course:null, tee:null, side:"18 Loch", type:"18 Loch", roundId:null,
-  date:null, hi:null, holes:[], idx:0, here:null, live:false, auto:true, greenRing:{}, startTime:null, endTime:null, rec:null,
+/* FEHLER bis v1.70: playBegin() und playContinue() ersetzten das GESAMTE
+   PLAY-Objekt — und keiner der beiden fuehrte `aim` mit. Nach jedem
+   Rundenstart war `PLAY.aim` also undefined, und JEDES Ziehen eines
+   Wegpunkts warf „Cannot read properties of undefined". 144-mal in einer
+   Sitzung, ohne dass die Oberflaeche etwas gezeigt haette.
+   Deshalb jetzt EINE Vorgabendefinition, ueber die beide Startpfade laufen:
+   ein neues Feld hier wirkt automatisch ueberall. */
+function playDefaults(){ return {
+  active:false, mapFocus:true, course:null, tee:null, side:"18 Loch", type:"18 Loch", roundId:null,
+  date:null, hi:null, holes:[], idx:0, here:null, live:false, auto:true, greenRing:{},
+  startTime:null, endTime:null, rec:null,
   mapView:null, mapViewHole:null, mapM:null, mapBase:null, mapBusy:false,
-  aim:{}, aimShow:true};
+  aim:{}, aimShow:true, aimChainKey:null, measure:null, stratOval:null }; }
+let PLAY=playDefaults();
 function playGeo(){ const c=DB.courses.find(x=>x.name===PLAY.course); return c&&c.geo?c.geo:null; }
 function greenRingFor(geo,n){ if(PLAY.greenRing[n]!==undefined) return PLAY.greenRing[n];
   let ring=null; const center=geo.holes[n]&&geo.holes[n].green;
@@ -16178,9 +16221,12 @@ function playBegin(course,tee,kindIdx){
   const k=ROUND_KINDS[kindIdx||0], type=k[1], side=k[2];
   const hs=activeHoles(course,tee,side).map(h=>({hole:h.hole,par:h.par,si:h.si,len:h.len}));
   if(!hs.length){ toast("Keine Löcher für Platz/Tee"); return; }
-  PLAY={active:true,mapFocus:playFocusDefault(),course,tee,side,type,roundId:"R"+Date.now(),date:new Date().toISOString().slice(0,10),
-    hi:(DB.profile.hcpIndex!=null?DB.profile.hcpIndex:DB.profile.currentHcp),holes:hs,idx:0,
-    here:null,live:false,auto:true,greenRing:{},startTime:new Date().toTimeString().slice(0,5),endTime:null,rec:null};
+  // Ueber playDefaults(), damit kein Feld verlorengeht (siehe dort).
+  PLAY=Object.assign(playDefaults(), {active:true, mapFocus:playFocusDefault(),
+    course, tee, side, type, roundId:"R"+Date.now(),
+    date:new Date().toISOString().slice(0,10),
+    hi:(DB.profile.hcpIndex!=null?DB.profile.hcpIndex:DB.profile.currentHcp),
+    holes:hs, startTime:new Date().toTimeString().slice(0,5)});
   RTRACK={}; hs.forEach(h=>{ if(h.shots) RTRACK[h.hole]=h.shots; });
   renderPlay();
   playPublishStart();   // Uhr kann die Runde ab jetzt holen
@@ -16189,9 +16235,11 @@ function playContinue(round){
   const side=round.side||"18 Loch";
   const base=activeHoles(round.course,round.tee,side).map(h=>({hole:h.hole,par:h.par,si:h.si,len:h.len}));
   (round.holes||[]).forEach(sh=>{ const t=base.find(x=>x.hole===sh.hole); if(t) Object.assign(t,sh); });
-  PLAY={active:true,mapFocus:playFocusDefault(),course:round.course,tee:round.tee,side,type:round.type||"18 Loch",
-    roundId:round.id||"R"+Date.now(),date:round.date||new Date().toISOString().slice(0,10),hi:round.hi,
-    holes:base,idx:0,here:null,live:false,auto:true,greenRing:{},startTime:round.startTime||new Date().toTimeString().slice(0,5),endTime:null,rec:null};
+  PLAY=Object.assign(playDefaults(), {active:true, mapFocus:playFocusDefault(),
+    course:round.course, tee:round.tee, side, type:round.type||"18 Loch",
+    roundId:round.id||"R"+Date.now(), date:round.date||new Date().toISOString().slice(0,10),
+    hi:round.hi, holes:base,
+    startTime:round.startTime||new Date().toTimeString().slice(0,5)});
   RTRACK={}; base.forEach(h=>{ if(h.shots) RTRACK[h.hole]=h.shots; });
   const fi=base.findIndex(h=>h.score==null); PLAY.idx=fi>=0?fi:0;
   renderPlay();
@@ -16434,11 +16482,19 @@ function shotRecHtml(){ const h=PLAY.holes[PLAY.idx]; const rec=PLAY.rec;
    deshalb ZUERST #pfMap — so bleibt der gesamte uebrige Kartencode (Pan, Zoom,
    Zielkette, Live-Position) unveraendert nutzbar.
    ========================================================================== */
+let _pfAt=0;
 function pfOpen(){
   const el=document.getElementById("playFull"); if(!el) return;
+  /* REIHENFOLGE IST ENTSCHEIDEND. closeSheet() baut den eigenen
+     History-Eintrag ueber history.back() ab — das loest ein popstate aus, und
+     der popstate-Handler schliesst das Vollbild wieder. Deshalb ZUERST das
+     Blatt schliessen und danach ein Schutzfenster setzen: ein popstate, der
+     unmittelbar nach dem Oeffnen eintrifft, stammt von closeSheet und darf das
+     Vollbild NICHT schliessen. Genau daran ist v1.69 gescheitert. */
+  closeSheet();
+  _pfAt=Date.now();
   el.classList.add("on"); el.setAttribute("aria-hidden","false");
   document.body.classList.add("pf-open");
-  closeSheet();                              // das Blatt hat hier nichts zu suchen
   PLAY.mapFocus=true;
   pfRender();
   playStartLive();
@@ -20112,14 +20168,18 @@ function closeSheet(){
   document.documentElement.classList.remove("sheet-open");
   if(typeof wakeRelease==="function") wakeRelease();
   if(typeof playStopSync==="function") playStopSync();
-  if(typeof liveStop==="function"){ liveStop(); MAPST.live=false; CADDYPOS.live=false; if(typeof PLAY!=="undefined"){ PLAY.live=false; PLAY.rec=null; } }
+  /* Im Vollbildmodus laeuft die Runde WEITER, auch wenn ein Blatt schliesst —
+     dort GPS und eine laufende Schlagaufnahme abzuwuergen waere fatal. */
+  const _pfAn = (typeof PLAY!=="undefined" && PLAY.active && PLAY.mapFocus);
+  if(typeof liveStop==="function" && !_pfAn){ liveStop(); MAPST.live=false; CADDYPOS.live=false;
+    if(typeof PLAY!=="undefined"){ PLAY.live=false; PLAY.rec=null; } }
   if(_sheetHist){ _sheetHist=false; try{ history.back(); }catch(e){ logErr("catch", e, true); } }   // eigenen History-Eintrag wieder abbauen
 }
 window.addEventListener("popstate",()=>{                    // Zurück-Taste (Android/Browser)
   /* Reihenfolge zaehlt: liegt das Vollbild oben, muss ZUERST es weichen —
      sonst landet man mit einem Tipp aus der Runde heraus. */
   const pf=document.getElementById("playFull");
-  if(pf && pf.classList.contains("on")){ playToggleFocusMap(); return; }
+  if(pf && pf.classList.contains("on") && Date.now()-_pfAt>700){ playToggleFocusMap(); return; }
   if(sheet.classList.contains("open")){ _sheetHist=false; closeSheet(); }
 });
 window.addEventListener("keydown",e=>{                      // Escape (Desktop/Tastatur)
@@ -21558,7 +21618,7 @@ function openComp(idx){
 /* ================= NAV ================= */
 let current="dash";
 const FAB_ACTION={rounds:startRound,comp:openAddComp,notes:openAddNote,swing:openSwingEdit};
-const APP_VERSION="1.69.0"; // App-Anzeigeversion (NICHT SEED.version! Diese bei jeder Änderung erhöhen)
+const APP_VERSION="1.70.0"; // App-Anzeigeversion (NICHT SEED.version! Diese bei jeder Änderung erhöhen)
 /* ---------- Darstellung: Hell/Dunkel (DB.ui.theme = "auto" | "light" | "dark") ---------- */
 const _darkMQ = (window.matchMedia? window.matchMedia("(prefers-color-scheme: dark)") : null);
 function themeSetting(){ return (DB && DB.ui && DB.ui.theme) || "auto"; }
