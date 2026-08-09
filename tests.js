@@ -1331,6 +1331,27 @@ group("playTooFar — der Caddy schweigt außerhalb des Platzes");
   }
 }
 
+/* ============ 24l. Beschriftung der Schlagfolge ============ */
+group("Kennzahl je Phase — nie „undefined%“ auf der Karte");
+{
+  /* approach() liefert `gruen`, tee()/nextShot() liefern `fw`. Wer das nicht
+     unterscheidet, schreibt „FW undefined%“ auf die Karte — genau das stand
+     dort bis v1.79 beim Schlag aufs Grün. Die Formel wird hier direkt
+     nachgebildet, weil sie in einem Template-Literal steckt. */
+  const quote = fr => !fr ? ""
+    : (isFinite(fr.gruen) ? ` · Grün ${fr.gruen}%`
+      : isFinite(fr.fw)   ? ` · FW ${fr.fw}%` : "")
+      + (isFinite(fr.pen)&&fr.pen>=5 ? ` · Strafe ${fr.pen}%` : "");
+  eq("Abschlag zeigt Fairwayquote", quote({fw:57,pen:2}), " · FW 57%");
+  eq("Approach zeigt Grünquote", quote({gruen:62,pen:1}), " · Grün 62%");
+  eq("Strafrisiko ab 5 % dazu", quote({fw:57,pen:12}), " · FW 57% · Strafe 12%");
+  eq("fehlende Kennzahl → gar keine Quote", quote({sand:3}), "");
+  eq("ohne fracs → leer", quote(null), "");
+  ok("kein 'undefined' in der Ausgabe",
+     [quote({fw:57}),quote({gruen:62}),quote({sand:1}),quote(null)]
+       .every(x=>x.indexOf("undefined")<0));
+}
+
 /* ================= 25. Gepflegt vs. gemessen ================= */
 group("clubMeasured — gepflegte gegen gemessene Schlägerlängen");
 {

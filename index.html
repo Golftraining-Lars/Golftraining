@@ -1581,6 +1581,30 @@ Zwei Massnahmen:
    schlechter lesbar auf.
 tests.js prueft die Formen direkt gegeneinander (Abschnitt 24h).
 
+### Warum die Ebene immer wieder schrumpfte (v1.79)
+Vier Anlaeufe, und die Ursache war die ganze Zeit dieselbe — MEINE eigene Absicherung:
+
+**Eine gesetzte `height` schlaegt das gepinnte `bottom:0`.** Bei `position:fixed` mit `top:0`
+definieren top+height die Box; `bottom` wird dann ignoriert. Sowohl `height:100dvh` im CSS als
+auch `pfSize()` in JS setzten eine Hoehe — und `100dvh` ist der DYNAMISCHE (kleinste) Viewport,
+bei sichtbarer Adressleiste kleiner als das Initial Containing Block, gegen das `fixed` rechnet.
+Ergebnis: unten blieb ein Streifen. Beim Lochwechsel oder nach einem `resize` blieb ausserdem ein
+zu kleiner Messwert stehen, worauf die Ebene erneut schrumpfte.
+
+**`pfSize()` ist ersatzlos entfallen**, ebenso jede `height`-Angabe. Nur noch top/left/right/bottom
+auf 0 — daraus ergibt sich die Hoehe korrekt aus dem ICB, in jedem Zustand der Adressleiste, ohne
+Nachmessen. `pfOpen()` raeumt zusaetzlich alte Inline-Werte weg, die sonst gegen die CSS-Regel
+gewinnen wuerden.
+
+**Die Schlagfolge verschwand** nach „Eingabe" und zurueck: `playAimDraw()` haengt in `#playVecG`,
+das `playMapRender()` bei jedem Neuaufbau ersetzt — gezeichnet wurde sie aber nur ueber
+`playMapApply()`, also erst beim naechsten GPS-Tick. Kam keiner, blieb sie weg. `playMapRender()`
+ruft sie jetzt selbst auf.
+
+**„FW undefined%"** stand beim Schlag aufs Gruen auf der Karte: `approach()` liefert `gruen`,
+`tee()`/`nextShot()` liefern `fw`. Beide Beschriftungen pruefen jetzt mit `isFinite()` und lassen
+die Quote weg, wenn keine passt.
+
 ### Drei Nachbesserungen am Vollbild (v1.78)
 **1. Unterer Streifen blieb ungenutzt.** `pfSize()` mass gegen `visualViewport.height` — das ist
 der aktuell SICHTBARE Ausschnitt und auf Android bei ausgefahrener Adressleiste KLEINER als das
@@ -2256,6 +2280,18 @@ erkennbar ist, dass es ein Video gab.
 ## Changelog
 > **Regel:** Bei JEDER inhaltlichen Änderung hier oben einen datierten Eintrag ergänzen (neueste
 > zuerst): Datum · was geändert · betroffene Bereiche. Kurz halten.
+
+- **v1.79.0 · 2026-08-09** — **Die Ebene schrumpfte wegen meiner eigenen Absicherung.**
+  Bei `position:fixed` mit `top:0` definieren top+height die Box — eine gesetzte `height`
+  **ignoriert** das gepinnte `bottom:0`. Sowohl `height:100dvh` (der dynamische, also kleinste
+  Viewport) als auch `pfSize()` setzten eine Höhe; beim Lochwechsel blieb zudem ein zu kleiner
+  Messwert stehen. **`pfSize()` ersatzlos entfernt**, jede `height`-Angabe entfernt — nur noch
+  alle vier Kanten auf 0. `pfOpen()` räumt alte Inline-Werte weg.
+  **Schlagfolge nach „Eingabe" weg:** `playAimDraw()` hängt in `#playVecG`, das jeder Neuaufbau
+  ersetzt — gezeichnet wurde sie nur über `playMapApply()`, also erst beim nächsten GPS-Tick.
+  `playMapRender()` ruft sie jetzt selbst auf.
+  **„FW undefined%":** `approach()` liefert `gruen`, `tee()`/`nextShot()` liefern `fw`. Beide
+  Beschriftungen prüfen jetzt mit `isFinite()`; im Prüfstand festgeschrieben.
 
 - **v1.78.1 · 2026-08-09** — **Nachgewiesen: Schlagfolge wird auch von weit weg gezeichnet.**
   Ende-zu-Ende geprüft — am Abschlag und aus 2 km Entfernung liefert `playAimChain()` dieselbe
@@ -16655,7 +16691,9 @@ function playTeePlanHtml(){
   try{ ch=playAimChain(); }catch(e){ logErr("playTeePlanHtml", e, true); }
   if(!ch||!ch.legs||!ch.legs.length) return "";
   const zeilen=ch.legs.map((L,i)=>{
-    const q=L.fracs ? (L.fracs.gruen!=null?` · Grün ${L.fracs.gruen} %`:` · FW ${L.fracs.fw} %`) : "";
+    const f=L.fracs;
+    const q = !f ? "" : isFinite(f.gruen) ? ` · Grün ${f.gruen} %`
+              : isFinite(f.fw) ? ` · FW ${f.fw} %` : "";
     return `<div class="stat-line"><span>${i+1}. ${esc(L.role||"")}</span>
       <b>${escShort(L.club||"–")}${L.dist?` · ${L.dist} m`:""}<span class="r-s">${esc(q)}</span></b></div>`;
   }).join("");
@@ -16812,15 +16850,10 @@ function pfOpen(){
   closeSheet();
   el.classList.add("on"); el.setAttribute("aria-hidden","false");
   document.body.classList.add("pf-open");
-  /* Groesse ZUSAETZLICH per JS setzen. `position:fixed; inset:0` sollte den
-     Bildschirm fuellen — im Feld deckte die Ebene aber nur rund drei Viertel
-     ab. Statt die Ursache im CSS-Umfeld zu suchen (ein Vorfahre mit transform
-     oder filter kann `fixed` kapern, ebenso die dynamische Adressleiste auf
-     Android), wird die Hoehe hier aus `innerHeight` gesetzt: das ist genau der
-     sichtbare Bereich, und es gilt unabhaengig von jedem CSS. */
-  pfSize();
-  // Die Adressleiste animiert; nach dem Einschwingen erneut messen.
-  setTimeout(pfSize, 350);
+  /* KEINE JS-Groesse mehr (v1.79). Jede gesetzte `height` schlaegt das
+     gepinnte `bottom:0` — und beim Lochwechsel oder nach einem `resize` blieb
+     ein zu kleiner Wert stehen, worauf die Ebene schrumpfte. Mit top+bottom
+     allein ergibt sich die Hoehe korrekt aus dem Initial Containing Block. */
   PLAY.mapFocus=true;
   pfRender();
   playStartLive();
@@ -16829,31 +16862,6 @@ function pfOpen(){
      erscheint die Ebene erst danach und es sieht aus, als haenge die App. */
   setTimeout(()=>{ if(PLAY.active && PLAY.mapFocus) playMapRender(); }, 0);
 }
-function pfSize(){
-  const el=document.getElementById("playFull"); if(!el||!el.classList.contains("on")) return;
-  /* GEGEN DIE RICHTIGE BOX MESSEN. `position:fixed` rechnet gegen das INITIAL
-     CONTAINING BLOCK — und dessen Hoehe ist `documentElement.clientHeight`,
-     NICHT `visualViewport.height`. Letzteres ist der aktuell sichtbare
-     Ausschnitt und auf Android bei ausgefahrener Adressleiste KLEINER; genau
-     daher kam der ungenutzte Streifen unten: top:0 + zu kleine Hoehe schlaegt
-     das gepinnte bottom:0. Der groessere der beiden Werte ist der richtige. */
-  const dh=document.documentElement ? document.documentElement.clientHeight : 0;
-  const vh=(window.visualViewport && window.visualViewport.height) || 0;
-  const h=Math.max(dh, vh, window.innerHeight||0);
-  const w=Math.max(document.documentElement?document.documentElement.clientWidth:0,
-                   window.innerWidth||0);
-  /* NICHT bottom:auto setzen — das war kontraproduktiv: stimmte die gemessene
-     Hoehe nicht, blieb unten eine Luecke. Beide Kanten bleiben gepinnt, die
-     Hoehe ist nur die zusaetzliche Absicherung. */
-  el.style.top="0"; el.style.left="0"; el.style.right="0"; el.style.bottom="0";
-  if(h>0) el.style.height=h+"px";
-  if(w>0) el.style.width=w+"px";
-}
-/* Adressleiste ein-/ausblenden und Drehen aendern die sichtbare Hoehe. */
-window.addEventListener("resize", pfSize);
-window.addEventListener("orientationchange", ()=>setTimeout(pfSize,120));
-if(window.visualViewport) window.visualViewport.addEventListener("resize", pfSize);
-
 function pfClose(){
   const el=document.getElementById("playFull"); if(!el) return;
   el.classList.remove("on"); el.setAttribute("aria-hidden","true");
@@ -17416,7 +17424,15 @@ function playAimDraw(){
     // ⚠ wenn der Caddy an dieser Stelle nennenswertes Strafrisiko sieht
     // esc() folgt weiter unten beim Einsetzen -> hier den ROHEN Namen nehmen
     const txt=(L.club?clubShort(L.club):"—")+" · "+L.dist+" m"+((L.risk!=null&&L.risk>=8)?" ⚠":"");
-    const sub=(i+1)+". "+L.role + (L.fracs?` · FW ${L.fracs.fw}%`+(L.fracs.pen>=5?` · Strafe ${L.fracs.pen}%`:""):"");
+    /* Nicht jede Bewertung hat jede Kennzahl: approach() liefert `gruen`,
+       tee()/nextShot() liefern `fw`. Ohne diese Pruefung stand „FW undefined%"
+       auf der Karte. */
+    const fr=L.fracs;
+    const quote = !fr ? ""
+      : (isFinite(fr.gruen) ? ` · Grün ${fr.gruen}%`
+        : isFinite(fr.fw)   ? ` · FW ${fr.fw}%` : "")
+        + (isFinite(fr.pen)&&fr.pen>=5 ? ` · Strafe ${fr.pen}%` : "");
+    const sub=(i+1)+". "+L.role + quote;
     out+=`<text x="${(px+ox).toFixed(1)}" y="${(py+oy).toFixed(1)}" font-size="${fs.toFixed(1)}"
       fill="#ff8c00" text-anchor="middle" font-weight="700" paint-order="stroke"
       stroke="#fff" stroke-width="${(fs*0.42).toFixed(1)}" stroke-linejoin="round">${esc(txt)}<tspan
@@ -22086,7 +22102,7 @@ function openComp(idx){
 /* ================= NAV ================= */
 let current="dash";
 const FAB_ACTION={rounds:startRound,comp:openAddComp,notes:openAddNote,swing:openSwingEdit};
-const APP_VERSION="1.78.1"; // App-Anzeigeversion (NICHT SEED.version! Diese bei jeder Änderung erhöhen)
+const APP_VERSION="1.79.0"; // App-Anzeigeversion (NICHT SEED.version! Diese bei jeder Änderung erhöhen)
 /* ---------- Darstellung: Hell/Dunkel (DB.ui.theme = "auto" | "light" | "dark") ---------- */
 const _darkMQ = (window.matchMedia? window.matchMedia("(prefers-color-scheme: dark)") : null);
 function themeSetting(){ return (DB && DB.ui && DB.ui.theme) || "auto"; }
