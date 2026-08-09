@@ -1562,6 +1562,21 @@ Zwei Massnahmen:
    schlechter lesbar auf.
 tests.js prueft die Formen direkt gegeneinander (Abschnitt 24h).
 
+### Die dritte Falle: Zeitfenster reichen nicht (v1.73)
+v1.70 loeste das popstate-Problem ueber ein 700-ms-Schutzfenster. Das genuegte NICHT: `pfOpen()`
+ruft anschliessend `playMapRender()`, und das braucht mit Monte-Carlo und Satellitenkacheln
+regelmaessig ueber eine Sekunde. Das popstate liegt so lange in der Warteschlange und trifft
+NACH dem Fenster ein — das Vollbild blitzte auf und verschwand.
+
+**Lehre: ein Ereignis, das man nicht will, unterdrueckt man an der Quelle, nicht ueber Timing.**
+`pfOpen()` setzt jetzt `_sheetHist=false` VOR `closeSheet()`. Damit unterlaesst closeSheet das
+`history.back()` und es entsteht gar kein popstate. Der gepushte History-Eintrag bleibt liegen —
+und das ist genau richtig: der naechste Druck auf Zurueck verbraucht ihn und schliesst das
+Vollbild. Das Zeitfenster bleibt als zweite Absicherung, ist aber nicht mehr der Kern.
+
+Ausserdem laeuft `playMapRender()` jetzt ueber `setTimeout(...,0)`, damit die Ebene SOFORT
+erscheint und nicht erst nach der Kartenberechnung.
+
 ### Zwei Fallen beim Vollbild (v1.70)
 **1. `closeSheet()` loest ein popstate aus.** Es baut seinen History-Eintrag ueber
 `history.back()` ab. Rief `pfOpen()` erst `classList.add("on")` und DANN `closeSheet()`, sah der
@@ -2117,6 +2132,16 @@ erkennbar ist, dass es ein Video gab.
 ## Changelog
 > **Regel:** Bei JEDER inhaltlichen Änderung hier oben einen datierten Eintrag ergänzen (neueste
 > zuerst): Datum · was geändert · betroffene Bereiche. Kurz halten.
+
+- **v1.73.0 · 2026-08-09** — **Vollbild blitzte auf und schloss sich: Zeitfenster reichte nicht.**
+  v1.70 fing das popstate von `closeSheet()` über ein 700-ms-Fenster ab. Das genügte nicht, weil
+  `pfOpen()` anschließend `playMapRender()` aufruft — Monte-Carlo und Satellitenkacheln blockieren
+  dort regelmäßig über eine Sekunde, das popstate liegt so lange in der Warteschlange und trifft
+  NACH dem Fenster ein. Jetzt wird `_sheetHist=false` VOR `closeSheet()` gesetzt: dann unterlässt
+  closeSheet das `history.back()` und es entsteht gar kein popstate. Der History-Eintrag bleibt
+  liegen — richtig so, der nächste Druck auf Zurück schließt damit das Vollbild.
+  Zusätzlich läuft `playMapRender()` über `setTimeout(...,0)`, damit die Ebene sofort erscheint
+  statt erst nach der Kartenberechnung. Doppelter `pfClose()`-Aufruf in `playFinish` entfernt.
 
 - **v1.72.0 · 2026-08-09** — **Approach-Schläger · Vollbild-Ursache gefunden · Fehlerzähler.**
   (1) **`apprClub`** in allen drei Eingaben (Spielmodus, manueller Editor, Uhr Seite 2) — bisher
@@ -16537,20 +16562,32 @@ function shotRecHtml(){ const h=PLAY.holes[PLAY.idx]; const rec=PLAY.rec;
 let _pfAt=0;
 function pfOpen(){
   const el=document.getElementById("playFull"); if(!el) return;
-  /* REIHENFOLGE IST ENTSCHEIDEND. closeSheet() baut den eigenen
-     History-Eintrag ueber history.back() ab — das loest ein popstate aus, und
-     der popstate-Handler schliesst das Vollbild wieder. Deshalb ZUERST das
-     Blatt schliessen und danach ein Schutzfenster setzen: ein popstate, der
-     unmittelbar nach dem Oeffnen eintrifft, stammt von closeSheet und darf das
-     Vollbild NICHT schliessen. Genau daran ist v1.69 gescheitert. */
+  /* DAS EREIGNIS GAR NICHT ERST AUSLOESEN.
+     closeSheet() baut seinen History-Eintrag ueber history.back() ab; das
+     loest ein popstate aus, und der Handler schliesst das Vollbild wieder.
+
+     Ein ZEITFENSTER reicht dagegen NICHT — genau daran ist v1.72 gescheitert:
+     pfOpen ruft anschliessend playMapRender(), und das braucht mit Monte-Carlo
+     und Satellitenkacheln regelmaessig ueber eine Sekunde. Das popstate liegt
+     so lange in der Warteschlange und trifft NACH dem Fenster ein. Das Vollbild
+     blitzte auf und verschwand.
+
+     Deshalb: `_sheetHist` VOR dem Schliessen zuruecksetzen — dann unterlaesst
+     closeSheet() das history.back() und es entsteht kein popstate. Der
+     gepushte Eintrag bleibt liegen, und das ist genau richtig: der naechste
+     Druck auf Zurueck verbraucht ihn und schliesst das Vollbild. */
+  try{ _sheetHist=false; }catch(e){ logErr("pfOpen", e, true); }
   closeSheet();
-  _pfAt=Date.now();
+  _pfAt=Date.now();                 // zusaetzliche Absicherung, nicht der Kern
   el.classList.add("on"); el.setAttribute("aria-hidden","false");
   document.body.classList.add("pf-open");
   PLAY.mapFocus=true;
   pfRender();
   playStartLive();
-  playMapRender();
+  /* Die Karte ERST NACH dem ersten Bild rechnen. playMapRender() blockiert mit
+     Monte-Carlo und Kacheln oft ueber eine Sekunde — laeuft es hier synchron,
+     erscheint die Ebene erst danach und es sieht aus, als haenge die App. */
+  setTimeout(()=>{ if(PLAY.active && PLAY.mapFocus) playMapRender(); }, 0);
 }
 function pfClose(){
   const el=document.getElementById("playFull"); if(!el) return;
@@ -17331,7 +17368,7 @@ function playFinish(){
   PLAY.endTime=new Date().toTimeString().slice(0,5); playSaveDraft();
   const r=playRound();
   if(!r.holes.some(h=>h.score!=null)){ if(!confirm("Keine Scores erfasst – Runde verwerfen?")) return;
-    draftFinalize(); PLAY.active=false; PLAY.live=false; liveStop(); pfClose(); pfClose();
+    draftFinalize(); PLAY.active=false; PLAY.live=false; liveStop(); pfClose();
     watchAutoOpenedFor=""; persist(); closeSheet(); renderAll(); flushCloudNow(); return; }
   const i=DB.rounds.findIndex(x=>x.id===r.id); if(i>=0) DB.rounds[i]=r; else DB.rounds.push(r);
   draftFinalize(); PLAY.active=false; PLAY.live=false; liveStop();
@@ -21699,7 +21736,7 @@ function openComp(idx){
 /* ================= NAV ================= */
 let current="dash";
 const FAB_ACTION={rounds:startRound,comp:openAddComp,notes:openAddNote,swing:openSwingEdit};
-const APP_VERSION="1.72.0"; // App-Anzeigeversion (NICHT SEED.version! Diese bei jeder Änderung erhöhen)
+const APP_VERSION="1.73.0"; // App-Anzeigeversion (NICHT SEED.version! Diese bei jeder Änderung erhöhen)
 /* ---------- Darstellung: Hell/Dunkel (DB.ui.theme = "auto" | "light" | "dark") ---------- */
 const _darkMQ = (window.matchMedia? window.matchMedia("(prefers-color-scheme: dark)") : null);
 function themeSetting(){ return (DB && DB.ui && DB.ui.theme) || "auto"; }
