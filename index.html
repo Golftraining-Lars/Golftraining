@@ -1942,6 +1942,16 @@ dialog-Sonderbehandlung (`showModal`/`cancel`/`close`) und die popstate-Verrenku
 Zurueck-Taste erkennt den Spielmodus an `body.play-mode`. `pfFacts()`/`pfDbgRender()` bleiben als
 Messanzeige (ⓘ in der Kartenleiste, `DB.ui.pfDebug`).
 
+**ACHTUNG bei Aenderungen (v1.91).** Wer einen Kartencontainer entfernt, muss `playMapTick()`
+mitdenken. Nach v1.89 hatte die Eingabemaske keinen mehr — `playMapSlot()` lieferte dort `null`,
+und JEDER GPS-Tick fiel in den teuren Zweig `if(!svg){ playMapRender(); }`: Geo-Raster,
+Kachel-Abrufe und eine NETZABFRAGE fuer die Hoehen, im Sekundentakt. Beim Wechsel Karte →
+Eingabe fror die App ein.
+Zwei Riegel: `playMapTick()` bricht mit `if(!slot) return;` sofort ab, und `playMapRender()`
+prueft Container und Geo **vor** der Hoehenabfrage (vorher stand die Pruefung dahinter, der
+Netzaufruf feuerte also auch ohne Karte). Dieselbe Fehlerklasse gab es schon in v1.75 — damals
+fehlte der Slot im Vollbild.
+
 **Aufgabenteilung der beiden Modi (v1.89).** Karte und Fahnensteuerung standen in BEIDEN —
 seit der Spielmodus im Kartenmodus startet, ist das doppelt. Jetzt:
 - **Kartenmodus:** grosse Karte, Kartenschalter, Caddy-Zeile und die Fahnensteuerung
@@ -2463,6 +2473,42 @@ erkennbar ist, dass es ein Video gab.
 ## Changelog
 > **Regel:** Bei JEDER inhaltlichen Änderung hier oben einen datierten Eintrag ergänzen (neueste
 > zuerst): Datum · was geändert · betroffene Bereiche. Kurz halten.
+
+- **v1.92.0 · 2026-08-09** — **Stabilitätsprüfung nach Kartenumbau · Uhr nachgezogen.**
+  Systematisch geprüft: Verweise auf entfernte Elemente, `getElementById` auf nicht mehr
+  vorhandene IDs, Ansichten ohne Render-Funktion, Handler auf fehlende Funktionen.
+  **Ein echter Fund:** `playMapCtrlsRefresh()` suchte `#playMapCtrls` — das gab es nur im alten
+  Blatt-Layout. Satellit, Ringe und Zielkette schalteten zwar um, die Knöpfe zeigten aber weiter
+  den alten Zustand. Neu rendert **eine** Funktion `pfCtrlsRender()` die Leiste inklusive
+  ⓘ-Schalter; sonst verschwand der bei jedem Refresh.
+  **`mergeDB` führte Fahnen weiter zusammen** — damit hätte der nächste Sync die in
+  `ensureDefaults` geleerten Werte aus dem Repo zurückgeholt. Jetzt `out.pins={}`.
+  **MainActivity.kt nachgezogen (2026-08-09 Nr. 11):** `Geo.pinPoint`, `AppData.pins`, der
+  Zustand `pinDepth` samt Parameter in `buildRoundJson`/`Loaded`, das Feld `"pins"` im
+  Runden-JSON und drei Parser-Blöcke entfallen. `targetOf()` liefert immer die Grünmitte; die
+  gesonderte „Fahne"-Distanz in `liveOf()` entfällt (identisch mit `mid` aus F/M/B).
+  Vertrag geprüft: 24 von 24 Lochfeldern, Options 9 Felder = 9 `strList`, alle Klammertypen
+  balanciert.
+
+- **v1.91.1 · 2026-08-09** — **Stabilitätsdurchgang nach dem Kartenumbau.** Systematisch geprüft:
+  keine verwaisten Element-Zugriffe mehr (`playMapSlot` hatte noch einen toten Rückfall auf das
+  seit v1.89 nicht mehr existierende `#playMapSlot` — entfernt; die Funktion liefert außerhalb
+  des Kartenmodus jetzt bewusst `null`, woran die Vermeidung der Dauerlast hängt). Fünf Abläufe
+  simuliert: Rundenstart, drei Lochwechsel, Eingabe↔Karte↔Eingabe, 20 GPS-Ticks in der
+  Eingabemaske (0 Kartenberechnungen) und Zurück-Taste — alle korrekt, kein Blatt im Kartenmodus,
+  kein Doppelrendern. Die Schnittstelle zur Uhr ist unverändert; alle 23 Lochfelder werden
+  geschrieben.
+
+- **v1.91.0 · 2026-08-09** — **BUGFIX: Einfrieren beim Wechsel Karte → Eingabe.**
+  Seit v1.89 hat die Eingabemaske keinen Kartencontainer mehr; `playMapSlot()` liefert dort
+  `null`. Ohne Riegel fiel **jeder GPS-Tick** in den teuren Zweig und rief `playMapRender()` —
+  Geo-Raster, Kachel-Abrufe und eine Netzabfrage für die Höhen, im Sekundentakt. `playMapTick()`
+  bricht jetzt mit `if(!slot) return;` sofort ab, und `playMapRender()` prüft Container und Geo
+  **vor** der Höhenabfrage (vorher stand die Prüfung dahinter, der Netzaufruf feuerte also auch
+  ohne Karte). Redundante zweite Prüfung entfernt. Nebenbei: `playLiveRefresh()` aktualisiert
+  wieder beide Anzeigen — `#pfCaddy` im Kartenmodus, `#playInfo` in der Eingabemaske.
+  **Dieselbe Fehlerklasse wie v1.75** (dort fehlte der Slot im Vollbild); vier Prüfungen sichern
+  sie jetzt ab.
 
 - **v1.90.0 · 2026-08-09** — **Fahnensteuerung vollständig entfernt.** `pinPoint`,
   `greenAxisEdges`, `playPinRec`, `pinCtrlHtml`, `playSetPinDepth`/`-Side`, `playPinSlide`,
@@ -12539,10 +12585,10 @@ function mergeDB(localDB, repoDB){
   // Tombstones respektieren: gelöschte Notizen nicht wieder auferstehen lassen
   const trashIds=new Set((out.notesTrash||[]).map(n=>n.id).filter(Boolean));
   out.notes=(out.notes||[]).filter(n=>!(n.id && trashIds.has(n.id)));
-  // pins: je Schlüssel den neueren (nach date) behalten
-  out.pins={}; const lp=L.pins||{}, rp=R.pins||{};
-  Object.keys(Object.assign({},rp,lp)).forEach(k=>{ const a=lp[k], b=rp[k];
-    out.pins[k] = (a&&b) ? (((a.date||"")>=(b.date||""))?a:b) : (a||b); });
+  /* Fahnensteuerung entfernt (v1.90): nicht mehr zusammenfuehren, sondern
+     leeren. Wuerde hier weiter gemerged, holte der naechste Sync die in
+     ensureDefaults geleerten Werte aus dem Repo zurueck. */
+  out.pins={};
   // _draftRound: den zeitlich neueren Entwurf behalten – ABER Tombstone respektieren
   const _tomb=(function(){ const a=(L.ui&&L.ui.draftDiscardedTs)||"", b=(R.ui&&R.ui.draftDiscardedTs)||""; return a>=b?a:b; })();
   delete out._draftRound;
@@ -17256,10 +17302,7 @@ function pfRender(){
       : pfCaddyKurz();
   }
 
-  const ctr=document.getElementById("pfCtrls");
-  if(ctr) ctr.innerHTML=playMapCtrlsHtml()
-    + `<button type="button" class="${DB.ui&&DB.ui.pfDebug?'on':''}" onclick="pfDbgToggle()"
-        title="Layout-Messwerte einblenden">ⓘ</button>`;
+  pfCtrlsRender();
   pfDbgRender();
   /* Laufend nachmessen: die interessanten Aenderungen passieren NACH dem
      Zeichnen (Adressleiste, Kartenaufbau). Ein Intervall statt einmalig. */
@@ -17370,6 +17413,12 @@ function renderPlay(){
 }
 function playToggleAuto(){ PLAY.auto=!PLAY.auto; renderPlay(); toast(PLAY.auto?"Auto-Loch an – wechselt per GPS":"Auto-Loch aus"); }
 function playLiveRefresh(){
+  /* Im Kartenmodus haengt die Caddy-Zeile an #pfCaddy, in der Eingabemaske an
+     #playInfo. Beide bedienen, ohne Annahme darueber welcher Modus laeuft. */
+  if(PLAY.mapFocus){ const c=document.getElementById("pfCaddy");
+    if(c) c.innerHTML = PLAY.pfInfoOpen
+      ? `<button type="button" class="pf-cad-x" onclick="pfInfoToggle()">▲ weniger</button>`+playInfoHtml()
+      : pfCaddyKurz(); }
   const el=document.getElementById("playInfo"); if(el) el.innerHTML=playInfoHtml();
   const rd=document.getElementById("playRecDist"); if(rd && PLAY.rec && PLAY.rec.startPos && PLAY.here) rd.textContent=Math.round(geoDist(PLAY.rec.startPos,PLAY.here));
   if(!PLAY.mapBusy) playMapTick();
@@ -17450,7 +17499,19 @@ function playMapCtrlsHtml(){
     ${playAimMoved()?`<button type="button" class="on" onclick="playAimReset()" title="Schlagfolge zurück auf die Caddy-Empfehlung">↺</button>`:""}
     ${PLAY.measure?`<button type="button" class="on" onclick="playMeasureClear();playMapCtrlsRefresh()" title="Messpunkt entfernen">📏</button>`:""}`;
 }
-function playMapCtrlsRefresh(){ const el=document.getElementById("playMapCtrls"); if(el) el.innerHTML=playMapCtrlsHtml(); }
+/* Die Kartenschalter leben seit dem Umbau in `#pfCtrls` (Kartenansicht).
+   `#playMapCtrls` gab es nur im alten Blatt-Layout — der Refresh lief damit
+   ins Leere: Satellit, Ringe und Zielkette schalteten zwar um, die Knoepfe
+   zeigten aber weiter den alten Zustand.
+   EINE Stelle rendert sie, inklusive des ⓘ-Schalters; sonst verschwindet der
+   bei jedem Refresh. */
+function pfCtrlsRender(){
+  const el=document.getElementById("pfCtrls"); if(!el) return;
+  el.innerHTML = playMapCtrlsHtml()
+    + `<button type="button" class="${DB.ui&&DB.ui.pfDebug?'on':''}" onclick="pfDbgToggle()"
+        title="Messwerte einblenden">ⓘ</button>`;
+}
+function playMapCtrlsRefresh(){ pfCtrlsRender(); }
 /* ---------- Automatischer Ausschnitt --------------------------------------
    Am Abschlag die GANZE Bahn, danach mitwachsend enger: sobald du dich dem Gruen
    naeherst, wird auf "deine Position + Gruen" eingepasst. Der Ausschnitt kann
@@ -17799,13 +17860,23 @@ function playHereEdge(){
    #playMapSlot. Wer das dupliziert, baut den naechsten Freeze ein: eine
    Funktion findet den Slot, die andere nicht. */
 function playMapSlot(){
-  if(PLAY.mapFocus){ const p=document.getElementById("pfMap"); if(p) return p; }
-  return document.getElementById("playMapSlot");
+  /* Seit v1.89 gibt es NUR NOCH einen Kartencontainer: #pfMap in der
+     Spielmodus-Ansicht. Der fruehere Rueckfall auf #playMapSlot zeigte ins
+     Leere — das Element existiert nicht mehr. Ausserhalb des Kartenmodus
+     liefert die Funktion bewusst null; alle Aufrufer pruefen das (siehe
+     playMapTick/playMapRender), und daran haengt die Vermeidung der
+     Dauerlast, die v1.91 behoben hat. */
+  if(!PLAY.mapFocus) return null;
+  return document.getElementById("pfMap");
 }
 
 function playMapRender(){
   const slot=playMapSlot();
   const geo=playGeo(); const h=PLAY.holes[PLAY.idx];
+  /* ABBRUCH VOR der teuren Vorbereitung. Vorher stand die Pruefung
+     `if(!slot||!geo) return;` ERST NACH der Hoehenabfrage — die feuerte also
+     auch dann einen Netzaufruf, wenn gar keine Karte gezeichnet werden kann. */
+  if(!slot || !geo) return;
   // Hoehen fuer Abschlag/Gruen/Standort holen (gebuendelt, gecacht, still)
   try{ const hr=holeRef(geo,h&&h.hole);
     /* .catch NICHT vergessen: Wirft der Rueckruf (playLiveRefresh -> Zielkette),
@@ -17816,7 +17887,7 @@ function playMapRender(){
       .then(()=>{ if(PLAY.active) playLiveRefresh&&playLiveRefresh(); })
       .catch(e=>logErr("playMapRender:elev", e, true));
   }catch(_){ logErr("catch", _, true); }
-  if(!slot||!geo){ return; }
+  // (Container/Geo werden oben geprueft.)
   // tight:true = identische Einpassung wie in der Einzelschlag-Ansicht:
   // der Loch-Korridor fuellt die Breite, Abschlag unten / Gruen oben.
   const sv=courseSVG(geo,{w:660,hole:h.hole,here:PLAY.here,fitHere:false,rings:ringsOn(),rotate:true,sat:satOn(),tight:true,osm:osmOn(),flag:true,corridor:46,measure:PLAY.measure||null,oval:PLAY.stratOval||null});
@@ -17863,7 +17934,14 @@ function playMapTick(){
      Bei laufendem GPS ist das Dauerlast und die Oberflaeche steht.
      Der Slot muss ueberall gleich bestimmt werden — deshalb playMapSlot(). */
   const slot=playMapSlot();
-  const svg=slot && document.getElementById("playMapSvg");
+  /* OHNE CONTAINER GIBT ES NICHTS ZU TUN. Seit v1.89 hat die Eingabemaske
+     keine Karte mehr — `playMapSlot()` liefert dort `null`. Ohne diesen
+     Riegel fiel JEDER GPS-Tick in den teuren Zweig und rief playMapRender():
+     Geo-Raster, Kachel-Abrufe und eine Netzabfrage fuer die Hoehen, im Sekunden-
+     takt. Genau das liess die App beim Wechsel Karte -> Eingabe einfrieren.
+     Dieselbe Fehlerklasse wie v1.75 — damals fehlte der Slot im Vollbild. */
+  if(!slot) return;
+  const svg=document.getElementById("playMapSvg");
   if(!svg){ if(PLAY.live) playMapRender(); return; }
   const geo=playGeo(); const h=PLAY.holes[PLAY.idx]; if(!geo) return;
   const sv=courseSVG(geo,{w:660,hole:h.hole,here:PLAY.here,fitHere:false,rings:ringsOn(),rotate:true,sat:satOn(),tight:true,osm:osmOn(),flag:true,corridor:46,measure:PLAY.measure||null,oval:PLAY.stratOval||null});
@@ -22414,7 +22492,7 @@ function openComp(idx){
 /* ================= NAV ================= */
 let current="dash";
 const FAB_ACTION={rounds:startRound,comp:openAddComp,notes:openAddNote,swing:openSwingEdit};
-const APP_VERSION="1.90.0"; // App-Anzeigeversion (NICHT SEED.version! Diese bei jeder Änderung erhöhen)
+const APP_VERSION="1.92.0"; // App-Anzeigeversion (NICHT SEED.version! Diese bei jeder Änderung erhöhen)
 /* ---------- Darstellung: Hell/Dunkel (DB.ui.theme = "auto" | "light" | "dark") ---------- */
 const _darkMQ = (window.matchMedia? window.matchMedia("(prefers-color-scheme: dark)") : null);
 function themeSetting(){ return (DB && DB.ui && DB.ui.theme) || "auto"; }

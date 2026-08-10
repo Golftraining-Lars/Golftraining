@@ -246,22 +246,9 @@ group("playsLike (Wind, Temperatur, Höhe)");
   }
 }
 
-/* ========================= 6. Fahne 2D ========================= */
-group("Fahne (pinPoint)");
-{
-  const pinPoint = G("pinPoint");
-  const geoDist = G("geoDist");
-  if (typeof pinPoint === "function" && typeof geoDist === "function") {
-    // Grün 30 m tief, Achse nach Norden
-    const geo = { holes: { 1: { tee: [54.0000, 10.0], green: [54.0030, 10.0],
-      greenRing: null } } };
-    const p = pinPoint(geo, 1, 0.5, 0);
-    ok("ohne Grünring → Grünmitte", Array.isArray(p) && p.length === 2);
-    ok("Tiefe verschiebt in Achsenrichtung",
-      JSON.stringify(pinPoint(geo, 1, 0.1, 0)) === JSON.stringify(pinPoint(geo, 1, 0.9, 0))
-      || true, "nur mit greenRing prüfbar");
-  }
-}
+/* Abschnitt „Fahne 2D" ENTFERNT (v1.90): pinPoint gibt es nicht mehr, Ziel
+   ist durchgaengig die Gruenmitte. Die Pruefung der Entfernung selbst steht
+   in Abschnitt 24n (kein Name kehrt in den ausfuehrbaren Code zurueck). */
 
 /* ========================= 7. Kartenausschnitt ========================= */
 group("Kartenausschnitt (playMapBox)");
@@ -337,7 +324,11 @@ group("Merge — hier entscheidet sich, ob Runden verlorengehen");
     const m = mergeDB(L, R);
     eq("keine Runde geht verloren", m.rounds.length, 2);
     eq("lokales Profil gewinnt", m.profile.name, "Lars");
-    eq("neuere Fahne gewinnt", m.pins["A|1"].d, 0.2);
+    /* Fahnen werden seit v1.90 NICHT mehr zusammengeführt, sondern geleert —
+       sonst holte der nächste Sync die in ensureDefaults geräumten Werte aus
+       dem Repo zurück. */
+    ok("Fahnen werden geleert statt gemergt",
+       m.pins && Object.keys(m.pins).length===0);
 
     // Runde ohne id: Schlüssel ist date|course
     const m2 = mergeDB({rounds:[{date:"2026-05-01",course:"A",score:80}]},
@@ -1252,8 +1243,11 @@ group("playMapSlot — eine Stelle für den Kartencontainer");
        Deshalb bestimmt EINE Funktion den Container. */
     P.mapFocus=true;
     ok("im Vollbild wird ein Container geliefert", slot()!==null && slot()!==undefined);
+    /* AUSSERHALB des Kartenmodus gibt es bewusst KEINEN Container mehr —
+       seit v1.89 existiert #playMapSlot nicht. Genau daran hängt die
+       Vermeidung der Dauerlast: playMapTick/playMapRender brechen ab. */
     P.mapFocus=false;
-    ok("außerhalb ebenfalls", slot()!==null && slot()!==undefined);
+    ok("außerhalb bewusst null", slot()===null);
     P.mapFocus=true;
   }
 }
@@ -1437,6 +1431,35 @@ group("Keine Doppelungen zwischen Karten- und Eingabemodus");
      nicht ausdrücken (Object.assign). */
   ok("DB.pins wird geleert statt gelöscht",
      /DB\.pins=\{\}/.test(ohneKomm) && !/delete DB\.pins/.test(ohneKomm));
+}
+
+/* ============ 24n3. Kein Kartencontainer = keine Kartenarbeit ============ */
+group("GPS-Tick ohne Karte — die Einfrier-Fehlerklasse");
+{
+  const src=fs.readFileSync(FILE,"utf8");
+  /* Kommentare entfernen: sie nennen die Funktionsnamen als Begründung und
+     würden die Positionsvergleiche verfälschen. */
+  const ohne = t => t.replace(/\/\*[\s\S]*?\*\//g,"").replace(/\/\/[^\n]*/g,"");
+  const i=src.indexOf("function playMapTick(");
+  const tick=ohne(src.slice(i, src.indexOf("\n}\n", i)));
+  /* Seit die Eingabemaske keine Karte mehr hat (v1.89), liefert playMapSlot()
+     dort null. Ohne Riegel fiel JEDER GPS-Tick in den teuren Zweig und rief
+     playMapRender() — Geo-Raster, Kacheln und eine NETZABFRAGE für die Höhen,
+     im Sekundentakt. Genau das fror die App beim Wechsel Karte → Eingabe ein.
+     Dieselbe Klasse wie v1.75, wo der Slot im Vollbild fehlte. */
+  ok("playMapTick bricht ohne Container sofort ab",
+     /if\(!slot\)\s*return;/.test(tick));
+  ok("Abbruch steht VOR dem teuren Zweig",
+     tick.indexOf("if(!slot) return;") < tick.indexOf("playMapRender()"));
+
+  const j=src.indexOf("function playMapRender(){");
+  const rend=ohne(src.slice(j, src.indexOf("\n}\n", j)));
+  /* Auch playMapRender muss ZUERST prüfen: vorher stand der Abbruch nach der
+     Höhenabfrage, die damit auch ohne Karte einen Netzaufruf feuerte. */
+  ok("playMapRender prüft den Container vor der Höhenabfrage",
+     rend.indexOf("if(!slot || !geo) return;") < rend.indexOf("elevEnsure"));
+  ok("keine doppelte Container-Prüfung",
+     (rend.match(/if\(!slot ?\|\| ?!geo\)/g)||[]).length === 1);
 }
 
 /* ============ 24o. Version sichtbar, Cache nicht im Weg ============ */
