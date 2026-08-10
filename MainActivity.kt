@@ -298,6 +298,124 @@ import kotlin.math.sqrt
  *     gesonderte „Fahne"-Distanz — sie waere identisch mit `mid` aus F/M/B und
  *     damit nur Rauschen auf einem kleinen Display.
  *
+ *  2026-08-10 (20) · VIER VERBESSERUNGEN AUS DER PRAXIS.
+ *
+ *     (2) SCHWUNGLAENGE bei der Schlagaufnahme. Die PWA lernt Schlaegerlaengen
+ *         NUR aus vollen Schwuengen (`clubMeasured` filtert `swing`). Ohne das
+ *         Feld zaehlte jeder auf der Uhr getrackte Schlag als voll — ein halber
+ *         Wedge mit 55 statt 92 m zog die gelernte Laenge nach unten und machte
+ *         die Caddy-Empfehlung systematisch ZU KURZ. Neu: `Rec.swing`,
+ *         `recSwing()`, ein Chip in der Aufnahmezeile. Ein Tipp schaltet weiter
+ *         (Voll -> 3/4 -> Halb -> Punch); ein Auswahlmenue waere hier ein Tipp
+ *         zu viel — man steht beim Ball. „Voll" wird als null gespeichert, so
+ *         wie alle Altdaten gemeint waren.
+ *
+ *     (3) ALTER DES LETZTEN ABGLEICHS in der Kopfzeile („⟳20s", „⟳4min").
+ *         Die Uhr zieht im Sparbetrieb alle zwei Minuten, ueber das CDN koennen
+ *         daraus mehr werden. Ohne Anzeige weiss man nie, ob die Zahlen von
+ *         jetzt sind — und haelt einen veralteten Score fuer einen Fehler.
+ *         Ab 5 Minuten in Rot: dann stimmt etwas nicht.
+ *
+ *     (5) ADAPTIVER SYNC-TAKT. Vorher starr 180 s (senden) und 90 s (holen),
+ *         egal ob gerade etwas passierte. Jetzt: 30 s bzw. 20 s, solange eine
+ *         Aufnahme laeuft oder die letzte Eingabe unter zwei Minuten her ist
+ *         (`lastEditMs`), sonst 180 s bzw. 120 s. Das spart Akku UND
+ *         beschleunigt genau die Momente, auf die es ankommt.
+ *
+ *     (6) AKKU-WARNUNG unter 20 %, EINMALIG. Achtzehn Loecher mit Dauer-GPS
+ *         zehren; geht die Uhr auf Loch 15 aus, ist die halbe Runde weg. Die
+ *         Meldung nennt den konkreten Ausweg (GPS-Quelle auf Handy) und
+ *         wiederholt sich NICHT — eine wiederkehrende Warnung wird weggetippt
+ *         und dann ganz uebersehen.
+ *
+ *     Dazu `buzz()`: 40 ms haptische Rueckmeldung beim Speichern eines Schlags
+ *     und bei der Akku-Warnung. Auf dem Platz schaut man nicht hin; laenger als
+ *     40 ms wirkt wie eine Fehlermeldung.
+ *
+ *     Nach dem Umbau geprueft: Klammerbilanz 0/0, HolePage 24 und PlayPager 45
+ *     Parameter vollstaendig versorgt, ktcheck.py ohne Fehler.
+ *
+ *  2026-08-10 (19) · QUALITY-EINGABE ENTFERNT (doppelte Erfassung).
+ *     `quality` trug KEINE eigene Information: In sgHole dient es nur als
+ *     DRITTER Rueckfall fuer die 1.-Putt-Distanz
+ *     (erfasste 1.-Putt-Distanz -> bei GIR die Restdistanz -> quality).
+ *     Auf einem Loch mit Gruentreffer sind „Abstand nach dem Approach" und
+ *     „Laenge des ersten Putts" dieselbe Zahl — man tippte sie zweimal ein,
+ *     auf einem Bildschirm, auf dem jeder Tipp zaehlt.
+ *     Entfernt: die SelectRow auf der Detailseite und der Eintrag im
+ *     `detailCount` (ein Zaehler, der etwas mitzaehlt, wozu es keine Eingabe
+ *     gibt, schickt den Nutzer auf die Suche).
+ *     BEWUSST GEBLIEBEN: das FELD im Datenmodell samt Lesen und Schreiben —
+ *     Altrunden enthalten es, und der Rueckfall in sgHole soll weiter greifen.
+ *     Gepflegt wird es bei Bedarf am Handy.
+ *
+ *  2026-08-10 (18) · AUTO-LOCH VOLLSTAENDIG ENTFERNT.
+ *     Der automatische Lochwechsel per Positionsnaehe stoerte auf dem Platz
+ *     mehr als er half: beim Warten am naechsten Tee, beim Ballsuchen und auf
+ *     dem Rueckweg sprang die Anzeige um — mitten in der Eingabe. Die PWA hat
+ *     ihn mit v1.98 aufgegeben, die Uhr zieht nach.
+ *     Entfernt an acht Stellen: der LaunchedEffect mit der 40-m-Pruefung am
+ *     naechsten Abschlag, der remember-Zustand samt Einstellung
+ *     `prefGetB/prefSetB("autoHole")`, die Rueckruf-Definition, der Chip
+ *     „Auto-Loch" auf der Detailseite sowie Parameter und Argumente in
+ *     PlayPager, ScorePage und HolePage.
+ *     Gewechselt wird jetzt ausschliesslich von Hand (◀ / ▶).
+ *     Nach dem Entfernen geprueft: Klammerbilanz 0/0, alle Signaturen
+ *     vollstaendig versorgt (PlayPager 41, ScorePage 21, DetailPage 11,
+ *     HolePage 20, HomeScreen 15 Parameter), ktcheck.py ohne Fehler.
+ *
+ *  2026-08-10 (17) · GRUENDLICHE PRUEFUNG der ganzen Datei (ktcheck.py).
+ *     Anlass: In dieser Datei sind wiederholt Fehler entstanden, die erst der
+ *     Compiler fand. Geprueft wurden genau die aufgetretenen Fehlerklassen
+ *     plus ihre Nachbarn — 6848 Zeilen, 49 Funktionen, 26 Datenklassen:
+ *
+ *       1. Klammerbilanz, kontextsicher (Strings, VERSCHACHTELTE ${}-Vorlagen,
+ *          Roh-Strings, Kommentare uebersprungen)          -> 0 / 0, sauber
+ *       2. Doppelte Funktionen mit gleicher SIGNATUR       -> keine
+ *       3. Rueckrufe im Rumpf ohne Deklaration            -> keine
+ *          (das war der onPen-Fehler)
+ *       4. Aufrufe: alle Pflichtparameter versorgt        -> keine Luecke
+ *       5. Lokale Funktionen vor ihrem Aufruf             -> alle 17 korrekt
+ *          (das war der recLiveJson-Fehler)
+ *       6. Feldzugriffe gegen die Datenklassen            -> keine
+ *          (das war der it.name-Fehler)
+ *       7. JSON-Schluessel geschrieben/gelesen            -> 63 / 54, deckungsgleich
+ *       8. Upload ersetzt das Repo-JSON nicht             -> korrekt
+ *
+ *     VIER FALLEN, in die eine naive Pruefung tappt (und die mich beim ersten
+ *     Durchgang je einmal erwischt haben) — hier festgehalten, damit die
+ *     naechste Pruefung sie nicht erneut als Fehler meldet:
+ *       · `rotaryScrollModifier` gibt es ZWEIMAL — gueltige Ueberladung mit
+ *         verschiedenen TYPEN (ScalingLazyListState / ScrollState). Ein
+ *         Vergleich der Parameterzahl allein meldet sie faelschlich.
+ *       · `req.onSelect(...)` ist ein FELD einer Datenklasse, kein freier
+ *         Rueckruf. Punkt-Zugriffe muessen ausgeschlossen werden.
+ *       · GEMISCHTE Aufrufe (positionell + ein benanntes Argument, oft
+ *         `valueColor =` oder eine abschliessende Lambda) sind gueltiges
+ *         Kotlin. Nur wenn ALLE Argumente benannt sind, laesst sich
+ *         Vollstaendigkeit beurteilen.
+ *       · `!!` ist durchweg abgesichert (if (x != null), .filter { it.ring !=
+ *         null }, rec?.start != null) — kein blindes Zusichern.
+ *
+ *     BEWUSST LEERE catch-Bloecke: WakeLock acquire/release, removeUpdates,
+ *     startService. Dort ist ein Fehlschlag folgenlos; es gibt nichts
+ *     Sinnvolles zu tun. readData/cacheWrite haben einen echten Rueckfall.
+ *
+ *  2026-08-10 (16) · BUILD-FEHLER: „Unresolved reference: onPen".
+ *     Die Strafschlaege wurden von der Detail- auf die SCORE-Seite verschoben
+ *     (sie sind in der SG-Rechnung eine eigene Kategorie und gehoeren nach
+ *     oben). Der Stepper-Aufruf `onPen(-1)` wanderte mit — der PARAMETER
+ *     `onPen` blieb aber in der Signatur von ScorePage aus. `PlayPager` hatte
+ *     ihn bereits und reichte ihn nur an DetailPage weiter.
+ *     Ergaenzt: `onPen: (Int) -> Unit` in ScorePage, `onPen = onPen` am Aufruf.
+ *
+ *     PRUEFUNG dagegen (laeuft jetzt ueber die ganze Datei): In JEDEM
+ *     Composable die im Rumpf benutzten `on…(`-Rueckrufe gegen die
+ *     Parameterliste abgleichen. Ausserdem je Aufruf mit benannten Argumenten
+ *     pruefen, ob alle Parameter ohne Vorgabewert versorgt sind. Beides ohne
+ *     Befund — die drei gemeldeten Stellen (PickScreen, PickerScreen, Stepper)
+ *     rufen POSITIONELL auf, was gueltig ist.
+ *
  *  2026-08-10 (15) · ABGLEICH mit PWA v2.19. KEINE Aenderung noetig — geprueft
  *     und hier festgehalten, damit der naechste Durchgang nicht danach sucht:
  *
@@ -3612,7 +3730,14 @@ private data class Rec(
     val start: LL?,
     // Startzeit: geht in den Live-Zeiger, damit das Handy „seit 40 s" anzeigen
     // und eine vergessene Aufnahme nach 30 min als abgelaufen erkennen kann.
-    val at: String = isoNow()
+    val at: String = isoNow(),
+    /* SCHWUNGLAENGE (2026-08-10). Die PWA lernt die Schlaegerlaengen NUR aus
+       vollen Schwuengen (clubMeasured filtert `swing`). Ohne dieses Feld
+       zaehlte jeder auf der Uhr getrackte Schlag als voll — ein halber Wedge
+       mit 55 statt 92 m zoege die gelernte Laenge nach unten und machte die
+       Caddy-Empfehlung systematisch zu kurz. `null` bedeutet „Voll", so wie
+       alle Altdaten gemeint waren. */
+    val swing: String? = null
 )
 
 // Alles, was der Loch-Screen an Live-Werten anzeigt
@@ -3731,10 +3856,6 @@ fun GolfWatchApp(
 
     var caddyMode by remember {
         mutableStateOf(prefGet(ctx, "caddyMode", "bal"))
-    }
-
-    var autoHole by remember {
-        mutableStateOf(prefGetB(ctx, "autoHole", true))
     }
 
     var plan by remember {
@@ -3952,6 +4073,7 @@ fun GolfWatchApp(
             }
 
             if (res.ok) {
+                lastSyncMs = System.currentTimeMillis()
                 // gepushte Messungen sind im Repo -> lokal nicht mehr nötig
                 measurements.removeAll(pending)
                 res.mergedHoles?.let { adoptHoles(it) }
@@ -4028,6 +4150,47 @@ fun GolfWatchApp(
         }
     }
 
+    /* Kurze haptische Rueckmeldung. Auf dem Platz schaut man nicht hin — ein
+       Impuls bestaetigt, dass der Tipp angekommen ist. Bewusst kurz (40 ms):
+       laenger wirkt wie eine Fehlermeldung. */
+    fun buzz(c: Context) {
+        try {
+            val v = c.getSystemService(Context.VIBRATOR_SERVICE) as? android.os.Vibrator
+            v?.vibrate(
+                android.os.VibrationEffect.createOneShot(
+                    40L,
+                    android.os.VibrationEffect.DEFAULT_AMPLITUDE
+                )
+            )
+        } catch (e: Exception) {
+            // Ohne Vibrationsmotor ist nichts zu tun.
+        }
+    }
+
+    var lastEditMs by remember { mutableStateOf(0L) }
+
+    /* Zeitpunkt des letzten ERFOLGREICHEN Abgleichs. Die Uhr zieht im
+       Sparbetrieb alle zwei Minuten, ueber das CDN koennen daraus mehr werden.
+       Ohne Anzeige weiss man nie, ob die Zahlen von jetzt oder von vor zehn
+       Minuten sind — und haelt einen veralteten Score fuer einen Fehler. */
+    var lastSyncMs by remember { mutableStateOf(0L) }
+
+    /* Alter des letzten Abgleichs als kurzer Text. Ab 5 Minuten in Rot —
+       dann stimmt etwas nicht (Funkloch, Worker weg), und man sollte sich
+       nicht auf die Zahlen verlassen. */
+    fun syncAlter(): Pair<String, Boolean> {
+        if (lastSyncMs == 0L) return Pair("—", false)
+        val s = ((System.currentTimeMillis() - lastSyncMs) / 1000).toInt()
+        return when {
+            s < 60  -> Pair("${s}s", false)
+            s < 300 -> Pair("${s / 60}min", false)
+            else    -> Pair("${s / 60}min", true)
+        }
+    }
+
+    /* Zeitpunkt der letzten Eingabe — steuert den adaptiven Sync-Takt.
+       Bewusst KEIN remember-Zustand: Der Wert soll keine Neuzeichnung
+       ausloesen, er wird nur gelesen, wenn die Schleife ohnehin laeuft. */
     fun change(
         hole: Int,
         t: (HoleEntry) -> HoleEntry
@@ -4039,8 +4202,35 @@ fun GolfWatchApp(
                     ?: HoleEntry()
             )
 
+        lastEditMs = System.currentTimeMillis()
         persist()          // lokal SOFORT sichern (jede Eingabe)
         scheduleSync()     // Repo-Sync entprellt anstoßen (jede Eingabe)
+    }
+
+    /* ==========================================================================
+       AKKU-WARNUNG (2026-08-10)
+       Achtzehn Loecher mit Dauer-GPS zehren. Geht die Uhr auf Loch 15 aus, ist
+       die halbe Runde weg — und man merkt es erst, wenn man hinsieht.
+       EINMALIGE Warnung unter 20 %, mit dem konkreten Ausweg: auf Handy-GPS
+       umschalten spart am meisten. Danach nicht mehr melden; eine Warnung, die
+       sich wiederholt, wird weggetippt und dann ganz uebersehen.
+       ========================================================================== */
+    var akkuGewarnt by remember { mutableStateOf(false) }
+    LaunchedEffect(screen, akkuGewarnt) {
+        if (screen != "play" || akkuGewarnt) return@LaunchedEffect
+        while (screen == "play" && !akkuGewarnt) {
+            val bm = ctx.getSystemService(Context.BATTERY_SERVICE) as? android.os.BatteryManager
+            val pct = bm?.getIntProperty(
+                android.os.BatteryManager.BATTERY_PROPERTY_CAPACITY
+            ) ?: -1
+            if (pct in 1..19) {
+                akkuGewarnt = true
+                status = if (gps == "phone") "🔋 $pct % — Runde bald sichern"
+                         else "🔋 $pct % — GPS-Quelle auf Handy spart Akku"
+                buzz(ctx)
+            }
+            delay(300_000)          // alle 5 min genuegt
+        }
     }
 
     // ---------------- Live-Tracking ----------------
@@ -4135,11 +4325,18 @@ fun GolfWatchApp(
     // Eingabe. Der Push trägt den live-Zeiger, und NUR daran erkennt das Handy,
     // dass überhaupt eine Runde läuft. Ohne diesen Takt erfährt es davon erst,
     // wenn das erste Loch einen Score hat (buildRoundJson lässt leere Löcher weg).
+    /* ADAPTIVER TAKT (2026-08-10). Vorher galten starr 180 s, egal ob gerade
+       etwas passierte. Wer einen Score eintraegt, will ihn zeitnah am Handy
+       sehen; wer bei Loch 7 auf den Flight wartet, braucht kein Dauerfunken.
+       Deshalb: kurz nach einer Eingabe schnell, danach zurueck auf den
+       Sparbetrieb. Das spart Akku UND beschleunigt genau die Momente, auf die
+       es ankommt. */
     LaunchedEffect(screen) {
         if (screen == "play") {
             syncNow()                       // sofort beim Betreten der Runde
             while (screen == "play") {
-                delay(180_000)
+                val frisch = System.currentTimeMillis() - lastEditMs < 120_000
+                delay(if (frisch) 30_000 else 180_000)
                 if (rec == null) syncNow()  // laufende Messung nicht stören
             }
         }
@@ -4168,7 +4365,11 @@ fun GolfWatchApp(
     // Hinweis: Pages-CDN cached die Datei — Latenz realistisch Minuten.
     LaunchedEffect(screen) {
         while (screen == "play") {
-            delay(90_000)
+            /* Waehrend einer Schlagaufnahme oder kurz nach einer Eingabe
+               haeufiger nachsehen — dann arbeitet meist auch das Handy. */
+            val eilig = rec != null ||
+                System.currentTimeMillis() - lastEditMs < 120_000
+            delay(if (eilig) 20_000 else 120_000)
             if (rec != null) continue
             val cn = course?.name ?: continue
             val dr = try {
@@ -4249,28 +4450,11 @@ fun GolfWatchApp(
         plan = p
     }
 
-    // Auto-Loch: nur weiter, wenn das aktuelle Loch einen Score hat, keine
-    // Schlagaufnahme läuft und man am Abschlag des FOLGENDEN Lochs steht.
-    LaunchedEffect(gridLat, gridLng, autoHole, idx) {
-
-        if (!autoHole || rec != null || screen != "play") return@LaunchedEffect
-
-        val cs = course ?: return@LaunchedEffect
-        val g = geo ?: return@LaunchedEffect
-        val f = Live.fix ?: return@LaunchedEffect
-
-        val cur = cs.holes.getOrNull(idx) ?: return@LaunchedEffect
-        if (entries[cur.hole]?.score == null) return@LaunchedEffect
-
-        val next = cs.holes.getOrNull(idx + 1) ?: return@LaunchedEffect
-        val teePt = g.holes[next.hole]?.tee ?: return@LaunchedEffect
-
-        if (Geo.dist(f.ll(), teePt) < 40) {
-            idx += 1
-            status = "→ Loch ${next.hole}"
-            syncNow()
-        }
-    }
+    /* AUTO-LOCH ENTFERNT (2026-08-10). Der automatische Lochwechsel per
+       Positionsnaehe stoerte auf dem Platz mehr als er half: beim Warten am
+       naechsten Tee, beim Ballsuchen und auf dem Rueckweg sprang die Anzeige
+       um — mitten in der Eingabe. Die PWA hat ihn mit v1.98 aufgegeben, die
+       Uhr zieht nach. Gewechselt wird ausschliesslich von Hand. */
 
     // ---------------- Schlagtracking ----------------
 
@@ -4285,7 +4469,14 @@ fun GolfWatchApp(
 
     fun recClub(c: String?) {
         val r = rec ?: return
-        rec = Rec(c, Live.fix?.ll() ?: r.start, r.at)
+        rec = Rec(c, Live.fix?.ll() ?: r.start, r.at, r.swing)
+    }
+
+    /* Schwunglaenge waehlen. „Voll" wird als null gespeichert — das haelt die
+       Daten klein und entspricht der Bedeutung in der PWA. */
+    fun recSwing(v: String?) {
+        val r = rec ?: return
+        rec = Rec(r.club, r.start, r.at, if (v == null || v == "Voll") null else v)
     }
 
     fun recCancel() {
@@ -4336,6 +4527,9 @@ fun GolfWatchApp(
                     .put("ts", isoNow())
                     .put("club", club)
                     .put("dist", len)
+                    // Nur setzen, wenn es KEIN voller Schwung war — sonst
+                    // bleibt das Feld weg und gilt als „Voll".
+                    .apply { r.swing?.let { put("swing", it) } }
                     .put("accA", f.acc.roundToInt())
                     .put("accB", f.acc.roundToInt())
                     .put("latA", round6(startP.lat))
@@ -4347,7 +4541,10 @@ fun GolfWatchApp(
         }
 
         rec = null
-        status = "Schlag $len m" + (if (club.isNotEmpty()) " · $club" else "")
+        status = "Schlag $len m" + (if (club.isNotEmpty()) " · $club" else "") +
+            (r.swing?.let { " ($it)" } ?: "")
+        // Haptisch bestaetigen: beim Ball schaut man nicht auf die Uhr.
+        buzz(ctx)
         persist()
     }
 
@@ -4866,10 +5063,12 @@ fun GolfWatchApp(
                         plan = plan,
                         weatherLine = Wx.line(weather),
                         caddyMode = caddyMode,
-                        autoHole = autoHole,
 
                         recActive = rec != null,
                         recClubName = rec?.club,
+                        recSwingName = rec?.swing,
+                        syncAge = syncAlter().first.takeIf { it != "—" },
+                        syncStale = syncAlter().second,
                         recDist = recDist,
                         shotCount = max(0, e.shots.size - 1),
 
@@ -5014,11 +5213,6 @@ fun GolfWatchApp(
                             prefSet(ctx, "caddyMode", caddyMode)
                         },
 
-                        onAutoHole = {
-                            autoHole = !autoHole
-                            prefSetB(ctx, "autoHole", autoHole)
-                        },
-
                         onShotBegin = { recBegin() },
 
                         onShotClub = {
@@ -5036,6 +5230,15 @@ fun GolfWatchApp(
                                 ) { sel ->
                                     recClub(sel)
                                 }
+                        },
+
+                        /* Ein Tipp schaltet die Schwunglaenge weiter:
+                           Voll -> 3/4 -> Halb -> Punch -> Voll. Kein Menue —
+                           man steht beim Ball und will weiterspielen. */
+                        onShotSwing = {
+                            val folge = listOf(null, "3/4", "Halb", "Punch")
+                            val jetzt = folge.indexOf(rec?.swing)
+                            recSwing(folge[(if (jetzt < 0) 0 else jetzt + 1) % folge.size])
                         },
 
                         onShotStop = { recStop() },
@@ -5703,9 +5906,11 @@ private fun PlayPager(
     plan: Caddy.Plan?,
     weatherLine: String?,
     caddyMode: String,
-    autoHole: Boolean,
     recActive: Boolean,
     recClubName: String?,
+    recSwingName: String?,
+    syncAge: String?,
+    syncStale: Boolean,
     recDist: Int?,
     shotCount: Int,
     onScore: (Int) -> Unit,
@@ -5723,9 +5928,9 @@ private fun PlayPager(
         (HoleEntry, String?) -> HoleEntry
     ) -> Unit,
     onCaddyMode: () -> Unit,
-    onAutoHole: () -> Unit,
     onShotBegin: () -> Unit,
     onShotClub: () -> Unit,
+    onShotSwing: () -> Unit,
     onShotStop: () -> Unit,
     onShotCancel: () -> Unit,
     onShotUndo: () -> Unit,
@@ -5800,11 +6005,15 @@ private fun PlayPager(
                     caddyMode = caddyMode,
                     recActive = recActive,
                     recClubName = recClubName,
+                    recSwingName = recSwingName,
+                    syncAge = syncAge,
+                    syncStale = syncStale,
                     recDist = recDist,
                     shotCount = shotCount,
                     onCaddyMode = onCaddyMode,
                     onShotBegin = onShotBegin,
                     onShotClub = onShotClub,
+                    onShotSwing = onShotSwing,
                     onShotStop = onShotStop,
                     onShotCancel = onShotCancel,
                     onShotUndo = onShotUndo,
@@ -5824,12 +6033,11 @@ private fun PlayPager(
                     clubNames = clubNames,
                     toPar = toPar,
                     thru = thru,
-                    autoHole = autoHole,
                     onScore = onScore,
                     onPutts = onPutts,
+                    onPen = onPen,
                     onDistFromGps = onDistFromGps,
                     onPick = onPick,
-                    onAutoHole = onAutoHole,
                     onPrev = onPrev,
                     onNext = onNext,
                     onFinish = onFinish,
@@ -5894,11 +6102,15 @@ private fun HolePage(
     caddyMode: String,
     recActive: Boolean,
     recClubName: String?,
+    recSwingName: String?,
+    syncAge: String?,
+    syncStale: Boolean,
     recDist: Int?,
     shotCount: Int,
     onCaddyMode: () -> Unit,
     onShotBegin: () -> Unit,
     onShotClub: () -> Unit,
+    onShotSwing: () -> Unit,
     onShotStop: () -> Unit,
     onShotCancel: () -> Unit,
     onShotUndo: () -> Unit,
@@ -5930,9 +6142,14 @@ private fun HolePage(
                     " · $op" +
                     // Score des Lochs hier statt als eigener Chip unten —
                     // der kostete die Höhe, die dem Schlagtracking fehlte.
-                    (entry.score?.let { " · ✓$it" } ?: ""),
+                    (entry.score?.let { " · ✓$it" } ?: "") +
+                    /* Alter des letzten Abgleichs. Ohne diese Angabe weiss man
+                       nie, ob die Zahlen von jetzt sind oder von vor zehn
+                       Minuten — und haelt einen veralteten Score fuer einen
+                       Fehler. Ab 5 min in Rot: dann stimmt etwas nicht. */
+                    (syncAge?.let { " · ⟳$it" } ?: ""),
             fontSize = 12.sp,
-            color = GoldText,
+            color = if (syncStale) RedC else GoldText,
             maxLines = 1
         )
 
@@ -6124,6 +6341,28 @@ private fun HolePage(
                 colors = ChipDefaults.secondaryChipColors(),
                 modifier = Modifier.weight(0.5f)
             )
+            /* SCHWUNGLAENGE — nur waehrend einer laufenden Aufnahme.
+               Die PWA lernt Schlaegerlaengen NUR aus vollen Schwuengen; ohne
+               diese Angabe zoege ein halber Wedge (55 statt 92 m) die gelernte
+               Laenge nach unten. Ein Tipp schaltet weiter: Voll -> 3/4 -> Halb
+               -> Punch -> Voll. Ein Auswahlmenue waere hier ein Tipp zu viel:
+               man steht beim Ball und will weiterspielen. */
+            if (recActive) {
+                CompactChip(
+                    onClick = onShotSwing,
+                    label = {
+                        Text(
+                            recSwingName ?: "Voll",
+                            fontSize = 11.sp,
+                            maxLines = 1
+                        )
+                    },
+                    colors =
+                        if (recSwingName != null) ChipDefaults.primaryChipColors()
+                        else ChipDefaults.secondaryChipColors(),
+                    modifier = Modifier.weight(0.8f)
+                )
+            }
             CompactChip(
                 onClick = onShotClub,
                 label = {
@@ -6164,9 +6403,13 @@ private fun ScorePage(
     clubNames: List<String>,
     toPar: Int,
     thru: Int,
-    autoHole: Boolean,
     onScore: (Int) -> Unit,
     onPutts: (Int) -> Unit,
+    /* Strafschlaege stehen seit dem Umbau OBEN auf der Score-Seite und nicht
+       mehr in den Details — der Rueckruf muss also hier ankommen. Beim
+       Verschieben wurde er in der Signatur vergessen, der Aufruf im Rumpf blieb
+       stehen: „Unresolved reference: onPen". */
+    onPen: (Int) -> Unit,
     onDistFromGps: () -> Unit,
     onPick: (
         String,
@@ -6174,7 +6417,6 @@ private fun ScorePage(
         String?,
         (HoleEntry, String?) -> HoleEntry
     ) -> Unit,
-    onAutoHole: () -> Unit,
     onPrev: () -> Unit,
     onNext: () -> Unit,
     onFinish: () -> Unit,
@@ -6443,18 +6685,6 @@ private fun ScorePage(
 
         item {
             Chip(
-                onClick = onAutoHole,
-                label = { Text("Auto-Loch") },
-                secondaryLabel = { Text(if (autoHole) "an" else "aus") },
-                colors =
-                    if (autoHole) ChipDefaults.primaryChipColors()
-                    else ChipDefaults.secondaryChipColors(),
-                modifier = Modifier.fillMaxWidth()
-            )
-        }
-
-        item {
-            Chip(
                 onClick = {
                     if (confirmFinish) {
                         confirmFinish = false
@@ -6539,8 +6769,11 @@ private fun DetailPage(
     ) -> Unit
 ) {
 
+    /* `quality` zaehlt hier NICHT mehr mit: Es ist auf der Uhr nicht mehr
+       eingebbar (siehe unten), und ein Zaehler, der etwas mitzaehlt, wozu es
+       keine Eingabe gibt, sendet den Nutzer auf die Suche. */
     val detailCount = listOf<Any?>(
-        entry.gir, entry.firstPutt, entry.quality, entry.club,
+        entry.gir, entry.firstPutt, entry.club,
         entry.lie, entry.bunkerN, entry.b1, entry.penType,
         entry.ud, entry.ss, entry.recovery
     ).count { it != null }
@@ -6573,18 +6806,19 @@ private fun DetailPage(
             }
         }
 
-        if (opts != null) {
-            item {
-                SelectRow("Quality", entry.quality) {
-                    onPick(
-                        "Quality",
-                        opts.qualityOpts,
-                        entry.quality
-                    ) { e, s -> e.copy(quality = s) }
-                }
-            }
+        /* QUALITY-EINGABE ENTFERNT (2026-08-10).
+           Das Feld trug KEINE eigene Information: In der SG-Rechnung dient es
+           nur als DRITTER Rueckfall fuer die 1.-Putt-Distanz
+           (erfasste 1.-Putt-Distanz -> bei GIR die Restdistanz -> quality).
+           Auf einem Gruen-in-Regulation-Loch ist „Abstand nach dem Approach"
+           und „Laenge des ersten Putts" ohnehin dieselbe Zahl — man tippte sie
+           auf der Uhr zweimal ein, auf einem Bildschirm, auf dem jeder Tipp
+           zaehlt.
 
-        }
+           Das FELD bleibt im Datenmodell und wird weiterhin gelesen und
+           geschrieben: Altrunden enthalten es, und der Rueckfall in sgHole soll
+           dafuer weiter greifen. Nur die Eingabe auf der Uhr entfaellt.
+           Gepflegt wird es bei Bedarf am Handy. */
 
         item { SectionLabel("Bunker & Strafen") }
 
