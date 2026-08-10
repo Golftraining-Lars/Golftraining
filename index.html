@@ -4481,7 +4481,7 @@ window.addEventListener("unhandledrejection", ev=>{ logErr("Promise", ev); });
 // Anzeige: letzte Fehler als Sheet (aus den Einstellungen aufrufbar)
 function errLogText(){
   return ERRLOG.slice().reverse().map(r=>
-    `${r.at.replace("T"," ").slice(0,19)}${r.n>1?` bis ${String(r.last).replace("T"," ").slice(11,19)} (${r.n}x)`:""}\n`
+    `${errZeit(r.at)}${r.n>1?` bis ${errZeit(r.last,true)} (${r.n}x)`:""}\n`
     +`${r.where}\n${r.msg}\n${r.stack||""}`).join("\n\n");
 }
 function errLogCopy(){
@@ -4490,12 +4490,37 @@ function errLogCopy(){
     ()=>toast("Kopieren nicht möglich")); }
   catch(_){ logErr("errLogCopy", _, true); toast("Kopieren nicht möglich"); }
 }
+/* ==========================================================================
+   ZEITSTEMPEL IN ORTSZEIT (v2.21)
+   `logErr` speichert `new Date().toISOString()` — das ist UTC, und richtig so:
+   ein absoluter Zeitpunkt, geraeteunabhaengig vergleichbar und sortierbar.
+   Die ANZEIGE schnitt den String aber nur zu (`.replace("T"," ").slice(0,19)`)
+   und zeigte damit UTC. In der deutschen Sommerzeit sind das ZWEI Stunden
+   Unterschied — ein Fehler von 14:40 erschien als 12:40, und beim Abgleich mit
+   dem eigenen Gedaechtnis („das war doch kurz vor dem Abschlag") stimmte
+   nichts mehr.
+   `errZeit()` rechnet in die Zeitzone des Geraets um. Gespeichert bleibt UTC.
+   ========================================================================== */
+function errZeit(iso, nurUhrzeit){
+  /* `new Date(null)` ergibt den 1.1.1970 — ein gueltiges Datum, das hier
+     niemandem hilft. Fehlender Zeitstempel muss als solcher erkennbar sein. */
+  if(iso==null || iso==="") return "–";
+  try{
+    const d=new Date(iso);
+    if(isNaN(d.getTime())) return String(iso).slice(0,19);
+    const p=n=>String(n).padStart(2,"0");
+    const uhr=`${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
+    if(nurUhrzeit) return uhr;
+    return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())} ${uhr}`;
+  }catch(e){ return String(iso||"").slice(0,19); }
+}
+
 function showErrLog(){
   if(!ERRLOG.length){ if(typeof toast==="function") toast("Keine Fehler protokolliert"); return; }
   const rows=ERRLOG.slice().reverse().map(r=>
     `<div class="hist-row" style="flex-direction:column;align-items:flex-start;gap:2px">
-       <span class="r-s">${esc(String(r.at).replace("T"," ").slice(0,19))}
-         ${r.n>1?`– ${esc(String(r.last).slice(11,19))} · <b>${r.n}×</b>`:""} · ${esc(r.where)}</span>
+       <span class="r-s">${esc(errZeit(r.at))}
+         ${r.n>1?`– ${esc(errZeit(r.last,true))} · <b>${r.n}×</b>`:""} · ${esc(r.where)}</span>
        <span>${esc(r.msg)}</span>
        ${r.stack?`<span class="r-s" style="opacity:.7">${esc(r.stack)}</span>`:""}
      </div>`).join("");
@@ -16312,7 +16337,7 @@ function renderHeader(){
   const prog=Math.max(0,Math.min(100,(p.startHcp-cur)/(p.startHcp-p.targetHcp)*100));
   $("#hcpBar").style.width=prog+"%";
   // phase
-  const today=new Date().toISOString().slice(0,10);
+  const today=todayISO();
   let ph=DB.phases.find(x=>x.start<=today&&today<=x.end);
   $("#phaseLabel").textContent=ph?ph.name:"–";
   updateSyncPill();
@@ -17105,7 +17130,7 @@ function tasksHtml(){
   const offen=DB.tasks.filter(t=>!t.erledigt);
   const fertig=DB.tasks.filter(t=>t.erledigt).slice(-3);
   if(!offen.length && !fertig.length) return "";
-  const heute=new Date().toISOString().slice(0,10);
+  const heute=todayISO();
   return `<div class="eyebrow">Trainingsaufgaben</div>
     <div class="card pad">
       ${offen.length?offen.map(t=>{
@@ -17281,7 +17306,7 @@ function openQuickRound(){
     <div class="field" style="margin-top:10px"><label>Platz</label>
       <select id="qr_course">${cs.map(c=>`<option>${esc(c)}</option>`).join("")}</select></div>
     <div class="field"><label>Datum</label>
-      <input type="date" id="qr_date" value="${new Date().toISOString().slice(0,10)}"></div>
+      <input type="date" id="qr_date" value="${todayISO()}"></div>
     <div class="card pad" style="margin-top:10px">
       <div class="qr-head"><span class="qr-n">Loch</span><span class="r-s">Par</span>
         <span class="r-s">Score</span><span class="r-s">Putts</span></div>
@@ -17293,7 +17318,7 @@ function openQuickRound(){
 }
 function quickRoundSave(){
   const platz=($("#qr_course")||{}).value||"";
-  const datum=($("#qr_date")||{}).value||new Date().toISOString().slice(0,10);
+  const datum=($("#qr_date")||{}).value||todayISO();
   const holes=[];
   document.querySelectorAll(".qr-row").forEach(row=>{
     const n=+row.dataset.hole;
@@ -18411,7 +18436,7 @@ function playBegin(course,tee,kindIdx){
   // Ueber playDefaults(), damit kein Feld verlorengeht (siehe dort).
   PLAY=Object.assign(playDefaults(), {active:true, mapFocus:playFocusDefault(),
     course, tee, side, type, roundId:"R"+Date.now(),
-    date:new Date().toISOString().slice(0,10),
+    date:todayISO(),
     hi:(DB.profile.hcpIndex!=null?DB.profile.hcpIndex:DB.profile.currentHcp),
     holes:hs, startTime:new Date().toTimeString().slice(0,5)});
   RTRACK={}; hs.forEach(h=>{ if(h.shots) RTRACK[h.hole]=h.shots; });
@@ -18434,7 +18459,7 @@ function playContinue(round){
   });
   PLAY=Object.assign(playDefaults(), {active:true, mapFocus:playFocusDefault(),
     course:round.course, tee:round.tee, side, type:round.type||"18 Loch",
-    roundId:round.id||"R"+Date.now(), date:round.date||new Date().toISOString().slice(0,10),
+    roundId:round.id||"R"+Date.now(), date:round.date||todayISO(),
     hi:round.hi, holes:base,
     startTime:round.startTime||new Date().toTimeString().slice(0,5)});
   RTRACK={}; base.forEach(h=>{ if(h.shots) RTRACK[h.hole]=h.shots; });
@@ -20733,7 +20758,7 @@ function lmImport(files){
   files.forEach(f=>{ const rd=new FileReader();
     rd.onload=()=>{ try{ const p=lmParse(rd.result);
       if(p.shots.length){ (DB.lmSessions=DB.lmSessions||[]).push({id:"LM"+Date.now()+Math.floor(Math.random()*1000),
-        date:new Date().toISOString().slice(0,10), name:f.name.replace(/\.csv$/i,""), shots:p.shots,
+        date:todayISO(), name:f.name.replace(/\.csv$/i,""), shots:p.shots,
         meta:{cols:p.cols, delim:p.delim, rawHeader:p.rawHeader}}); added+=p.shots.length; }
       else { lmLastFail={name:f.name, rawHeader:p.rawHeader, delim:p.delim, cols:p.cols}; }
     }catch(err){ console.error(err); lmLastFail={name:f.name, error:String(err)}; }
@@ -20823,7 +20848,7 @@ function openYogaEditor(id){
   const isNew=id===-1||id==null, s=isNew?{type:"Yoga"}:fitFind(id);
   let h=`<h2>${isNew?"Einheit hinzufügen":"Einheit bearbeiten"}</h2><div class="sub">Yoga · Mobilität · Reha</div>
   <div class="in-grid"><div class="field"><label>Art</label><select id="y_type">${["Yoga","Mobilität","Tennisarm"].map(t=>`<option${s.type===t?" selected":""}>${t}</option>`).join("")}</select></div>
-    <div class="field"><label>Datum</label><input type="date" id="y_date" value="${s.date||new Date().toISOString().slice(0,10)}"></div></div>
+    <div class="field"><label>Datum</label><input type="date" id="y_date" value="${s.date||todayISO()}"></div></div>
   <div class="in-grid"><div class="field"><label>Stil / Übung</label><input id="y_style" list="ystyles" value="${esc(s.style||"")}" placeholder="Hatha, Yin …"><datalist id="ystyles">${(DB.yogaStyles||[]).map(x=>`<option>${esc(x)}</option>`).join("")}</datalist></div>
     <div class="field"><label>Quelle</label><input id="y_source" value="${esc(s.source||"")}" placeholder="Down Dog …"></div></div>
   <div class="in-grid"><div class="field num"><label>Dauer (min)</label><input inputmode="numeric" id="y_dur" value="${s.duration??''}" placeholder="20"></div>
@@ -20867,7 +20892,7 @@ function openKraftEditor(id){
     $("#k_ex").querySelectorAll(".kdel").forEach(b=>b.onclick=()=>{ kraftRows.splice(+b.dataset.i,1); if(!kraftRows.length)kraftRows.push({}); draw(); });
   }
   let h=`<h2>${isNew?"Krafttraining":"Krafttraining bearbeiten"}</h2><div class="sub">Langhantel · eine Zeile je Übung</div>
-  <div class="field"><label>Datum</label><input type="date" id="k_date" value="${s.date||new Date().toISOString().slice(0,10)}"></div>
+  <div class="field"><label>Datum</label><input type="date" id="k_date" value="${s.date||todayISO()}"></div>
   <datalist id="lifts">${(DB.fitnessLifts||[]).map(x=>`<option>${esc(x)}</option>`).join("")}</datalist>
   <div class="eyebrow" style="margin:6px 0 8px">Übungen</div><div id="k_ex"></div>
   <button class="btn ghost" id="k_add" style="margin-bottom:14px">＋ Übung</button>
@@ -20890,7 +20915,14 @@ function openKraftEditor(id){
 function isoWeek(d){ d=new Date(Date.UTC(d.getFullYear(),d.getMonth(),d.getDate())); const day=d.getUTCDay()||7;
   d.setUTCDate(d.getUTCDate()+4-day); const ys=new Date(Date.UTC(d.getUTCFullYear(),0,1));
   return Math.ceil(((d-ys)/86400000+1)/7); }
-function todayISO(){ return new Date().toISOString().slice(0,10); }
+/* ORTSZEIT, nicht UTC. `toISOString().slice(0,10)` liefert das UTC-Datum:
+   In der deutschen Sommerzeit ist es zwischen 00:00 und 02:00 noch der
+   VORTAG. Eine Runde, die man um halb eins nachts erfasst, waere dann auf
+   gestern datiert — und faende die heutige Runde nicht wieder. */
+function todayISO(){
+  const d=new Date(), p=n=>String(n).padStart(2,"0");
+  return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`;
+}
 function currentPhase(){ const t=todayISO(); return (DB.phases||[]).find(p=>(!p.start||p.start<=t)&&(!p.end||t<=p.end))||(DB.phases||[])[0]; }
 function currentBlock(){ const kw=isoWeek(new Date()); return ((DB.periodization||{}).blocks||[]).find(b=>b.kwFrom<=kw&&kw<=b.kwTo); }
 function nextTournament(){ const t=todayISO(); return (DB.tournaments||[]).filter(x=>x.date>=t).sort((a,b)=>a.date.localeCompare(b.date))[0]; }
@@ -23179,7 +23211,7 @@ function openTest(key){
     </details>`;
   }
   h+=`<div style="margin:18px 0 10px" class="eyebrow" >Neuer Eintrag</div>`;
-  h+=`<div class="field"><label>Datum</label><input type="date" id="f_date" value="${new Date().toISOString().slice(0,10)}"></div>`;
+  h+=`<div class="field"><label>Datum</label><input type="date" id="f_date" value="${todayISO()}"></div>`;
   h+=`<div class="in-grid">`;
   d.inputs.forEach((inp,i)=>{
     h+=`<div class="field num"><label>${esc(inp.label)}${typeof inp.max==="number"?" /"+inp.max:""}</label>
@@ -23249,7 +23281,7 @@ function openAddRound(existing, draftRound){
   let h=`<h2>${ed?"Runde bearbeiten":isDraft?"Runde fortsetzen":"Runde erfassen"}</h2><div class="sub">${isDraft?"Automatisch gesicherter Entwurf — weiter erfassen":"Loch für Loch — Par & Vorgabe kommen vom Platz"}<br>
   <span style="opacity:.8">Änderungen gelten erst mit „Speichern“ unten.</span></div>
   <div class="in-grid">
-    <div class="field"><label>Datum</label><input type="date" id="r_date" value="${seed?seed.date:new Date().toISOString().slice(0,10)}"></div>
+    <div class="field"><label>Datum</label><input type="date" id="r_date" value="${seed?seed.date:todayISO()}"></div>
     <div class="field"><label>HCP-Index</label><input inputmode="decimal" id="r_hi" value="${seed&&seed.hi!=null?seed.hi:(DB.profile.hcpIndex!=null?DB.profile.hcpIndex:'')}" placeholder="z.B. 20"></div>
   </div>
   <div class="field"><label>Platz</label><select id="r_course">${cOpts}</select></div>
@@ -24529,7 +24561,7 @@ function openAddComp(existing){
   const teeOpts=["Weiß","Gelb","Blau","Rot","Grün","Schwarz","Orange","gelb","gruen"].map(t=>`<option>${t}</option>`).join("");
   const v=(x)=>x==null?"":x;
   let h=`<h2>${ed?"Wettkampf bearbeiten":"Wettkampf erfassen"}</h2><div class="sub">Werte aus deiner Turnierkarte</div>
-  <div class="field"><label>Datum</label><input type="date" id="c_date" value="${ed?esc(ed.date):new Date().toISOString().slice(0,10)}"></div>
+  <div class="field"><label>Datum</label><input type="date" id="c_date" value="${ed?esc(ed.date):todayISO()}"></div>
   <div class="field"><label>Turnier</label><input id="c_tourn" value="${ed?esc(ed.tournament||""):""}" placeholder="Turniername"></div>
   <div class="field"><label>Platz</label><input list="courseList2" id="c_course" value="${ed?esc(ed.course||""):""}" placeholder="Platz">
     <datalist id="courseList2">${opts}</datalist></div>

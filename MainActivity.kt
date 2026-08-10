@@ -298,6 +298,49 @@ import kotlin.math.sqrt
  *     gesonderte „Fahne"-Distanz — sie waere identisch mit `mid` aus F/M/B und
  *     damit nur Rauschen auf einem kleinen Display.
  *
+ *  2026-08-10 (22) · BUILD-FEHLER: „Unresolved reference: gps".
+ *     Die Akku-Warnung las `gps` — den gibt es in GolfWatchApp aber nicht.
+ *     `gps` ist der Zustand INNERHALB von HomeScreen (Z5415) und ausserdem
+ *     eine lokale Variable in parsePlans (Z2162). In GolfWatchApp heisst die
+ *     Quelle `gpsSource` (Z3788). Korrigiert.
+ *
+ *     PRUEFUNG DAGEGEN (ktcheck.py, Punkt 5c): Bezeichner, die im Rumpf
+ *     benutzt werden, aber weder Parameter noch lokal noch top-level sind —
+ *     UND in einer anderen Funktion vorkommen. Nur diese Einschraenkung macht
+ *     die Pruefung rauschfrei; sonst meldet sie jede Bibliotheksfunktion.
+ *     Mit Gegenprobe verifiziert: der Fehler wird gemeldet.
+ *
+ *     DREI FALLEN beim Bau dieser Pruefung — sie erzeugte zunaechst 10
+ *     Fehlalarme, und eine Pruefung, die Falsches meldet, ist schlimmer als
+ *     keine:
+ *       · Funktionen mit AUSDRUCKSRUMPF (`fun today(): String = …`) haben
+ *         keinen Block. Die Rumpfsuche griff dann auf den naechsten fremden
+ *         Block zu — `today` „enthielt" plötzlich `geo`.
+ *       · Parameter EINZEILIGER Signaturen (`fun svcStart(ctx: Context, …)`)
+ *         wurden nicht erfasst; svcStart „benutzte" dann ein fremdes `ctx`.
+ *       · Parameter VERSCHACHTELTER lokaler Funktionen, Lambda-Parameter
+ *         (`{ arr -> }`) und for-Schleifenvariablen fehlten ebenfalls.
+ *
+ *  2026-08-10 (21) · BUILD-FEHLER: „Unresolved reference: lastSyncMs".
+ *     Die Zustaende `lastEditMs`/`lastSyncMs` und die Hilfsfunktionen
+ *     `buzz()`/`syncAlter()` standen NACH `syncNow()`, das sie benutzt.
+ *     Lokale Deklarationen sind in Kotlin erst AB ihrer Zeile sichtbar.
+ *     Verschoben: der ganze Block steht jetzt VOR syncNow().
+ *     Dieselbe Falle wie bei recLiveJson (2026-08-09) — diesmal mit einer
+ *     Variablen statt einer Funktion.
+ *
+ *     WICHTIGER NEBENFUND: Die Pruefung dagegen (ktcheck.py, Punkt 5) hatte
+ *     GolfWatchApp nie angesehen. Sie suchte das Ende einer Funktion als
+ *     „naechste Zeile, die auf Spalte 0 beginnt" — bei
+ *         fun GolfWatchApp(
+ *             ctx: Context
+ *         ) {
+ *     ist das die Zeile „) {". Der GANZE Rumpf wurde uebersprungen, und die
+ *     Pruefung meldete stets „sauber", ohne je etwas angesehen zu haben —
+ *     ausgerechnet bei der Funktion, in der beide Fehler steckten.
+ *     Jetzt echte Klammerpaarung, und die Pruefung deckt `var`/`val` mit ab.
+ *     Gegenprobe mit absichtlich eingebautem Fehler: wird gemeldet.
+ *
  *  2026-08-10 (20) · VIER VERBESSERUNGEN AUS DER PRAXIS.
  *
  *     (2) SCHWUNGLAENGE bei der Schlagaufnahme. Die PWA lernt Schlaegerlaengen
@@ -4036,6 +4079,51 @@ fun GolfWatchApp(
             .put("lng", st.lng)
     }
 
+    /* ==========================================================================
+       REIHENFOLGE BEACHTEN: Diese Zustaende und Hilfsfunktionen stehen
+       ABSICHTLICH vor syncNow(). Lokale Deklarationen in Kotlin sind erst AB
+       ihrer Zeile sichtbar — standen sie weiter unten, brach der Build mit
+       „Unresolved reference: lastSyncMs" mitten in syncNow() ab. Dieselbe
+       Falle wie bei recLiveJson (Eintrag vom 2026-08-09).
+       ========================================================================== */
+    /* Kurze haptische Rueckmeldung. Auf dem Platz schaut man nicht hin — ein
+       Impuls bestaetigt, dass der Tipp angekommen ist. Bewusst kurz (40 ms):
+       laenger wirkt wie eine Fehlermeldung. */
+    fun buzz(c: Context) {
+        try {
+            val v = c.getSystemService(Context.VIBRATOR_SERVICE) as? android.os.Vibrator
+            v?.vibrate(
+                android.os.VibrationEffect.createOneShot(
+                    40L,
+                    android.os.VibrationEffect.DEFAULT_AMPLITUDE
+                )
+            )
+        } catch (e: Exception) {
+            // Ohne Vibrationsmotor ist nichts zu tun.
+        }
+    }
+
+    var lastEditMs by remember { mutableStateOf(0L) }
+
+    /* Zeitpunkt des letzten ERFOLGREICHEN Abgleichs. Die Uhr zieht im
+       Sparbetrieb alle zwei Minuten, ueber das CDN koennen daraus mehr werden.
+       Ohne Anzeige weiss man nie, ob die Zahlen von jetzt oder von vor zehn
+       Minuten sind — und haelt einen veralteten Score fuer einen Fehler. */
+    var lastSyncMs by remember { mutableStateOf(0L) }
+
+    /* Alter des letzten Abgleichs als kurzer Text. Ab 5 Minuten in Rot —
+       dann stimmt etwas nicht (Funkloch, Worker weg), und man sollte sich
+       nicht auf die Zahlen verlassen. */
+    fun syncAlter(): Pair<String, Boolean> {
+        if (lastSyncMs == 0L) return Pair("—", false)
+        val s = ((System.currentTimeMillis() - lastSyncMs) / 1000).toInt()
+        return when {
+            s < 60  -> Pair("${s}s", false)
+            s < 300 -> Pair("${s / 60}min", false)
+            else    -> Pair("${s / 60}min", true)
+        }
+    }
+
     fun syncNow() {
 
         val cs = course ?: return
@@ -4150,44 +4238,6 @@ fun GolfWatchApp(
         }
     }
 
-    /* Kurze haptische Rueckmeldung. Auf dem Platz schaut man nicht hin — ein
-       Impuls bestaetigt, dass der Tipp angekommen ist. Bewusst kurz (40 ms):
-       laenger wirkt wie eine Fehlermeldung. */
-    fun buzz(c: Context) {
-        try {
-            val v = c.getSystemService(Context.VIBRATOR_SERVICE) as? android.os.Vibrator
-            v?.vibrate(
-                android.os.VibrationEffect.createOneShot(
-                    40L,
-                    android.os.VibrationEffect.DEFAULT_AMPLITUDE
-                )
-            )
-        } catch (e: Exception) {
-            // Ohne Vibrationsmotor ist nichts zu tun.
-        }
-    }
-
-    var lastEditMs by remember { mutableStateOf(0L) }
-
-    /* Zeitpunkt des letzten ERFOLGREICHEN Abgleichs. Die Uhr zieht im
-       Sparbetrieb alle zwei Minuten, ueber das CDN koennen daraus mehr werden.
-       Ohne Anzeige weiss man nie, ob die Zahlen von jetzt oder von vor zehn
-       Minuten sind — und haelt einen veralteten Score fuer einen Fehler. */
-    var lastSyncMs by remember { mutableStateOf(0L) }
-
-    /* Alter des letzten Abgleichs als kurzer Text. Ab 5 Minuten in Rot —
-       dann stimmt etwas nicht (Funkloch, Worker weg), und man sollte sich
-       nicht auf die Zahlen verlassen. */
-    fun syncAlter(): Pair<String, Boolean> {
-        if (lastSyncMs == 0L) return Pair("—", false)
-        val s = ((System.currentTimeMillis() - lastSyncMs) / 1000).toInt()
-        return when {
-            s < 60  -> Pair("${s}s", false)
-            s < 300 -> Pair("${s / 60}min", false)
-            else    -> Pair("${s / 60}min", true)
-        }
-    }
-
     /* Zeitpunkt der letzten Eingabe — steuert den adaptiven Sync-Takt.
        Bewusst KEIN remember-Zustand: Der Wert soll keine Neuzeichnung
        ausloesen, er wird nur gelesen, wenn die Schleife ohnehin laeuft. */
@@ -4225,7 +4275,10 @@ fun GolfWatchApp(
             ) ?: -1
             if (pct in 1..19) {
                 akkuGewarnt = true
-                status = if (gps == "phone") "🔋 $pct % — Runde bald sichern"
+                /* In GolfWatchApp heisst die Quelle `gpsSource` (Z3788).
+                   `gps` gibt es hier nicht — das ist der Zustand INNERHALB von
+                   HomeScreen und eine lokale Variable in parsePlans. */
+                status = if (gpsSource == "phone") "🔋 $pct % — Runde bald sichern"
                          else "🔋 $pct % — GPS-Quelle auf Handy spart Akku"
                 buzz(ctx)
             }

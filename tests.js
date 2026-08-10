@@ -152,7 +152,7 @@ try {
                  "caddyClubs","clubNorm","clubRename","bagFreiName","bagMessSpalte",
                  "tombAdd","tombClear","tombDel","MERGE_KEY","_mergeTomb","_tombFor",
                  "playCaddyNow","playTooFar","playAimChain","playMapSlot","playFocusDefault",
-                 "hcpGap","whsPool","courseStats","nassFaktor","sgHoleShots","sgVerlauf",
+                 "hcpGap","whsPool","courseStats","nassFaktor","errZeit","todayISO","sgHoleShots","sgVerlauf",
                  "holeGir","holeUpDown","holeSandSave","platzAnalyse","taskFortschritt",
                  "warmupSchedule","warmupKorrektiv","WARMUP_PLANS","medianSplit","pearson",
                  "rKrit","gpKey","gpLabel","gpTotalES","pickClub","_aimClub","_aimLerp",
@@ -2440,6 +2440,62 @@ group("Übergabeliste vollständig — sonst laufen Gruppen still ins Leere");
     const fehlen=[...angefordert].filter(n=>!liste.has(n));
     ok("jeder über G() angeforderte Name wird übergeben", fehlen.length===0,
        fehlen.slice(0,8).join(", "));
+  }
+}
+
+/* ============ 24am. Zeitstempel im Fehlerprotokoll ============ */
+group("errZeit — UTC speichern, Ortszeit anzeigen");
+{
+  const ez=G("errZeit");
+  if (typeof ez === "function") {
+    /* `logErr` speichert `toISOString()` — UTC, und das ist richtig: ein
+       absoluter, geräteunabhängig vergleichbarer Zeitpunkt. Die ANZEIGE
+       schnitt den String aber nur zu und zeigte damit UTC. In der deutschen
+       Sommerzeit sind das ZWEI Stunden: ein Fehler von 14:40 erschien als
+       12:40, und der Abgleich mit dem eigenen Gedächtnis ging schief. */
+    const iso="2026-08-10T12:40:41.000Z";
+    const v=ez(iso);
+    ok("liefert ein Datum", /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(v), v);
+    /* Der Wert MUSS von der rohen UTC-Zeichenkette abweichen, wenn die
+       Zeitzone nicht UTC ist — sonst wurde gar nicht umgerechnet. */
+    const roh=iso.replace("T"," ").slice(0,19);
+    const offset=new Date(iso).getTimezoneOffset();
+    if(offset!==0) ok("in Ortszeit umgerechnet", v!==roh, `${roh} -> ${v}`);
+    else ok("UTC-Umgebung: unverändert korrekt", v===roh, v);
+    /* Die Uhrzeit-Variante für Wiederholungen. */
+    ok("nur Uhrzeit", /^\d{2}:\d{2}:\d{2}$/.test(ez(iso,true)), ez(iso,true));
+    ok("Uhrzeit passt zum Datum", ez(iso).endsWith(ez(iso,true)));
+    /* Grenzfälle: `new Date(null)` ergibt den 1.1.1970 — ein gültiges Datum,
+       das hier niemandem hilft. */
+    eq("null → Strich", ez(null), "–");
+    eq("leer → Strich", ez(""), "–");
+    ok("unlesbar → Rohwert", ez("kaputt")==="kaputt", ez("kaputt"));
+  }
+
+  /* Dasselbe Problem an zweiter Stelle: `toISOString().slice(0,10)` liefert
+     das UTC-DATUM. In der deutschen Sommerzeit ist es zwischen 00:00 und 02:00
+     noch der VORTAG — eine um halb eins nachts erfasste Runde wäre auf gestern
+     datiert und ließe sich am nächsten Tag nicht wiederfinden. */
+  const ti=G("todayISO");
+  if (typeof ti === "function") {
+    const v=ti();
+    ok("todayISO liefert ein Datum", /^\d{4}-\d{2}-\d{2}$/.test(v), v);
+    const d=new Date();
+    const p=n=>String(n).padStart(2,"0");
+    const lokal=`${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`;
+    eq("todayISO ist das ORTSDATUM", v, lokal);
+    /* Gegenprobe gegen die alte Bildungsvorschrift — sie darf nur dann
+       übereinstimmen, wenn die Zeitzone gerade keinen Datumssprung erzeugt. */
+    const utc=new Date().toISOString().slice(0,10);
+    if(v!==utc) ok("weicht bewusst vom UTC-Datum ab", true, `${utc} (UTC) -> ${v}`);
+    else ok("Zeitzone erzeugt gerade keinen Versatz", true, v);
+    /* Und der ausführbare Code darf die rohe Form nicht mehr verwenden. */
+    const src=fs.readFileSync(FILE,"utf8");
+    const nurCode = [...src.matchAll(/<script([^>]*)>([\s\S]*?)<\/script>/g)]
+      .filter(m=>!/\bsrc=|application\/json|text\/markdown|devdocs/.test(m[1]))
+      .map(m=>m[2]).join("\n").replace(/\/\*[\s\S]*?\*\//g,"");
+    ok("kein rohes toISOString().slice(0,10) mehr",
+       nurCode.indexOf('new Date().toISOString().slice(0,10)')<0);
   }
 }
 
