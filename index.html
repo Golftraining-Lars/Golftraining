@@ -660,6 +660,11 @@
   .pf-bottom{flex:0 0 auto;z-index:6;
     padding:10px 12px calc(env(safe-area-inset-bottom) + 12px);
     background:linear-gradient(to top,rgba(8,26,15,.82),rgba(8,26,15,.55))}
+  .pf-mode{display:flex;gap:8px;align-items:center;margin-bottom:8px}
+  .pf-mode .risk-seg{flex:1;margin:0}
+  .pf-mode .risk-seg button{padding:9px 6px;font-size:12.5px}
+  .pf-card-btn{flex:0 0 auto;border:none;border-radius:12px;padding:9px 12px;font-size:12.5px;
+    font-weight:700;background:rgba(255,255,255,.9);color:var(--pine-deep);cursor:pointer}
   .pf-acts{display:grid;grid-template-columns:auto 1fr 1fr auto;gap:8px;align-items:center}
   .pf-acts button{border:none;border-radius:14px;padding:13px 8px;font-size:13.5px;font-weight:700;
     background:rgba(255,255,255,.93);color:var(--pine-deep);cursor:pointer;
@@ -2073,6 +2078,47 @@ Rechenkerne. Die Selbstpruefung hat beides gemeldet (doppelte Funktionsnamen, ni
 aufgerufen). **Vor dem Bauen pruefen, ob es die Funktion schon gibt** — die Datei hat inzwischen
 ueber 680 Funktionen.
 
+### Acht Aenderungen von der Runde (v1.98)
+- **Schwunglaenge je Schlag** (`playRecSwing`, `DB.swingTypes`): Voll · 3/4 · Halb · Viertel ·
+  Punch · Flop · Chip · Bunker, direkt am Aufnahmeband waehlbar und in `gpsShots.swing`
+  gespeichert. **Wichtig fuer die Rechnung:** `clubMeasured()` zaehlt nur noch VOLLE Schwuenge
+  fuer die gelernte Schlaegerlaenge — ein halber Wedge mit 55 statt 92 m haette sie sonst nach
+  unten gezogen und den Caddy systematisch zu kurz gemacht. Schlaege ohne Angabe gelten als voll
+  (so waren alle Altdaten gemeint).
+- **„Holed" in der 1.-Putt-Distanz.** Ein eingelochter Chip ist kein Putt, muss aber erfassbar
+  sein — sonst bleibt das Feld leer und das Loch faellt aus der SG-Zerlegung.
+  `sgBandMid("Holed") = 0` gab es laengst, die Auswahl fehlte.
+- **Auto-Loch (GPS) ENTFERNT.** Der automatische Lochwechsel sprang beim Warten am naechsten
+  Tee, beim Ballsuchen und auf dem Rueckweg um. Gewechselt wird nur noch von Hand.
+- **Caddy-Modus auf der Karte** (sicher/normal/offensiv) — die Entscheidung faellt am Abschlag,
+  nicht in einem Untermenue. `setCaddyMode()` verwirft die Zielkette und zeichnet sofort neu.
+- **Scorekarte** ueber die Karte erreichbar (🗒) und bei jeder gespeicherten Runde
+  (`roundCardHtml`/`openRoundCard`) — mit Kennzeichnung von Loechern ohne Par und unplausiblen
+  Par/Laenge-Kombinationen.
+- **EDS entfernt — und der Index kommt AUSSCHLIESSLICH aus Turnieren (v1.99).**
+  `whsPool()` liest nur noch `DB.competitions`; `countHcp` an Runden wird nicht mehr
+  ausgewertet und beim Speichern auf `false` gesetzt. Erfasste Runden sind Trainingsrunden und
+  duerfen den Index NICHT bewegen — sonst verwaessert jede Uebungsrunde den Wert, der das
+  Turnierniveau abbilden soll. (In v1.98 hatte ich die Anforderung falsch herum umgesetzt und
+  jede Runde zaehlen lassen.)
+- **REGEN im Caddy** (`nassFaktor`): Bisher kannte er Temperatur, Wind und Hoehe — Regen nicht,
+  obwohl der zwei Wirkungen hat. Nasser Ball und feuchte Luft kosten Carry (3 % bei stetigem
+  Regen, in `playsLike`), und nasse Fairways rollen praktisch nicht (`rollFor` × (1 − 0.9·nass) —
+  aus 25 m Auslauf werden 2,5). Zusammen leicht zwei Schlaegerlaengen. Quelle ist
+  `precipitation` in mm/h, ersatzweise der WMO-Wettercode. Die Wetterzeile zeigt es an.
+  `nassFaktor(w?)` nimmt zum Pruefen ein Wetterobjekt entgegen — `WEATHER` ist ein `let` und
+  aus dem Pruefstand nicht setzbar.
+
+### Scorekarte je Loch (v1.97)
+`playCardHtml()` / `openPlayCard()` — antippbar ueber die Par-Anzeige in beiden Modi.
+Zeigt je Loch Par, Laenge, Score und Differenz, dazu die Zahl der gewerteten Loecher.
+Grund: „Par E" statt „+1" ist nicht nachvollziehbar, solange man die Summanden nicht sieht.
+Die haeufigste Ursache ist NICHT ein falscher Score, sondern ein falsches **Par** in den
+Platzdaten — ein als Par 3 hinterlegtes Par-4-Loch verschiebt die Summe um genau einen Schlag.
+Deshalb markiert die Liste unplausible Par/Laenge-Kombinationen mit ⚠ (Par 3 ueber 250 m,
+Par 4 unter 180 oder ueber 500 m, Par 5 unter 400 m) und weist Loecher mit Score, aber ohne Par
+gesondert aus.
+
 ### Bedienbarkeit (v1.67)
 Ergebnisse eines systematischen Durchgangs durch die Oberflaeche:
 - **toast(msg, aktion?)** — der Timer wurde vorher NICHT zurueckgesetzt: bei zwei Meldungen
@@ -2561,6 +2607,32 @@ erkennbar ist, dass es ein Video gab.
 ## Changelog
 > **Regel:** Bei JEDER inhaltlichen Änderung hier oben einen datierten Eintrag ergänzen (neueste
 > zuerst): Datum · was geändert · betroffene Bereiche. Kurz halten.
+
+- **v1.99.0 · 2026-08-10** — **KORREKTUR: Index ausschließlich aus Turnieren.** In v1.98 hatte
+  ich die Anforderung falsch herum umgesetzt — statt EDS abzuschaffen ließ ich jede erfasste
+  Runde für den Index zählen. Richtig ist das Gegenteil: `whsPool()` liest nur noch
+  `DB.competitions`, `countHcp` an Runden wird nicht mehr ausgewertet und beim Speichern auf
+  `false` gesetzt. Trainingsrunden bewegen den Index nicht — sonst verwässert jede Übungsrunde
+  den Wert, der das Turnierniveau abbilden soll. Erklärtext im Wettkampf-Reiter korrigiert,
+  fünf Prüfungen sichern es ab.
+
+- **v1.98.0 · 2026-08-10** — **Acht Änderungen von der Runde.**
+  Schwunglänge je Schlag (Voll/3-4/Halb/Punch …) — und `clubMeasured()` lernt nur noch aus
+  VOLLEN Schwüngen, sonst zöge ein halber Wedge die Schlägerlänge nach unten · „Holed" in der
+  1.-Putt-Distanz · **Auto-Loch (GPS) entfernt** · Caddy-Modus direkt auf der Karte umschaltbar ·
+  Scorekarte über die Karte und bei jeder gespeicherten Runde · **EDS entfernt** (es werden nur
+  Turniere gespielt) · **Regen im Caddy**: kostet Carry (3 %) und nimmt den Auslauf fast ganz
+  (25 m → 2,5 m) — zusammen leicht zwei Schlägerlängen, vorher gar nicht berücksichtigt.
+  14 neue Prüfungen für den Nässefaktor und seine Wirkung.
+
+- **v1.97.0 · 2026-08-10** — **Scorekarte je Loch — nachvollziehbar, woher die Summe kommt.**
+  „Par E" statt „+1" lässt sich nicht prüfen, solange man die Summanden nicht sieht.
+  `openPlayCard()` (antippbar über die Par-Anzeige in beiden Modi) zeigt je Loch Par, Länge,
+  Score und Differenz. Löcher mit Score aber ohne Par werden gesondert ausgewiesen — sie fehlen
+  in der Summe. Unplausible Par/Länge-Kombinationen sind mit ⚠ markiert (Par 3 über 250 m,
+  Par 4 unter 180 oder über 500 m, Par 5 unter 400 m), denn die häufigste Ursache einer um
+  genau einen Schlag falschen Summe ist ein falsches Par in den Platzdaten, nicht ein falscher
+  Score.
 
 - **v1.96.0 · 2026-08-10** — **Absturz beim Wischen auf der Karte behoben.**
   (1) **`Cannot read properties of null (reading 'x')`** in `playMapBind` (59× protokolliert):
@@ -11795,6 +11867,7 @@ const SEED = {
   }
  },
  "firstPuttDist": [
+  "Holed",
   "Gimme",
   "1m",
   "1,5m",
@@ -13226,7 +13299,14 @@ function clubPlanText(len,par){
 
 /* ================= VIRTUELLER CADDY ================= */
 function caddyMode(){ return (DB.profile && DB.profile.caddyMode) || "bal"; }
-function setCaddyMode(m){ if(!DB.profile) DB.profile={}; DB.profile.caddyMode=m; persist(); refreshCaddy(); }
+function setCaddyMode(m){ if(!DB.profile) DB.profile={}; DB.profile.caddyMode=m; persist();
+  /* Im Kartenmodus zusaetzlich Kette und Overlays neu — der Modus aendert die
+     Empfehlung, und die soll sofort sichtbar umspringen. */
+  if(typeof PLAY!=="undefined" && PLAY.active && PLAY.mapFocus){
+    PLAY.aimChainKey=null;
+    try{ pfRender(); playMapRender(); }catch(e){ logErr("setCaddyMode", e, true); }
+  }
+  refreshCaddy(); }
 
 // Streuung eines Schlägers (m): aus GPS-Messungen (Standardabw.), sonst ~6% der Distanz
 function clubSigma(name, dist){
@@ -13475,7 +13555,12 @@ const STRAT={
      Sand/Wasser/Gruen gar nicht. */
   ROLL_BY_LIE:{1:1.0, 2:0.35, 7:0.25, 4:0.5, 3:0, 5:0, 6:0},
   rollFor(club){ const c=club&&(club.dist!=null&&club.carry!=null)?(club.dist-club.carry):0;
-    return Math.max(0, Math.min(35, c)); },
+    /* REGEN (v1.98): Nasse Fairways rollen praktisch nicht — aus 20 m Auslauf
+       werden bei stetigem Regen 2. Das ist die groessere der beiden
+       Regenwirkungen; zusammen mit dem Carry-Verlust in playsLike leicht zwei
+       Schlaegerlaengen. Ohne das plant der Caddy bei Regen zu weit. */
+    const nass=(typeof nassFaktor==="function")?nassFaktor():0;
+    return Math.max(0, Math.min(35, c)) * (1 - 0.9*nass); },
   // Landepunkt -> Ruhepunkt. brg = Flugrichtung, roll = Auslauf des Schlaegers.
   applyRoll(g,la,lo,brg,roll){
     if(!(roll>0)) return [la,lo];
@@ -13923,11 +14008,14 @@ let WEATHER=null; // {temp, windMs, windDir, gustMs, code, at, lat, lng}
 function weatherFresh(){ return WEATHER && (Date.now()-WEATHER.at < 20*60*1000); }
 async function fetchWeather(lat,lng){
   try{
-    const url=`https://api.open-meteo.com/v1/forecast?latitude=${lat.toFixed(3)}&longitude=${lng.toFixed(3)}&current=temperature_2m,wind_speed_10m,wind_direction_10m,wind_gusts_10m,weather_code&wind_speed_unit=ms`;
+    const url=`https://api.open-meteo.com/v1/forecast?latitude=${lat.toFixed(3)}&longitude=${lng.toFixed(3)}&current=temperature_2m,wind_speed_10m,wind_direction_10m,wind_gusts_10m,weather_code,precipitation&wind_speed_unit=ms`;
     const r=await fetch(url,{cache:"no-store"}); if(!r.ok) throw new Error("wx "+r.status);
     const j=await r.json(); const c=j.current||{};
     WEATHER={ temp:c.temperature_2m, windMs:c.wind_speed_10m, windDir:c.wind_direction_10m,
-      gustMs:c.wind_gusts_10m, code:c.weather_code, at:Date.now(), lat, lng };
+      gustMs:c.wind_gusts_10m, code:c.weather_code,
+      /* Niederschlag in mm/h — bis v1.98 abgerufen, aber nie verrechnet. */
+      precip:(c.precipitation!=null?+c.precipitation:null),
+      at:Date.now(), lat, lng };
     return WEATHER;
   }catch(e){ return null; }
 }
@@ -13987,25 +14075,62 @@ function elevDelta(from,to){
   if(a==null||b==null) return null;
   const d=b-a; return Math.abs(d)<1.5?0:d;             // Rauschen unterdruecken
 }
+/* ==========================================================================
+   REGEN (v1.98)
+   Der Caddy kannte Temperatur, Wind und Hoehe — Regen nicht, obwohl er der
+   Faktor mit der GROESSTEN Wirkung auf die Schlaeglaenge ist:
+   · Nasser Ball und feuchte Luft kosten Carry (etwa 2–4 % bei stetigem Regen).
+   · Nasse Fairways rollen praktisch nicht — aus 20 m Roll werden 2.
+   Zusammen sind das leicht zwei Schlaegerlaengen. Wer bei Regen mit den
+   trockenen Werten spielt, ist systematisch zu kurz.
+
+   `nassFaktor()` liefert 0 (trocken) bis 1 (Starkregen). Quelle: `precip`
+   (mm/h) und ersatzweise der WMO-Wettercode. */
+function nassFaktor(w){
+  /* Parameter nur zum Pruefen — im Betrieb immer das aktuelle WEATHER.
+     Ohne ihn liesse sich die Funktion nicht testen: WEATHER ist ein `let` im
+     Skript und aus dem Pruefstand heraus nicht setzbar. */
+  const W=(w!==undefined)?w:(typeof WEATHER!=="undefined"?WEATHER:null);
+  if(!W) return 0;
+  const p=W.precip;
+  if(p!=null && isFinite(p)) return Math.max(0, Math.min(1, p/2.5));
+  const c=W.code;
+  if(c==null) return 0;
+  if(c>=95) return 1;              // Gewitter
+  if(c>=80) return 0.8;            // Schauer
+  if(c>=61) return 0.6;            // Regen
+  if(c>=51) return 0.3;            // Niesel
+  return 0;
+}
+
 function playsLike(dist, temp, windMs, windDir, bearing, dElev){
   let d=dist / tempFactor(temp);                       // wärmer -> fliegt weiter -> spielt kürzer
   const w=windRel(windMs,windDir,bearing);
   if(w){ if(w.head<0) d += dist*(-w.head)*0.014; else d -= dist*w.head*0.008; }
   if(dElev!=null && isFinite(dElev)) d += dElev>0 ? dElev : dElev*0.75;   // bergauf voll, bergab gedämpft
+  /* REGEN: nasser Ball und feuchte Luft kosten Carry — die Distanz spielt sich
+     laenger. 3 % bei stetigem Regen ist die uebliche Groessenordnung. */
+  const nass=nassFaktor();
+  if(nass>0) d += dist*nass*0.03;
   return Math.round(d);
 }
 // HTML-Zeile für den Caddy: Wetter + Effekt auf die Zieldistanz
 function weatherEffectHtml(bearing, dist, dElev){
   if(!WEATHER) return "";
+  const _nass=nassFaktor();
   const t=WEATHER.temp, ms=WEATHER.windMs, dir=WEATHER.windDir;
   let head=`🌡 ${Math.round(t)}°C · 🌬 ${(ms*3.6).toFixed(0)} km/h aus ${compass8(dir)}`;
+  /* Regen sichtbar machen: er wirkt jetzt auf Carry (playsLike) UND Auslauf
+     (rollFor) — der Spieler soll wissen, warum die Empfehlung laenger ausfaellt. */
+  if(_nass>0) head += ` · 🌧 ${_nass>=0.8?"Starkregen":_nass>=0.5?"Regen":"Niesel"}`;
   let eff="";
   if(bearing!=null && dist){ const w=windRel(ms,dir,bearing);
     const pl=playsLike(dist,t,ms,dir,bearing,dElev); const diff=pl-dist;
     const wl = w.head<-0.5?`Gegenwind ${Math.abs(w.head).toFixed(0)} m/s`:w.head>0.5?`Rückenwind ${w.head.toFixed(0)} m/s`:"kein Längswind";
     const cl = w.crossMag>0.7?` · Seitenwind von ${w.crossFrom} ${w.crossMag.toFixed(0)} m/s (Ziel gegen den Wind wählen)`:"";
     const el = (dElev!=null&&Math.abs(dElev)>=2)?` · ${dElev>0?"bergauf":"bergab"} ${Math.abs(Math.round(dElev))} m`:"";
-    eff=`<br><b>${wl}</b>${cl}${el} → spielt wie <b>${pl} m</b> (${diff>=0?"+":""}${diff} m)`;
+    const rl = _nass>0 ? ` · nass: kaum Auslauf` : "";
+    eff=`<br><b>${wl}</b>${cl}${el}${rl} → spielt wie <b>${pl} m</b> (${diff>=0?"+":""}${diff} m)`;
   }
   return `<div class="wx-line">${head}${eff}</div>`;
 }
@@ -15407,10 +15532,14 @@ function sortedComps(){ return DB.competitions.filter(c=>c.date).slice().sort((a
 const WHS_TABLE={3:[1,-2],4:[1,-1],5:[1,0],6:[2,-1],7:[2,0],8:[2,0],9:[3,0],10:[3,0],11:[3,0],
   12:[4,0],13:[4,0],14:[4,0],15:[5,0],16:[5,0],17:[6,0],18:[6,0],19:[7,0],20:[8,0]};
 function whsPool(){
-  // acceptable 18-hole score differentials: competitions (entered SD) + training rounds explicitly marked as EDS
+  /* NUR TURNIERE (v1.99). Vorher flossen zusaetzlich Trainingsrunden ein, die
+     als EDS markiert waren. Es werden aber ausschliesslich Turniere fuer den
+     Index gespielt — Trainingsrunden sollen ihn NICHT bewegen, sonst
+     verwaessert jede Uebungsrunde den Wert, der das Spielniveau abbilden soll.
+     `countHcp` an Runden wird deshalb nicht mehr ausgewertet. */
   const pool=[];
-  DB.competitions.forEach(c=>{ if(typeof c.sd==="number") pool.push({date:c.date,sd:c.sd,src:"Turnier",label:c.tournament||c.course||"Turnier"}); });
-  DB.rounds.forEach(r=>{ if(r.countHcp===true){ const e=computeRound(r); if(e.sd!=null) pool.push({date:r.date,sd:e.sd,src:"Runde (EDS)",label:r.course||"Runde"}); }});
+  DB.competitions.forEach(c=>{ if(typeof c.sd==="number")
+    pool.push({date:c.date, sd:c.sd, src:"Turnier", label:c.tournament||c.course||"Turnier"}); });
   return pool.filter(x=>x.date).sort((a,b)=>a.date.localeCompare(b.date));
 }
 function whsIndexOf(pool){
@@ -16248,6 +16377,48 @@ function turnierPrepHtml(platz){
    6) RUNDE TEILEN (v1.92)
    Bisher endete eine Runde in der Datenbank und nirgends sonst.
    ========================================================================== */
+/* Scorekarte einer GESPEICHERTEN Runde — dieselbe Darstellung wie im
+   Spielmodus, nur aus den abgelegten Daten. Zeigt auch hier Loecher ohne Par
+   und unplausible Par/Laenge-Kombinationen, denn genau daran erkennt man
+   hinterher, warum eine Summe nicht zur Papierkarte passt. */
+function roundCardHtml(r){
+  const hs=sgEnrich(r).filter(x=>x.hole!=null).sort((a,b)=>a.hole-b.hole);
+  let op=0, pl=0, ohnePar=0;
+  const zeilen=hs.map(x=>{
+    const hatPar=(+x.par>0);
+    if(x.score!=null && !hatPar) ohnePar++;
+    let d=null;
+    if(x.score!=null && hatPar){ d=x.score-x.par; op+=d; pl++; }
+    const L=+x.len||0;
+    const komisch = hatPar && L>0 && (
+      (x.par===3 && L>250) || (x.par===4 && (L<180 || L>500)) || (x.par===5 && L<400));
+    const cls = d==null?"":d>0?"down":d<0?"up":"flat";
+    return `<div class="stat-line"><span>Loch ${x.hole}
+      <span class="r-s">${hatPar?"Par "+x.par:"<b style='color:var(--red)'>Par fehlt</b>"}${L?" · "+L+" m":""}${komisch?" ⚠":""}
+      ${x.putts!=null?" · "+x.putts+" P":""}</span></span>
+      <b>${x.score!=null?x.score:"–"} <span class="${cls}">${d!=null?(d>0?"+"+d:d===0?"E":String(d)):""}</span></b></div>`;
+  }).join("");
+  const summe = op>0?"+"+op:op<0?String(op):"E";
+  const sg=sgRound(r);
+  return `<div class="card pad">
+      <div class="stat-line" style="font-size:15px"><span><b>Summe</b>
+        <span class="r-s">${pl} gewertete Löcher</span></span><b>${summe}</b></div>
+      ${sg&&sg.n.total?`<div class="stat-line"><span>Strokes Gained</span><b>${sgFmt(sg.sg.total)}</b></div>`:""}
+      ${ohnePar?`<p class="note" style="color:var(--red)">${ohnePar} Loch/Löcher mit Score, aber
+        ohne Par — sie fehlen in der Summe.</p>`:""}
+    </div>
+    <div class="card pad">${zeilen}</div>`;
+}
+function openRoundCard(id){
+  const r=(DB.rounds||[]).find(x=>x.id===id); if(!r){ toast("Runde nicht gefunden"); return; }
+  openSheet(`<h2>Scorekarte</h2><div class="sub">${esc(r.course||"Runde")} · ${fmtD(r.date)}</div>
+    ${roundCardHtml(r)}
+    <p class="note">⚠ markiert eine ungewöhnliche Par/Länge-Kombination. Passt die Summe nicht
+    zur Papierkarte, liegt es fast immer daran — nicht am Score.</p>
+    <button class="btn ghost" style="margin-top:8px" onclick="roundShare('${esc(r.id)}')">📤 Teilen</button>
+    <button class="btn ghost" style="margin-top:8px" onclick="closeSheet()">Schließen</button>`);
+}
+
 function roundShareText(r){
   if(!r) return "";
   const e=computeRound(r);
@@ -17222,7 +17393,7 @@ function renderGps(){
    ein neues Feld hier wirkt automatisch ueberall. */
 function playDefaults(){ return {
   active:false, mapFocus:true, course:null, tee:null, side:"18 Loch", type:"18 Loch", roundId:null,
-  date:null, hi:null, holes:[], idx:0, here:null, live:false, auto:true, greenRing:{},
+  date:null, hi:null, holes:[], idx:0, here:null, live:false, greenRing:{},
   startTime:null, endTime:null, rec:null,
   mapView:null, mapViewHole:null, mapM:null, mapBase:null, mapBusy:false,
   aim:{}, aimShow:true, aimChainKey:null, measure:null, stratOval:null }; }
@@ -17463,7 +17634,7 @@ function playContinue(round){
 function playRound(){ PLAY.holes.forEach(h=>{ if(RTRACK[h.hole]&&RTRACK[h.hole].length) h.shots=RTRACK[h.hole]; });
   const wx=PLAY.weather||weatherSnapshot();
   return {id:PLAY.roundId,date:PLAY.date,course:PLAY.course,tee:PLAY.tee,type:PLAY.type,side:PLAY.side,
-    hi:PLAY.hi,countHcp:true,conditions:wx?{temp:wx.temp,windMs:wx.windMs,windDir:wx.windDir,gustMs:wx.gustMs,at:wx.at}:{},
+    hi:PLAY.hi,countHcp:false,conditions:wx?{temp:wx.temp,windMs:wx.windMs,windDir:wx.windDir,gustMs:wx.gustMs,at:wx.at}:{},
     weather:wx||null,startTime:PLAY.startTime||null,endTime:PLAY.endTime||null,
     durationMin:roundDurationMin(PLAY.startTime,PLAY.endTime),holes:PLAY.holes.map(h=>({...h}))}; }
 function playSaveDraft(){ const r=playRound(); saveDraft(r); maybeCheckpointDraft(r);
@@ -17867,6 +18038,57 @@ function playCaddyNow(){
   }catch(e){ logErr("playCaddyNow", e, true); return null; }
 }
 
+/* ==========================================================================
+   SCORE-AUFSCHLUESSELUNG (v1.97)
+   „Par E" statt „+1" ist nicht nachvollziehbar, solange man die Summanden
+   nicht sieht. Diese Ansicht zeigt je Loch Par, Score und Differenz — damit
+   ist in Sekunden erkennbar, ob ein Score fehlt oder ein PAR falsch ist
+   (ein als Par 3 hinterlegtes Par-4-Loch verschiebt die Summe um genau 1).
+   ========================================================================== */
+function playCardHtml(){
+  const hs=PLAY.holes||[];
+  let op=0, pl=0, ohnePar=0, ohneScore=0;
+  const zeilen=hs.map(x=>{
+    const hatPar=(+x.par>0);
+    if(x.score==null) ohneScore++;
+    if(x.score!=null && !hatPar) ohnePar++;
+    let d=null;
+    if(x.score!=null && hatPar){ d=x.score-x.par; op+=d; pl++; }
+    const cls = d==null?"":d>0?"down":d<0?"up":"flat";
+    /* Unplausible Par/Laenge-Kombination markieren. Ein als Par 3 hinterlegtes
+       Par-4-Loch ist die haeufigste Ursache fuer eine Summe, die um genau
+       einen Schlag danebenliegt — und man sieht es der Zahl allein nicht an. */
+    const L=+x.len||0;
+    const komisch = hatPar && L>0 && (
+      (x.par===3 && L>250) || (x.par===4 && (L<180 || L>500)) || (x.par===5 && L<400));
+    return `<div class="stat-line"><span>Loch ${x.hole}
+      <span class="r-s">${hatPar?"Par "+x.par:"<b style='color:var(--red)'>Par fehlt</b>"}${x.len?" · "+x.len+" m":""}${komisch?" ⚠":""}</span></span>
+      <b>${x.score!=null?x.score:"–"}
+        <span class="${cls}">${d!=null?(d>0?"+"+d:d===0?"E":String(d)):""}</span></b></div>`;
+  }).join("");
+  const summe = op>0?"+"+op:op<0?String(op):"E";
+  return `<div class="card pad">
+      <div class="stat-line" style="font-size:15px"><span><b>Summe</b>
+        <span class="r-s">${pl} gewertete Löcher</span></span><b>${summe}</b></div>
+      ${ohnePar?`<p class="note" style="color:var(--red)">${ohnePar} Loch/Löcher haben einen Score,
+        aber KEIN Par — sie fehlen in der Summe. Ursache ist meist eine unvollständige
+        Platzdefinition (Plätze → Tees).</p>`:""}
+      ${ohneScore?`<p class="note">${ohneScore} Loch/Löcher ohne Score.</p>`:""}
+      <p class="note" style="margin-bottom:0">⚠ markiert eine Par/Länge-Kombination, die
+      ungewöhnlich ist — dort lohnt der Blick in die Platzdaten.</p>
+    </div>
+    <div class="card pad">${zeilen}</div>`;
+}
+function openPlayCard(){
+  openSheet(`<h2>Scorekarte</h2>
+    <div class="sub">${esc(PLAY.course||"")} · Loch ${PLAY.idx+1}/${(PLAY.holes||[]).length}</div>
+    ${playCardHtml()}
+    <p class="note">Stimmt die Summe nicht mit deiner Karte überein, liegt es fast immer an
+    einem falschen <b>Par</b> in den Platzdaten — nicht am Score. Ein als Par 3 hinterlegtes
+    Par-4-Loch verschiebt die Summe um genau einen Schlag.</p>
+    <button class="btn ghost" style="margin-top:8px" onclick="closeSheet()">Schließen</button>`);
+}
+
 function pfCaddyKurz(){
   const geo=playGeo(), h=PLAY.holes[PLAY.idx];
   if(!geo) return `<button type="button" class="pf-cad-line" onclick="pfInfoToggle()">
@@ -17938,7 +18160,8 @@ function pfRender(){
       <span><i>F</i>${fmbT.front!=null?fmbT.front:"–"}</span>
       <span class="mid"><i>M</i>${fmbT.mid}</span>
       <span><i>B</i>${fmbT.back!=null?fmbT.back:"–"}</span></div>`:""}
-    <div class="pf-score"><b>${h.score!=null?h.score:"–"}</b>
+    <div class="pf-score" onclick="openPlayCard()" style="cursor:pointer"
+      title="Scorekarte je Loch"><b>${h.score!=null?h.score:"–"}</b>
       <span>${pl?opTxt+" · "+pl+"L":"Score"}</span></div>`;
 
   /* KOMPAKT statt vollstaendig. Im Vollbild verdeckte playInfoHtml() die halbe
@@ -17981,11 +18204,22 @@ function pfRender(){
         <button type="button" onclick="watchRecFinish()">✔ Speichern</button></div>`;
     } else if(r && r.club){
       const d=(r.startPos&&PLAY.here)?Math.round(geoDist(r.startPos,PLAY.here)):0;
-      band=`<div class="pf-wrec"><span>🎯</span><div class="grow"><b>${escShort(r.club)}</b>
-        <div class="r-s"><b id="playRecDist">${d}</b> m gelaufen</div></div>
+      /* Schwunglaenge VOR dem Speichern setzen: ein halber Wedge fliegt
+         vielleicht 55 statt 92 m und wuerde sonst die gelernte
+         Schlaegerlaenge nach unten ziehen (siehe clubMeasured). */
+      const sw=(DB.swingTypes||["Voll","3/4","Halb","Punch"]);
+      const swAkt=r.swing||"Voll";
+      band=`<div class="pf-wrec" style="flex-wrap:wrap"><span>🎯</span>
+        <div class="grow"><b>${escShort(r.club)}</b>${swAkt!=="Voll"?` <span class="r-s">· ${esc(swAkt)}</span>`:""}
+          <div class="r-s"><b id="playRecDist">${d}</b> m gelaufen</div></div>
         <button type="button" onclick="playRecStop()">✔ Speichern</button>
         <button type="button" style="background:transparent;color:#2a1e00;border:1px solid rgba(0,0,0,.25)"
-          onclick="playRecCancel()">✕</button></div>`;
+          onclick="playRecCancel()">✕</button>
+        <div style="flex:0 0 100%;display:flex;gap:5px;flex-wrap:wrap;margin-top:6px">
+        ${sw.map(v=>`<button type="button" onclick="playRecSwing('${esc(v)}')"
+          style="padding:6px 10px;font-size:12px;border-radius:9px;border:none;
+          ${v===swAkt?"background:var(--pine);color:#fff":"background:rgba(255,255,255,.85);color:#2a1e00"}">${esc(v)}</button>`).join("")}
+        </div></div>`;
     } else if(r){
       const clubs=(DB.clubDistances||[]).map(c=>c.club).filter(Boolean);
       band=`<div class="pf-wrec" style="flex-wrap:wrap"><div class="grow"><b>Welcher Schläger?</b></div>
@@ -17994,7 +18228,15 @@ function pfRender(){
         ${clubs.map(c=>`<button type="button" onclick="playRecClub(this.dataset.c)" data-c="${esc(c)}">${escShort(c)}</button>`).join("")}
         </div></div>`;
     }
-    bot.innerHTML=band+`<div class="pf-acts">
+    /* Caddy-Modus auf der Karte umschaltbar — die Entscheidung sicher/normal/
+       offensiv faellt am Abschlag, nicht in einem Untermenue. */
+    const md=caddyMode();
+    const modi=[["safe","sicher"],["bal","normal"],["aggr","offensiv"]].map(([k,lab])=>
+      `<button type="button" class="${k===md?'on':''}" onclick="setCaddyMode('${k}')">${lab}</button>`).join("");
+    bot.innerHTML=band
+      +`<div class="pf-mode"><div class="risk-seg">${modi}</div>
+         <button type="button" class="pf-card-btn" onclick="openPlayCard()">🗒 Karte</button></div>`
+      +`<div class="pf-acts">
       <button class="nav" type="button" onclick="playPrev()" ${PLAY.idx===0?"disabled":""}>◀</button>
       <button class="${r?'rec':''}" type="button" onclick="playRecBegin()">🎯 Schlag</button>
       <button type="button" onclick="playToggleFocusMap()">✎ Eingabe</button>
@@ -18025,7 +18267,8 @@ function renderPlay(){
     ? playSel('tee','Tee-Ergebnis',DB.teeResults||[])
     : `<div class="field" style="margin:0"><label>Tee-Ergebnis</label><select disabled><option>– (Par 3)</option></select></div>`;
   const html=`<div class="play-top"><span>${esc(PLAY.course)} · Loch ${PLAY.idx+1}/${N}</span>
-      <span class="play-op ${opCls}" title="über Par · gewertete Löcher">${pl?"Par "+opTxt+" ("+pl+")":"–"}${ohnePar?` <span class="r-s">${ohnePar} ohne Par</span>`:""}</span></div>
+      <span class="play-op ${opCls}" onclick="openPlayCard()" style="cursor:pointer"
+        title="antippen für die Scorekarte je Loch">${pl?"Par "+opTxt+" ("+pl+")":"–"}${ohnePar?` <span class="r-s">${ohnePar} ohne Par</span>`:""}</span></div>
     <div class="play-nav">
       <button class="btn ghost" type="button" onclick="playPrev()" ${PLAY.idx===0?"disabled":""}>◀</button>
       <button class="btn" type="button" onclick="playNext()">${PLAY.idx>=N-1?"Runde beenden":"Nächstes Loch ▶"}</button>
@@ -18064,7 +18307,7 @@ function renderPlay(){
     <div id="playInfo">${playInfoHtml()}</div>
     ${watchRecBanner()}
     ${playDetailsHtml()}
-    <button class="btn ${PLAY.auto?'':'ghost'}" type="button" style="margin-top:10px;width:100%" onclick="playToggleAuto()">📍 Auto-Loch (GPS): ${PLAY.auto?"an":"aus"}</button>
+    
     ${shotRecHtml()}
     <button class="btn ghost" type="button" style="margin-top:10px;width:100%" onclick="playFinish()">✔ Beenden &amp; speichern</button>
     <div class="play-navbar">
@@ -18079,7 +18322,10 @@ function renderPlay(){
      Kartencontainer. Der Aufruf haette nichts gezeichnet, aber die teure
      Vorbereitung (Geo-Raster, Kacheln) trotzdem angestossen. */
 }
-function playToggleAuto(){ PLAY.auto=!PLAY.auto; renderPlay(); toast(PLAY.auto?"Auto-Loch an – wechselt per GPS":"Auto-Loch aus"); }
+/* Auto-Loch (GPS) ENTFERNT (v1.98). Der automatische Lochwechsel per
+   Positionsnaehe stoerte auf dem Platz mehr als er half: beim Warten am
+   naechsten Tee, beim Ballsuchen oder auf dem Rueckweg sprang die Anzeige um.
+   Gewechselt wird ausschliesslich von Hand. */
 function playLiveRefresh(){
   /* Im Kartenmodus haengt die Caddy-Zeile an #pfCaddy, in der Eingabemaske an
      #playInfo. Beide bedienen, ohne Annahme darueber welcher Modus laeuft. */
@@ -18783,8 +19029,6 @@ function playStartLive(){
     if(PLAY.rec && !PLAY.rec.startPos) PLAY.rec.startPos=pos;
     if(Date.now()-lastWx>15*60*1000 || !WEATHER){ lastWx=Date.now();
       ensureWeather(pos[0],pos[1]).then(w=>{ if(w){ PLAY.weather=weatherSnapshot(); playLiveRefresh(); } }); }
-    const geo=playGeo(); if(geo&&PLAY.auto&&!PLAY.rec){ const nh=nearestHole(geo,pos), hh=PLAY.holes[PLAY.idx];
-      if(nh&&nh.hole!==hh.hole&&hh.score==null){ const t=PLAY.holes.findIndex(x=>x.hole===nh.hole); if(t>=0){ PLAY.idx=t; renderPlay(); return; } } }
     playLiveRefresh();
   });
   return true;
@@ -18795,7 +19039,19 @@ function playRecBegin(){
   if(!PLAY.live) playStartLive();
   renderPlay();
 }
-function playRecClub(c){ if(!PLAY.rec) return; PLAY.rec.club=c; PLAY.rec.startPos=PLAY.here||PLAY.rec.startPos; renderPlay(); }
+function playRecClub(c){ if(!PLAY.rec) return; PLAY.rec.club=c;
+  PLAY.rec.startPos=PLAY.here||PLAY.rec.startPos;
+  if(PLAY.mapFocus) pfRender(); else renderPlay(); }
+
+/* Schwunglaenge des aufgenommenen Schlags (v1.98).
+   WARUM DAS NOETIG IST: Ein halber Wedge fliegt vielleicht 55 statt 92 m. Ohne
+   dieses Merkmal landet die Messung als „Sandwedge 55 m" in den Daten und zieht
+   die gelernte Schlaegerlaenge nach unten — die Caddy-Empfehlung wird dann
+   systematisch zu kurz. Mit `swing` lassen sich Teilschlaege beim Lernen
+   ausschliessen (nur „Voll" zaehlt fuer die Schlaegerlaenge) und trotzdem
+   auswerten: „Wie weit fliegt mein 3/4-Pitching?" ist eine eigene Frage. */
+function playRecSwing(v){ if(!PLAY.rec) return; PLAY.rec.swing=v||null;
+  if(PLAY.mapFocus) pfRender(); else renderPlay(); }
 function playRecCancel(){ PLAY.rec=null;
   // Im Kartenmodus nur die Overlays erneuern — renderPlay() wuerde dort die
   // Eingabemaske oeffnen und die Karte verdecken.
@@ -18806,15 +19062,23 @@ function playRecStop(){
   if(!PLAY.rec) return;
   if(!PLAY.rec.startPos || !PLAY.here){ toast("Warte auf GPS-Position …"); return; }
   const startP=PLAY.rec.startPos, endP=PLAY.here, club=PLAY.rec.club||"";
+  const swing=PLAY.rec.swing||null;
   if(!RTRACK[h.hole]) RTRACK[h.hole]=[];
   const arr=RTRACK[h.hole];
   if(arr.length===0 || geoDist([arr[arr.length-1].lat,arr[arr.length-1].lng], startP)>12){
-    arr.push({lat:+startP[0].toFixed(6),lng:+startP[1].toFixed(6),club:club});
-  } else if(club){ arr[arr.length-1].club=club; }
+    arr.push({lat:+startP[0].toFixed(6),lng:+startP[1].toFixed(6),club:club,swing:swing});
+  } else if(club){ arr[arr.length-1].club=club; if(swing) arr[arr.length-1].swing=swing; }
   arr.push({lat:+endP[0].toFixed(6),lng:+endP[1].toFixed(6),club:""});
   const len=Math.round(geoDist(startP,endP));
-  PLAY.rec=null; playSaveDraft(); renderPlay();
-  toast("Schlag gespeichert · "+len+" m"+(club?" · "+club:""));
+  /* Auch in die GPS-Schlagliste — dort werden die Schlaegerlaengen gelernt.
+     `swing` entscheidet, ob der Schlag dafuer zaehlt. */
+  try{ ensureGps();
+    DB.gpsShots.push({id:"G"+Date.now(), ts:new Date().toISOString(), club, swing,
+      dist:len, latA:startP[0], lngA:startP[1], latB:endP[0], lngB:endP[1], hole:h.hole});
+  }catch(e){ logErr("playRecStop:gps", e, true); }
+  PLAY.rec=null; playSaveDraft();
+  if(PLAY.mapFocus){ pfRender(); playMapRender(); } else renderPlay();
+  toast("Schlag gespeichert · "+len+" m"+(club?" · "+club:"")+(swing&&swing!=="Voll"?" ("+swing+")":""));
 }
 function playAdj(field,d){ const h=PLAY.holes[PLAY.idx]; let v=h[field];
   if(field==="score"){ if(v==null) v=d>0?h.par:Math.max(1,h.par-1); else v=Math.max(1,v+d);
@@ -18884,7 +19148,7 @@ function renderComp(){
       h+=`<div class="hist-row"><span class="d">${fmtDate(x.date)}</span>
         <span style="flex:1">${esc(x.label)} <span class="r-s">· ${x.src}</span></span>
         <span class="v tnum" style="color:${used?'var(--pine)':'var(--ink-faint)'}">${used?"★ ":""}${x.sd.toFixed(1).replace(".",",")}</span></div>`;});
-    h+=`</div><div class="note">Zählt <b>nur Turnierrunden</b>. Trainingsrunden fließen nicht in den offiziellen Index — außer du markierst eine Runde ausdrücklich als EDS (zählt für Handicap). Vereinfacht: ohne PCC-Tagesanpassung.</div>`;
+    h+=`</div><div class="note">Zählt <b>nur Turnierrunden</b>. Trainingsrunden fließen nicht in den offiziellen Index. Dafür zählen <b>ausschließlich Turniere</b> (Reiter Wettkampf) — Trainingsrunden bewegen den Index nicht. Vereinfacht: ohne PCC-Tagesanpassung.</div>`;
   }
   h+=`<div class="eyebrow">Wettkämpfe</div>`;
   const list=comps.slice().reverse();
@@ -20427,7 +20691,12 @@ function openBlockEditor(id){
    ========================================================================== */
 function clubMeasured(name){
   const cut=new Date(Date.now()-365*86400000).toISOString();
-  const gps=(DB.gpsShots||[]).filter(x=>x.club===name && x.ts>cut && isFinite(x.dist)).map(x=>x.dist);
+  /* NUR VOLLE SCHWUENGE. Ein halber Wedge fliegt vielleicht 55 statt 92 m —
+     zaehlte er mit, zoege er die gelernte Schlaegerlaenge nach unten und die
+     Caddy-Empfehlung waere systematisch zu kurz. Schlaege ohne Angabe gelten
+     als voll (so waren alle Altdaten gemeint). */
+  const voll=x=>!x.swing || x.swing==="Voll";
+  const gps=(DB.gpsShots||[]).filter(x=>x.club===name && x.ts>cut && isFinite(x.dist) && voll(x)).map(x=>x.dist);
   const lm=[];
   (DB.lmSessions||[]).forEach(se=>(se.shots||[]).forEach(sh=>{
     if(sh && sh.club===name && isFinite(sh.carry)) lm.push(sh.carry); }));
@@ -21910,9 +22179,6 @@ function openAddRound(existing, draftRound){
     <div class="field"><label>Tee</label><select id="r_tee"></select></div>
     <div class="field"><label>Rundenart</label><select id="r_kind">${ROUND_KINDS.map((k,i)=>`<option value="${i}"${i===kindVal?" selected":""}>${k[0]}</option>`).join("")}</select></div>
   </div>
-  <label style="display:flex;align-items:center;gap:9px;background:var(--surface2);border:1px solid var(--line);border-radius:11px;padding:11px 13px;margin-bottom:6px;font-size:13px;font-weight:600">
-    <input type="checkbox" id="r_eds" ${seed&&seed.countHcp?"checked":""}>
-    <span>Für HCP-Index werten (EDS)<div class="r-s" style="font-weight:400">Aus = reine Trainingsrunde, zählt nicht offiziell</div></span></label>
   <div class="in-grid">
     <div class="field"><label>Startzeit</label><div style="display:flex;gap:6px">
       <input type="time" id="r_start" value="${seed&&seed.startTime?seed.startTime:(ed?'':nowHHMM)}" style="flex:1">
@@ -22042,7 +22308,11 @@ function openAddRound(existing, draftRound){
     const baseCond = ed?Object.assign({},ed.conditions):{}; const wx=weatherSnapshot();
     if(wx){ if(baseCond.temp==null) baseCond.temp=Math.round(wx.temp); if(baseCond.windMs==null) baseCond.windMs=wx.windMs; if(baseCond.windDir==null) baseCond.windDir=wx.windDir; }
     return {id: ed?ed.id:"R"+Date.now(), date:$("#r_date").value, course:courseSel.value, tee:teeSel.value,
-      type, side, hi:num($("#r_hi").value), countHcp:$("#r_eds").checked, conditions: baseCond, weather: (ed&&ed.weather)||wx||null,
+      type, side, hi:num($("#r_hi").value), /* EDS ENTFERNT (v1.98/1.99): Fuer den Index zaehlen AUSSCHLIESSLICH
+       Turniere (siehe whsPool). Erfasste Runden sind Trainingsrunden und
+       bewegen den Index nicht — das Feld bleibt aus Kompatibilitaet erhalten,
+       wird aber nicht mehr ausgewertet. */
+    countHcp:false, conditions: baseCond, weather: (ed&&ed.weather)||wx||null,
       startTime:st, endTime:en, durationMin:roundDurationMin(st,en), holes};
   }
   function live(){
@@ -22278,6 +22548,8 @@ function openRound(id){
   h+=`</div></div>
   ${(r.holes||[]).some(h=>h.shots&&h.shots.length)?`<button class="btn sec" id="roundShots" style="margin-top:16px">🎯 Schlag-Karten ansehen</button>`:""}
   <button class="btn sec" id="editRound" style="margin-top:16px">Bearbeiten</button>
+  <button class="btn sec" type="button" style="margin-top:10px"
+    onclick="openRoundCard('${esc(r.id)}')">🗒 Scorekarte Loch für Loch</button>
   <button class="btn sec" type="button" style="margin-top:10px"
     onclick="roundShare('${esc(r.id)}')">📤 Runde teilen</button>
   <button class="btn warn" id="delRound" style="margin-top:10px">Runde löschen</button>`;
@@ -23251,7 +23523,7 @@ function openComp(idx){
 /* ================= NAV ================= */
 let current="dash";
 const FAB_ACTION={rounds:startRound,comp:openAddComp,notes:openAddNote,swing:openSwingEdit};
-const APP_VERSION="1.96.0"; // App-Anzeigeversion (NICHT SEED.version! Diese bei jeder Änderung erhöhen)
+const APP_VERSION="1.99.0"; // App-Anzeigeversion (NICHT SEED.version! Diese bei jeder Änderung erhöhen)
 /* ---------- Darstellung: Hell/Dunkel (DB.ui.theme = "auto" | "light" | "dark") ---------- */
 const _darkMQ = (window.matchMedia? window.matchMedia("(prefers-color-scheme: dark)") : null);
 function themeSetting(){ return (DB && DB.ui && DB.ui.theme) || "auto"; }
@@ -23869,6 +24141,17 @@ function seedCourseTees2(){
 }
 
 function ensureDefaults(){
+  /* „Holed" gehoert in die 1.-Putt-Distanz: ein eingelochter Chip oder Pitch
+     ist kein Putt, muss aber erfassbar sein — sonst bleibt das Feld leer und
+     das Loch faellt aus der Strokes-Gained-Zerlegung. sgBandMid("Holed") = 0. */
+  if(Array.isArray(DB.firstPuttDist) && DB.firstPuttDist.indexOf("Holed")<0)
+    DB.firstPuttDist.unshift("Holed");
+
+  /* Schwunglaenge je Schlag (v1.98). Halbe und Dreiviertel-Wedges sowie
+     Punch-Schlaege haben voellig andere Laengen als der volle Schwung — ohne
+     dieses Merkmal verdirbt jeder Teilschlag die gelernte Schlaegerlaenge. */
+  if(!Array.isArray(DB.swingTypes) || !DB.swingTypes.length)
+    DB.swingTypes=["Voll","3/4","Halb","Viertel","Punch","Flop","Chip","Bunker"];
   /* Einmalige Bereinigung: v1.69 hat `playMapFocus=false` versehentlich
      gespeichert (siehe pfHide). Der Wert laesst sich nicht von einer echten
      Nutzerentscheidung unterscheiden, deshalb wird er genau EINMAL
