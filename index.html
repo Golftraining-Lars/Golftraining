@@ -2116,6 +2116,43 @@ Rechenkerne. Die Selbstpruefung hat beides gemeldet (doppelte Funktionsnamen, ni
 aufgerufen). **Vor dem Bauen pruefen, ob es die Funktion schon gibt** — die Datei hat inzwischen
 ueber 680 Funktionen.
 
+### Schlaeger sind ueber den NAMEN verknuepft (v2.14)
+Wichtig fuer jede Aenderung an der Schlaegerverwaltung: Es gibt **keine id-Verknuepfung**. Alles
+haengt am Namen —
+
+- `DB.gpsShots[].club` (Schlagaufnahme von Handy UND Uhr),
+- `DB.lmSessions[].shots[].club` (Garmin R10),
+- `DB.swingAnalyses[].club`,
+- `DB.rounds[].holes[].club` und `.apprClub`, dazu die Schlaglisten,
+- `RTRACK` und `PLAY.rec.club` waehrend der laufenden Runde,
+- die Auswahllisten auf der Uhr (`clubNames`) — **die Uhr kennt gar keine ids**.
+
+Deshalb ist `MERGE_KEY.clubDistances = x => x.club` auch richtig so: Wuerde man auf ids
+schluesseln, erzeugte jeder von der Uhr geschriebene Schlaeger eine Dublette.
+
+**Umbenennen muss die Historie mitziehen** (`clubRename(alt,neu)`). Ohne das haengt beim
+Umbenennen alles ab, was unter dem alten Namen gemessen wurde: Der Caddy lernt die Laenge nicht
+mehr, „gepflegt vs. gemessen" zeigt nichts, die R10-Streuung ist verloren. Sichtbar wird das erst
+Wochen spaeter — die schlimmste Sorte Fehler. Die Funktion gibt die Zahl der uebertragenen
+Verweise zurueck und meldet sie; der Gameplan-Zwischenspeicher wird verworfen, weil er
+Schlaegernamen enthaelt.
+
+**Die Uhr hat KEINE eigene Schlaegerliste.** Sie liest `clubDistances` aus denselben
+synchronisierten Daten (`optJSONArray("clubDistances")`), und der Runden-Entwurf traegt bewusst
+keine zweite Liste mit — die waere ein eingefrorener Stand. Die Namen koennen also gar nicht
+auseinanderlaufen. **ABER:** Die Uhr ueberspringt beim Einlesen jeden Schlaeger ohne Distanz —
+
+    if (carry == null && total == null) continue
+
+Das betrifft nicht nur den Caddy: Dieselbe Liste treibt dort auch die Schlaegerauswahl beim
+Schlagtracken. Ein frisch angelegter Schlaeger fehlt auf der Uhr also VOLLSTAENDIG, bis Carry
+oder Gesamtlaenge eingetragen ist. Genau das erklaert unterschiedliche Listen auf beiden Geraeten
+— und weil man den Fehler sonst beim Abgleich sucht statt bei der fehlenden Zahl, weist die
+Schlaeger-Ansicht jetzt darauf hin.
+
+Doppelte Namen werden beim Umbenennen abgelehnt: Zwei Schlaeger gleichen Namens wuerden beim
+Abgleich verschmelzen, und die Messungen beider laegen danach auf einem Eintrag.
+
 ### Grabsteine — Loeschungen ueberleben den Sync (v2.11)
 **Der Fehler:** Ein geloeschter Schlaeger tauchte beim naechsten Abgleich sofort wieder auf.
 `_mergeArr` VEREINIGT lokale und Repo-Liste; ein lokal geloeschter Eintrag fehlt danach lokal nur
@@ -2136,9 +2173,20 @@ Schluessel wie der Grabstein — ohne Aufheben waere der Name dauerhaft verbrann
 Anlegen und am Umbenennen; zusaetzlich setzt jede Aenderung `updated`, damit auch der
 Zeitstempel-Weg funktioniert.
 
-**Beim Verdrahten aufgefallen:** `tournaments` und `seasonGoals` laufen NICHT ueber `_mergeArr`,
-sondern ueber `Object.assign` — dort gewinnt die lokale Liste komplett, Loeschungen wirken also
-schon. `notesTrash` wird nach Alter automatisch geleert und braucht keinen Grabstein.
+**Nachtrag v2.12 — EINE Quelle fuer die Schluessel.** Beim ersten Anlauf stand die
+Schluesselformel je Liste in `mergeDB`, und beim Loeschen musste man sie von Hand nachbauen. Zwei
+Formeln, die auseinanderlaufen koennen, sind zwei zu viel: Ein Grabstein mit falschem Schluessel
+greift ins Leere, und der Eintrag kommt zurueck, ohne dass etwas auffaellt. Jetzt gibt es die
+Tabelle **`MERGE_KEY`**, die `mergeDB` UND `tombDel(bereich, obj)` gemeinsam nutzen.
+
+Angebunden sind alle Loeschungen an synchronisierten Listen: Schlaeger, Runden, **Wettkaempfe**,
+Testergebnisse, Plaetze (Definition und gespielt), Bucketlist, Notizen, Trainings- und
+Launch-Monitor-Sitzungen. Beim Wiederherstellen aus dem Papierkorb wird der Grabstein der Notiz
+aufgehoben.
+
+**Bewusst OHNE Grabstein:** `tournaments` und `seasonGoals` laufen ueber `Object.assign` — dort
+gewinnt die lokale Liste komplett. Die Alters-Bereinigung des Notiz-Papierkorbs laeuft auf jedem
+Geraet nach demselben Kriterium ab; Grabsteine waeren dort reiner Ballast.
 
 ### Testbeschreibungen (v2.10)
 Alle 27 Beschreibungen neu geschrieben. Vorher reichten sie von 28 Zeichen („3-Ball Pressure
@@ -2712,6 +2760,62 @@ erkennbar ist, dass es ein Video gab.
 ## Changelog
 > **Regel:** Bei JEDER inhaltlichen Änderung hier oben einen datierten Eintrag ergänzen (neueste
 > zuerst): Datum · was geändert · betroffene Bereiche. Kurz halten.
+
+- **v2.16.0 · 2026-08-10** — **Messwerte als Spalten in der Schlägertabelle.** Neben den
+  gepflegten Werten stehen jetzt **⚙ R10** (gemessener Carry aus Launch-Monitor-Sitzungen) und
+  **📡 GPS** (gemessene Gesamtlänge aus der Schlagaufnahme auf dem Platz) — bisher gab es sie nur
+  in einem separaten Block darunter. `bagMessSpalte()` färbt Abweichungen ab 7 m: rot = kürzer
+  als gepflegt, grün = länger; darunter bleibt es neutral, weil es Rauschen ist. **Unterhalb von
+  8 Messungen** steht die bisherige Anzahl („n5") statt eines Strichs — sonst hält man die leere
+  Spalte für einen Fehler, obwohl sich Daten sammeln. Die Legende erklärt zusätzlich, warum
+  getrimmte Mittelwerte verwendet werden: Ein einzelner verzogener Ball verschiebt einen
+  einfachen Mittelwert erheblich; der Caddy soll mit dem rechnen, was der Schläger normalerweise
+  leistet. 10 Prüfungen.
+
+- **v2.15.0 · 2026-08-10** — **Warum die Schlägerlisten auf Handy und Uhr abweichen.** Geprüft:
+  Die Uhr hat **keine eigene Liste** — sie liest `clubDistances` aus denselben synchronisierten
+  Daten, und der Runden-Entwurf trägt bewusst keine zweite Liste mit. Die Namen können also nicht
+  auseinanderlaufen. **Die Abweichung hat eine andere Ursache:** Die Uhr überspringt beim
+  Einlesen jeden Schläger ohne Distanz (`if (carry == null && total == null) continue`) — und
+  dieselbe Liste treibt dort auch die Schlägerauswahl beim Schlagtracken. Ein frisch angelegter
+  Schläger fehlt auf der Uhr also **vollständig**, bis Carry oder Gesamtlänge eingetragen ist.
+  Die Schläger-Ansicht weist jetzt darauf hin und nennt die betroffenen Schläger namentlich,
+  damit man den Fehler nicht beim Abgleich sucht. Fünf Prüfungen, davon vier gegen MainActivity.kt.
+
+- **v2.14.0 · 2026-08-10** — **Umbenennen zieht die Historie mit — Uhr, R10 und Runden.**
+  Schläger sind **ausschließlich über den Namen** verknüpft, es gibt keine id-Verknüpfung: GPS-
+  Schlagaufnahme (Handy und Uhr), Garmin-R10-Sitzungen, Schwunganalysen, Rundendaten
+  (`holes[].club`, `.apprClub`, Schlaglisten), die laufende Aufzeichnung und die Auswahllisten
+  auf der Uhr — **die Uhr kennt gar keine ids.** Ein Umbenennen hätte deshalb die gesamte
+  Historie abgehängt: Der Caddy lernt die Länge nicht mehr, „gepflegt vs. gemessen" zeigt nichts,
+  die R10-Streuung ist verloren — und sichtbar wird das erst Wochen später. `clubRename(alt,neu)`
+  überträgt jetzt alle Verweise, meldet ihre Zahl und verwirft den Gameplan-Zwischenspeicher
+  (er enthält Schlägernamen). 14 Prüfungen über alle Datenquellen.
+
+- **v2.13.0 · 2026-08-10** — **BUGFIX: Neue Schläger verschwanden oder verdoppelten sich.**
+  Die Schlägerliste wird über den **Namen** geschlüsselt (`MERGE_KEY.clubDistances = x=>x.club`),
+  nicht über die id — die Uhr schreibt Schläger ohne id. Daraus folgten zwei Fehler:
+  (1) **Jeder neue Schläger hieß „Neuer Schläger".** Zwei davon verschmolzen beim Abgleich zu
+  einem, der zweite war lautlos weg. Neu vergibt `bagFreiName()` sofort einen freien Namen
+  („Neuer Schläger", „… 2", „… 3").
+  (2) **Umbenennen ist beim Namensschlüssel ein Löschen plus Neuanlegen.** Ohne Grabstein auf den
+  ALTEN Namen brachte der nächste Abgleich den Platzhalter aus dem Repo zurück — man legte einen
+  Schläger an, benannte ihn in „5 Wood" um, und kurz darauf standen beide in der Liste. Jetzt
+  setzt das Umbenennen einen Grabstein auf den alten und hebt den des neuen Namens auf.
+  Zusätzlich werden **doppelte Namen abgelehnt** (mit Hinweis) statt sie später verschmelzen zu
+  lassen, und ein leerer Name wird zurückgewiesen. Sieben Prüfungen decken den Ablauf ab.
+
+- **v2.12.0 · 2026-08-10** — **Auch Wettkämpfe kamen nach dem Löschen zurück — und sechs weitere
+  Listen.** Der Grabstein-Umbau von v2.11 hatte nur die Schläger und wenige andere Stellen
+  erfasst; ein Prüflauf über alle Löschungen an synchronisierten Listen fand acht weitere ohne
+  Grabstein. Ursache für die Lückenhaftigkeit war die **doppelte Pflege der Schlüssel**: In
+  `mergeDB` stand die Formel je Liste, beim Löschen musste man sie von Hand nachbauen — ein
+  Grabstein mit falschem Schlüssel greift ins Leere, ohne dass etwas auffällt. Neu die Tabelle
+  **`MERGE_KEY`**, die `mergeDB` und `tombDel(bereich, obj)` gemeinsam nutzen. Angebunden:
+  Wettkämpfe, Testergebnisse, Plätze (Definition und gespielt), Bucketlist, Notizen (inkl.
+  Aufheben des Grabsteins beim Wiederherstellen). Bewusst ohne Grabstein bleiben `tournaments`
+  und `seasonGoals` (laufen über `Object.assign`) sowie die Alters-Bereinigung des
+  Notiz-Papierkorbs. 21 Prüfungen.
 
 - **v2.11.0 · 2026-08-10** — **BUGFIX: Gelöschte Schläger kamen sofort zurück.** `_mergeArr`
   **vereinigt** lokale und Repo-Liste — ein lokal gelöschter Eintrag fehlt danach nur noch lokal,
@@ -13073,6 +13177,38 @@ function _mergeTs(x){ return (x && (x.updated||x.editedAt)) || ""; }
    man denselben Schlaeger spaeter neu an, gewinnt der neue Eintrag.
    Die Grabsteine werden selbst mitgemergt (jeweils die spaetere Zeit).
    ========================================================================== */
+/* ==========================================================================
+   EINE Quelle fuer die Merge-Schluessel.
+   Frueher stand die Schluesselformel je Liste in mergeDB — und beim Loeschen
+   musste man sie von Hand nachbauen. Zwei Formeln, die auseinanderlaufen
+   koennen, sind zwei Formeln zu viel: Ein Grabstein mit falschem Schluessel
+   greift ins Leere, und der Eintrag kommt zurueck, ohne dass etwas auffaellt.
+   Deshalb nutzen mergeDB UND tombDel dieselbe Tabelle.
+   ========================================================================== */
+const _J = x => JSON.stringify(x);
+const MERGE_KEY = {
+  rounds:          x => x.id || ((x.date||"")+"|"+(x.course||"")),
+  competitions:    x => x.id || _J(x),
+  tests:           x => x.id || ((x.defKey||"")+"|"+(x.date||"")+"|"+_J(x.inputs||"")),
+  fitnessSessions: x => x.id || ((x.date||"")+"|"+_J(x)),
+  lmSessions:      x => x.id || ((x.date||"")+"|"+_J(x)),
+  swingAnalyses:   x => x.id || ((x.date||"")+"|"+_J(x)),
+  playedCourses:   x => x.name || _J(x),
+  bucketList:      x => x.name || _J(x),
+  courses:         x => x.name || _J(x),
+  testDefs:        x => x.key || x.id || x.label || _J(x),
+  clubDistances:   x => x.club || _J(x),
+  notes:           x => x.id || _J(x),
+  notesTrash:      x => x.id || _J(x)
+};
+/* Loeschen MIT Grabstein — die einzig richtige Art, aus einer synchronisierten
+   Liste zu entfernen. Nimmt das Objekt, nicht den Schluessel: den bildet die
+   Tabelle oben, damit er zu mergeDB passt. */
+function tombDel(bereich, obj){
+  const kf=MERGE_KEY[bereich];
+  if(!kf || obj==null) return;
+  tombAdd(bereich, kf(obj));
+}
 function tombAll(){ DB.tomb=DB.tomb||{}; return DB.tomb; }
 function tombAdd(bereich, key){
   if(key==null) return;
@@ -13132,20 +13268,20 @@ function mergeDB(localDB, repoDB){
   /* Grabsteine ZUERST vereinigen — die Listen unten fragen sie ab. Ohne diesen
      Schritt kaeme ein auf dem Handy geloeschter Eintrag ueber die Uhr zurueck. */
   out.tomb = _mergeTomb(L.tomb, R.tomb);
-  out.rounds = _mergeArr(L.rounds, R.rounds, x=>x.id||(x.date+"|"+x.course), null, _tombFor(out,"rounds"));
-  out.competitions = _mergeArr(L.competitions, R.competitions, x=>x.id||j(x), null, _tombFor(out,"competitions"));
-  out.tests = _mergeArr(L.tests, R.tests, x=>x.id||((x.defKey||"")+"|"+(x.date||"")+"|"+j(x.inputs||"")), null, _tombFor(out,"tests"));
-  out.fitnessSessions = _mergeArr(L.fitnessSessions, R.fitnessSessions, x=>x.id||((x.date||"")+"|"+j(x)), null, _tombFor(out,"fitnessSessions"));
-  out.lmSessions = _mergeArr(L.lmSessions, R.lmSessions, x=>x.id||((x.date||"")+"|"+j(x)), null, _tombFor(out,"lmSessions"));
+  out.rounds = _mergeArr(L.rounds, R.rounds, MERGE_KEY.rounds, null, _tombFor(out,"rounds"));
+  out.competitions = _mergeArr(L.competitions, R.competitions, MERGE_KEY.competitions, null, _tombFor(out,"competitions"));
+  out.tests = _mergeArr(L.tests, R.tests, MERGE_KEY.tests, null, _tombFor(out,"tests"));
+  out.fitnessSessions = _mergeArr(L.fitnessSessions, R.fitnessSessions, MERGE_KEY.fitnessSessions, null, _tombFor(out,"fitnessSessions"));
+  out.lmSessions = _mergeArr(L.lmSessions, R.lmSessions, MERGE_KEY.lmSessions, null, _tombFor(out,"lmSessions"));
   // Schwunganalysen: Videos liegen LOKAL (Store wikivid), nur die Metadaten reisen mit
-  out.swingAnalyses = _mergeArr(L.swingAnalyses, R.swingAnalyses, x=>x.id||((x.date||"")+"|"+j(x)), null, _tombFor(out,"swingAnalyses"));
-  out.playedCourses = _mergeArr(L.playedCourses, R.playedCourses, x=>x.name||j(x), null, _tombFor(out,"playedCourses"));
-  out.bucketList = _mergeArr(L.bucketList, R.bucketList, x=>x.name||j(x), null, _tombFor(out,"bucketList"));
-  out.courses = _mergeArr(L.courses, R.courses, x=>x.name||j(x), null, _tombFor(out,"courses"));
-  out.testDefs = _mergeArr(L.testDefs, R.testDefs, x=>x.key||x.id||x.label||j(x), null, _tombFor(out,"testDefs"));
-  out.clubDistances = _mergeArr(L.clubDistances, R.clubDistances, x=>x.club||j(x), null, _tombFor(out,"clubDistances"));
-  out.notes = _mergeArr(L.notes, R.notes, x=>x.id||j(x), null, _tombFor(out,"notes"));
-  out.notesTrash = _mergeArr(L.notesTrash, R.notesTrash, x=>x.id||j(x), null, _tombFor(out,"notesTrash"));
+  out.swingAnalyses = _mergeArr(L.swingAnalyses, R.swingAnalyses, MERGE_KEY.swingAnalyses, null, _tombFor(out,"swingAnalyses"));
+  out.playedCourses = _mergeArr(L.playedCourses, R.playedCourses, MERGE_KEY.playedCourses, null, _tombFor(out,"playedCourses"));
+  out.bucketList = _mergeArr(L.bucketList, R.bucketList, MERGE_KEY.bucketList, null, _tombFor(out,"bucketList"));
+  out.courses = _mergeArr(L.courses, R.courses, MERGE_KEY.courses, null, _tombFor(out,"courses"));
+  out.testDefs = _mergeArr(L.testDefs, R.testDefs, MERGE_KEY.testDefs, null, _tombFor(out,"testDefs"));
+  out.clubDistances = _mergeArr(L.clubDistances, R.clubDistances, MERGE_KEY.clubDistances, null, _tombFor(out,"clubDistances"));
+  out.notes = _mergeArr(L.notes, R.notes, MERGE_KEY.notes, null, _tombFor(out,"notes"));
+  out.notesTrash = _mergeArr(L.notesTrash, R.notesTrash, MERGE_KEY.notesTrash, null, _tombFor(out,"notesTrash"));
   // Tombstones respektieren: gelöschte Notizen nicht wieder auferstehen lassen
   const trashIds=new Set((out.notesTrash||[]).map(n=>n.id).filter(Boolean));
   out.notes=(out.notes||[]).filter(n=>!(n.id && trashIds.has(n.id)));
@@ -17294,10 +17430,12 @@ function ensureNotes(){ if(!Array.isArray(DB.notes)) DB.notes=[]; if(!Array.isAr
 }
 function noteDaysLeft(n){ const t=n.deletedAt?Date.parse(n.deletedAt):Date.now(); return Math.max(0,90-Math.floor((Date.now()-t)/86400000)); }
 function trashNote(id, close){ ensureNotes(); const i=DB.notes.findIndex(x=>x.id===id); if(i<0) return;
-  const n=DB.notes.splice(i,1)[0]; n.deletedAt=new Date().toISOString(); noteTouch(n); DB.notesTrash.unshift(n);
+  const n=DB.notes.splice(i,1)[0];
+  tombDel("notes", n);   // sonst kommt sie aus dem Repo zurueck n.deletedAt=new Date().toISOString(); noteTouch(n); DB.notesTrash.unshift(n);
   persist(); if(close) closeSheet(); renderNotes(); toast("In den Papierkorb"); }
 function restoreNote(id){ ensureNotes(); const i=DB.notesTrash.findIndex(x=>x.id===id); if(i<0) return;
-  const n=DB.notesTrash.splice(i,1)[0]; delete n.deletedAt; noteTouch(n); DB.notes.push(n); persist(); renderNotes(); toast("Wiederhergestellt"); }
+  const n=DB.notesTrash.splice(i,1)[0]; delete n.deletedAt;
+  tombClear("notes", MERGE_KEY.notes(n)); tombDel("notesTrash", n); noteTouch(n); DB.notes.push(n); persist(); renderNotes(); toast("Wiederhergestellt"); }
 function noteDropVideos(n){ (Array.isArray(n&&n.videos)?n.videos:[]).forEach(v=>{ if(v&&v.id&&typeof idbVidDel==="function") idbVidDel(v.id).catch(()=>{}); }); }
 function purgeNote(id){ if(!confirm("Notiz endgültig löschen?")) return; ensureNotes();
   const n=DB.notesTrash.find(x=>x.id===id); if(n) noteDropVideos(n);
@@ -19788,7 +19926,8 @@ function openPlayedEditor(idx){
     if(isNew) (DB.playedCourses=DB.playedCourses||[]).push(rec); else DB.playedCourses[idx]=rec;
     persist(); closeSheet(); renderAll(); toast(isNew?"Hinzugefügt":"Gespeichert");
   };
-  if(!isNew) $("#p_del").onclick=()=>{ if(confirm("Diesen Platz löschen?")){ DB.playedCourses.splice(idx,1); persist(); closeSheet(); renderAll(); toast("Gelöscht"); }};
+  if(!isNew) $("#p_del").onclick=()=>{ if(confirm("Diesen Platz löschen?")){ tombDel("playedCourses", DB.playedCourses[idx]);
+      DB.playedCourses.splice(idx,1); persist(); closeSheet(); renderAll(); toast("Gelöscht"); }};
 }
 function openBucketEditor(idx){
   const isNew=idx<0, b=isNew?{}:DB.bucketList[idx];
@@ -19806,7 +19945,8 @@ function openBucketEditor(idx){
     if(isNew) (DB.bucketList=DB.bucketList||[]).push(rec); else DB.bucketList[idx]=rec;
     persist(); closeSheet(); renderAll(); toast(isNew?"Hinzugefügt":"Gespeichert");
   };
-  if(!isNew) $("#b_del").onclick=()=>{ if(confirm("Von der Bucketlist entfernen?")){ DB.bucketList.splice(idx,1); persist(); closeSheet(); renderAll(); toast("Entfernt"); }};
+  if(!isNew) $("#b_del").onclick=()=>{ if(confirm("Von der Bucketlist entfernen?")){ tombDel("bucketList", DB.bucketList[idx]);
+      DB.bucketList.splice(idx,1); persist(); closeSheet(); renderAll(); toast("Entfernt"); }};
 }
 
 /* ================= LAUNCH MONITOR (Garmin R10 / Awesome Golf) ================= */
@@ -21197,6 +21337,86 @@ function clubAdoptMeasured(name){
   persist(); renderBag(); toast(clubShort(name)+": gemessene Werte übernommen");
 }
 
+/* ==========================================================================
+   SCHLAEGER UMBENENNEN — Verknuepfungen mitziehen (v2.14)
+
+   ALLES verknuepft ueber den NAMEN, nicht ueber eine id: GPS-Schlaege
+   (`gpsShots.club`), Launch-Monitor-Sitzungen (`lmSessions.shots[].club`),
+   Schwunganalysen, die Rundendaten (`holes[].club`, `holes[].apprClub`, die
+   Schlagliste `shots[].club`) und die Aufzeichnung der laufenden Runde.
+   Auch die UHR schreibt Schlaegernamen — sie kennt keine ids.
+
+   Wird ein Schlaeger umbenannt, ohne diese Stellen mitzuziehen, haengt die
+   gesamte Historie ab: Der Caddy lernt die Laenge nicht mehr, „gepflegt vs.
+   gemessen" zeigt nichts, und die R10-Streuung ist verloren. Sichtbar wird das
+   erst Wochen spaeter — deshalb wandert hier ALLES mit.
+
+   Rueckgabe: Zahl der geaenderten Verweise (fuer die Rueckmeldung). */
+function clubRename(alt, neu){
+  alt=String(alt||""); neu=String(neu||"");
+  if(!alt || !neu || alt===neu) return 0;
+  let n=0;
+  const um = o => { if(o && o.club===alt){ o.club=neu; n++; } };
+
+  (DB.gpsShots||[]).forEach(um);
+  (DB.swingAnalyses||[]).forEach(um);
+  (DB.lmSessions||[]).forEach(sess=>{ (sess && sess.shots||[]).forEach(um); });
+
+  (DB.rounds||[]).forEach(r=>{
+    (r && r.holes||[]).forEach(h=>{
+      if(!h) return;
+      um(h);
+      if(h.apprClub===alt){ h.apprClub=neu; n++; }
+      (h.shots||[]).forEach(um);
+    });
+    (r && r.shots||[]).forEach(um);
+  });
+
+  /* Laufende Runde: Entwurf und Aufzeichnung. */
+  try{
+    if(typeof RTRACK!=="undefined" && RTRACK){
+      Object.keys(RTRACK).forEach(k=>(RTRACK[k]||[]).forEach(um));
+    }
+    if(typeof PLAY!=="undefined" && PLAY && PLAY.holes){
+      PLAY.holes.forEach(h=>{ if(!h) return; um(h);
+        if(h.apprClub===alt){ h.apprClub=neu; n++; } });
+      if(PLAY.rec && PLAY.rec.club===alt){ PLAY.rec.club=neu; n++; }
+    }
+  }catch(e){ logErr("clubRename", e, true); }
+
+  /* Gameplans enthalten Schlaegernamen — sie werden ohnehin neu gerechnet,
+     der Zwischenspeicher waere danach aber irrefuehrend. */
+  try{ if(DB.strat && DB.strat.gameplans) DB.strat.gameplans={}; }catch(e){}
+  return n;
+}
+
+/* Eine Messspalte in der Schlaegertabelle.
+   Zeigt den gemessenen Wert und faerbt die Abweichung zum gepflegten:
+   ab 7 m lohnt das Nachpflegen, darunter ist es Rauschen.
+   `clubMeasured` liefert erst ab 8 Messungen einen Wert (getrimmtes Mittel) —
+   darunter steht die bisherige Zahl klein daneben, damit man sieht, dass sich
+   etwas sammelt, statt eine leere Spalte fuer einen Fehler zu halten. */
+function bagMessSpalte(wert, n, gepflegt){
+  const stil='width:50px;text-align:right;font-family:var(--mono);font-size:12px;padding:6px 2px';
+  if(wert==null){
+    return `<span style="${stil};color:var(--ink-faint)" title="${n?n+" Messungen — ab 8 wird gemittelt":"noch keine Messungen"}">${n?`<span style="font-size:10px">n${n}</span>`:"–"}</span>`;
+  }
+  const d = (gepflegt!=null && isFinite(gepflegt)) ? wert-gepflegt : null;
+  const farbe = (d!=null && Math.abs(d)>=7) ? (d<0?"var(--red)":"var(--green)") : "var(--ink)";
+  const titel = (d!=null?`gepflegt ${gepflegt} m · gemessen ${wert} m (${d>0?"+":""}${d})`:`gemessen ${wert} m`)+` · n=${n}`;
+  return `<span style="${stil};color:${farbe};font-weight:600" title="${esc(titel)}">${wert}</span>`;
+}
+
+/* Freier Name fuer einen neuen Schlaeger: „Neuer Schläger", dann „… 2", „… 3".
+   Noetig, weil der Name der Merge-Schluessel ist (siehe bagAdd). */
+function bagFreiName(){
+  const belegt=new Set((DB.clubDistances||[]).map(c=>String(c.club||"")));
+  const basis="Neuer Schläger";
+  if(!belegt.has(basis)) return basis;
+  for(let i=2;i<200;i++){ const n=basis+" "+i; if(!belegt.has(n)) return n; }
+  return basis+" "+Date.now();
+}
+
 function renderBag(){
   const list=(DB.clubDistances||[]).slice().sort((a,b)=>(b.carry||0)-(a.carry||0));
   const maxC=Math.max(1,...list.map(c=>c.carry||0));
@@ -21209,14 +21429,42 @@ function renderBag(){
       aus R10-Sessions oder der GPS-Schlagmessung kannst du später übernehmen.</span>
     </div></div>`;
   let h=`<div class="eyebrow">Schläger · Schlagweiten</div>`+leerHinweis+`
-  <div class="card pad"><p class="note" style="margin-top:0">Deine Carry- und Gesamtlängen je Schläger. Alles editierbar — Änderungen werden automatisch gesichert und (bei aktivem Cloud-Sync) ins Repo geschrieben. Die Δ-Zeile zeigt die Lücke zum nächsten Schläger.</p></div>
+  <div class="card pad"><p class="note" style="margin-top:0">
+    <b>Carry</b> und <b>Gesamt</b> sind deine gepflegten Werte — editierbar, automatisch
+    gesichert und bei aktivem Sync ins Repo geschrieben.<br>
+    <b>⚙ R10</b> ist der gemessene Carry aus Launch-Monitor-Sitzungen,
+    <b>📡 GPS</b> die gemessene Gesamtlänge aus der Schlagaufnahme auf dem Platz.
+    Beide sind <i>getrimmte</i> Mittelwerte und erscheinen erst ab <b>8 Messungen</b> — darunter
+    steht die bisherige Anzahl („n5"). Weicht ein Messwert um 7 m oder mehr ab, wird er farbig:
+    <span style="color:var(--red);font-weight:600">rot</span> heißt kürzer als gepflegt,
+    <span style="color:var(--green);font-weight:600">grün</span> länger. Antippen zeigt die Details.
+    <br><span class="r-s">Warum getrimmt: Ein einzelner verzogener Ball verschiebt einen einfachen
+    Mittelwert erheblich. Das getrimmte Mittel lässt die Ausreißer außen vor und bildet ab, was
+    der Schläger normalerweise leistet — genau das, womit der Caddy rechnen soll.</span></p></div>
   <div class="card"><div style="padding:6px 0">
-    <div class="hist-row" style="font-weight:700;font-size:11px;color:var(--ink-faint)"><span style="flex:1">Schläger</span><span style="width:76px;text-align:right">Carry m</span><span style="width:70px;text-align:right">Gesamt m</span><span style="width:26px"></span></div>`;
+    <div class="hist-row" style="font-weight:700;font-size:10.5px;color:var(--ink-faint)">
+      <span style="flex:1;min-width:54px">Schläger</span>
+      <span style="width:58px;text-align:right">Carry</span>
+      <span style="width:54px;text-align:right">Gesamt</span>
+      <span style="width:50px;text-align:right" title="Gemessener Carry aus Launch-Monitor-Sitzungen">⚙ R10</span>
+      <span style="width:50px;text-align:right" title="Gemessene Gesamtlänge aus der GPS-Schlagmessung">📡 GPS</span>
+      <span style="width:22px"></span></div>`;
   list.forEach((c,i)=>{
+    /* OHNE DISTANZ NICHT AUF DER UHR. Die Uhr ueberspringt beim Einlesen jeden
+       Schlaeger, bei dem weder Carry noch Gesamtlaenge gesetzt ist:
+           if (carry == null && total == null) continue
+       Das betrifft NICHT nur den Caddy — dieselbe Liste treibt auch die
+       Schlaegerauswahl beim Schlagtracken. Ein frisch angelegter Schlaeger
+       fehlt auf der Uhr also vollstaendig, und man sucht den Fehler beim
+       Abgleich statt bei der fehlenden Zahl. Deshalb hier sichtbar machen. */
+    const ohneDist = !(c.carry>0) && !(c.total>0);
+    const mess = clubMeasured(c.club);
     h+=`<div class="bagrow" data-id="${esc(c.id)}" style="display:flex;align-items:center;gap:6px;padding:6px 16px;border-top:1px solid var(--line-soft)">
-      <input class="bagf" data-f="club" value="${esc(c.club||'')}" style="flex:1;min-width:0;border:none;background:transparent;font-weight:600;font-size:13.5px;padding:3px 0">
-      <input class="bagf tnum" data-f="carry" inputmode="numeric" value="${c.carry??''}" style="width:70px;text-align:right;border:1px solid var(--line);border-radius:7px;background:var(--surface2);font-family:var(--mono);padding:6px 7px">
-      <input class="bagf tnum" data-f="total" inputmode="numeric" value="${c.total??''}" placeholder="–" style="width:64px;text-align:right;border:1px solid var(--line);border-radius:7px;background:var(--surface2);font-family:var(--mono);padding:6px 7px">
+      <input class="bagf" data-f="club" value="${esc(c.club||'')}" title="${ohneDist?'Ohne Distanz nicht auf der Uhr sichtbar':''}" style="flex:1;min-width:0;border:none;background:transparent;font-weight:600;font-size:13.5px;padding:3px 0">
+      <input class="bagf tnum" data-f="carry" inputmode="numeric" value="${c.carry??''}" style="width:58px;text-align:right;border:1px solid var(--line);border-radius:7px;background:var(--surface2);font-family:var(--mono);padding:6px 7px">
+      <input class="bagf tnum" data-f="total" inputmode="numeric" value="${c.total??''}" placeholder="–" style="width:54px;text-align:right;border:1px solid var(--line);border-radius:7px;background:var(--surface2);font-family:var(--mono);padding:6px 5px">
+      ${bagMessSpalte(mess.carry, mess.nCarry, c.carry)}
+      ${bagMessSpalte(mess.total, mess.nTotal, c.reach!=null?c.reach:c.total)}
       <button class="bagdel" data-id="${esc(c.id)}" title="Entfernen" style="width:22px;color:var(--red);background:none;border:none;font-size:17px;cursor:pointer">×</button></div>`;
     // B7: Dispersion je Schläger (gelernt/R10) sichtbar machen
     { const d=DB.strat&&DB.strat.dispersion&&DB.strat.dispersion[c.club];
@@ -21228,11 +21476,47 @@ function renderBag(){
   <button class="btn ghost" id="bagAdd" style="margin-top:10px">＋ Schläger hinzufügen</button>
   <button class="btn ghost" id="bagR10" style="margin-top:8px">📥 R10-Session-CSV importieren (Streuung je Schläger)</button>
   <input type="file" id="bagR10File" accept=".csv,text/csv" style="display:none">`;
+  {
+    const ohne=list.filter(c=>!(c.carry>0) && !(c.total>0));
+    if(ohne.length) h+=`<div class="card pad"><p class="note" style="margin:0">
+      ⌚ <b>${ohne.length===1?"Ein Schläger":ohne.length+" Schläger"} ohne Distanz:</b>
+      ${ohne.map(c=>esc(c.club)).join(", ")}. Auf der Uhr ${ohne.length===1?"erscheint er":"erscheinen sie"}
+      nicht — sie überspringt Schläger ohne Carry und ohne Gesamtlänge, und das betrifft auch die
+      Schlägerauswahl beim Schlagtracken. Trage eine der beiden Zahlen ein, dann ${ohne.length===1?"ist er":"sind sie"} dort verfügbar.</p></div>`;
+  }
   h += clubCompareHtml();
   $("#v-bag").innerHTML=h;
   $("#v-bag").querySelectorAll(".bagf").forEach(el=>el.onchange=()=>{
     const row=el.closest(".bagrow"), obj=(DB.clubDistances||[]).find(x=>x.id===row.dataset.id); if(!obj) return;
-    const f=el.dataset.f; obj[f] = f==="club" ? el.value.trim() : num(el.value);
+    const f=el.dataset.f;
+    if(f==="club"){
+      const neu=el.value.trim();
+      /* Zwei Schlaeger mit demselben Namen wuerden beim Abgleich verschmelzen —
+         einer waere lautlos weg. Lieber hier ablehnen als spaeter Daten
+         verlieren. */
+      if(!neu){ el.value=obj.club; toast("Name darf nicht leer sein"); return; }
+      const kollision=(DB.clubDistances||[]).some(x=>x!==obj && String(x.club||"")===neu);
+      if(kollision){ el.value=obj.club;
+        toast("„"+neu+"“ gibt es bereits — Namen müssen eindeutig sein"); return; }
+      const alt=obj.club;
+      obj.club=neu;
+      obj.updated=new Date().toISOString();
+      /* Historie mitziehen — sonst haengt alles ab, was unter dem alten Namen
+         gemessen wurde (GPS, R10, Runden, Uhr). */
+      const bezuege=clubRename(alt, neu);
+      /* UMBENENNEN IST LOESCHEN + NEU ANLEGEN, weil der NAME der Merge-Schluessel
+         ist. Ohne Grabstein auf den ALTEN Namen bringt der naechste Abgleich
+         den alten Eintrag aus dem Repo zurueck — man legt „Neuer Schläger" an,
+         benennt ihn in „5 Wood" um, und kurz darauf stehen BEIDE in der Liste.
+         Genau so ist es aufgefallen.
+         Umgekehrt muss ein Grabstein auf den NEUEN Namen weg, sonst loescht er
+         den frisch benannten Schlaeger sofort wieder. */
+      tombAdd("clubDistances", alt);
+      tombClear("clubDistances", neu);
+      if(bezuege) toast(bezuege+" Messungen auf „"+neu+"“ übertragen");
+    } else {
+      obj[f] = num(el.value);
+    }
     /* Zeitstempel und Grabstein pflegen: Ein umbenannter oder wieder
        angelegter Schlaeger muss den Grabstein seines NEUEN Namens aufheben,
        sonst loescht ihn der naechste Abgleich wieder weg. */
@@ -21248,10 +21532,17 @@ function renderBag(){
     { const w=(DB.clubDistances||[]).find(x=>x.id===b.dataset.id); if(w) tombAdd("clubDistances", w.club); }
     DB.clubDistances=DB.clubDistances.filter(x=>x.id!==b.dataset.id); persist(); renderBag(); }});
   $("#bagAdd").onclick=()=>{
-    tombClear("clubDistances","Neuer Schläger");
-    DB.clubDistances.push({id:"C"+Date.now(),club:"Neuer Schläger",carry:null,total:null,
+    /* EINDEUTIGER NAME. Die Schlaegerliste wird ueber den NAMEN geschluesselt
+       (MERGE_KEY.clubDistances = x=>x.club), nicht ueber die id — weil die Uhr
+       Schlaeger ohne id schreibt und beide Seiten sonst Dubletten erzeugen.
+       Folge: Zwei Eintraege „Neuer Schläger" verschmelzen beim naechsten
+       Abgleich zu EINEM, und der zweite ist weg. Deshalb bekommt jeder neue
+       Schlaeger sofort einen freien Namen. */
+    const name=bagFreiName();
+    tombClear("clubDistances", name);
+    DB.clubDistances.push({id:"C"+Date.now(),club:name,carry:null,total:null,
       updated:new Date().toISOString()});
-    persist(); renderBag(); };
+    persist(); renderBag(); toast(name+" angelegt — Namen antippen und ändern"); };
   { const btn=document.getElementById("bagR10"), fi=document.getElementById("bagR10File");
     if(btn&&fi){ btn.onclick=()=>fi.click();
       fi.onchange=()=>{ const f=fi.files&&fi.files[0]; if(!f) return;
@@ -22623,7 +22914,8 @@ function openTest(key){
   document.querySelectorAll(".del").forEach(b=>b.onclick=()=>{
     const entry=hist[parseInt(b.dataset.i)];
     const gi=DB.tests.indexOf(entry);
-    if(gi>=0&&confirm("Diesen Eintrag löschen?")){ DB.tests.splice(gi,1); persist(); closeSheet(); renderAll(); toast("Gelöscht"); }
+    if(gi>=0&&confirm("Diesen Eintrag löschen?")){ tombDel("tests", DB.tests[gi]);
+      DB.tests.splice(gi,1); persist(); closeSheet(); renderAll(); toast("Gelöscht"); }
   });
 }
 
@@ -23124,7 +23416,8 @@ function openCourseEditor(idx){
     }
     persist(); closeSheet(); renderAll(); toast(isNew?"Platz angelegt":"Platz gespeichert");
   };
-  if(!isNew) $("#delCourse").onclick=()=>{ if(confirm("Platz löschen?")){ DB.courses.splice(idx,1); persist(); closeSheet(); renderAll(); toast("Gelöscht"); }};
+  if(!isNew) $("#delCourse").onclick=()=>{ if(confirm("Platz löschen?")){ tombDel("courses", DB.courses[idx]);
+      DB.courses.splice(idx,1); persist(); closeSheet(); renderAll(); toast("Gelöscht"); }};
   if(!isNew) $("#editTrouble").onclick=()=>openTroubleEditor(idx);
   if(!isNew) $("#openMap").onclick=()=>openCourseMap(idx);
   if(!isNew) $("#expCourse").onclick=()=>exportCourse(idx);
@@ -23998,6 +24291,10 @@ function openComp(idx){
   openSheet(h);
   $("#editComp").onclick=()=>openAddComp(c);
   $("#delComp").onclick=()=>{ if(confirm("Wettkampf löschen?")){
+    /* GRABSTEIN — competitions laufen ueber _mergeArr und kaemen ohne ihn beim
+       naechsten Abgleich aus dem Repo zurueck. tombDel bildet den Schluessel
+       aus MERGE_KEY, damit er zu mergeDB passt. */
+    tombDel("competitions", c);
     const gi=DB.competitions.indexOf(c); if(gi>=0)DB.competitions.splice(gi,1);
     persist(); closeSheet(); renderAll(); toast("Gelöscht"); }};
 }
@@ -24005,7 +24302,7 @@ function openComp(idx){
 /* ================= NAV ================= */
 let current="dash";
 const FAB_ACTION={rounds:startRound,comp:openAddComp,notes:openAddNote,swing:openSwingEdit};
-const APP_VERSION="2.11.0"; // App-Anzeigeversion (NICHT SEED.version! Diese bei jeder Änderung erhöhen)
+const APP_VERSION="2.16.0"; // App-Anzeigeversion (NICHT SEED.version! Diese bei jeder Änderung erhöhen)
 /* ---------- Darstellung: Hell/Dunkel (DB.ui.theme = "auto" | "light" | "dark") ---------- */
 const _darkMQ = (window.matchMedia? window.matchMedia("(prefers-color-scheme: dark)") : null);
 function themeSetting(){ return (DB && DB.ui && DB.ui.theme) || "auto"; }

@@ -2085,11 +2085,194 @@ group("Grabsteine — ein gelöschter Schläger darf nicht zurückkommen");
          tf({tomb:{clubDistances:{"X":"t"}}},"clubDistances").X, "t");
     }
 
+    /* tombDel bildet den Schlüssel aus MERGE_KEY — damit kann er nicht mehr
+       von dem abweichen, den mergeDB verwendet. Genau diese Doppelpflege war
+       die Fehlerquelle: ein Grabstein mit falschem Schlüssel greift ins Leere,
+       und der Eintrag kommt zurück, ohne dass etwas auffällt. */
+    const td=G("tombDel"), MK=G("MERGE_KEY");
+    if (typeof td === "function" && MK) {
+      DB.tomb={};
+      td("competitions", {id:"K7", tournament:"Clubmeisterschaft"});
+      eq("Grabstein unter der id", DB.tomb.competitions["K7"]!=null, true);
+      td("clubDistances", {id:"C9", club:"7 Wood"});
+      eq("Schläger über den Namen", DB.tomb.clubDistances["7 Wood"]!=null, true);
+      td("courses", {name:"Nordplatz"});
+      eq("Platz über den Namen", DB.tomb.courses["Nordplatz"]!=null, true);
+      /* Unbekannter Bereich darf nichts anlegen — sonst sammeln sich
+         Grabsteine an, die nie jemand abfragt. */
+      const vorher=JSON.stringify(DB.tomb);
+      td("gibtsNicht", {id:"X"});
+      eq("unbekannter Bereich bleibt folgenlos", JSON.stringify(DB.tomb), vorher);
+      td("courses", null);
+      eq("null bleibt folgenlos", JSON.stringify(DB.tomb), vorher);
+      /* Der Schlüssel MUSS dem von mergeDB entsprechen. */
+      eq("MERGE_KEY.competitions nutzt die id", MK.competitions({id:"K7"}), "K7");
+      eq("MERGE_KEY.clubDistances nutzt den Namen", MK.clubDistances({club:"7 Wood"}), "7 Wood");
+      DB.tomb={};
+    }
+
     /* Ohne Grabstein bleibt alles wie bisher — die Vereinigung. */
     DB.tomb={};
     const m4=merge({clubDistances:[{id:"C1",club:"Driver"}], tomb:{}}, repo);
     eq("ohne Grabstein wird weiterhin vereinigt", m4.clubDistances.length, 2);
     DB.tomb={};
+  }
+}
+
+/* ============ 24ae. Schläger anlegen und umbenennen ============ */
+group("Neuer Schläger — Name ist der Merge-Schlüssel");
+{
+  const frei=G("bagFreiName"), merge=G("mergeDB"), DB=G("DB"),
+        tombAdd=G("tombAdd"), tombClear=G("tombClear");
+  if (typeof frei === "function" && typeof merge === "function" && DB) {
+    DB.tomb={}; DB.clubDistances=[{id:"C1",club:"Driver"}];
+    /* Die Liste wird über den NAMEN geschlüsselt (MERGE_KEY.clubDistances),
+       nicht über die id — die Uhr schreibt Schläger ohne id. Zwei Einträge
+       „Neuer Schläger" verschmelzen deshalb beim Abgleich zu EINEM, und der
+       zweite ist lautlos weg. */
+    eq("erster freier Name", frei(), "Neuer Schläger");
+    DB.clubDistances.push({id:"C2",club:"Neuer Schläger"});
+    eq("zweiter bekommt eine Nummer", frei(), "Neuer Schläger 2");
+    DB.clubDistances.push({id:"C3",club:"Neuer Schläger 2"});
+    eq("dritter zählt weiter", frei(), "Neuer Schläger 3");
+
+    const repo=JSON.parse(JSON.stringify({clubDistances:DB.clubDistances}));
+    const m=merge({clubDistances:DB.clubDistances, tomb:DB.tomb}, repo);
+    eq("drei Schläger überleben den Abgleich", m.clubDistances.length, 3);
+
+    /* UMBENENNEN IST LÖSCHEN + NEU ANLEGEN. Ohne Grabstein auf den ALTEN Namen
+       bringt der nächste Abgleich den Platzhalter aus dem Repo zurück — man
+       legt „Neuer Schläger" an, benennt ihn in „5 Wood" um, und kurz darauf
+       stehen BEIDE in der Liste. Genau so ist der Fehler aufgefallen. */
+    if (typeof tombAdd === "function" && typeof tombClear === "function") {
+      const o=DB.clubDistances.find(c=>c.club==="Neuer Schläger");
+      o.club="5 Wood"; o.updated=new Date(Date.now()+1000).toISOString();
+      tombAdd("clubDistances","Neuer Schläger");
+      tombClear("clubDistances","5 Wood");
+      const m2=merge({clubDistances:DB.clubDistances, tomb:DB.tomb}, repo);
+      const namen=m2.clubDistances.map(c=>c.club);
+      ok("umbenannter Schläger ist da", namen.indexOf("5 Wood")>=0, namen.join(", "));
+      ok("alter Platzhalter kommt NICHT zurück", namen.indexOf("Neuer Schläger")<0,
+         namen.join(", "));
+      ok("die übrigen bleiben unberührt", namen.indexOf("Driver")>=0 &&
+         namen.indexOf("Neuer Schläger 2")>=0);
+    }
+    DB.tomb={}; DB.clubDistances=[];
+  }
+}
+
+/* ============ 24af. Umbenennen zieht die Historie mit ============ */
+group("clubRename — Verknüpfung über Uhr, R10 und Runden");
+{
+  const ren=G("clubRename"), DB=G("DB"), gemessen=G("clubMeasured");
+  if (typeof ren === "function" && DB) {
+    /* ALLES verknüpft über den NAMEN, nicht über eine id — auch die Uhr, die
+       gar keine ids kennt. Ohne Mitziehen hängt beim Umbenennen die gesamte
+       Historie ab: der Caddy lernt die Länge nicht mehr, „gepflegt vs.
+       gemessen" zeigt nichts, die R10-Streuung ist verloren. Sichtbar wird das
+       erst Wochen später — deshalb hier festgeschrieben. */
+    const jetzt=new Date().toISOString();
+    /* ACHT Schläge, weil clubMeasured() erst ab 8 Messungen ein getrimmtes
+       Mittel bildet — mit weniger liefert es bewusst null. */
+    DB.gpsShots=[];
+    for(let i=0;i<8;i++) DB.gpsShots.push({id:"G"+i,club:"5 Wood",dist:176+i,ts:jetzt});
+    DB.gpsShots.push({id:"GD",club:"Driver",dist:215,ts:jetzt});      // Uhr/Handy
+    DB.lmSessions=[{id:"L1",shots:[{club:"5 Wood",carry:172},{club:"7-Eisen",carry:140}]}]; // R10
+    DB.swingAnalyses=[{id:"S1",club:"5 Wood"}];
+    DB.rounds=[{id:"R1",holes:[{hole:1,club:"5 Wood",apprClub:"5 Wood"},
+                               {hole:2,club:"Driver",apprClub:"PW"}]}];
+    DB.strat={gameplans:{"Nord|Gelb":{alt:1}}};
+
+    const n=ren("5 Wood","5 Holz");
+    ok("Verweise wurden gezählt", n>0, "geändert: "+n);
+    eq("GPS-Schläge übertragen",
+       DB.gpsShots.filter(x=>x.club==="5 Holz").length, 8);
+    eq("fremder Schläger unberührt",
+       DB.gpsShots.filter(x=>x.club==="Driver").length, 1);
+    eq("R10-Sitzung übertragen", DB.lmSessions[0].shots[0].club, "5 Holz");
+    eq("R10: anderer Schläger unberührt", DB.lmSessions[0].shots[1].club, "7-Eisen");
+    eq("Schwunganalyse übertragen", DB.swingAnalyses[0].club, "5 Holz");
+    eq("Rundendaten: Schläger", DB.rounds[0].holes[0].club, "5 Holz");
+    eq("Rundendaten: Approach-Schläger", DB.rounds[0].holes[0].apprClub, "5 Holz");
+    eq("Rundendaten: anderes Loch unberührt", DB.rounds[0].holes[1].apprClub, "PW");
+    /* Gameplans enthalten Schlägernamen und werden verworfen — sonst zeigten
+       sie nach dem Umbenennen einen Schläger, den es nicht mehr gibt. */
+    eq("Gameplan-Zwischenspeicher geleert",
+       JSON.stringify(DB.strat.gameplans), "{}");
+
+    /* Und der eigentliche Zweck: Die gelernte Länge muss unter dem NEUEN Namen
+       weiter zur Verfügung stehen. */
+    if (typeof gemessen === "function") {
+      const m=gemessen("5 Holz");
+      ok("gemessene Länge folgt dem neuen Namen", m && m.nTotal>=6,
+         JSON.stringify(m));
+      ok("unter dem alten Namen nichts mehr", (gemessen("5 Wood")||{}).nTotal===0);
+    }
+    ok("gleicher Name ändert nichts", ren("Driver","Driver")===0);
+    ok("leerer Name ändert nichts", ren("","X")===0);
+    DB.gpsShots=[]; DB.lmSessions=[]; DB.swingAnalyses=[]; DB.rounds=[]; DB.strat={};
+  }
+}
+
+/* ============ 24ag. Verknüpfung Handy ↔ Uhr ============ */
+group("Schlägerliste — eine Quelle für Handy, Uhr und Launch Monitor");
+{
+  const src=fs.readFileSync(FILE,"utf8");
+  const kt=path.join(__dirname,"MainActivity.kt");
+  /* Die Uhr hat KEINE eigene Schlägerliste — sie liest `clubDistances` aus
+     denselben synchronisierten Daten. Gäbe es dort eine zweite Liste, liefen
+     die Namen unweigerlich auseinander. */
+  if (fs.existsSync(kt)) {
+    const w=fs.readFileSync(kt,"utf8");
+    ok("Uhr liest clubDistances aus dem Sync", /optJSONArray\("clubDistances"\)/.test(w));
+    ok("Uhr hat keine eigene Schlägerliste",
+       !/DEFAULT_CLUB|defaultClubs/.test(w));
+    /* DER STOLPERSTEIN: Die Uhr überspringt Schläger ohne jede Distanz —
+       und dieselbe Liste treibt dort auch die Auswahl beim Schlagtracken.
+       Ein frisch angelegter Schläger fehlt auf der Uhr also komplett. */
+    ok("Uhr überspringt Schläger ohne Distanz",
+       /carry == null && total == null\) continue/.test(w));
+    /* Der Entwurf einer laufenden Runde darf KEINE zweite Schlägerliste
+       mitschleppen — sonst wäre sie ein eingefrorener Stand. */
+    ok("Handy schreibt keine Schlägerliste in den Entwurf",
+       !/_draftRound[\s\S]{0,200}clubs:/.test(src));
+  }
+  /* Und die App muss darauf hinweisen, sonst sucht man den Fehler beim
+     Abgleich statt bei der fehlenden Zahl. */
+  /* NUR im ausführbaren Code prüfen — die Doku erklärt denselben Sachverhalt
+     und würde den Test sonst auch dann bestehen lassen, wenn der Hinweis in
+     der Oberfläche fehlt. Diese Verwechslung ist mir in dieser Datei schon
+     dreimal passiert. */
+  const nurCode = [...src.matchAll(/<script([^>]*)>([\s\S]*?)<\/script>/g)]
+    .filter(m=>!/\bsrc=|application\/json|text\/markdown|devdocs/.test(m[1]))
+    .map(m=>m[2]).join("\n");
+  ok("App weist auf Schläger ohne Distanz hin",
+     /ohne Distanz:/.test(nurCode) && /überspringt Schläger ohne Carry/.test(nurCode));
+}
+
+/* ============ 24ah. Messspalten in der Schlägertabelle ============ */
+group("bagMessSpalte — R10 und GPS neben den gepflegten Werten");
+{
+  const sp=G("bagMessSpalte");
+  if (typeof sp === "function") {
+    /* Ohne Messwert, aber mit angefangener Zählung: Die Anzahl muss sichtbar
+       sein. Sonst hält man die leere Spalte für einen Fehler, obwohl sich
+       Daten sammeln — clubMeasured mittelt erst ab 8 Messungen. */
+    ok("ohne Messungen ein Strich", /–/.test(sp(null, 0, 180)));
+    ok("angefangene Zählung wird gezeigt", /n5/.test(sp(null, 5, 180)));
+    /* Mit Messwert: Zahl anzeigen, Abweichung ab 7 m färben. */
+    ok("Messwert erscheint", /182/.test(sp(182, 12, 180)));
+    ok("kleine Abweichung bleibt neutral", /var\(--ink\)/.test(sp(182, 12, 180)),
+       "182 gegen 180 = 2 m");
+    ok("deutlich kürzer wird rot", /var\(--red\)/.test(sp(170, 12, 180)),
+       "170 gegen 180 = -10 m");
+    ok("deutlich länger wird grün", /var\(--green\)/.test(sp(190, 12, 180)),
+       "190 gegen 180 = +10 m");
+    ok("genau 7 m schlägt schon an", /var\(--red\)/.test(sp(173, 12, 180)));
+    ok("6 m noch nicht", /var\(--ink\)/.test(sp(174, 12, 180)));
+    /* Ohne gepflegten Wert gibt es nichts zu vergleichen — dann neutral. */
+    ok("ohne Vergleichswert neutral", /var\(--ink\)/.test(sp(180, 9, null)));
+    ok("Anzahl steht im Titel", /n=12/.test(sp(182, 12, 180)));
   }
 }
 
