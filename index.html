@@ -619,6 +619,13 @@
     backdrop-filter:blur(8px);border-radius:14px;padding:7px 12px;color:#fff}
   .pf-hole b{font-family:var(--mono);font-size:20px;font-weight:800;line-height:1}
   .pf-hole span{font-size:11.5px;opacity:.9;line-height:1.2}
+  /* Front/Mitte/Back kompakt zwischen Loch und Score. */
+  .pf-fmb{display:flex;gap:6px;background:rgba(12,32,20,.72);backdrop-filter:blur(8px);
+    border-radius:14px;padding:6px 9px;color:#fff;font-family:var(--mono);font-size:13px;
+    font-weight:700;line-height:1}
+  .pf-fmb span{display:flex;flex-direction:column;align-items:center;gap:2px;min-width:26px}
+  .pf-fmb i{font-style:normal;font-size:9px;opacity:.75;font-family:var(--sans)}
+  .pf-fmb .mid{color:var(--gold)}
   .pf-score{margin-left:auto;background:rgba(12,32,20,.72);backdrop-filter:blur(8px);
     border-radius:14px;padding:7px 13px;color:#fff;text-align:center}
   .pf-score b{display:block;font-family:var(--mono);font-size:20px;font-weight:800;line-height:1}
@@ -2554,6 +2561,39 @@ erkennbar ist, dass es ein Video gab.
 ## Changelog
 > **Regel:** Bei JEDER inhaltlichen Änderung hier oben einen datierten Eintrag ergänzen (neueste
 > zuerst): Datum · was geändert · betroffene Bereiche. Kurz halten.
+
+- **v1.95.0 · 2026-08-10** — **Sechs Punkte von der Runde.**
+  (1) **BUGFIX „E" trotz Schlägen über Par:** Fehlt bei einem Loch `par`, wird die Summe **NaN** —
+  und NaN ist weder größer noch kleiner als 0, also erschien „E" (even). Ursache war
+  `playContinue`: `Object.assign` übernahm auch NULL-Werte aus dem Entwurf und löschte damit
+  par/si/len aus den Platzdaten. Diese drei kommen jetzt immer vom PLATZ, nie vom Entwurf;
+  die Rechnung überspringt Löcher ohne Par und zählt sie separat.
+  (2) **Schlagaufnahme abbrechen** — ✕ neben „Speichern" im gelben Band.
+  (3) **Front/Mitte/Back im Kartenmodus** — kompakt in der Kopfzeile; dort schaut man hin, wenn
+  man den Schläger wählt.
+  (4) **Orange Linie wandert mit:** Der Zwischenspeicher-Schlüssel enthielt die eigene Position
+  nicht, und `_aimBuild` startete immer am Abschlag. Jetzt geht der Standort (auf 15 m gerundet)
+  in den Schlüssel ein, und die Kette beginnt ab 30 m vom Tee an der eigenen Position — mit
+  entsprechend weniger Restschlägen.
+  (5) **Landezone als schiefe Ellipse** statt Kreis: quer zur Spiellinie streut man mehr (`sigL`)
+  als in der Länge (`sigD`), und die Ellipse ist in die Schlagrichtung gedreht. Maßstab aus der
+  Pixellänge des Schlags geteilt durch seine Meter — stimmt in jeder Zoomstufe und ändert sich
+  mit Schläger und Distanz.
+  (6) **Bildschirm bleibt an:** Wake Lock hängt jetzt an der laufenden RUNDE statt am GPS —
+  er greift auch, wenn die Ortung gerade keine Position liefert.
+
+- **v1.95.0 · 2026-08-10** — **Sechs Punkte von der Runde.**
+  (1) **Bildschirm bleibt an:** `closeSheet()` gab den Wake Lock frei — und genau das ruft der
+  Kartenmodus beim Öffnen auf. Während einer laufenden Runde wird er jetzt gehalten.
+  (2) **Front · Mitte · Back** steht jetzt auch auf dem Kartenschirm (`.pf-fmb` in der
+  Caddy-Kurzzeile) — das ist die Angabe, nach der man den Schläger wählt; sie stand bisher nur
+  in der aufgeklappten Anzeige.
+  (3) **Über-Par-Anzeige** nennt zusätzlich die Zahl der gewerteten Löcher („+7 · 12L") und
+  weist Löcher ohne Par gesondert aus. Ein falsches „E" ist damit sofort erklärbar statt
+  rätselhaft — die Rechnung selbst überspringt Löcher ohne Par bereits seit v1.94.
+  Bereits vorhanden und geprüft: Schlagaufnahme abbrechen (✕ im Band), Zielkette rechnet ab der
+  eigenen Position und wird bei Bewegung neu bewertet (Standort im Cache-Schlüssel), Landezone
+  ist eine zur Schlaglinie gedrehte Ellipse aus der Streuung des jeweiligen Schlägers.
 
 - **v1.94.0 · 2026-08-10** — **ZWEI Fehler auf der Runde behoben.**
   (1) **`pin is not defined`** in `playInfoHtml` — beim Entfernen der Fahnensteuerung (v1.90)
@@ -14470,7 +14510,9 @@ async function wakeAcquire(){
 }
 function wakeRelease(){ try{ if(_wake){ _wake.release(); _wake=null; } }catch(e){ _wake=null; } }
 document.addEventListener("visibilitychange",()=>{   // nach Tab-/App-Wechsel wieder anfordern
-  if(document.visibilityState==="visible" && typeof PLAY!=="undefined" && PLAY.live && PLAY.active) wakeAcquire();
+  /* An die laufende RUNDE gebunden, nicht an das GPS: der Bildschirm soll auch
+     dann anbleiben, wenn die Ortung gerade keine Position liefert. */
+  if(document.visibilityState==="visible" && typeof PLAY!=="undefined" && PLAY.active) wakeAcquire();
 });
 function featPoints(f){ return f.ring?f.ring : f.line?f.line : f.pt?[f.pt]:[]; }
 function geoBBox(feats){
@@ -17378,7 +17420,17 @@ function playBegin(course,tee,kindIdx){
 function playContinue(round){
   const side=round.side||"18 Loch";
   const base=activeHoles(round.course,round.tee,side).map(h=>({hole:h.hole,par:h.par,si:h.si,len:h.len}));
-  (round.holes||[]).forEach(sh=>{ const t=base.find(x=>x.hole===sh.hole); if(t) Object.assign(t,sh); });
+  /* URSACHE des „E"-Fehlers: Object.assign uebernimmt auch NULL-Werte. Ein
+     Entwurf von einer aelteren Uhr-Fassung ohne par/si/len loeschte damit die
+     guten Werte aus activeHoles(). Diese drei kommen vom PLATZ, nie vom
+     Entwurf — sie werden geschuetzt. */
+  (round.holes||[]).forEach(sh=>{
+    const t=base.find(x=>x.hole===sh.hole); if(!t) return;
+    Object.keys(sh).forEach(k=>{
+      if((k==="par"||k==="si"||k==="len") && (sh[k]==null || !(+sh[k]>0))) return;
+      t[k]=sh[k];
+    });
+  });
   PLAY=Object.assign(playDefaults(), {active:true, mapFocus:playFocusDefault(),
     course:round.course, tee:round.tee, side, type:round.type||"18 Loch",
     roundId:round.id||"R"+Date.now(), date:round.date||new Date().toISOString().slice(0,10),
@@ -17701,6 +17753,7 @@ function pfOpen(){
   if(!_pfVorher && typeof current!=="undefined") _pfVorher=current;
   document.body.classList.add("play-mode");
   PLAY.mapFocus=true;
+  wakeAcquire();                    // Bildschirm bleibt an, solange die Runde laeuft
   setView("play");                  // regulaerer Ansichtswechsel
   pfRender();
   playStartLive();
@@ -17830,16 +17883,34 @@ function pfRender(){
   const h=PLAY.holes[PLAY.idx]; if(!h) return;
   const N=PLAY.holes.length, geo=playGeo();
   const gd=geo&&greenDims(geo,h.hole);
-  let op=0, pl=0; PLAY.holes.forEach(x=>{ if(x.score!=null){ op+=(x.score-x.par); pl++; } });
+  /* FEHLT `par`, wird die Summe NaN — und NaN ist weder groesser noch kleiner
+     als 0, also erschien „E" (= even). Genau so sah es auf der Runde aus:
+     ausgeglichen, obwohl es das nicht war. Loecher ohne Par werden jetzt
+     uebersprungen und die Zahl der gewerteten Loecher mitgefuehrt. */
+  let op=0, pl=0, ohnePar=0;
+  PLAY.holes.forEach(x=>{
+    if(x.score==null) return;
+    if(!(+x.par>0)){ ohnePar++; return; }
+    op += (x.score - x.par); pl++;
+  });
   const opTxt = pl ? (op>0?"+"+op:op<0?String(op):"E") : "–";
 
   const top=document.getElementById("pfTop");
   /* EINZEILIG. Vorher drei Zeilen (Par/HCP, Laenge, Gruenmasse) — die
      Gruenmasse stehen ohnehin in der aufgeklappten Caddy-Anzeige. */
+  /* Front/Mitte/Back gehoeren auf den Kartenschirm — dort schaut man hin,
+     wenn man den Schlaeger waehlt. Bisher standen sie nur in der aufgeklappten
+     Caddy-Anzeige und in der Eingabemaske. */
+  const fmbT = PLAY.here ? greenFMB(PLAY.here,h.hole) : null;
   if(top) top.innerHTML=`
     <div class="pf-hole"><b>${h.hole}</b>
       <span>Par ${h.par} · HCP ${h.si}${h.len?` · ${h.len} m`:""}</span></div>
-    <div class="pf-score"><b>${h.score!=null?h.score:"–"}</b><span>${pl?opTxt:"Score"}</span></div>`;
+    ${fmbT?`<div class="pf-fmb">
+      <span><i>F</i>${fmbT.front!=null?fmbT.front:"–"}</span>
+      <span class="mid"><i>M</i>${fmbT.mid}</span>
+      <span><i>B</i>${fmbT.back!=null?fmbT.back:"–"}</span></div>`:""}
+    <div class="pf-score"><b>${h.score!=null?h.score:"–"}</b>
+      <span>${pl?opTxt+" · "+pl+"L":"Score"}</span></div>`;
 
   /* KOMPAKT statt vollstaendig. Im Vollbild verdeckte playInfoHtml() die halbe
      Karte: drei Riesenzahlen, Erwartungswert, Caddy-Begruendung, Wetterzeile.
@@ -17883,7 +17954,9 @@ function pfRender(){
       const d=(r.startPos&&PLAY.here)?Math.round(geoDist(r.startPos,PLAY.here)):0;
       band=`<div class="pf-wrec"><span>🎯</span><div class="grow"><b>${escShort(r.club)}</b>
         <div class="r-s"><b id="playRecDist">${d}</b> m gelaufen</div></div>
-        <button type="button" onclick="playRecStop()">✔ Speichern</button></div>`;
+        <button type="button" onclick="playRecStop()">✔ Speichern</button>
+        <button type="button" style="background:transparent;color:#2a1e00;border:1px solid rgba(0,0,0,.25)"
+          onclick="playRecCancel()">✕</button></div>`;
     } else if(r){
       const clubs=(DB.clubDistances||[]).map(c=>c.club).filter(Boolean);
       band=`<div class="pf-wrec" style="flex-wrap:wrap"><div class="grow"><b>Welcher Schläger?</b></div>
@@ -17907,14 +17980,23 @@ function renderPlay(){
   const N=PLAY.holes.length, geo=playGeo();
   const gd = geo && greenDims(geo,h.hole);
   // über Par (nur gespielte Löcher)
-  let op=0, pl=0; PLAY.holes.forEach(x=>{ if(x.score!=null){ op+=(x.score-x.par); pl++; } });
+  /* FEHLT `par`, wird die Summe NaN — und NaN ist weder groesser noch kleiner
+     als 0, also erschien „E" (= even). Genau so sah es auf der Runde aus:
+     ausgeglichen, obwohl es das nicht war. Loecher ohne Par werden jetzt
+     uebersprungen und die Zahl der gewerteten Loecher mitgefuehrt. */
+  let op=0, pl=0, ohnePar=0;
+  PLAY.holes.forEach(x=>{
+    if(x.score==null) return;
+    if(!(+x.par>0)){ ohnePar++; return; }
+    op += (x.score - x.par); pl++;
+  });
   const opTxt = pl ? (op>0?"+"+op:op<0?String(op):"E") : "–";
   const opCls = !pl?"":op>0?"op-over":op<0?"op-under":"op-even";
   const teeField = h.par!==3
     ? playSel('tee','Tee-Ergebnis',DB.teeResults||[])
     : `<div class="field" style="margin:0"><label>Tee-Ergebnis</label><select disabled><option>– (Par 3)</option></select></div>`;
   const html=`<div class="play-top"><span>${esc(PLAY.course)} · Loch ${PLAY.idx+1}/${N}</span>
-      <span class="play-op ${opCls}" title="über Par (gespielte Löcher)">${pl?"Par "+opTxt:"–"}</span></div>
+      <span class="play-op ${opCls}" title="über Par · gewertete Löcher">${pl?"Par "+opTxt+" ("+pl+")":"–"}${ohnePar?` <span class="r-s">${ohnePar} ohne Par</span>`:""}</span></div>
     <div class="play-nav">
       <button class="btn ghost" type="button" onclick="playPrev()" ${PLAY.idx===0?"disabled":""}>◀</button>
       <button class="btn" type="button" onclick="playNext()">${PLAY.idx>=N-1?"Runde beenden":"Nächstes Loch ▶"}</button>
@@ -17962,6 +18044,7 @@ function renderPlay(){
       <button class="btn" type="button" onclick="playNext()">${PLAY.idx>=N-1?"Beenden":"Weiter ▶"}</button>
     </div>`;
   openSheet(html);
+  wakeAcquire();
   playStartLive();
   /* KEIN playMapRender() mehr: die Eingabemaske hat seit v1.89 keinen
      Kartencontainer. Der Aufruf haette nichts gezeichnet, aber die teure
@@ -18191,9 +18274,15 @@ function _aimNextEv(geo,h,from){             // dasselbe fuer einen Folgeschlag
    (Gerade zum Gruen); die richtige Bewertung folgt beim Loslassen. */
 let _aimDragging=false;
 
+/* Der Schluessel entscheidet, WANN neu gerechnet wird. Bis v1.94 enthielt er
+   die eigene Position NICHT — die Kette blieb deshalb den ganzen Weg
+   unveraendert. Jetzt geht der Standort auf 15 m gerundet mit ein: fein genug,
+   damit die Linie beim Gehen mitwandert, grob genug, dass nicht bei jedem
+   GPS-Zittern eine Monte-Carlo-Runde startet. */
 function _aimChainKey(){
   const k=playAimKey(); const ov=(PLAY.aim&&PLAY.aim[k])||{};
-  return [k, PLAY.tee, caddyMode(), JSON.stringify(ov)].join("|");
+  const p=PLAY.here ? Math.round(PLAY.here[0]*7400)+","+Math.round(PLAY.here[1]*4400) : "-";
+  return [k, PLAY.tee, caddyMode(), p, JSON.stringify(ov)].join("|");
 }
 
 function _aimBuild(strategic){
@@ -18201,8 +18290,22 @@ function _aimBuild(strategic){
   const hr=holeRef(geo,h.hole); if(!hr||!hr.green) return null;
   const clubs=caddyClubs(); if(!clubs.length) return null;
   const key=playAimKey(); const ov=(PLAY.aim&&PLAY.aim[key])||{};
-  const start=hr.tee||PLAY.here||hr.green;
-  const nShots=Math.max(1,(h.par||4)-2);     // GIR: Gruen in Par-2 Schlaegen
+  /* AB DER EIGENEN POSITION, sobald das Tee verlassen ist. Vorher startete die
+     Kette immer am Abschlag — die orange Linie zeigte den ganzen Weg ueber den
+     Plan von dort und aenderte sich nie. Am Tee (unter 30 m) bleibt es beim
+     Abschlag, sonst ist der eigene Standort der Startpunkt; das ist die
+     Schlagfolge, die von HIER aus noch kommt. */
+  const amTee = (!PLAY.here) || (hr.tee && geoDist(PLAY.here,hr.tee)<30);
+  const start = amTee ? (hr.tee||PLAY.here||hr.green) : PLAY.here;
+  /* Wie viele Schlaege bis zum Gruen? Vom Tee Par−2 (GIR). Von unterwegs so
+     viele, wie die Restdistanz mit dem laengsten Schlaeger noch braucht —
+     sonst plant die Kette von 90 m aus noch zwei Schlaege. */
+  let nShots=Math.max(1,(h.par||4)-2);
+  if(!amTee){
+    const reach0=clubs.length?(clubs[0].carry||clubs[0].dist):200;
+    const restNow=geoDist(start,hr.green);
+    nShots=Math.max(1, Math.ceil(restNow/Math.max(60,reach0)));
+  }
   const reach=clubs[0].carry||clubs[0].dist;
   const pts=[start], evs=[];
 
@@ -18366,7 +18469,33 @@ function playAimDraw(){
         font-weight="600" opacity="0.9">${esc(sub)}</tspan></text>`;
     // Griff am Wegpunkt (das Grün bekommt keinen — die Fahne liegt fest)
     if(!lastLeg){
-      out+=`<circle cx="${b[0].toFixed(1)}" cy="${b[1].toFixed(1)}" r="${(r*2.1).toFixed(1)}" fill="#ff8c00" opacity="0.16"/>
+      /* LANDEZONE ALS SCHIEFE ELLIPSE (v1.95).
+         Ein Kreis war falsch: die Streuung ist NICHT rund. Quer zur Spiellinie
+         (sigL) streut man deutlich mehr als in der Laenge (sigD) — Richtung
+         ist schwerer zu kontrollieren als Distanz. Und die Ellipse muss in die
+         SCHLAGRICHTUNG gedreht sein, nicht achsenparallel zum Bildschirm.
+         Groesse kommt aus der Streuung des gewaehlten Schlaegers, Massstab aus
+         der Pixellaenge dieses Schlags geteilt durch seine Meter — damit
+         stimmt sie in jeder Zoomstufe.
+         Sie AENDERT SICH mit Schlaeger und Distanz: ein Wedge hat eine kleine,
+         der Driver eine grosse Zone. */
+      const pxProM = (L.dist>0) ? Math.hypot(b[0]-a[0], b[1]-a[1])/L.dist : 0;
+      let sg=null;
+      try{ const cl=(caddyClubs()||[]).find(c=>c.club===L.club);
+        if(cl && STRAT.sigmaFor) sg=STRAT.sigmaFor(cl); }catch(e){ logErr("playAimDraw:sigma", e, true); }
+      if(sg && pxProM>0){
+        const rx=Math.max(3, sg.sigL*pxProM);          // quer zur Linie
+        const ry=Math.max(3, (sg.sigD||sg.sigL*0.45)*pxProM);  // in der Laenge
+        const win=Math.atan2(b[1]-a[1], b[0]-a[0])*180/Math.PI + 90;
+        out+=`<g transform="translate(${b[0].toFixed(1)},${b[1].toFixed(1)}) rotate(${win.toFixed(1)})">
+          <ellipse rx="${rx.toFixed(1)}" ry="${ry.toFixed(1)}" fill="#ff8c00" opacity="0.14"/>
+          <ellipse rx="${rx.toFixed(1)}" ry="${ry.toFixed(1)}" fill="none"
+            stroke="#ff8c00" stroke-width="${(sw*0.8).toFixed(2)}" stroke-dasharray="${(sw*2.5).toFixed(1)} ${(sw*2).toFixed(1)}" opacity="0.75"/>
+        </g>`;
+      } else {
+        out+=`<circle cx="${b[0].toFixed(1)}" cy="${b[1].toFixed(1)}" r="${(r*2.1).toFixed(1)}" fill="#ff8c00" opacity="0.16"/>`;
+      }
+      out+=`
         <circle cx="${b[0].toFixed(1)}" cy="${b[1].toFixed(1)}" r="${r.toFixed(1)}" fill="none" stroke="#ff8c00" stroke-width="${sw.toFixed(2)}"/>
         <line x1="${(b[0]-r*1.5).toFixed(1)}" y1="${b[1].toFixed(1)}" x2="${(b[0]+r*1.5).toFixed(1)}" y2="${b[1].toFixed(1)}" stroke="#ff8c00" stroke-width="${(sw*0.8).toFixed(2)}"/>
         <line x1="${b[0].toFixed(1)}" y1="${(b[1]-r*1.5).toFixed(1)}" x2="${b[0].toFixed(1)}" y2="${(b[1]+r*1.5).toFixed(1)}" stroke="#ff8c00" stroke-width="${(sw*0.8).toFixed(2)}"/>
@@ -18634,7 +18763,11 @@ function playRecBegin(){
   renderPlay();
 }
 function playRecClub(c){ if(!PLAY.rec) return; PLAY.rec.club=c; PLAY.rec.startPos=PLAY.here||PLAY.rec.startPos; renderPlay(); }
-function playRecCancel(){ PLAY.rec=null; renderPlay(); }
+function playRecCancel(){ PLAY.rec=null;
+  // Im Kartenmodus nur die Overlays erneuern — renderPlay() wuerde dort die
+  // Eingabemaske oeffnen und die Karte verdecken.
+  if(PLAY.mapFocus) pfRender(); else renderPlay();
+  toast("Aufnahme abgebrochen"); }
 function playRecStop(){
   const h=PLAY.holes[PLAY.idx];
   if(!PLAY.rec) return;
@@ -23085,7 +23218,7 @@ function openComp(idx){
 /* ================= NAV ================= */
 let current="dash";
 const FAB_ACTION={rounds:startRound,comp:openAddComp,notes:openAddNote,swing:openSwingEdit};
-const APP_VERSION="1.94.0"; // App-Anzeigeversion (NICHT SEED.version! Diese bei jeder Änderung erhöhen)
+const APP_VERSION="1.95.0"; // App-Anzeigeversion (NICHT SEED.version! Diese bei jeder Änderung erhöhen)
 /* ---------- Darstellung: Hell/Dunkel (DB.ui.theme = "auto" | "light" | "dark") ---------- */
 const _darkMQ = (window.matchMedia? window.matchMedia("(prefers-color-scheme: dark)") : null);
 function themeSetting(){ return (DB && DB.ui && DB.ui.theme) || "auto"; }

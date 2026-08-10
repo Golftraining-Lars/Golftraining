@@ -1632,6 +1632,32 @@ group("playCaddyNow — die Empfehlung muss mitwandern");
   }
 }
 
+/* ============ 24s. Über-Par-Anzeige ============ */
+group("Über Par — „E\" trotz Schlägen darüber");
+{
+  /* FEHLER auf der Runde: Fehlt bei EINEM Loch `par`, wird die Summe NaN —
+     und NaN ist weder größer noch kleiner als 0, also erschien „E" (even).
+     Die Formel wird hier direkt nachgebildet. */
+  const rechne = holes => {
+    let op=0, pl=0, ohnePar=0;
+    holes.forEach(x=>{
+      if(x.score==null) return;
+      if(!(+x.par>0)){ ohnePar++; return; }
+      op += (x.score - x.par); pl++;
+    });
+    return {txt: pl ? (op>0?"+"+op:op<0?String(op):"E") : "–", op, pl, ohnePar};
+  };
+  eq("drei Bogeys ergeben +3", rechne([{par:4,score:5},{par:3,score:4},{par:5,score:6}]).txt, "+3");
+  eq("ausgeglichen ist E", rechne([{par:4,score:4},{par:3,score:3}]).txt, "E");
+  eq("unter Par negativ", rechne([{par:4,score:3},{par:5,score:5}]).txt, "-1");
+  /* Der eigentliche Fehler: ein Loch ohne Par darf das Ergebnis nicht kippen. */
+  const mitLuecke = rechne([{par:4,score:6},{par:null,score:5},{par:3,score:4}]);
+  eq("Loch ohne Par wird übersprungen, nicht NaN", mitLuecke.txt, "+3");
+  eq("und wird gezählt", mitLuecke.ohnePar, 1);
+  eq("nur gewertete Löcher zählen", mitLuecke.pl, 2);
+  eq("gar keine Scores → Strich", rechne([{par:4,score:null}]).txt, "–");
+}
+
 /* ================= 25. Gepflegt vs. gemessen ================= */
 group("clubMeasured — gepflegte gegen gemessene Schlägerlängen");
 {
