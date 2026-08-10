@@ -652,6 +652,9 @@
   .pf-caddy .pc-head,.pf-caddy b{color:#fff}
   .pf-caddy .pc-why,.pf-caddy .r-s,.pf-caddy .pc-plan{color:rgba(255,255,255,.85)}
   #pfCtrls{position:absolute;top:58px;right:10px;z-index:7}
+  /* Deaktiviert, solange die Automatik ohnehin laeuft — ein Knopf, der nichts
+     bewirken KANN, soll auch nicht bedienbar aussehen. */
+  .play-map-ctrls button.off{opacity:.38;cursor:default}
     /* IM FLUSS, nicht absolut: so sitzt sie immer am Ende des Inhalts. */
   .pf-bottom{flex:0 0 auto;z-index:6;
     padding:10px 12px calc(env(safe-area-inset-bottom) + 12px);
@@ -2660,6 +2663,21 @@ erkennbar ist, dass es ein Video gab.
 ## Changelog
 > **Regel:** Bei JEDER inhaltlichen Änderung hier oben einen datierten Eintrag ergänzen (neueste
 > zuerst): Datum · was geändert · betroffene Bereiche. Kurz halten.
+
+- **v2.07.0 · 2026-08-10** — **BUGFIX: Distanzringe, Luftbild und Platzdaten ließen sich nicht
+  umschalten.** Alle drei sind Teil des SVG und ändern sich erst, wenn die Karte neu **gebaut**
+  wird. Die Knöpfe riefen aber nur `playMapTick()` (bewegt lediglich die Positionsmarke) bzw.
+  `playMapCtrlsRefresh()` (zeichnet nur die Knopfleiste). Der Zustand kippte also, sichtbar
+  änderte sich nichts — die Knöpfe wirkten funktionslos. Neu `playMapRedraw()`: baut die Karte
+  neu und aktualisiert die Leiste. Sechs Prüfungen sichern ab, dass kein Umschalter sich wieder
+  auf `playMapTick()` verlässt.
+
+- **v2.06.0 · 2026-08-10** — **Der ⤢-Knopf wirkte funktionslos.** Er setzt den Kartenausschnitt
+  zurück, damit die Karte wieder automatisch mitwandert. Wer nie von Hand gezoomt oder geschoben
+  hat, sieht beim Tippen aber nichts passieren — der Ausschnitt war schon richtig. Jetzt ist der
+  Knopf **deaktiviert und ausgegraut**, solange die Automatik ohnehin läuft, und gibt beim
+  Tippen eine Rückmeldung („Ausschnitt zurückgesetzt" bzw. „Karte folgt bereits automatisch").
+  Ein Knopf, der nichts bewirken kann, soll auch nicht bedienbar aussehen.
 
 - **v2.05.0 · 2026-08-10** — **Spielweise wirkte nur auf Strafgebiete · Adressleiste ausblendbar.**
   (1) Die Modi unterschieden sich **ausschließlich** im Gewicht der Strafquote
@@ -18619,13 +18637,29 @@ function playMapBox(cx,cy,w,h,aspect){
   return {x:cx-w/2, y:cy-h/2, w, h}; }
 /* Die Schalter zeigen ihren Zustand — deshalb werden sie nach jedem Umschalten
    neu gezeichnet (vorher blieb z. B. der Ringe-Knopf optisch haengen). */
+/* ==========================================================================
+   NEUZEICHNEN NACH EINER UMSCHALTUNG (v2.07)
+   Distanzringe, Luftbild und Platzdaten sind Teil des SVG — sie aendern sich
+   erst, wenn die Karte neu GEBAUT wird. Die Knoepfe riefen aber nur
+   `playMapTick()` (bewegt nur die Positionsmarke) bzw. `playMapCtrlsRefresh()`
+   (zeichnet nur die Knopfleiste). Der Zustand kippte also, sichtbar aenderte
+   sich nichts — die Knoepfe wirkten funktionslos.
+   ========================================================================== */
+function playMapRedraw(){
+  try{ playMapRender(); }catch(e){ logErr("playMapRedraw", e, true); }
+  playMapCtrlsRefresh();
+}
+
 function playMapCtrlsHtml(){
   return `<button type="button" onclick="playMapZoom(0.7)" title="Vergrößern">＋</button>
     <button type="button" onclick="playMapZoom(1.43)" title="Verkleinern">−</button>
-    <button type="button" class="${PLAY.mapManual?'':'on'}" onclick="playMapFit()" title="${PLAY.mapManual?'Automatischen Ausschnitt wieder einschalten':'Ausschnitt folgt automatisch Richtung Grün'}">⤢</button>
-    <button type="button" class="${ringsOn()?'on':''}" onclick="toggleRings();playMapTick();playMapCtrlsRefresh()" title="Distanzringe">◎</button>
-    <button type="button" class="${satOn()?'on':''}" onclick="toggleSat();playMapCtrlsRefresh()" title="Luftbild">🛰</button>
-    <button type="button" class="${osmOn()?'on':''}" onclick="toggleOsm();playMapCtrlsRefresh()" title="Platzdaten (OSM) ein-/ausblenden">🗺</button>
+    <button type="button" class="${PLAY.mapManual?'':'off'}" onclick="playMapFit()"
+      ${PLAY.mapManual?'':'disabled'}
+      title="${PLAY.mapManual?'Ausschnitt zurücksetzen — die Karte folgt wieder automatisch'
+        :'Ausschnitt folgt bereits automatisch'}">⤢</button>
+    <button type="button" class="${ringsOn()?'on':''}" onclick="toggleRings();playMapRedraw()" title="Distanzringe">◎</button>
+    <button type="button" class="${satOn()?'on':''}" onclick="toggleSat();playMapRedraw()" title="Luftbild">🛰</button>
+    <button type="button" class="${osmOn()?'on':''}" onclick="toggleOsm();playMapRedraw()" title="Platzdaten (OSM) ein-/ausblenden">🗺</button>
     <button type="button" class="${PLAY.aimShow?'on':''}" onclick="playAimToggle()" title="Caddy-Schlagfolge bis GIR einzeichnen (Wegpunkte verschiebbar)">🎯</button>
     ${playAimMoved()?`<button type="button" class="on" onclick="playAimReset()" title="Schlagfolge zurück auf die Caddy-Empfehlung">↺</button>`:""}
     ${PLAY.measure?`<button type="button" class="on" onclick="playMeasureClear();playMapCtrlsRefresh()" title="Messpunkt entfernen">📏</button>`:""}`;
@@ -19145,9 +19179,17 @@ function playMapZoom(f){ if(!PLAY.mapView) return; PLAY.mapManual=true; const v=
   PLAY.mapView=playMapClamp({x:cx-nw/2,y:cy-nh/2,w:nw,h:nh}); playMapApply(); }
 function playMapFit(){ const geo=playGeo(); const h=PLAY.holes[PLAY.idx]; if(!geo||!PLAY.mapM) return;
   const slot=playMapSlot(); const asp=slot?slot.clientWidth/Math.max(1,slot.clientHeight):1;
+  /* Rueckmeldung geben: Wer nie von Hand gezoomt hat, sieht sonst gar nichts
+     passieren und haelt den Knopf fuer wirkungslos — genau so ist es
+     aufgefallen. Der Knopf ist ausserdem deaktiviert, solange die Automatik
+     ohnehin laeuft. */
+  const warManuell=!!PLAY.mapManual;
   PLAY.mapManual=false;                       // ⤢ schaltet die Automatik wieder ein
   PLAY.mapView=playMapInitView(geo,h,PLAY.mapM,asp||1); PLAY.mapViewHole=h.hole;
-  playAutoApply(); playMapApply(); playMapCtrlsRefresh(); toast("Automatischer Ausschnitt an"); }
+  playAutoApply(); playMapApply(); playMapCtrlsRefresh();
+  if(typeof toast==="function") toast(warManuell
+    ? "Ausschnitt zurückgesetzt — Karte folgt wieder automatisch"
+    : "Karte folgt bereits automatisch"); toast("Automatischer Ausschnitt an"); }
 /* ---------- Entfernung zu einem angetippten Punkt ---------------------------
    Antippen setzt ein Fadenkreuz; angezeigt werden die Strecke von der eigenen
    Position dorthin UND die Reststrecke von dort zur Fahne. Nochmal auf denselben
@@ -23761,7 +23803,7 @@ function openComp(idx){
 /* ================= NAV ================= */
 let current="dash";
 const FAB_ACTION={rounds:startRound,comp:openAddComp,notes:openAddNote,swing:openSwingEdit};
-const APP_VERSION="2.05.0"; // App-Anzeigeversion (NICHT SEED.version! Diese bei jeder Änderung erhöhen)
+const APP_VERSION="2.07.0"; // App-Anzeigeversion (NICHT SEED.version! Diese bei jeder Änderung erhöhen)
 /* ---------- Darstellung: Hell/Dunkel (DB.ui.theme = "auto" | "light" | "dark") ---------- */
 const _darkMQ = (window.matchMedia? window.matchMedia("(prefers-color-scheme: dark)") : null);
 function themeSetting(){ return (DB && DB.ui && DB.ui.theme) || "auto"; }

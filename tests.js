@@ -1885,6 +1885,30 @@ group("Caddy-Modus — safe/bal/aggr müssen sich unterscheiden");
   }
 }
 
+/* ============ 24z. Kartenschalter müssen neu zeichnen ============ */
+group("Umschalter — Zustand kippen reicht nicht");
+{
+  const src=fs.readFileSync(FILE,"utf8");
+  const i=src.indexOf("function playMapCtrlsHtml");
+  const ctr=src.slice(i, src.indexOf("\n}\n", i));
+  /* Distanzringe, Luftbild und Platzdaten stecken IM SVG — sie ändern sich
+     erst, wenn die Karte neu gebaut wird. Die Knöpfe riefen aber nur
+     playMapTick() (bewegt nur die Positionsmarke) bzw. playMapCtrlsRefresh()
+     (zeichnet nur die Knopfleiste). Der Zustand kippte, sichtbar änderte sich
+     nichts — die Knöpfe wirkten funktionslos. */
+  ["toggleRings","toggleSat","toggleOsm"].forEach(fn=>{
+    const m=new RegExp(fn+"\\(\\);([^\"]*)").exec(ctr);
+    ok(fn+" zeichnet die Karte neu", !!m && /playMapRedraw/.test(m[1]),
+       m?m[1]:"kein Aufruf gefunden");
+  });
+  ok("playMapRedraw vorhanden", /function playMapRedraw/.test(src));
+  ok("playMapRedraw ruft playMapRender",
+     /function playMapRedraw[\s\S]{0,200}playMapRender\(\)/.test(src));
+  /* Gegenprobe: playMapTick allein genügt NICHT — es baut das SVG nicht neu. */
+  ok("kein Umschalter verlässt sich auf playMapTick",
+     !/toggle\w+\(\);\s*playMapTick\(\)/.test(ctr));
+}
+
 /* ================= 25. Gepflegt vs. gemessen ================= */
 group("clubMeasured — gepflegte gegen gemessene Schlägerlängen");
 {
