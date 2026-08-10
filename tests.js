@@ -1585,6 +1585,53 @@ group("courseStats — wo verliere ich AUF DIESEM Platz?");
   }
 }
 
+/* ============ 24r. Empfehlung ab der eigenen Position ============ */
+group("playCaddyNow — die Empfehlung muss mitwandern");
+{
+  const now=G("playCaddyNow"), P=G("PLAY"), DB=G("DB");
+  if (typeof now === "function" && P && DB) {
+    const mLat=111320, mLng=65500;
+    const at=(n,e=0)=>[54.0+n/mLat, 10.0+e/mLng];
+    const ring=(n,e,r)=>[at(n-r,e-r),at(n-r,e+r),at(n+r,e+r),at(n+r,e-r)];
+    const geo={holes:{1:{tee:at(0), green:at(387), fairway:[{ring:ring(190,0,60)}]}}};
+    DB.courses=[{name:"CADDYNOW", geo}];
+    DB.clubDistances=[{club:"Driver",carry:215,reach:232},{club:"5-Eisen",carry:160,reach:165},
+      {club:"7-Eisen",carry:140,reach:143},{club:"PW",carry:104,reach:106},{club:"SW",carry:78,reach:80}];
+    P.course="CADDYNOW"; P.tee="Gelb"; P.holes=[{hole:1,par:4,len:387,si:3}]; P.idx=0; P.aim={};
+
+    const bei=m=>{ P.here=at(m); P.aimChainKey=null; return now(); };
+    const tee=bei(0), mitte=bei(215), nah=bei(300);
+
+    /* DER FEHLER bis v1.93: Die Kurzzeile zeigte legs[0] der Zielkette — und
+       die startet IMMER am Abschlag. Es stand dauerhaft „Driver 219 m", egal
+       wo man stand. Genau die Angabe, die sich mit jedem Schritt ändern muss,
+       war die einzige, die es nie tat. */
+    ok("am Abschlag: Restdistanz = Lochlänge", tee && Math.abs(tee.rest-387)<3, "rest="+(tee&&tee.rest));
+    ok("nach dem Drive: deutlich weniger Rest", mitte.rest < tee.rest-150,
+       `${tee.rest} -> ${mitte.rest}`);
+    ok("nahe am Grün: noch weniger", nah.rest < mitte.rest, `${mitte.rest} -> ${nah.rest}`);
+    ok("Restdistanz sinkt streng monoton",
+       tee.rest > mitte.rest && mitte.rest > nah.rest);
+    /* Und der Schläger muss sich mitändern — sonst wäre es dieselbe Falle. */
+    ok("Schläger ändert sich mit der Position", tee.club !== nah.club,
+       `${tee.club} vs ${nah.club}`);
+    ok("am Abschlag darf der Driver kommen", /driver/i.test(tee.club||""));
+    ok("nahe am Grün kein Driver mehr", !/driver/i.test(nah.club||""));
+    /* Je Phase die passende Kennzahl: Fairwayquote am Tee, Grünquote beim
+       Approach (siehe 24l). */
+    ok("am Abschlag Fairwayquote", /FW/.test(tee.quote||""), tee.quote);
+    /* Eigener Platzname: der Bewertungs-Zwischenspeicher (_aimCache) wird über
+       Kurs|Loch|Modus|Koordinate geschlüsselt — mit „T" kollidierte der Test
+       mit Abschnitt 24h und bekam dessen leeres Ergebnis. */
+    ok("beim Approach Grünquote", (nah.quote||"").indexOf("Grün")===0,
+       "quote=" + JSON.stringify(nah.quote));
+
+    P.here=null;
+    ok("ohne GPS keine Empfehlung", now()===null);
+    DB.courses=[]; DB.clubDistances=[]; P.holes=[];
+  }
+}
+
 /* ================= 25. Gepflegt vs. gemessen ================= */
 group("clubMeasured — gepflegte gegen gemessene Schlägerlängen");
 {

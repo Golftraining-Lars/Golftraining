@@ -2555,6 +2555,18 @@ erkennbar ist, dass es ein Video gab.
 > **Regel:** Bei JEDER inhaltlichen Änderung hier oben einen datierten Eintrag ergänzen (neueste
 > zuerst): Datum · was geändert · betroffene Bereiche. Kurz halten.
 
+- **v1.94.0 · 2026-08-10** — **ZWEI Fehler auf der Runde behoben.**
+  (1) **`pin is not defined`** in `playInfoHtml` — beim Entfernen der Fahnensteuerung (v1.90)
+  blieben in der F/M/B-Anzeige Zugriffe auf `pin` stehen. Die Funktion warf bei JEDEM Zeichnen
+  einen ReferenceError, der Spielmodus war unbenutzbar. Block auf Front/Mitte/Back ohne
+  Fahnenbezug umgestellt.
+  (2) **Caddy-Empfehlung passte sich nicht der Position an.** Die Kurzzeile zeigte
+  `playAimChain().legs[0]` — den ersten Schlag der Kette, und die startet immer am ABSCHLAG.
+  Es stand dauerhaft „Driver 219 m", egal wo man stand. Neu `playCaddyNow()`: bewertet ab
+  `PLAY.here` — am Abschlag `tee()`, bei 8–200 m Rest `approach()`, sonst `nextShot()`.
+  Nachgewiesen: 387 m/Driver → 172 m/5-Eisen → 87 m/SW, Restdistanz streng fallend.
+  Elf Prüfungen sichern ab, dass Restdistanz UND Schläger mitwandern.
+
 - **v1.93.0 · 2026-08-09** — **Platzbericht für die Turniervorbereitung.** `courseStats()`
   schlüsselt die eigenen Runden nach Platz auf: Problemlöcher, starke Löcher und
   Doppelbogey-Quote je Loch. Der Schnitt über alle Plätze hilft vor der Clubmeisterschaft nicht —
@@ -17562,14 +17574,16 @@ function playInfoHtml(){
     if(g-base>=3 || g*3.6>=28) out+=`<div class="play-gust">⚠ Böen bis <b>${(g*3.6).toFixed(0)} km/h</b> (Grundwind ${(base*3.6).toFixed(0)}) – ruhiger schwingen, eher mehr Schläger</div>`; }
   const fmb=greenFMB(PLAY.here,h.hole);
   if(fmb){
-    let fahne=null;   // Fahnensteuerung entfernt (v1.90): Ziel ist die Gruenmitte
+    /* Fahnensteuerung entfernt (v1.90): Ziel ist durchgaengig die Gruenmitte.
+       BEIM ENTFERNEN UEBERSEHEN: Hier stand noch `pin` — die Variable gab es
+       nicht mehr, also warf playInfoHtml() bei JEDEM Zeichnen einen
+       ReferenceError und der Spielmodus war unbenutzbar. */
+    const fahne=null;
 
-    const midTile = pin
-      ? `<div class="pd mid"><span>🚩 Fahne</span><b>${fahne!=null?fahne:"–"}</b></div>`
-      : `<div class="pd mid"><span>Mitte</span><b>${fmb.mid}</b></div>`;
-    out+=`<div class="play-dist"><div class="pd"><span>Front</span><b>${fmb.front!=null?fmb.front:"–"}</b></div>${midTile}<div class="pd"><span>Back</span><b>${fmb.back!=null?fmb.back:"–"}</b></div></div>`;
-    if(pin) out+=`<div class="r-s" style="text-align:center;margin-top:3px">Mitte ${fmb.mid} m · Fahne ${pin.d<=0.34?"vorn":pin.d>=0.66?"hinten":"mittig"}${pin.date!==todayISO()?" · Stand "+fmtDate(pin.date):" · heute"}</div>`;
-    else if(fmb.front==null) out+=`<div class="r-s" style="text-align:center;margin-top:4px">Nur Grünmitte vorhanden – Grünfläche in der Karte einzeichnen für Front/Back.</div>`;
+    out+=`<div class="play-dist"><div class="pd"><span>Front</span><b>${fmb.front!=null?fmb.front:"–"}</b></div>`
+       + `<div class="pd mid"><span>Mitte</span><b>${fmb.mid}</b></div>`
+       + `<div class="pd"><span>Back</span><b>${fmb.back!=null?fmb.back:"–"}</b></div></div>`;
+    if(fmb.front==null) out+=`<div class="r-s" style="text-align:center;margin-top:4px">Nur Grünmitte vorhanden – Grünfläche in der Karte einzeichnen für Front/Back.</div>`;
     if(stratOn()){
       const lie=(lieAt(geo,PLAY.here)||"fairway");
       const dEff=fahne!=null?fahne:fmb.mid;
@@ -17746,6 +17760,41 @@ function pfDbgRender(){
     · Lücke ${Math.round((f.innerH||0)-(rb?rb.bottom:0))} px`;
 }
 
+/* ==========================================================================
+   EMPFEHLUNG AB DER AKTUELLEN POSITION (v1.94)
+   FEHLER bis v1.93: Die Kurzzeile zeigte `playAimChain().legs[0]` — den
+   ERSTEN Schlag der Kette. Die Kette startet aber immer am ABSCHLAG. Folge:
+   Es stand dauerhaft „Driver 219 m", egal wo man stand. Genau die Angabe, die
+   sich mit jedem Schritt aendern muesste, war die einzige, die es nie tat.
+
+   Richtig ist die Bewertung AB `PLAY.here`:
+     · am Abschlag  -> tee()      (darf den Driver, kennt die Ideallinie)
+     · 8–200 m Rest -> approach() (Ziel Gruenmitte, liefert die Gruenquote)
+     · sonst        -> nextShot() (beliebiger Ausgangspunkt, kein Driver)
+   Dieselben Funktionen, die auch die Zielkette benutzt — nur mit dem eigenen
+   Standort als Startpunkt statt dem Tee.
+   ========================================================================== */
+function playCaddyNow(){
+  try{
+    const geo=playGeo(), h=PLAY.holes&&PLAY.holes[PLAY.idx];
+    if(!geo||!h||!PLAY.here) return null;
+    const hr=holeRef(geo,h.hole); if(!hr||!hr.green) return null;
+    const rest=Math.round(geoDist(PLAY.here,hr.green));
+    const amTee = hr.tee ? (geoDist(PLAY.here,hr.tee)<30 && h.par>=4) : false;
+    let ev=null;
+    if(amTee)                    ev=_aimTeeEv(geo,h);
+    else if(rest>=8 && rest<=200) ev=_aimApproachEv(geo,h,PLAY.here);
+    else                          ev=_aimNextEv(geo,h,PLAY.here);
+    if(!ev||!ev.best||!ev.best.club) return {rest, club:null, quote:"", phase:amTee?"Abschlag":"Schlag"};
+    const f=ev.fracs||{};
+    const quote = isFinite(f.gruen) ? `Grün ${f.gruen} %`
+                : isFinite(f.fw)    ? `FW ${f.fw} %` : "";
+    return {rest, club:ev.best.club.name||String(ev.best.club),
+            quote, phase: amTee?"Abschlag":(rest<=200?"Annäherung":"Schlag"),
+            pen: isFinite(f.pen)?f.pen:null};
+  }catch(e){ logErr("playCaddyNow", e, true); return null; }
+}
+
 function pfCaddyKurz(){
   const geo=playGeo(), h=PLAY.holes[PLAY.idx];
   if(!geo) return `<button type="button" class="pf-cad-line" onclick="pfInfoToggle()">
@@ -17762,11 +17811,13 @@ function pfCaddyKurz(){
         📍 <b>${tf>=1000?(tf/1000).toFixed(1).replace(".",",")+" km":tf+" m"}</b> — zu weit${esc(plan)}
         <span class="pf-cad-more">▾</span></button>`; } }
   const fmb=greenFMB(PLAY.here,h.hole);
-  // Ziel ist die Gruenmitte (Fahnensteuerung entfernt, v1.90)
-  const rest = fmb ? fmb.mid : null;
-  let empf="";
-  try{ const ch=playAimChain(); const L=ch&&ch.legs&&ch.legs[0];
-    if(L&&L.club) empf=" · "+escShort(L.club)+(L.dist?` ${L.dist} m`:""); }catch(e){ logErr("pfCaddyKurz", e, true); }
+  const now=playCaddyNow();
+  /* Rest zur Gruenmitte AB DER EIGENEN POSITION — nicht die Bandmitte der
+     Kette. Wandert man die Bahn hinunter, muss diese Zahl kleiner werden. */
+  const rest = (now && now.rest!=null) ? now.rest : (fmb ? fmb.mid : null);
+  const empf = (now && now.club)
+    ? " · "+escShort(now.club)+(now.quote?` · ${now.quote}`:"")
+    : "";
   const wind = (WEATHER&&WEATHER.windMs!=null)
     ? ` · ${Math.round(WEATHER.windMs*3.6)} km/h` : "";
   return `<button type="button" class="pf-cad-line" onclick="pfInfoToggle()">
@@ -23034,7 +23085,7 @@ function openComp(idx){
 /* ================= NAV ================= */
 let current="dash";
 const FAB_ACTION={rounds:startRound,comp:openAddComp,notes:openAddNote,swing:openSwingEdit};
-const APP_VERSION="1.93.0"; // App-Anzeigeversion (NICHT SEED.version! Diese bei jeder Änderung erhöhen)
+const APP_VERSION="1.94.0"; // App-Anzeigeversion (NICHT SEED.version! Diese bei jeder Änderung erhöhen)
 /* ---------- Darstellung: Hell/Dunkel (DB.ui.theme = "auto" | "light" | "dark") ---------- */
 const _darkMQ = (window.matchMedia? window.matchMedia("(prefers-color-scheme: dark)") : null);
 function themeSetting(){ return (DB && DB.ui && DB.ui.theme) || "auto"; }
