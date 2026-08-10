@@ -372,7 +372,13 @@
   nav button{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;
     padding:8px 2px;color:var(--ink-faint);font-size:10.5px;font-weight:650;letter-spacing:.01em;border-radius:12px;white-space:nowrap}
   nav button .ni{font-size:20px;line-height:1}
-  #subnav{position:sticky;top:0;z-index:20;display:none;gap:6px;padding:9px 14px;background:var(--bg);
+  /* UNTER der Kopfzeile kleben, nicht darauf. Beide standen auf `top:0` und
+     stapelten sich damit uebereinander — sichtbar wurde es im Browser-Vollbild,
+     wo `env(safe-area-inset-top)` wegfaellt und die Kopfzeile schrumpft.
+     `--hh` wird zur Laufzeit aus der tatsaechlichen Kopfhoehe gesetzt
+     (syncHeaderH), weil die je nach Geraet, Schriftgroesse und Vollbild
+     variiert — ein fester Wert waere auf irgendeinem Geraet wieder falsch. */
+  #subnav{position:sticky;top:var(--hh,0px);z-index:19;display:none;gap:6px;padding:9px 14px;background:var(--bg);
     border-bottom:1px solid var(--line);overflow-x:auto;max-width:760px;margin:0 auto}
   #subnav button{flex:0 0 auto;padding:7px 15px;border-radius:999px;font-size:13px;font-weight:650;
     color:var(--ink-soft);background:var(--surface2);border:1px solid var(--line)}
@@ -2110,6 +2116,49 @@ Rechenkerne. Die Selbstpruefung hat beides gemeldet (doppelte Funktionsnamen, ni
 aufgerufen). **Vor dem Bauen pruefen, ob es die Funktion schon gibt** — die Datei hat inzwischen
 ueber 680 Funktionen.
 
+### Grabsteine — Loeschungen ueberleben den Sync (v2.11)
+**Der Fehler:** Ein geloeschter Schlaeger tauchte beim naechsten Abgleich sofort wieder auf.
+`_mergeArr` VEREINIGT lokale und Repo-Liste; ein lokal geloeschter Eintrag fehlt danach lokal nur
+noch, und die Repo-Fassung wird kommentarlos wieder hinzugefuegt. Das galt fuer ALLE 13
+synchronisierten Listen — Runden, Notizen, Testdefinitionen, Plaetze.
+
+**Dieselbe Klasse wie v1.74** (`Object.assign` bei `DB.ui`): Das FEHLEN einer Sache ist keine
+Information, die ein Merge lesen kann. Es braucht einen positiven Vermerk.
+
+`DB.tomb[bereich][schluessel] = ISO-Zeit`. `_mergeArr` bekommt den Grabstein-Bereich und entfernt
+Eintraege wieder, deren Grabstein JUENGER ist als der Eintrag selbst. Die Grabsteine werden selbst
+mitgemergt (`_mergeTomb`, spaetere Zeit gewinnt; `tombAll()` legt die Struktur an, `_tombFor(db,bereich)` liest sie) — sonst kaeme ein auf dem Handy Geloeschtes
+ueber die Uhr zurueck.
+
+**`tombClear()` ist genauso wichtig wie `tombAdd()`.** Schlaeger werden ueber den NAMEN
+geschluesselt (`x=>x.club`). Wer „5 Wood" loescht und spaeter neu anlegt, traegt denselben
+Schluessel wie der Grabstein — ohne Aufheben waere der Name dauerhaft verbrannt. Angebunden am
+Anlegen und am Umbenennen; zusaetzlich setzt jede Aenderung `updated`, damit auch der
+Zeitstempel-Weg funktioniert.
+
+**Beim Verdrahten aufgefallen:** `tournaments` und `seasonGoals` laufen NICHT ueber `_mergeArr`,
+sondern ueber `Object.assign` — dort gewinnt die lokale Liste komplett, Loeschungen wirken also
+schon. `notesTrash` wird nach Alter automatisch geleert und braucht keinen Grabstein.
+
+### Testbeschreibungen (v2.10)
+Alle 27 Beschreibungen neu geschrieben. Vorher reichten sie von 28 Zeichen („3-Ball Pressure
+Putting Test" — nur der Titel noch einmal) bis 535; wer einen Test zum ersten Mal aufbaute, wusste
+weder den Abstand der Marken noch die Zaehlweise.
+
+Einheitliche Gliederung, im Pruefstand erzwungen:
+- **WOFUER** — was gemessen wird und warum es Schlaege kostet, mit dem Bezug zum eigenen Spiel
+- **AUFBAU** — Material, Distanzen, Markierungen
+- **ABLAUF** — Schritt fuer Schritt, passend zu den tatsaechlichen Eingabefeldern
+- **ZAEHLUNG** — wie Punkte entstehen
+- **RICHTWERTE** — **automatisch aus `benchmark.levels` erzeugt**, nicht von Hand geschrieben.
+  Handgeschriebene Richtwerte laufen frueher oder spaeter von der echten Skala weg; so kann das
+  nicht passieren. Beschriftung aus `HCP_LABELS`.
+- **FEHLERQUELLE** — was den Test wertlos macht. Meist wichtiger als der Ablauf: immer dieselbe
+  Puttlinie, Probeschlaege zwischen Druckstationen, Ausreisser weglassen.
+
+Neun Pruefungen sichern das ab, darunter der Abgleich, dass der genannte Scratch-Richtwert mit
+`benchmark.levels[4]` uebereinstimmt.
+
 ### Spielweise und Adressleiste (v2.05)
 **`pfFullscreen()`** (⛶ in der Kartenleiste) blendet ueber die Fullscreen-API die Adressleiste
 aus. Ein normaler Browser-Tab kann sie nicht dauerhaft verstecken — das ist eine
@@ -2663,6 +2712,62 @@ erkennbar ist, dass es ein Video gab.
 ## Changelog
 > **Regel:** Bei JEDER inhaltlichen Änderung hier oben einen datierten Eintrag ergänzen (neueste
 > zuerst): Datum · was geändert · betroffene Bereiche. Kurz halten.
+
+- **v2.11.0 · 2026-08-10** — **BUGFIX: Gelöschte Schläger kamen sofort zurück.** `_mergeArr`
+  **vereinigt** lokale und Repo-Liste — ein lokal gelöschter Eintrag fehlt danach nur noch lokal,
+  und die Repo-Fassung wird kommentarlos wieder hinzugefügt. Das betraf **alle 13
+  synchronisierten Listen**, nicht nur die Schläger. Dieselbe Klasse wie v1.74: das Fehlen einer
+  Sache ist keine Information, die ein Merge lesen kann. Neu **Grabsteine**
+  (`DB.tomb[bereich][key] = Zeit`, `tombAdd`/`tombClear`/`_mergeTomb`): `_mergeArr` entfernt
+  Einträge, deren Grabstein jünger ist als der Eintrag; die Grabsteine werden selbst
+  mitsynchronisiert. **`tombClear()` ist dabei genauso wichtig** — Schläger werden über den Namen
+  geschlüsselt, ohne Aufheben wäre „5 Wood" nach dem Löschen dauerhaft verbrannt. Angebunden an
+  Schläger, Runden, Trainingseinheiten, Launch-Monitor-Sitzungen und Notizen. 13 Prüfungen.
+
+- **v2.10.0 · 2026-08-10** — **Alle 27 Testbeschreibungen neu geschrieben.** Vorher zwischen 28
+  und 535 Zeichen — die kürzeste wiederholte nur den Titel. Jetzt einheitlich gegliedert:
+  **WOFÜR** (was gemessen wird und warum es Schläge kostet) · **AUFBAU** (Material, Distanzen,
+  Markierungen) · **ABLAUF** (Schritt für Schritt, passend zu den echten Eingabefeldern) ·
+  **ZÄHLUNG** · **RICHTWERTE** · **FEHLERQUELLE** (was den Test wertlos macht — meist wichtiger
+  als der Ablauf). Median 866 statt 296 Zeichen. Die **Richtwerte werden aus `benchmark.levels`
+  erzeugt**, nicht von Hand geschrieben: handgeschriebene Werte laufen von der echten
+  Bewertungsskala weg, erzeugte können es nicht. Neun Prüfungen sichern Vollständigkeit und
+  Übereinstimmung mit der Skala.
+
+- **v2.09.0 · 2026-08-10** — **Unrunde Zahlen und verschobene Unternavigation.**
+  (1) In „Gute gegen schlechte Runden" stand „38.888888888888886". Ursache: **`num()` ist ein
+  PARSER** (Text → Zahl) und ignoriert ein zweites Argument — `num(v,1)` rundet also nicht.
+  Zum Formatieren ist `fmtN(v,d)` da. Beide Stellen korrigiert; Quoten bekommen zusätzlich die
+  Einheit „%", weil „38,9" sonst nicht verrät, ob Prozent, Schläge oder Meter gemeint sind. Am
+  irreführenden Namen `num()` steht jetzt eine Warnung, und eine Prüfung verhindert die
+  Wiederholung.
+  (2) **Kopfzeile und Unternavigation klebten beide auf `top:0`** und stapelten sich damit
+  übereinander. Sichtbar wurde es im Browser-Vollbild, wo `env(safe-area-inset-top)` wegfällt und
+  die Kopfzeile schrumpft. Die Unternavigation klebt jetzt auf `top:var(--hh)`; `syncHeaderH()`
+  misst die tatsächliche Kopfhöhe zur Laufzeit (bei Render, `resize`, `orientationchange` und
+  `fullscreenchange`) — ein fester Wert wäre je nach Gerät, Schriftgröße und Vollbild wieder
+  falsch. z-index der Kopfzeile 20, der Unternavigation 19.
+
+- **v2.08.0 · 2026-08-10** — **Eingabemaske ist reine Eingabe.** Caddy, Lochplan, Distanzanzeige
+  (F/M/B) und Schlagaufnahme sind dort vollständig entfallen — alles davon steht im Kartenmodus,
+  und zwar besser: die Empfehlung ab der eigenen Position, der Plan fürs Loch, das Aufnahmeband
+  mit Schwunglänge. In der Eingabemaske war es eine zweite, schlechtere Ausgabe derselben Daten.
+  **Nebeneffekt:** `playInfoHtml()` stößt Monte-Carlo und Geo-Raster an und lief bisher bei
+  JEDEM GPS-Tick über `playLiveRefresh()` — auch wenn niemand hinsah. Das entfällt außerhalb des
+  Kartenmodus. Der Weg zurück zur Karte („🗺 Vollbild-Karte" ganz oben) bleibt und ist im
+  Prüfstand abgesichert.
+
+- **v2.07.1 · 2026-08-10** — **Nachgewiesen: Die Fairwaybreite fließt in die Schlägerwahl ein.**
+  Auf Nachfrage überprüft — sie wird nicht als Zahl gemessen, sondern ergibt sich aus der
+  Monte-Carlo-Simulation: Jeder Kandidat wird mit der Streuung des Schlägers gestreut, jeder
+  Landepunkt über `lieCode` bewertet. Ein enges Fairway heißt automatisch mehr Rough-Treffer,
+  höheren Erwartungswert und damit schlechtere Bewertung. Gemessen an einem 380-m-Par-4:
+  ±30 m → 95 % Fairway, ±7 m → 30 %, Erwartungswert 4,49 → 4,81. **Der entscheidende Fall:**
+  Verengt sich das Fairway erst in der Landezone des Drivers, wählt der Caddy den kürzeren
+  Schläger, der davor bleibt (5 Wood statt Driver, 98 % statt 30 % Fairway). Fünf Prüfungen
+  halten das fest — samt dem Hinweis, dass das Lageraster `geo.features` liest und **nicht**
+  `holes[n].fairway`; diese Verwechslung ließ meinen ersten Prüfversuch fälschlich aussehen,
+  als werde die Breite ignoriert.
 
 - **v2.07.0 · 2026-08-10** — **BUGFIX: Distanzringe, Luftbild und Platzdaten ließen sich nicht
   umschalten.** Alle drei sind Teil des SVG und ändern sich erst, wenn die Karte neu **gebaut**
@@ -4600,7 +4705,7 @@ const SEED = {
    "weightKey": "Kurzputt-Präzision /50",
    "weight": 0.0612,
    "score": "sum",
-   "description": "🎯 KURZPUTT-PRÄZISIONSTEST (Gate Drill nach Dave Pelz) · Trefferquote auf kurze Distanzen\n\nWichtigste Einzelmetrik für HCP-Verbesserung. 10 Versuche je Distanz. Gate = Lochbreite + 2 Tee-Breiten je Seite (≈ 12 cm). Nur Putts durch das Gate = Treffer."
+   "description": "🎯 KURZPUTT-PRÄZISION · Gate Drill nach Dave Pelz\n\nWOFÜR: Putts unter 3 m entscheiden über gerettete Pars. Ein 20er-Handicap\nverliert hier pro Runde rund einen Schlag gegen Scratch — nicht durch fehlende\nLänge, sondern durch verfehlte Kurze. Der Test misst, ab welcher Distanz deine\nTrefferquote einbricht.\n\nAUFBAU: Zwei Tees als Tor, gut eine Puttkopfbreite auseinander, 30 cm vor dem\nBall. Fünf Marken bei 1,0 / 1,5 / 2,0 / 2,5 / 3,0 m um EIN Loch.\n\nABLAUF: 10 Putts je Distanz, immer im Wechsel der Richtung um das Loch — nicht\nzehnmal dieselbe Linie. Gezählt wird nur, was fällt. Durch das Tor zu treffen\nist Voraussetzung, aber kein Punkt.\n\nZÄHLUNG: Ein Punkt je eingelochtem Putt, 50 möglich.\n\nFEHLERQUELLE: Immer dieselbe Linie putten. Dann übt man eine Rille ein und misst\nWiederholung statt Können. Die Richtung nach jedem Putt wechseln.\n\nRICHTWERTE (Pkt /50, ab …): HCP 20 22 · HCP 15 30 · HCP 8 38 · HCP 3 44 · Scratch 48\n\nZÄHLWEISE: Ein Punkt je eingelochtem Putt."
   },
   {
    "key": "distanzputt",
@@ -4642,7 +4747,7 @@ const SEED = {
    "weightKey": "Distanz-Putting /36",
    "weight": 0.0612,
    "score": "sum",
-   "description": "DISTANZ-PUTTING TEST – 3 Putts je Distanz\n\nANLEITUNG:\n• 3 Bälle von jeder Distanz einlochen\n• 4 Distanzen: 3m / 5m / 7m / 10m\n\nWERTUNG:\n Gelocht = 3 Pkt\n ≤ 50 cm = 2 Pkt\n ≤ 100 cm = 1 Pkt\n > 100 cm = 0 Pkt\n\nMax: 36 Punkte\nZiel Hcp 15: ≥ 18 Pkt → siehe Benchmarks\nZiel Hcp 8: ≥ 24 Pkt → siehe Benchmarks"
+   "description": "📏 DISTANZ-PUTTING · Längenkontrolle mittlerer Putts\n\nWOFÜR: Zwischen 3 und 10 m fällt selten etwas — hier geht es darum, den zweiten\nPutt zum Selbstläufer zu machen. Wer aus 7 m regelmäßig 1,5 m stehen lässt,\n3-puttet praktisch nie.\n\nAUFBAU: Vier Distanzen 3 / 5 / 7 / 10 m. Kreis mit 90 cm Radius um das Loch\nmarkieren (Schlägerlänge als Maß).\n\nABLAUF: 3 Bälle je Distanz. Eingelocht zählt 3 Punkte, im Kreis 2, außerhalb\naber innerhalb 1,8 m noch 1. Weiter weg null.\n\nZÄHLUNG: Maximal 9 Punkte je Distanz, 36 gesamt.\n\nFEHLERQUELLE: Auf einem völlig ebenen Grün üben. Nimm bewusst eine Linie mit\nGefälle — bergab ist die Längenkontrolle ein anderes Spiel.\n\nRICHTWERTE (Pkt /36, ab …): HCP 20 14 · HCP 15 18 · HCP 8 24 · HCP 3 29 · Scratch 33\n\nZÄHLWEISE: 3 Punkte eingelocht · 2 im 90-cm-Kreis · 1 innerhalb 1,8 m."
   },
   {
    "key": "lag",
@@ -4679,7 +4784,7 @@ const SEED = {
    "weightKey": "Lag Putting /45",
    "weight": 0.0536,
    "score": "sum",
-   "description": "🎯 LAG PUTTING TEST – 3-Putt Vermeidung\n\nANLEITUNG:\n• 5 Bälle von 8m / 10m / 15m\n• Ziel: Ball innerhalb 1m Kreis\n\nWERTUNG:\n Gelocht = 3 Pkt\n ≤ 50 cm = 2 Pkt\n ≤ 100 cm = 1 Pkt ← Zielzone\n > 100 cm = 0 Pkt ← 3-Putt Risiko\n\nMax: 45 Punkte\nZiel Hcp 15: ≥ 22 Pkt\nZiel Hcp 10: ≥ 30 Pkt\n3-Putt-Rate < 10% = Hcp ~10\n→ Zielwerte: siehe Benchmarks-Blatt"
+   "description": "🎯 LAG PUTTING · 3-Putt-Vermeidung\n\nWOFÜR: Der teuerste Fehler auf dem Grün ist der Dreiputt aus großer Distanz.\nEr kostet einen ganzen Schlag und ist fast immer ein Längenfehler, kein\nLinienfehler.\n\nAUFBAU: Drei Distanzen 8 / 10 / 15 m. Kreis mit 90 cm Radius um das Loch.\n\nABLAUF: 5 Bälle je Distanz. Im Kreis 3 Punkte, innerhalb 1,8 m 2 Punkte,\ninnerhalb 3 m noch 1 Punkt. Alles darüber null — und das ist die Zone, aus der\nDreiputts kommen.\n\nZÄHLUNG: Maximal 15 Punkte je Distanz, 45 gesamt.\n\nFEHLERQUELLE: Auf das Loch zielen statt auf den Kreis. Aus 15 m ist das Loch\nnicht das Ziel; der Kreis ist es.\n\nRICHTWERTE (Pkt /45, ab …): HCP 20 18 · HCP 15 22 · HCP 8 30 · HCP 3 37 · Scratch 42\n\nZÄHLWEISE: 3 Punkte im 90-cm-Kreis · 2 innerhalb 1,8 m · 1 innerhalb 3 m."
   },
   {
    "key": "3ball",
@@ -4713,7 +4818,7 @@ const SEED = {
    "score": {
     "field": "Erfolgreiche Serien"
    },
-   "description": "3-Ball Pressure Putting Test"
+   "description": "🔥 3-BALL PRESSURE PUTTING · Kurzputts unter Druck\n\nWOFÜR: Auf der Range fällt der 1,5-m-Putt. Am 18. Loch mit einem Schlag Vorsprung\nfällt er seltener. Dieser Test erzeugt genau diesen Druck, indem ein Fehlschlag\ndie ganze Serie kostet.\n\nAUFBAU: Drei Bälle auf 1,0 / 1,5 / 2,0 m um dasselbe Loch, drei verschiedene\nRichtungen.\n\nABLAUF: Alle drei Putts nacheinander einlochen — das ist EINE Serie. Ein\nverfehlter Putt beendet die Serie sofort, sie zählt als gescheitert. Zehn Serien\ninsgesamt, ohne Pause und ohne Probeputt zwischendurch.\n\nZÄHLUNG: Erfasse Serien gesamt und erfolgreiche Serien. Gewertet wird die Zahl\nder vollständig gelochten Serien.\n\nFEHLERQUELLE: Nach einem Fehler weiterputten. Der Abbruch IST der Test — er\nerzeugt die Anspannung, um die es geht.\n\nRICHTWERTE (Serien /10, ab …): HCP 20 2 · HCP 15 4 · HCP 8 6 · HCP 3 8 · Scratch 9\n\nZÄHLWEISE: Eine Serie = drei Putts hintereinander gelocht."
   },
   {
    "key": "3mputts",
@@ -4750,7 +4855,7 @@ const SEED = {
    "weightKey": "3m-Putts /50",
    "weight": 0.05,
    "score": "sum",
-   "description": "🎯 3m-PUTTS TEST · Lag-Putting-Vermeidung · Pelz/Broadie\n\nAnleitung: 10 Putts aus 3m je Seite (links/rechts/gerade/Korn). Tour-Quote 3m: 50% (PGA Tour 2024). HCP 15: 35%, HCP 8: 45%. 3m-Putts sind die wichtigste Distanz für 3-Putt-Vermeidung — wer hier sicher ist, lockt 3-Putts aus 12m+ deutlich ab."
+   "description": "🎯 3m-PUTTS · Die Schlüsseldistanz\n\nWOFÜR: 3 m ist die Distanz mit dem größten Unterschied zwischen den Spielstärken.\nTour trifft rund 50 %, HCP 8 etwa 45 %, HCP 15 rund 35 %. Wer hier zulegt,\ngewinnt sichtbar Schläge — und der Test zeigt, ob es an einer bestimmten\nBrechung liegt.\n\nAUFBAU: Fünf Positionen in 3 m um ein Loch mit Gefälle: gerade, Linksbreak,\nRechtsbreak, bergauf, bergab.\n\nABLAUF: 10 Putts je Position, der Reihe nach. Zwischen den Positionen die Marke\numsetzen, nicht zehnmal aus derselben Delle putten.\n\nZÄHLUNG: Ein Punkt je gelochtem Putt, 50 möglich. Die Aufteilung ist wichtiger\nals die Summe: Fällt nur die Bergab-Zahl ab, ist es Längenkontrolle. Fällt eine\nBreak-Richtung ab, ist es dein Aim-Point oder die Startlinie.\n\nFEHLERQUELLE: Alle fünf Positionen auf demselben flachen Fleck. Ohne echtes\nGefälle misst der Test nichts.\n\nZÄHLWEISE: Ein Punkt je eingelochtem Putt."
   },
   {
    "key": "scrambling",
@@ -4792,7 +4897,7 @@ const SEED = {
    "weightKey": "Scrambling Zone /40",
    "weight": 0.0306,
    "score": "sum",
-   "description": "🟢 SCRAMBLING ZONE TEST – 4 Lagen\n\nANLEITUNG:\n• 5 Versuche pro Lage (4 Lagen)\n• Gesamt: 20 Versuche\n• Distanz 10-30 m\n\nWERTUNG je Versuch:\n Up&Down = 2 Pkt\n 2-Putt = 1 Pkt\n 3+ Putts = 0 Pkt\n\nMax je Lage: 10 Pkt\nMax gesamt: 40 Pkt\n\nBenchmarks (→ Reiter Benchmarks):\n ≥ 35 = Hcp 0 (Elite)\n ≥ 28 = Hcp ~3\n ≥ 22 = Hcp ~8\n ≥ 15 = Hcp ~15\n ≥ 12 = Hcp ~20\n < 12 = < Hcp 20"
+   "description": "🟢 SCRAMBLING ZONE · Vier Lagen ums Grün\n\nWOFÜR: Grüns verfehlt jeder. Was Handicaps trennt, ist der Schlag danach. Der\nTest prüft alle vier Lagen einzeln — und deckt auf, welche dich wirklich kostet.\n\nAUFBAU: Vier Lagen um dasselbe Grün: Fairway/Vorgrün, leichtes Rough, tiefes\nRough oder Hanglage, Bunker. Distanz jeweils 8–20 m.\n\nABLAUF: 5 Bälle je Lage, also 20 insgesamt. Jeder Ball wird ausgespielt bis zum\nEinlochen — der Putt gehört dazu.\n\nZÄHLUNG: Up & Down (Chip plus ein Putt) gibt 2 Punkte, zwei Putts 1 Punkt,\nalles darüber null. Maximal 40.\n\nFEHLERQUELLE: Nur aus der Lieblingslage üben. Der Bunkerwert wird oft ausgelassen\n— genau dort liegt bei den meisten der größte Verlust.\n\nRICHTWERTE (Pkt /40, ab …): HCP 20 12 · HCP 15 15 · HCP 8 22 · HCP 3 28 · Scratch 35\n\nZÄHLWEISE: Up&Down = 2 Punkte · 2 Putts = 1 Punkt."
   },
   {
    "key": "chip3",
@@ -4834,7 +4939,7 @@ const SEED = {
    "weightKey": "3-Varianten Chip /60",
    "weight": 0.0306,
    "score": "sum",
-   "description": "🎯 3-VARIANTEN CHIP/PITCH TEST – gleiche Distanz, 3 Lies\n\nANLEITUNG:\n• Distanz wählen: 15 m oder 20 m\n• Selber Schläger, 3 verschiedene Lies\n• Je Lie: 5 Bälle spielen\n\nWERTUNG (Pelz-Punkte):\n Gelocht = 4 Pkt\n ≤ 90 cm = 2 Pkt\n ≤ 180 cm = 1 Pkt\n > 180 cm = 0 Pkt\n\nMax Score: 60 Punkte (3×5×4)\nZiel: ≥ 30 Punkte"
+   "description": "🎯 3-VARIANTEN CHIP · Gleiche Distanz, drei Lagen\n\nWOFÜR: Isoliert die Lage als Einflussgröße. Wer aus dem Fairway gut chippt, aber\naus dem Rough streut, hat kein Distanzproblem, sondern ein Technikproblem bei\nGras zwischen Ball und Schlagfläche.\n\nAUFBAU: EINE Distanz wählen (15, 20 oder 25 m) und im Feld eintragen. Dieselbe\nDistanz aus drei Lagen: Fairway, leichtes Rough, Hardpan oder Hanglage.\n\nABLAUF: 10 Bälle je Lage, immer aufs selbe Ziel. Kreise um die Fahne markieren:\n1 m und 2 m.\n\nZÄHLUNG: Innerhalb 1 m gibt 2 Punkte, innerhalb 2 m einen. Maximal 20 je Lage,\n60 gesamt.\n\nFEHLERQUELLE: Die Distanz zwischen den Lagen ändern. Dann vergleicht man nichts\nmehr — die eingetragene Distanz muss für alle drei gelten.\n\nRICHTWERTE (Pkt /60, ab …): HCP 20 18 · HCP 15 25 · HCP 8 38 · HCP 3 46 · Scratch 54\n\nZÄHLWEISE: 2 Punkte innerhalb 1 m · 1 Punkt innerhalb 2 m."
   },
   {
    "key": "bunker",
@@ -4866,7 +4971,7 @@ const SEED = {
    "weightKey": "Bunker-Test /20",
    "weight": 0.0421,
    "score": "avg",
-   "description": "🏖 BUNKER-TEST · Greenside + Fairway · Up&Down=2Pkt / 2-Putt=1Pkt / Max: 40 Pkt gesamt / Insgesamt 20 Schläge\n\nJe Typ: Up&Down=2Pkt | 2-Putt=1Pkt | 3+Putts=0Pkt | Greenside und Fairway je /20 | Score-Spalte = Durchschnitt /20 (modus-bewusst: nur tatsächlich getestete Modi zählen)"
+   "description": "🏖 BUNKER · Greenside und Fairway getrennt\n\nWOFÜR: Zwei völlig verschiedene Schläge, die oft in einen Topf geworfen werden.\nGreenside geht es um Höhe und Sand vor dem Ball, im Fairwaybunker um sauberen\nBallkontakt und die Kante.\n\nAUFBAU: Greenside 10 Bälle aus einem Grünbunker, 8–15 m zur Fahne. Fairway\n10 Bälle aus einem Bunker mit mindestens 100 m Rest.\n\nABLAUF: Jeden Ball zu Ende spielen. Greenside zählt Up & Down, im Fairwaybunker\nzählt ein Schlag, der die Kante überquert und im Spiel bleibt.\n\nZÄHLUNG: Up & Down 2 Punkte, zwei Putts 1 Punkt. Je 20 Punkte möglich, gewertet\nwerden die Greenside-Punkte.\n\nFEHLERQUELLE: Aus einem perfekt geharkten Bunker mit idealer Lage üben. Lege\neinen Teil der Bälle bewusst in Fußabdrücke oder an die Kante.\n\nRICHTWERTE (Pkt /20, ab …): HCP 20 6 · HCP 15 10 · HCP 8 14 · HCP 3 17 · Scratch 19\n\nZÄHLWEISE: Up&Down = 2 Punkte · 2 Putts = 1 Punkt."
   },
   {
    "key": "sgpressure",
@@ -4913,7 +5018,7 @@ const SEED = {
    "weightKey": "Short Game Pressure /25",
    "weight": 0.0153,
    "score": "sum",
-   "description": "🎯 SHORT GAME PRESSURE STATION TEST · Chip/Pitch Zielgenauigkeit unter Druck\n\n5 Stationen × 5 Versuche = 25 Punkte max. | 3 Punkte = im 1m-Kreis, 2P = 2m, 1P = 3m, 0P = verfehlt.\n\n🎯 SHORT GAME PRESSURE STATION TEST · Chip/Pitch Zielgenauigkeit unter Druck\n\nStation 1: 10m Chip von kurzer Rough, Ziel Pin\n\nStation 2: 20m Pitch von Fairway, Ziel Pin\n\nStation 3: 30m Pitch aus Rough, Ziel Pin\n\nStation 4: 10m Bunkershot, Ziel 2m-Kreis\n\nStation 5: 10m Lob-Chip über Hindernis, Ziel Pin\n\nZiele: Hcp20: ≥8 | Hcp15: ≥12 | Hcp8: ≥17 | Hcp0: ≥22"
+   "description": "🎯 SHORT GAME PRESSURE · Fünf Stationen, ein Ball\n\nWOFÜR: Ein einziger Ball je Station — keine zweite Chance, kein Einspielen. Das\nist die Situation auf dem Platz. Der Test misst nicht dein bestes Kurzspiel,\nsondern dein erstes.\n\nAUFBAU: Fünf Stationen: 10 m Chip, 20 m Pitch, 30 m Pitch, 10 m aus dem Bunker,\n10 m Lob über ein Hindernis.\n\nABLAUF: Eine Runde durch alle fünf Stationen, je EIN Ball. Danach von vorn,\nfünfmal insgesamt. Zwischen den Stationen wird gegangen, nicht geübt.\n\nZÄHLUNG: Je Station 5 Versuche. Punkt für jeden Ball innerhalb 2 m. Maximal 25.\n\nFEHLERQUELLE: Probeschläge zwischen den Stationen. Damit ist der Test wertlos —\nder Reiz liegt im kalten ersten Schlag.\n\nRICHTWERTE (Pkt /25, ab …): HCP 20 7 · HCP 15 10 · HCP 8 15 · HCP 3 19 · Scratch 22\n\nZÄHLWEISE: Ein Punkt je Ball innerhalb 2 m."
   },
   {
    "key": "updown",
@@ -4947,7 +5052,7 @@ const SEED = {
    "score": {
     "field": "Up&Downs /10"
    },
-   "description": "🏌 UP & DOWN TEST · Scrambling-Rate aus 10 definierten Versuchen pro Session\n\n📌 ANLEITUNG: 10 Versuche pro Session aus VERSCHIEDENEN Lagen — randomisiert wählen, nicht selbst aussuchen! Empfehlung: 3× Fairway/Vorgrün (15m), 4× leichtes Rough (20m), 3× Halbrough/Hang oder Bunker (20–25m). 1 Versuch = 1 Chip/Pitch + max. 2 Putts. ✅ Up&Down = du brauchst zusammen NUR 2 Schläge (Chip + 1 Putt). ❌ Kein Up&Down = 3+ Schläge. Trage die Anzahl erfolgreicher Versuche ein → Rate% wird automatisch berechnet."
+   "description": "🏌 UP & DOWN · Deine Scrambling-Rate\n\nWOFÜR: Die Kennzahl, die auch die Tour verwendet. Sie beantwortet direkt: Wie oft\nrette ich das Par nach verfehltem Grün? Tour liegt bei rund 60 %, HCP 15 bei\netwa 33 %.\n\nAUFBAU: 10 Positionen rund um ein Grün, gemischte Lagen und Distanzen zwischen\n5 und 30 m. Die durchschnittliche Distanz im Feld eintragen — sie macht den Wert\nüber Sessions hinweg vergleichbar.\n\nABLAUF: Ein Ball je Position, jeweils bis zum Einlochen ausspielen.\n\nZÄHLUNG: Ein Up & Down ist Chip plus EIN Putt. Gewertet wird die Quote aus 10\nVersuchen.\n\nFEHLERQUELLE: Bei jeder Session andere Distanzen wählen und die mittlere Distanz\nnicht notieren. Dann vergleicht man Äpfel mit Birnen — 8 m und 25 m sind\nverschiedene Aufgaben.\n\nRICHTWERTE (%, ab …): HCP 20 22 · HCP 15 33 · HCP 8 45 · HCP 3 60 · Scratch 68\n\nZÄHLWEISE: Up & Down = Chip plus ein Putt."
   },
   {
    "key": "recovery",
@@ -4979,7 +5084,7 @@ const SEED = {
    "weightKey": "Recovery Test /20",
    "weight": 0.0267,
    "score": "sum",
-   "description": "🌲 RECOVERY TEST · Trouble-Lagen sicher zurück ins Spiel bringen\n\n📌 WAS IST RECOVERY? Jeder Schlag aus einer Trouble-Lage, bei dem nicht der Hero Shot, sondern die sichere Rückkehr ins Spiel zählt: \nBäume, tiefes Rough, Seitlage oder Punch-Out. Perfekt = Ball sicher im Spiel + gute Folgeposition."
+   "description": "🌲 RECOVERY · Aus dem Ärger zurück ins Spiel\n\nWOFÜR: Jede Runde bringt zwei bis drei Bälle in echte Schwierigkeiten. Was dort\npassiert, entscheidet zwischen Bogey und Doppelbogey. Der häufigste Fehler ist\nnicht der schlechte Schlag, sondern der zu ehrgeizige.\n\nAUFBAU: 10 Lagen, die es auf deinem Platz wirklich gibt: hinter Bäumen, unter\nÄsten, an einer Böschung, im tiefen Rough, mit Hanglage.\n\nABLAUF: Ein Ball je Lage. Vorher entscheiden: Was ist hier realistisch? Dann\nausführen.\n\nZÄHLUNG: „Perfekt\" heißt zurück aufs Fairway UND in Schlagweite zum Grün.\n„Spielbar\" heißt zurück im Spiel, aber ohne Vorteil. Perfekt gibt 2 Punkte,\nspielbar 1. Maximal 20.\n\nFEHLERQUELLE: Den Heldenschlag versuchen. Wenn eine Lücke unter 5 m Breite hat,\nist der Ausweg nach hinten fast immer die bessere Wahl — genau das soll der Test\ntrainieren.\n\nRICHTWERTE (Pkt /20, ab …): HCP 20 3 · HCP 15 5 · HCP 8 8 · HCP 3 12 · Scratch 15\n\nZÄHLWEISE: Perfekt = 2 Punkte · spielbar = 1 Punkt."
   },
   {
    "key": "parsave",
@@ -5011,7 +5116,7 @@ const SEED = {
    "weightKey": "Par-Save Test /20",
    "weight": 0.0267,
    "score": "sum",
-   "description": "⛳ PAR-SAVE TEST · Par retten nach verfehltem Grün\n\n📌 WAS WIRD GETESTET? 10 Stationen rund ums Grün. Pro Station genau EIN Ball. Ziel ist nicht nur Up & Down allgemein, sondern konkret: \nWie oft rettest du nach GIR-Miss noch Par? Par Save = 2 Punkte, Bogey Save = 1 Punkt, schlechter = 0 Punkte."
+   "description": "⛳ PAR-SAVE · Retten nach verfehltem Grün\n\nWOFÜR: Ergänzt Up & Down um die zweite Verteidigungslinie. Nicht jedes Par lässt\nsich retten — aber ein Bogey statt eines Doppelbogeys ist auf der Scorekarte\ngenauso viel wert.\n\nAUFBAU: 10 Stationen rund um das Grün, gemischte Lagen und Distanzen.\n\nABLAUF: Ein Ball je Station, bis zum Einlochen ausspielen. Beides notieren:\ngerettete Pars und gerettete Bogeys.\n\nZÄHLUNG: Par Save 2 Punkte, Bogey Save 1 Punkt. Maximal 20.\n\nFEHLERQUELLE: Nur die Pars zählen. Die Bogey-Zahl ist die aussagekräftigere\nGröße — sie zeigt, ob du Katastrophen vermeidest.\n\nRICHTWERTE (Pkt /20, ab …): HCP 20 4 · HCP 15 6 · HCP 8 10 · HCP 3 14 · Scratch 17\n\nZÄHLWEISE: Par Save = 2 Punkte · Bogey Save = 1 Punkt."
   },
   {
    "key": "pelz",
@@ -5088,7 +5193,7 @@ const SEED = {
    "weightKey": "Pelz Score /360",
    "weight": 0.0689,
    "score": "sum",
-   "description": "🎯 PELZTEST DATENERFASSUNG · Pelz-Originaldistanzen (Yard→Meter kalibriert) · Max: 360 Punkte\n\nPelz Short Game Test — Originaldistanzen in Yard, metrisch kalibriert (1yd=0,914m). Monatlich erfassen."
+   "description": "🎯 PELZTEST · Der Klassiker über acht Distanzen\n\nWOFÜR: Der umfassendste Kurzspieltest, entwickelt von Dave Pelz. Er deckt den\ngesamten Bereich zwischen 7 und 45 m ab und zeigt Lücken im Distanzgefühl, die\neinzelne Tests übersehen.\n\nAUFBAU: Acht Distanzen (Originalwerte in Yards, hier in Meter umgerechnet):\n45 m und 27 m Pitch, 18 m und 9 m Chip, 13,5 m kurz und lang, 7 m und 4,5 m.\n\nABLAUF: 5 Bälle je Distanz, also 40 insgesamt. Nach jedem Ball die Restdistanz\nzur Fahne in Zentimetern messen.\n\nZÄHLUNG: Je Distanz maximal 45 Punkte, 360 gesamt. Punkte fallen mit der\nRestdistanz — je näher, desto mehr.\n\nFEHLERQUELLE: Schätzen statt messen. Der Test lebt davon, dass die Restdistanz\ntatsächlich abgeschritten oder gemessen wird.\n\nRICHTWERTE (Pkt /360, ab …): HCP 20 80 · HCP 15 105 · HCP 8 140 · HCP 3 190 · Scratch 240\n\nZÄHLWEISE: Punkte nach gemessener Restdistanz."
   },
   {
    "key": "randomwedge",
@@ -5130,7 +5235,7 @@ const SEED = {
    "weightKey": "Random Wedge /48",
    "weight": 0.0383,
    "score": "sum",
-   "description": "RANDOM WEDGE TEST – TRACKING\n\nREGELN:\n• 3 Bälle pro Distanzspanne\n• Distanz bei jedem Schlag wechseln\n• Verschiedene Flugbahnen\n• Wertung: Gelocht=4, ≤90cm=2, ≤180cm=1, >180cm=0\n• Max Score: 48 Punkte"
+   "description": "🎲 RANDOM WEDGE · Zufällige Distanzen statt Serien\n\nWOFÜR: Zehn Bälle aus 40 m nacheinander sagen wenig — man kalibriert sich ein.\nAuf dem Platz kommt jede Distanz genau einmal. Dieser Test bildet das ab und\nmisst dein echtes Distanzgefühl.\n\nAUFBAU: Vier Spannen: 18–22, 28–32, 38–42, 48–52 m. Ziel mit Kreisen bei 2 m\nund 4 m.\n\nABLAUF: Die Spannen in zufälliger Reihenfolge abarbeiten, 3 Bälle je Spanne,\ninsgesamt vier Durchgänge. Zwischen zwei Bällen derselben Spanne muss mindestens\nein anderer Schlag liegen.\n\nZÄHLUNG: Innerhalb 2 m gibt 2 Punkte, innerhalb 4 m einen. Maximal 12 je Spanne,\n48 gesamt.\n\nFEHLERQUELLE: Die Spannen der Reihe nach durchgehen. Dann ist es wieder ein\nSerientest — der Zufall IST der Test.\n\nRICHTWERTE (Pkt /48, ab …): HCP 20 10 · HCP 15 16 · HCP 8 22 · HCP 3 30 · Scratch 38\n\nZÄHLWEISE: 2 Punkte innerhalb 2 m · 1 Punkt innerhalb 4 m."
   },
   {
    "key": "approach",
@@ -5177,7 +5282,7 @@ const SEED = {
    "weightKey": "Approach Accuracy /200",
    "weight": 0.0651,
    "score": "sum",
-   "description": "🏹 APPROACH ACCURACY TEST – 5 Distanzen × 20 Bälle (statistisch valide) – auf Südplatz oder Range\n\nANLEITUNG (20 Bälle = stat. valide):\n• 20 Bälle je Distanz\n• Passenden Schläger wählen\n\nPUNKTE je Ball:\n Grün getroffen = 2 Pkt\n ≤ 3 m daneben = 1 Pkt\n Verfehlt = 0 Pkt\n\nMax: 40 Pkt/Distanz | 200 gesamt\nZiel Hcp 15: ≥ 80 Pkt\nZiel Hcp 10: ≥ 110 Pkt\nZiel Hcp 5: ≥ 140 Pkt\n95%-KI: ±1.96×√(n·p·(1-p))"
+   "description": "🏹 APPROACH ACCURACY · Fünf Distanzen, statistisch belastbar\n\nWOFÜR: Die Annäherung ist die Kategorie mit dem größten Hebel zwischen HCP 20 und\nScratch. 20 Bälle je Distanz sind genug, um Zufall auszuschließen — bei 5 Bällen\nmisst man vor allem Glück.\n\nAUFBAU: Fünf Distanzen 80 / 100 / 120 / 140 / 175 m auf einem Grün oder einem\nRange-Ziel mit erkennbarer Grünfläche. Kreise bei 5 m und 10 m.\n\nABLAUF: 20 Bälle je Distanz. Mit der kürzesten beginnen. Pausen sind erlaubt,\naber die Distanz nicht wechseln, bevor die 20 durch sind.\n\nZÄHLUNG: Grün getroffen gibt 2 Punkte, innerhalb 10 m einen. Maximal 40 je\nDistanz, 200 gesamt.\n\nFEHLERQUELLE: Nur die Lieblingsdistanzen spielen. Die 175 m sagen mehr über\ndeine Par-4-Scores als die 80 m.\n\nRICHTWERTE (Pkt /200, ab …): HCP 20 40 · HCP 15 70 · HCP 8 100 · HCP 3 130 · Scratch 150\n\nZÄHLWEISE: Grün = 2 Punkte · innerhalb 10 m = 1 Punkt."
   },
   {
    "key": "distanzkontrolle",
@@ -5214,7 +5319,7 @@ const SEED = {
    "weightKey": "Distanzkontrolle Wedge /45",
    "weight": 0.023,
    "score": "sum",
-   "description": "📏 DISTANZKONTROLLE WEDGE – 50% / 75% / 100% Schwung\n\nANLEITUNG:\n• SW oder GW verwenden\n• 5 Bälle je Schwungweite\n• Zieldistanz vorher festlegen!\n\nBEWERTUNG je Ball:\n ± 3m vom Ziel = 3 Pkt\n ± 6m vom Ziel = 2 Pkt\n ± 10m vom Ziel = 1 Pkt\n > 10m Abw. = 0 Pkt\n\nMax: 45 Punkte\n→ Benchmarks-Ziele\n siehe Benchmarks-Blatt\n (Zeile 14)"
+   "description": "📏 DISTANZKONTROLLE WEDGE · Drei Schwunglängen\n\nWOFÜR: Zwischen vollem Wedge und Chip klafft bei den meisten eine Lücke von\n20 bis 30 m. Wer drei reproduzierbare Schwunglängen hat, deckt sie ab — und\nbraucht nie wieder den unbequemen halben Schlag zu improvisieren.\n\nAUFBAU: SW oder GW. Referenzdistanz je Schwunglänge vorher auf der Range\nermitteln und notieren.\n\nABLAUF: 5 Bälle je Schwunglänge (50 %, 75 %, 100 %), drei Durchgänge, also 15\nje Länge. Gemessen wird die Abweichung von der eigenen Referenzdistanz.\n\nZÄHLUNG: Innerhalb 5 % der Zieldistanz gibt 3 Punkte, innerhalb 10 % zwei,\ninnerhalb 15 % einen. Maximal 15 je Länge, 45 gesamt.\n\nFEHLERQUELLE: Die Schwunglänge nach Gefühl variieren. Nimm feste Referenzen —\nHände auf Hüfthöhe, Brusthöhe, voll — sonst misst du Rauschen.\n\nRICHTWERTE (Pkt /45, ab …): HCP 20 15 · HCP 15 20 · HCP 8 30 · HCP 3 38 · Scratch 43\n\nZÄHLWEISE: 3 Punkte bei ±5 % · 2 bei ±10 % · 1 bei ±15 %."
   },
   {
    "key": "pressureapproach",
@@ -5246,7 +5351,7 @@ const SEED = {
    "weightKey": "Pressure Approach /20",
    "weight": 0.0312,
    "score": "sum",
-   "description": "🎯 PRESSURE APPROACH TEST · 10 Ein-Ball-Approaches unter Druck\n\n📌 WAS IST DER TEST? 10 Approaches aus wechselnden Distanzen, aber pro Distanz nur EIN Ball. Kein Nachschlagen. \nGreen = 2 Punkte, knapp / spielbar = 1 Punkt, klare Miss = 0 Punkte. Das misst Platz-Performance statt Range-Rhythmus."
+   "description": "🎯 PRESSURE APPROACH · Zehn erste Bälle\n\nWOFÜR: Auf dem Platz hast du je Loch genau einen Approach. Dieser Test verbietet\ndie zweite Chance und misst damit die Zahl, die auf der Scorekarte landet.\n\nAUFBAU: 10 verschiedene Distanzen zwischen 80 und 150 m, in zufälliger\nReihenfolge auf einem Zettel notiert.\n\nABLAUF: Ein Ball je Distanz. Vor jedem Schlag die volle Routine wie auf dem\nPlatz — Ziel wählen, Schläger wählen, Probeschwung, ausführen. Keine Korrektur,\nkein zweiter Ball.\n\nZÄHLUNG: Grün getroffen 2 Punkte, knapp daneben aber spielbar 1 Punkt.\nMaximal 20.\n\nFEHLERQUELLE: Die Routine weglassen. Ohne sie misst der Test nur den Schlag,\nnicht die Entscheidung davor — und die ist der eigentliche Unterschied.\n\nRICHTWERTE (Pkt /20, ab …): HCP 20 5 · HCP 15 8 · HCP 8 12 · HCP 3 16 · Scratch 19\n\nZÄHLWEISE: Grün = 2 Punkte · knapp/spielbar = 1 Punkt."
   },
   {
    "key": "9shot",
@@ -5313,7 +5418,7 @@ const SEED = {
    "weightKey": "9-Shot Test /54",
    "weight": 0.0038,
    "score": "sum",
-   "description": "🎨 9-SHOT TEST – Ballflugkontrolle (Draw / Gerade / Fade × 3 Höhen)"
+   "description": "🎨 9-SHOT · Ballflugkontrolle nach Trevino\n\nWOFÜR: Der anspruchsvollste Test der Sammlung. Drei Höhen mal drei Kurven zeigen,\nwie viel Kontrolle du wirklich über die Schlagfläche hast. Auf dem Platz brauchst\ndu selten alle neun — aber wer sie kann, trifft die geraden Schläge zuverlässiger.\n\nAUFBAU: 7-Eisen, Range mit erkennbarer Ziellinie.\n\nABLAUF: Je 6 Bälle für die neun Kombinationen: hoch/mittel/flach jeweils als\nDraw, gerade und Fade. Der Reihe nach, nicht durcheinander.\n\nZÄHLUNG: Ein Punkt je Ball, der die beabsichtigte Höhe UND Kurve zeigt. Beides\nmuss stimmen — ein gerader Ball zählt beim Draw-Versuch nicht. Maximal 6 je\nKombination, 54 gesamt.\n\nFEHLERQUELLE: Sich das Ergebnis schönreden. Eine leichte Kurve ist kein Draw.\nIm Zweifel nicht zählen — der Test ist nur so ehrlich wie deine Bewertung.\n\nRICHTWERTE (Pkt /54, ab …): HCP 20 14 · HCP 15 20 · HCP 8 28 · HCP 3 36 · Scratch 45\n\nZÄHLWEISE: 1 Punkt, wenn Höhe UND Kurve stimmen."
   },
   {
    "key": "driverfw",
@@ -5360,7 +5465,7 @@ const SEED = {
    "weightKey": "Driver FW-Hits /10",
    "weight": 0.0421,
    "score": "sum",
-   "description": "🏌 DRIVER CONSISTENCY TEST – 10 Drives\n\nANLEITUNG:\n• 10 Drives auf der Range\n• R10 Approach oder Driver Modus\n\nERFASSEN:\n Fairway/Ziel = 1 Pkt\n < 20m daneben = 0.5 Pkt\n > 20m / OB = 0 Pkt\n\nZusätzlich:\n Ø Carry (m)\n Smash Factor\n Abweichung L/R (m)\n\nZiel Fairway-Rate: > 60%"
+   "description": "🏌 DRIVER CONSISTENCY · Zehn Drives\n\nWOFÜR: Fairwaytreffer allein sagen wenig — entscheidend ist, wie weit die\nFehlschläge streuen. Der Test erfasst beides und liefert nebenbei die Werte, aus\ndenen der Caddy deine Streuung lernt.\n\nAUFBAU: Range mit erkennbarer Fairwaybreite (etwa 30 m) oder Launch Monitor im\nApproach-Modus.\n\nABLAUF: 10 Drives in einer Sitzung, keine Mulligans. Jeden Ball werten, auch den\nverzogenen.\n\nZÄHLUNG: Fairwaytreffer als Hauptwert. Zusätzlich Carry-Durchschnitt, mittlere\nseitliche Abweichung, Smash Factor und den weitesten Carry eintragen — diese\nFelder machen den Test über Monate vergleichbar.\n\nFEHLERQUELLE: Den ersten kalten Drive nicht mitzählen. Auf dem Platz zählt er\nauch.\n\nRICHTWERTE (Hits /10, ab …): HCP 20 4 · HCP 15 5 · HCP 8 6 · HCP 3 7 · Scratch 7\n\nZÄHLWEISE: Fairwaytreffer aus 10 Drives."
   },
   {
    "key": "consecutive",
@@ -5399,7 +5504,7 @@ const SEED = {
    "score": {
     "field": "Längste Serie"
    },
-   "description": "🎯 CONSECUTIVE FAIRWAY TEST – 20 Drives, Konsistenz unter Druck\n\nANLEITUNG:\n• 20 Drives hintereinander\n• Ziel: Fairway (±15m Breite)\n• Jedes Verfehlen = Serie endet\n\nERFASSEN:\n Consecutive = längste Serie\n ohne Fehler\n FW-Treffer gesamt (von 20)\n Ø Carry (aus R10)\n\nWERTUNG Consecutive:\n 0–2 = Hcp 25+\n 3–4 = Hcp ~20\n 5–6 = Hcp ~15\n 7–9 = Hcp ~10\n 10–13 = Hcp ~5\n 14+ = Elite"
+   "description": "🎯 CONSECUTIVE FAIRWAY · Serie unter Druck\n\nWOFÜR: Nicht die Quote zählt, sondern die längste Serie. Sechs von zwanzig\nFairways verteilt auf sechs Einzeltreffer ist etwas anderes als sechs\nhintereinander — auf dem Platz brauchst du Verlässlichkeit über mehrere Löcher.\n\nAUFBAU: Range, Fairwaybreite etwa 30 m markiert.\n\nABLAUF: 20 Drives am Stück. Nach jedem verfehlten Fairway beginnt die Zählung\nvon vorn. Kein Ball wird ausgelassen.\n\nZÄHLUNG: Gewertet wird die längste ununterbrochene Serie. Zusätzlich Gesamttreffer\nund Carry-Durchschnitt notieren.\n\nFEHLERQUELLE: Die Serie „im Kopf\" weiterlaufen lassen, wenn ein Ball knapp\ndaneben geht. Genau diese Grenzfälle machen den Unterschied — im Zweifel gilt\ner als verfehlt.\n\nRICHTWERTE (in Folge, ab …): HCP 20 2 · HCP 15 3 · HCP 8 5 · HCP 3 7 · Scratch 10\n\nZÄHLWEISE: Längste Serie ohne verfehltes Fairway."
   },
   {
    "key": "eisenstreu",
@@ -5471,7 +5576,7 @@ const SEED = {
    "weightKey": "Eisen Streubreite ↓ besser",
    "weight": 0.0383,
    "score": "range",
-   "description": "📐 EISEN RICHTUNGSTEST – 10 Bälle / 7-Eisen, Streubreite messen\n\nANLEITUNG:\n• 7-Eisen, 10 Bälle auf Ziel\n• R10 Approach Modus\n• Nach jedem Ball erfassen:\n Abweichung L/R in Metern\n Carry-Distanz\n\nBERECHNUNG STREUBREITE:\n = Max(L) + Max(R) aller 10 Bälle\n\nWERTUNG:\n > 30m Streubreite = Hcp 25+\n 20–30m = Hcp ~20\n 15–20m = Hcp ~15\n 10–15m = Hcp ~10\n 6–10m = Hcp ~5\n < 6m = Elite\n\nZiel Hcp 10: ≤ 15m Streubreite\n(negative = links, positiv = rechts)"
+   "description": "📐 EISEN RICHTUNGSTEST · Streubreite messen\n\nWOFÜR: Die seitliche Streuung ist die Größe, mit der der Caddy rechnet. Sie\nbestimmt, ob eine enge Landezone erreichbar ist oder ob der Layup die bessere\nWahl ist. Ohne diesen Wert schätzt die App — mit ihm rechnet sie.\n\nAUFBAU: 7-Eisen, Range mit klarer Ziellinie. Ein Fluchtstab oder eine Fahne als\nZiel.\n\nABLAUF: 10 Bälle auf dasselbe Ziel. Für jeden Ball die seitliche Abweichung in\nMetern eintragen — links negativ, rechts positiv. Nicht die Distanz, nur die\nAbweichung quer zur Ziellinie.\n\nZÄHLUNG: Gewertet wird die Streubreite, also die Spanne vom weitesten Linksball\nzum weitesten Rechtsball. Kleiner ist besser.\n\nFEHLERQUELLE: Ausreißer weglassen. Gerade sie bestimmen, wie viel Sicherheitsrand\ndu beim Zielen brauchst.\n\nRICHTWERTE (m seitl., bis …): HCP 20 35 · HCP 15 30 · HCP 8 24 · HCP 3 20 · Scratch 16\n\nZÄHLWEISE: Streubreite in Metern — kleiner ist besser."
   },
   {
    "key": "layuplong",
@@ -5503,7 +5608,7 @@ const SEED = {
    "weightKey": "Layup & Long-Club /20",
    "weight": 0.0223,
    "score": "sum",
-   "description": "🪵 LAYUP & LONG-CLUB TEST · Sichere Entscheidung + saubere Ausführung mit langen Schlägern\n\n📌 WAS WIRD GETESTET? Kein Vollgas-Test. Du prüfst, ob du mit 5W / 7W / Hybrid / Driving Iron einen Zielkorridor oder eine \nLayup-Distanz kontrolliert triffst. Ideal für enge Abschläge und Layups auf Par 5."
+   "description": "🪵 LAYUP & LONG-CLUB · Entscheidung plus Ausführung\n\nWOFÜR: Zwei Dinge gleichzeitig: Wählst du die richtige Option, und führst du sie\nsauber aus? Die meisten Doppelbogeys auf Par 5 entstehen nicht durch einen\nschlechten Schlag, sondern durch eine schlechte Entscheidung davor.\n\nAUFBAU: 10 Situationen mit 180 bis 230 m Rest — teils mit Hindernis vor dem\nGrün, teils frei.\n\nABLAUF: Je Situation zuerst entscheiden: angreifen oder auf die Wunschdistanz\nlegen? Dann ausführen. Ein Ball, keine Wiederholung.\n\nZÄHLUNG: „Treffer\" heißt Ziel erreicht — Grün getroffen oder Layup in der\ngewünschten Zone. „Spielbar\" heißt daneben, aber ohne Schaden. Treffer 2 Punkte,\nspielbar 1. Maximal 20.\n\nFEHLERQUELLE: Immer angreifen. Der Test bewertet die Entscheidung mit — ein\ngelungener Layup ist ein voller Treffer.\n\nRICHTWERTE (Pkt /20, ab …): HCP 20 6 · HCP 15 10 · HCP 8 14 · HCP 3 17 · Scratch 19\n\nZÄHLWEISE: Ziel erreicht = 2 Punkte · spielbar = 1 Punkt."
   },
   {
    "key": "swingspeed",
@@ -5547,7 +5652,7 @@ const SEED = {
    "score": {
     "field": "CHS (mph)"
    },
-   "description": "⚡ SWING SPEED TRACKING · Clubhead Speed, Ball Speed, Smash Factor & Carry\n\n📋 5–10 Messungen je Session mit R10. Clubhead Speed (CHS) in mph, Carry in Metern. Smash Factor = Ball Speed ÷ CHS. Ziel: SF > 1.45 (Driver), SF > 1.38 (7-Eisen).\n\n📋 5–10 Messungen je Session mit R10. Clubhead Speed (CHS) in mph, Carry in Metern. Smash Factor = Ball Speed ÷ CHS. Ziel: SF > 1.45 (Driver), SF > 1.38 (7-Eisen).\n\n🏌 DRIVER – ZIELWERTE JE HCP-KLASSE\n\n🏌 7-EISEN – ZIELWERTE JE HCP-KLASSE"
+   "description": "⚡ SWING SPEED · Schlägerkopfgeschwindigkeit und Smash\n\nWOFÜR: Geschwindigkeit ist die einzige Größe, die sich gezielt trainieren lässt\nund direkt Länge bringt. Smash Factor zeigt, wie viel davon beim Ball ankommt —\n1,45 ist das Optimum beim Driver, alles unter 1,40 heißt Fehltreffer.\n\nAUFBAU: Launch Monitor, Driver, aufgewärmt. Ohne Aufwärmen sind die Werte\nwertlos.\n\nABLAUF: 5 bis 10 Messungen mit vollem Schwung. Ausreißer nach oben nicht\ngesondert behandeln — sie gehören dazu.\n\nZÄHLUNG: Eingetragen werden Durchschnittsgeschwindigkeit, Smash Factor,\nCarry-Durchschnitt und der weiteste Carry. Gewertet wird die Geschwindigkeit\nin mph.\n\nFEHLERQUELLE: Nur den besten Schwung eintragen. Der Durchschnitt ist die Zahl,\ndie sich über Monate bewegt und Fortschritt zeigt.\n\nRICHTWERTE (mph, ab …): HCP 20 76 · HCP 15 83 · HCP 8 91 · HCP 3 96 · Scratch 102\n\nZÄHLWEISE: Schlägerkopfgeschwindigkeit in mph."
   },
   {
    "key": "r10disp",
@@ -5586,7 +5691,7 @@ const SEED = {
    "score": {
     "field": "Score /30"
    },
-   "description": "📡 R10 DISPERSION TEST – Streukreis & Gapping\n\nANLEITUNG:\n• R10 Approach Modus verwenden\n• 10 Bälle je Schläger\n• Carry-Distanz + Abweichung L/R\n\nPUNKTE je Ball (Streukreis):\n ≤ 3 m Radius = 3 Pkt\n ≤ 6 m Radius = 2 Pkt\n ≤ 9 m Radius = 1 Pkt\n > 9 m Radius = 0 Pkt\n\nMax: 30 Punkte je Session\nSmash Factor Ziel: > 1.45"
+   "description": "📡 R10 DISPERSION · Streukreis und Gapping\n\nWOFÜR: Zeigt zwei Dinge auf einmal: wie eng ein Schläger streut und ob die\nAbstände zwischen den Schlägern stimmen. Lücken von über 15 m oder Überlappungen\nkosten auf dem Platz jedes Mal Genauigkeit.\n\nAUFBAU: Garmin R10 im Approach-Modus. Einen Schläger auswählen und im Feld\neintragen.\n\nABLAUF: 10 Bälle mit diesem Schläger. Carry-Durchschnitt notieren. Für ein\nvollständiges Gapping den Test je Schläger einmal durchführen.\n\nZÄHLUNG: Der Streukreis wird in Punkte übersetzt — je enger, desto mehr.\nMaximal 30.\n\nFEHLERQUELLE: Verschiedene Schläger in einer Messung mischen. Der Test gilt\nimmer genau einem Schläger.\n\nRICHTWERTE (Pkt /30, ab …): HCP 20 10 · HCP 15 14 · HCP 8 20 · HCP 3 24 · Scratch 27\n\nZÄHLWEISE: Punkte nach Enge des Streukreises."
   },
   {
    "key": "smashfactor",
@@ -5653,7 +5758,7 @@ const SEED = {
    "weightKey": "Smash Factor Driver",
    "weight": 0.03,
    "score": "avg",
-   "description": "⚙ SMASH FACTOR TEST · Center-Contact je Schläger · Garmin R10\n\nAnleitung: 10 Bälle je Schläger auf der Range mit R10. Smash Factor = Ball Speed / Club Speed. Tour-Werte: Driver 1.48–1.52, 7-Eisen 1.33, Wedges 1.15. >1.52 prüfen (Daten-Outlier)."
+   "description": "⚙ SMASH FACTOR · Mittentreffer je Schläger\n\nWOFÜR: Smash Factor ist Ballgeschwindigkeit geteilt durch Schlägerkopf­geschwindigkeit\nund damit das ehrlichste Maß für den Treffpunkt. Richtwerte: Driver 1,45,\nEisen 1,35 bis 1,38, Wedges 1,20 bis 1,25.\n\nAUFBAU: Launch Monitor, aufgewärmt.\n\nABLAUF: 10 Bälle je Schläger, Durchschnitt eintragen. Alle Schläger in einer\nSitzung messen — der Vergleich untereinander ist der eigentliche Wert.\n\nZÄHLUNG: Kein Punktesystem. Der Test dient dem Vergleich über die Zeit und\nzwischen den Schlägern.\n\nFEHLERQUELLE: Nur den Driver messen. Fällt ein einzelnes Eisen deutlich ab,\nliegt es meist am Schläger — Schaftlänge, Lie-Winkel — und nicht am Schwung.\n\nZÄHLWEISE: Ballgeschwindigkeit ÷ Schlägerkopfgeschwindigkeit."
   },
   {
    "key": "tempo",
@@ -5675,7 +5780,7 @@ const SEED = {
    "weightKey": "Tempo-Ratio Driver",
    "weight": 0.03,
    "score": "ratio",
-   "description": "🎵 TEMPO-RATIO TEST · Backswing : Downswing · Tour-Ziel 3:1\n\nAnleitung: Mit Tour Tempo App / Metronom / R10 messen. Tour-Spieler haben durchschnittlich 3:1 Verhältnis (Backswing 0.75s, Downswing 0.25s). Konsistenz ist wichtiger als Absolutwert.\n\n🎵 TEMPO-RATIO TEST · Backswing : Downswing · Tour-Ziel 3:1"
+   "description": "🎵 TEMPO-RATIO · Rückschwung zu Durchschwung\n\nWOFÜR: Praktisch alle Tourspieler liegen bei 3:1, unabhängig vom Schwungstil.\nEin abweichendes Verhältnis ist einer der häufigsten Gründe für schwankenden\nBallkontakt — und es lässt sich schneller korrigieren als jede Technikänderung.\n\nAUFBAU: Tour-Tempo-App oder Video mit Zeitmessung.\n\nABLAUF: 10 Schwünge messen. Rückschwungzeit und Durchschwungzeit getrennt\neintragen, jeweils als Durchschnitt in Sekunden.\n\nZÄHLUNG: Kein Punktesystem — entscheidend ist das Verhältnis. Typische\nTour-Werte liegen bei 0,75 s Rückschwung zu 0,25 s Durchschwung.\n\nFEHLERQUELLE: Bewusst langsam schwingen, um ein gutes Verhältnis zu erzeugen.\nGemessen wird der normale Schwung, nicht der vorgeführte.\n\nZÄHLWEISE: Verhältnis Rückschwung : Durchschwung — Ziel 3:1."
   },
   {
    "key": "par3",
@@ -5742,7 +5847,7 @@ const SEED = {
    "weightKey": "Par-3 Challenge /27",
    "weight": 0.0191,
    "score": "sum",
-   "description": "⛳ PAR-3 CHALLENGE TEST – Auf dem echten Platz\n\nANLEITUNG: 9 Par-3-Löcher spielen (oder 3× die gleichen 3 Löcher). Je Loch: GIR (Grün in Regulationszahl) = 1 Pkt, Birdie = 3 Pkt, Par = 2 Pkt, Bogey = 1 Pkt, Doppel+ = 0 Pkt. Max 27 Pkt (9 Löcher × 3). Zusätzlich: Anzahl GIRs und Putts pro Loch notieren.\n\nBEWERTUNG: <9 = Hcp 25+ | 9–13 = Hcp ~20 | 14–18 = Hcp ~15 | 19–22 = Hcp ~10 | 23–25 = Hcp ~5 | 26–27 = Elite"
+   "description": "⛳ PAR-3 CHALLENGE · Auf dem echten Platz\n\nWOFÜR: Der einzige Test, der alles zusammenbringt: Schlägerwahl, Wind, Nerven,\nKurzspiel und Putten. Range-Werte sind gute Diagnose — dieser Test misst, was\ndavon auf dem Platz ankommt.\n\nAUFBAU: 9 Par-3-Löcher, oder dreimal dieselben drei Löcher. Normale Abschläge,\nnormale Regeln.\n\nABLAUF: Wie eine Runde spielen: ein Ball, keine Wiederholung, jeder Schlag zählt.\nJe Loch zusätzlich Grüntreffer und Puttzahl notieren.\n\nZÄHLUNG: Birdie 3 Punkte, Par 2, Bogey 1, alles darüber null. Maximal 27.\n\nFEHLERQUELLE: Bei einem schlechten Loch abbrechen oder neu beginnen. Der Test\nmisst Konstanz über neun Löcher — der Ausrutscher gehört dazu.\n\nRICHTWERTE (Pkt /27, ab …): HCP 20 8 · HCP 15 12 · HCP 8 16 · HCP 3 20 · Scratch 23\n\nZÄHLWEISE: Birdie 3 · Par 2 · Bogey 1 Punkt."
   }
  ],
  "tests": [
@@ -12949,7 +13054,57 @@ function dataScore(d){ d=d||DB; return (d.rounds||[]).length*3+(d.competitions||
    verloren — die Aenderung wurde beim naechsten Abgleich stillschweigend
    zurueckgesetzt. Genau dieser Fehler trat auf der Pinnwand auf. */
 function _mergeTs(x){ return (x && (x.updated||x.editedAt)) || ""; }
-function _mergeArr(a,b,keyFn,tsFn){
+/* ==========================================================================
+   GRABSTEINE — damit Loeschungen den Sync ueberleben (v2.11)
+
+   `_mergeArr` VEREINIGT beide Listen. Ein lokal geloeschter Eintrag fehlt
+   lokal danach nur noch — die Repo-Fassung wird beim naechsten Abgleich
+   kommentarlos wieder hinzugefuegt. Genau deshalb tauchte ein geloeschtes
+   „5 Wood" sofort wieder in der Schlaegerliste auf, und dasselbe galt fuer
+   Runden, Notizen und alles andere: **Loeschungen konnten sich nie
+   durchsetzen.**
+
+   Dieselbe Klasse wie das `Object.assign`-Problem bei `DB.ui` (v1.74): Das
+   FEHLEN einer Sache ist keine Information, die ein Merge lesen kann. Es
+   braucht einen positiven Vermerk: „das wurde am … geloescht".
+
+   `DB.tomb[bereich][schluessel] = ISO-Zeit`. Beim Zusammenfuehren faellt ein
+   Eintrag weg, wenn sein Grabstein JUENGER ist als der Eintrag selbst — legt
+   man denselben Schlaeger spaeter neu an, gewinnt der neue Eintrag.
+   Die Grabsteine werden selbst mitgemergt (jeweils die spaetere Zeit).
+   ========================================================================== */
+function tombAll(){ DB.tomb=DB.tomb||{}; return DB.tomb; }
+function tombAdd(bereich, key){
+  if(key==null) return;
+  const t=tombAll(); t[bereich]=t[bereich]||{};
+  t[bereich][String(key)]=new Date().toISOString();
+}
+/* Grabstein aufheben — beim Neuanlegen oder Umbenennen.
+   NOETIG, weil Schlaeger ueber den NAMEN geschluesselt werden (mergeDB:
+   `x=>x.club`): Legt man „5 Wood" nach dem Loeschen neu an, traegt der neue
+   Eintrag denselben Schluessel wie der Grabstein. Ohne dieses Aufheben waere
+   der Name dauerhaft verbrannt — man koennte ihn nie wieder verwenden. */
+function tombClear(bereich, key){
+  if(key==null) return;
+  const t=tombAll(); if(t[bereich]) delete t[bereich][String(key)];
+}
+function _tombFor(db, bereich){
+  return (db && db.tomb && db.tomb[bereich]) ? db.tomb[bereich] : {};
+}
+/* Grabsteine zweier Staende vereinigen — die spaetere Zeit gewinnt. */
+function _mergeTomb(a,b){
+  const out={};
+  [a||{},b||{}].forEach(src=>Object.keys(src).forEach(bereich=>{
+    out[bereich]=out[bereich]||{};
+    Object.keys(src[bereich]||{}).forEach(k=>{
+      const v=String(src[bereich][k]||"");
+      if(!out[bereich][k] || v>out[bereich][k]) out[bereich][k]=v;
+    });
+  }));
+  return out;
+}
+
+function _mergeArr(a,b,keyFn,tsFn,tomb){
   const ts=tsFn||_mergeTs;
   const m=new Map();
   (Array.isArray(a)?a:[]).forEach(x=>{ if(x!=null) m.set(keyFn(x), x); });
@@ -12959,25 +13114,38 @@ function _mergeArr(a,b,keyFn,tsFn){
     if(tb||ta){ if(tb>ta) m.set(k,x); return; }          // juengerer Stand gewinnt
     if(JSON.stringify(x).length > JSON.stringify(cur).length) m.set(k,x); // sonst: vollstaendigerer
   });
+  /* Geloeschtes wieder entfernen — es sei denn, der Eintrag ist NEUER als
+     sein Grabstein (dann wurde er nach dem Loeschen neu angelegt). */
+  if(tomb){
+    Array.from(m.keys()).forEach(k=>{
+      const tot=tomb[String(k)];
+      if(!tot) return;
+      const x=m.get(k), tx=String(ts(x)||"");
+      if(!tx || tx<=tot) m.delete(k);
+    });
+  }
   return Array.from(m.values());
 }
 function mergeDB(localDB, repoDB){
   const L=localDB||{}, R=repoDB||{}, j=x=>JSON.stringify(x);
   const out=Object.assign({}, R, L); // Basis: lokale Skalar-/Objektfelder (Profil, Phasen, ui) gewinnen
-  out.rounds         = _mergeArr(L.rounds, R.rounds, x=>x.id||(x.date+"|"+x.course));
-  out.competitions   = _mergeArr(L.competitions, R.competitions, x=>x.id||j(x));
-  out.tests          = _mergeArr(L.tests, R.tests, x=>x.id||((x.defKey||"")+"|"+(x.date||"")+"|"+j(x.inputs||"")));
-  out.fitnessSessions= _mergeArr(L.fitnessSessions, R.fitnessSessions, x=>x.id||((x.date||"")+"|"+j(x)));
-  out.lmSessions     = _mergeArr(L.lmSessions, R.lmSessions, x=>x.id||((x.date||"")+"|"+j(x)));
+  /* Grabsteine ZUERST vereinigen — die Listen unten fragen sie ab. Ohne diesen
+     Schritt kaeme ein auf dem Handy geloeschter Eintrag ueber die Uhr zurueck. */
+  out.tomb = _mergeTomb(L.tomb, R.tomb);
+  out.rounds = _mergeArr(L.rounds, R.rounds, x=>x.id||(x.date+"|"+x.course), null, _tombFor(out,"rounds"));
+  out.competitions = _mergeArr(L.competitions, R.competitions, x=>x.id||j(x), null, _tombFor(out,"competitions"));
+  out.tests = _mergeArr(L.tests, R.tests, x=>x.id||((x.defKey||"")+"|"+(x.date||"")+"|"+j(x.inputs||"")), null, _tombFor(out,"tests"));
+  out.fitnessSessions = _mergeArr(L.fitnessSessions, R.fitnessSessions, x=>x.id||((x.date||"")+"|"+j(x)), null, _tombFor(out,"fitnessSessions"));
+  out.lmSessions = _mergeArr(L.lmSessions, R.lmSessions, x=>x.id||((x.date||"")+"|"+j(x)), null, _tombFor(out,"lmSessions"));
   // Schwunganalysen: Videos liegen LOKAL (Store wikivid), nur die Metadaten reisen mit
-  out.swingAnalyses  = _mergeArr(L.swingAnalyses, R.swingAnalyses, x=>x.id||((x.date||"")+"|"+j(x)));
-  out.playedCourses  = _mergeArr(L.playedCourses, R.playedCourses, x=>x.name||j(x));
-  out.bucketList     = _mergeArr(L.bucketList, R.bucketList, x=>x.name||j(x));
-  out.courses        = _mergeArr(L.courses, R.courses, x=>x.name||j(x));
-  out.testDefs       = _mergeArr(L.testDefs, R.testDefs, x=>x.key||x.id||x.label||j(x));
-  out.clubDistances  = _mergeArr(L.clubDistances, R.clubDistances, x=>x.club||j(x));
-  out.notes          = _mergeArr(L.notes, R.notes, x=>x.id||j(x));
-  out.notesTrash     = _mergeArr(L.notesTrash, R.notesTrash, x=>x.id||j(x));
+  out.swingAnalyses = _mergeArr(L.swingAnalyses, R.swingAnalyses, x=>x.id||((x.date||"")+"|"+j(x)), null, _tombFor(out,"swingAnalyses"));
+  out.playedCourses = _mergeArr(L.playedCourses, R.playedCourses, x=>x.name||j(x), null, _tombFor(out,"playedCourses"));
+  out.bucketList = _mergeArr(L.bucketList, R.bucketList, x=>x.name||j(x), null, _tombFor(out,"bucketList"));
+  out.courses = _mergeArr(L.courses, R.courses, x=>x.name||j(x), null, _tombFor(out,"courses"));
+  out.testDefs = _mergeArr(L.testDefs, R.testDefs, x=>x.key||x.id||x.label||j(x), null, _tombFor(out,"testDefs"));
+  out.clubDistances = _mergeArr(L.clubDistances, R.clubDistances, x=>x.club||j(x), null, _tombFor(out,"clubDistances"));
+  out.notes = _mergeArr(L.notes, R.notes, x=>x.id||j(x), null, _tombFor(out,"notes"));
+  out.notesTrash = _mergeArr(L.notesTrash, R.notesTrash, x=>x.id||j(x), null, _tombFor(out,"notesTrash"));
   // Tombstones respektieren: gelöschte Notizen nicht wieder auferstehen lassen
   const trashIds=new Set((out.notesTrash||[]).map(n=>n.id).filter(Boolean));
   out.notes=(out.notes||[]).filter(n=>!(n.id && trashIds.has(n.id)));
@@ -13291,6 +13459,11 @@ function undoBar(text, restoreFn){
   toast(text, {label:"Rückgängig", fn:()=>{ try{ restoreFn(); persist(); renderAll();
     toast("Wiederhergestellt"); }catch(e){ logErr("undo", e); } }});
 }
+/* ACHTUNG — NAME IRREFUEHREND: `num()` ist ein PARSER (Text -> Zahl), KEIN
+   Formatierer. Ein zweites Argument wird IGNORIERT. Wer `num(v,1)` schreibt in
+   der Annahme, das runde auf eine Nachkommastelle, bekommt den vollen Float:
+   in der Korrelationsansicht stand „38.888888888888886".
+   Zum FORMATIEREN ist `fmtN(v,d)` da (rundet und setzt das Dezimalkomma). */
 function num(x){ const n=parseFloat(String(x).replace(",",".")); return isFinite(n)?n:null; }
 
 /* ---------- SVG charts (dependency-free, offline) ---------- */
@@ -13576,6 +13749,12 @@ const STRAT={
     anchors.forEach(p=>{laMin=Math.min(laMin,p[0]);laMax=Math.max(laMax,p[0]);loMin=Math.min(loMin,p[1]);loMax=Math.max(loMax,p[1]);});
     const mLat=110540, mLng=111320*Math.cos(((laMin+laMax)/2)*Math.PI/180);
     const M=45; laMin-=M/mLat; laMax+=M/mLat; loMin-=M/mLng; loMax+=M/mLng;
+    /* OHNE Fairway-Polygone faellt die Lageerkennung auf einen FESTEN Korridor
+       von ±CORR (20 m) um die Spiellinie zurueck. Die tatsaechliche Breite der
+       Bahn ist dann unsichtbar: ein 18 m schmales Fairway wird wie ein 40 m
+       breites behandelt, und die Fairwayquote des Caddys ist geraten statt
+       gemessen. Das MUSS sichtbar sein, sonst vertraut man einer Zahl, die
+       keine Grundlage hat. */
     const c=this.CELL;
     const Nx=Math.min(400,Math.max(4,Math.ceil((loMax-loMin)*mLng/c)));
     const Ny=Math.min(400,Math.max(4,Math.ceil((laMax-laMin)*mLat/c)));
@@ -13598,6 +13777,7 @@ const STRAT={
       else if(obR.some(f=>pointInRing(p,f.ring))) code=this.LIE.ob;
       else if(rcR.some(f=>pointInRing(p,f.ring)) || trees.some(t=>geoDist(p,t.pt)<3.5)) code=this.LIE.recovery;
       else if(fwR.length? fwR.some(f=>pointInRing(p,f.ring)) : dLine(p)<=this.CORR) code=this.LIE.fairway;
+        /* Merken, ob echte Fairway-Polygone vorlagen — siehe fwFallback unten. */
       else code=this.LIE.rough;
       codes[iy*Nx+ix]=code;
     }
@@ -15749,6 +15929,7 @@ function renderHeader(){
   let ph=DB.phases.find(x=>x.start<=today&&today<=x.end);
   $("#phaseLabel").textContent=ph?ph.name:"–";
   updateSyncPill();
+  syncHeaderH();   // Kopfhoehe aendert sich mit Inhalt und Schriftgroesse
 }
 function focusList(){
   // weakest priority-weighted skills that are below HCP15 (tier idx<1)
@@ -17120,7 +17301,7 @@ function restoreNote(id){ ensureNotes(); const i=DB.notesTrash.findIndex(x=>x.id
 function noteDropVideos(n){ (Array.isArray(n&&n.videos)?n.videos:[]).forEach(v=>{ if(v&&v.id&&typeof idbVidDel==="function") idbVidDel(v.id).catch(()=>{}); }); }
 function purgeNote(id){ if(!confirm("Notiz endgültig löschen?")) return; ensureNotes();
   const n=DB.notesTrash.find(x=>x.id===id); if(n) noteDropVideos(n);
-  DB.notesTrash=DB.notesTrash.filter(x=>x.id!==id); persist(); renderNotes(); toast("Endgültig gelöscht"); }
+  (tombAdd("notesTrash", id), DB.notesTrash=DB.notesTrash.filter(x=>x.id!==id)); persist(); renderNotes(); toast("Endgültig gelöscht"); }
 function emptyNotesTrash(){ ensureNotes(); if(!DB.notesTrash.length) return;
   if(!confirm("Papierkorb jetzt leeren? Alle "+DB.notesTrash.length+" Notizen werden endgültig gelöscht.")) return;
   DB.notesTrash.forEach(noteDropVideos);
@@ -18530,21 +18711,17 @@ function renderPlay(){
       ${playNum('distToPin','Rest zur Fahne nach Approach (m)')}
     </div>
     ${playWichtigHtml()}
-    <!-- KARTE UND FAHNENSTEUERUNG NUR NOCH IM KARTENMODUS (v1.89).
-         Beides stand hier ein zweites Mal: die Karte als kleiner Ausschnitt,
-         die Fahnensteuerung darueber. Seit der Spielmodus im Kartenmodus
-         startet, ist das doppelt — und der kleine Kartenausschnitt hat den
-         Nachteil, dass er dieselbe teure Berechnung ausloest wie die grosse.
-         Die Eingabemaske ist jetzt reine Eingabe; die Karte erreicht man mit
-         „🗺 Vollbild-Karte" ganz oben.
-         playInfoHtml() BLEIBT: die Distanzen zur Fahne braucht man auch beim
-         Eintragen. -->
-    <div id="playInfo">${playInfoHtml()}</div>
-    ${watchRecBanner()}
+    <!-- CADDY, LOCHPLAN UND SCHLAGAUFNAHME NUR NOCH IM KARTENMODUS (v2.08).
+         Alles davon steht dort ohnehin und besser: die Empfehlung ab der
+         eigenen Position, der Lochplan, die Distanzen F/M/B und das
+         Aufnahmeband. In der Eingabemaske war es eine zweite, schlechtere
+         Ausgabe derselben Daten — und playInfoHtml() stiess dabei die
+         gleiche teure Rechnung an (Monte-Carlo, Geo-Raster).
+         Die Eingabemaske ist jetzt reine Eingabe; zur Karte fuehrt der
+         Knopf ganz oben. -->
     ${playDetailsHtml()}
     
-    ${shotRecHtml()}
-    <button class="btn ghost" type="button" style="margin-top:10px;width:100%" onclick="playFinish()">✔ Beenden &amp; speichern</button>
+        <button class="btn ghost" type="button" style="margin-top:10px;width:100%" onclick="playFinish()">✔ Beenden &amp; speichern</button>
     <div class="play-navbar">
       <button class="btn ghost" type="button" onclick="playPrev()" ${PLAY.idx===0?"disabled":""}>◀</button>
       <span class="pn-mid">${h.hole} · ${PLAY.idx+1}/${N}</span>
@@ -18568,7 +18745,15 @@ function playLiveRefresh(){
     if(c) c.innerHTML = PLAY.pfInfoOpen
       ? `<button type="button" class="pf-cad-x" onclick="pfInfoToggle()">▲ weniger</button>`+playInfoHtml()
       : pfCaddyKurz(); }
-  const el=document.getElementById("playInfo"); if(el) el.innerHTML=playInfoHtml();
+  /* #playInfo gibt es seit v2.08 nur noch, falls eine aeltere Ansicht offen
+     ist — die Eingabemaske zeigt den Caddy nicht mehr. Die Pruefung bleibt als
+     Schutz, spart aber im Normalfall die teure Rechnung: playInfoHtml() stoesst
+     Monte-Carlo und Geo-Raster an und lief bisher bei JEDEM GPS-Tick, auch
+     wenn niemand hinsah. */
+  if(!PLAY.mapFocus){
+    const el=document.getElementById("playInfo");
+    if(el) el.innerHTML=playInfoHtml();
+  }
   const rd=document.getElementById("playRecDist"); if(rd && PLAY.rec && PLAY.rec.startPos && PLAY.here) rd.textContent=Math.round(geoDist(PLAY.rec.startPos,PLAY.here));
   if(!PLAY.mapBusy) playMapTick();
 }
@@ -20094,7 +20279,7 @@ function lmDelShot(sid,gi,close){
   if(!confirm("Schlag löschen?"+(sh.carry!=null?"\n\nCarry "+fmtN(sh.carry,1)+" m"+(sh.club?" · "+sh.club:""):""))) return;
   s.shots.splice(gi,1);
   // Leere Session nicht als Karteileiche stehen lassen
-  if(!s.shots.length) DB.lmSessions=DB.lmSessions.filter(x=>x.id!==sid);
+  if(!s.shots.length) (tombAdd("lmSessions", sid), DB.lmSessions=DB.lmSessions.filter(x=>x.id!==sid));
   persist(); if(close) closeSheet(); renderLaunch(); toast("Schlag gelöscht");
 }
 function lmExport(fmt, onlyClub){
@@ -20155,7 +20340,7 @@ function openLMsession(id){
   <button class="btn warn" id="lm_del" style="margin-top:10px">Session löschen</button>`;
   openSheet(h);
   $("#lm_save").onclick=()=>{ s.date=$("#lm_date").value; s.name=$("#lm_name").value.trim()||s.name; persist(); closeSheet(); renderAll(); toast("Gespeichert"); };
-  $("#lm_del").onclick=()=>{ if(confirm("Session mit allen Schlägen löschen?")){ DB.lmSessions=DB.lmSessions.filter(x=>x.id!==id); persist(); closeSheet(); renderAll(); toast("Gelöscht"); }};
+  $("#lm_del").onclick=()=>{ if(confirm("Session mit allen Schlägen löschen?")){ (tombAdd("lmSessions", id), DB.lmSessions=DB.lmSessions.filter(x=>x.id!==id)); persist(); closeSheet(); renderAll(); toast("Gelöscht"); }};
 }
 
 /* ================= FITNESS ================= */
@@ -20238,7 +20423,7 @@ function openYogaEditor(id){
     if(isNew)(DB.fitnessSessions=DB.fitnessSessions||[]).push(rec); else Object.assign(s,rec);
     persist(); closeSheet(); renderAll(); toast(isNew?"Hinzugefügt":"Gespeichert");
   };
-  if(!isNew)$("#y_del").onclick=()=>{ if(confirm("Einheit löschen?")){ DB.fitnessSessions=DB.fitnessSessions.filter(x=>x.id!==s.id); persist(); closeSheet(); renderAll(); toast("Gelöscht"); }};
+  if(!isNew)$("#y_del").onclick=()=>{ if(confirm("Einheit löschen?")){ (tombAdd("fitnessSessions", s.id), DB.fitnessSessions=DB.fitnessSessions.filter(x=>x.id!==s.id)); persist(); closeSheet(); renderAll(); toast("Gelöscht"); }};
 }
 let kraftRows=[];
 function openKraftEditor(id){
@@ -20280,7 +20465,7 @@ function openKraftEditor(id){
     if(isNew)(DB.fitnessSessions=DB.fitnessSessions||[]).push(rec); else Object.assign(s,rec);
     persist(); closeSheet(); renderAll(); toast(isNew?"Hinzugefügt":"Gespeichert");
   };
-  if(!isNew)$("#k_del").onclick=()=>{ if(confirm("Einheit löschen?")){ DB.fitnessSessions=DB.fitnessSessions.filter(x=>x.id!==s.id); persist(); closeSheet(); renderAll(); toast("Gelöscht"); }};
+  if(!isNew)$("#k_del").onclick=()=>{ if(confirm("Einheit löschen?")){ (tombAdd("fitnessSessions", s.id), DB.fitnessSessions=DB.fitnessSessions.filter(x=>x.id!==s.id)); persist(); closeSheet(); renderAll(); toast("Gelöscht"); }};
 }
 
 /* ================= HEUTE (Cockpit) ================= */
@@ -20746,7 +20931,10 @@ function renderKorrelation(){
      Statistikkenntnisse lesbar. */
   const ms=[];
   KPIS.forEach(([lab,arr,hochIstGut])=>{ const m=medianSplit(arr,toPar);
-    if(m && Math.abs(m.gut-m.schlecht)>1e-9) ms.push({lab,...m,hochIstGut}); });
+    /* Quoten sind Prozentwerte — ohne Einheit steht dort „38,9" und man raet,
+       ob Prozent, Schlaege oder Meter gemeint sind. */
+    const einheit=/quote|%/i.test(lab) ? " %" : "";
+    if(m && Math.abs(m.gut-m.schlecht)>1e-9) ms.push({lab,...m,hochIstGut,einheit}); });
   ms.sort((a,b)=>Math.abs(b.gut-b.schlecht)/(Math.abs(b.schlecht)||1)-Math.abs(a.gut-a.schlecht)/(Math.abs(a.schlecht)||1));
   if(ms.length){
     h+=`<div class="eyebrow" style="margin-top:16px">Gute gegen schlechte Runden</div>
@@ -20756,8 +20944,8 @@ function renderKorrelation(){
     ms.forEach(x=>{ const d=x.gut-x.schlecht;
       const besser = x.hochIstGut ? d>0 : d<0;
       h+=`<div class="stat-line"><span>${esc(x.lab)}</span>
-        <b><span class="${besser?'up':'down'}">${num(x.gut,1)}</span>
-        <span class="r-s">vs ${num(x.schlecht,1)}</span></b></div>`; });
+        <b><span class="${besser?'up':'down'}">${fmtN(x.gut,1)}${x.einheit||""}</span>
+        <span class="r-s">vs ${fmtN(x.schlecht,1)}${x.einheit||""}</span></b></div>`; });
     h+=`<p class="note">Links deine guten, rechts deine schlechten Runden. Grün = bei den guten
     Runden besser. Die größten Unterschiede stehen oben.</p></div>`;
   }
@@ -21045,11 +21233,25 @@ function renderBag(){
   $("#v-bag").querySelectorAll(".bagf").forEach(el=>el.onchange=()=>{
     const row=el.closest(".bagrow"), obj=(DB.clubDistances||[]).find(x=>x.id===row.dataset.id); if(!obj) return;
     const f=el.dataset.f; obj[f] = f==="club" ? el.value.trim() : num(el.value);
+    /* Zeitstempel und Grabstein pflegen: Ein umbenannter oder wieder
+       angelegter Schlaeger muss den Grabstein seines NEUEN Namens aufheben,
+       sonst loescht ihn der naechste Abgleich wieder weg. */
+    obj.updated=new Date().toISOString();
+    if(f==="club") tombClear("clubDistances", obj.club);
     persist(); if(f!=="club") renderBag();
   });
   $("#v-bag").querySelectorAll(".bagdel").forEach(b=>b.onclick=()=>{ if(confirm("Schläger entfernen?")){
+    /* GRABSTEIN setzen, sonst kommt der Schlaeger beim naechsten Abgleich
+       zurueck: _mergeArr vereinigt beide Listen, und ein FEHLENDER Eintrag ist
+       keine Information. Der Schluessel MUSS derselbe sein wie in mergeDB
+       (dort `x=>x.club`) — sonst greift der Grabstein ins Leere. */
+    { const w=(DB.clubDistances||[]).find(x=>x.id===b.dataset.id); if(w) tombAdd("clubDistances", w.club); }
     DB.clubDistances=DB.clubDistances.filter(x=>x.id!==b.dataset.id); persist(); renderBag(); }});
-  $("#bagAdd").onclick=()=>{ DB.clubDistances.push({id:"C"+Date.now(),club:"Neuer Schläger",carry:null,total:null}); persist(); renderBag(); };
+  $("#bagAdd").onclick=()=>{
+    tombClear("clubDistances","Neuer Schläger");
+    DB.clubDistances.push({id:"C"+Date.now(),club:"Neuer Schläger",carry:null,total:null,
+      updated:new Date().toISOString()});
+    persist(); renderBag(); };
   { const btn=document.getElementById("bagR10"), fi=document.getElementById("bagR10File");
     if(btn&&fi){ btn.onclick=()=>fi.click();
       fi.onchange=()=>{ const f=fi.files&&fi.files[0]; if(!f) return;
@@ -22629,7 +22831,7 @@ function openAddRound(existing, draftRound){
   if(ed) $("#delRound").onclick=()=>{ if(confirm("Runde löschen?")){
     // Rueckgaengig statt endgueltig: eine Runde ist Stunden Arbeit.
     const _i=DB.rounds.findIndex(x=>x.id===ed.id), _w=_i>=0?DB.rounds[_i]:null;
-    DB.rounds=DB.rounds.filter(x=>x.id!==ed.id);
+    (tombAdd("rounds", ed.id), DB.rounds=DB.rounds.filter(x=>x.id!==ed.id));
     persist(); closeSheet(); renderAll();
     if(_w) undoBar("Runde gelöscht", ()=>{ DB.rounds.splice(Math.min(_i,DB.rounds.length),0,_w); });
     else toast("Gelöscht"); }};
@@ -22839,7 +23041,7 @@ function openRound(id){
   $("#delRound").onclick=()=>{ if(confirm("Runde löschen?")){
     // Rueckgaengig statt endgueltig: eine Runde ist Stunden Arbeit.
     const _i=DB.rounds.findIndex(x=>x.id===id), _w=_i>=0?DB.rounds[_i]:null;
-    DB.rounds=DB.rounds.filter(x=>x.id!==id);
+    (tombAdd("rounds", id), DB.rounds=DB.rounds.filter(x=>x.id!==id));
     persist(); closeSheet(); renderAll();
     if(_w) undoBar("Runde gelöscht", ()=>{ DB.rounds.splice(Math.min(_i,DB.rounds.length),0,_w); });
     else toast("Gelöscht"); }};
@@ -23803,7 +24005,7 @@ function openComp(idx){
 /* ================= NAV ================= */
 let current="dash";
 const FAB_ACTION={rounds:startRound,comp:openAddComp,notes:openAddNote,swing:openSwingEdit};
-const APP_VERSION="2.07.0"; // App-Anzeigeversion (NICHT SEED.version! Diese bei jeder Änderung erhöhen)
+const APP_VERSION="2.11.0"; // App-Anzeigeversion (NICHT SEED.version! Diese bei jeder Änderung erhöhen)
 /* ---------- Darstellung: Hell/Dunkel (DB.ui.theme = "auto" | "light" | "dark") ---------- */
 const _darkMQ = (window.matchMedia? window.matchMedia("(prefers-color-scheme: dark)") : null);
 function themeSetting(){ return (DB && DB.ui && DB.ui.theme) || "auto"; }
@@ -23836,6 +24038,20 @@ const GROUPS=[
 ];
 const VIEW_GROUP={}; GROUPS.forEach(gr=>gr.views.forEach(([v])=>VIEW_GROUP[v]=gr.g));
 const groupLast={};
+/* Hoehe der Kopfzeile als CSS-Variable bereitstellen, damit die
+   Unternavigation darunter kleben kann statt darauf. */
+function syncHeaderH(){
+  try{
+    const h=document.querySelector("header");
+    if(!h) return;
+    const px=Math.round(h.getBoundingClientRect().height);
+    if(px>0) document.documentElement.style.setProperty("--hh", px+"px");
+  }catch(e){ logErr("syncHeaderH", e, true); }
+}
+window.addEventListener("resize", ()=>setTimeout(syncHeaderH,60));
+window.addEventListener("orientationchange", ()=>setTimeout(syncHeaderH,220));
+document.addEventListener("fullscreenchange", ()=>setTimeout(syncHeaderH,120));
+
 function setView(v){
   current=v; const g=VIEW_GROUP[v]||"heute"; groupLast[g]=v;
   document.querySelectorAll(".view").forEach(s=>s.classList.remove("active"));

@@ -37,10 +37,10 @@ const COVERAGE_BASELINE_FUNCS = (
     "_satTiles _teeSC _tileLat applyGeoOverrides approachStrength bandT bindPanZoom blockFind" +" "+
     "buildHoleGeo caddyBlockHtml caddyPlan caddyPositionPlan clubFamily clubPlan compass8" +" "+
     "computeRound computeTotal courseReportHtml courseSVG deleteNote distToRing featBbox" +" "+
-    "featPoints finalizeGeo fitFind fmtDur fmtN geoBBox geoEdDown geoEdHoleFixHtml geoEdMove" +" "+
-    "geoLL goalFind golfLinkify greenRingFor holeHistory holeSpine holeTrouble idbGet" +" "+
-    "idbImgDel idbImgGet idbImgSet idbSatDel idbSet idbVidDel idbVidGet idbVidSet isVideoUrl" +" "+
-    "ladder lateralHazards lineChart lineLenM linkHref liveStart lmBuildRecs lmCarryStrip" +" "+
+    "featPoints finalizeGeo fitFind fmtDur geoBBox geoEdDown geoEdHoleFixHtml geoEdMove geoLL" +" "+
+    "goalFind golfLinkify greenRingFor holeHistory holeSpine holeTrouble idbGet idbImgDel" +" "+
+    "idbImgGet idbImgSet idbSatDel idbSet idbVidDel idbVidGet idbVidSet isVideoUrl ladder" +" "+
+    "lateralHazards lineChart lineLenM linkHref liveStart lmBuildRecs lmCarryStrip" +" "+
     "lmDiagScatter lmDispersion lmGet lmPct lmPearson lmStatObj lvlChip manualTipHtml mapLL" +" "+
     "mkLink nearestHole normalizeClub openAddComp openAddNote openAddRound openBlockEditor" +" "+
     "openCourseEditor openFitnessDetail openGoalEditor openKraftEditor openRound openTest" +" "+
@@ -1402,7 +1402,12 @@ group("Keine Doppelungen zwischen Karten- und Eingabemodus");
   const src=fs.readFileSync(FILE,"utf8");
   const i=src.indexOf("function renderPlay(){");
   const j=src.indexOf("\n}\n", i);
-  const form=src.slice(i,j).replace(/\/\*[\s\S]*?\*\//g,"");   // ohne Kommentare
+  /* Ohne Kommentare — BEIDE Arten: JS-Kommentare und HTML-Kommentare in den
+     Template-Strings. Letztere nennen die entfernten Funktionen als Begründung
+     und würden die Prüfung sonst fälschlich anschlagen lassen. */
+  const form=src.slice(i,j)
+    .replace(/\/\*[\s\S]*?\*\//g,"")
+    .replace(/<!--[\s\S]*?-->/g,"");
   /* Karte und Fahnensteuerung standen in BEIDEN Modi. Seit der Spielmodus im
      Kartenmodus startet, ist das doppelt — und der kleine Kartenausschnitt
      löste dieselbe teure Berechnung aus wie die große. */
@@ -1411,7 +1416,14 @@ group("Keine Doppelungen zwischen Karten- und Eingabemodus");
   ok("Eingabemaske ohne Fahnensteuerung", form.indexOf("pinCtrlHtml")<0);
   ok("Eingabemaske rechnet die Karte nicht mehr", form.indexOf("playMapRender()")<0);
   /* Die Distanzen zur Fahne bleiben — die braucht man auch beim Eintragen. */
-  ok("Distanzanzeige bleibt in der Eingabemaske", form.indexOf("playInfoHtml()")>=0);
+  /* v2.08: Auch Caddy, Lochplan und Distanzanzeige sind aus der Eingabemaske
+     verschwunden — alles davon steht im Kartenmodus, dort besser und ohne
+     doppelte Rechnung. Die Eingabemaske ist reine Eingabe. */
+  ok("Eingabemaske ohne Caddy/Distanzen", form.indexOf("playInfoHtml()")<0);
+  ok("Eingabemaske ohne Schlagaufnahme", form.indexOf("shotRecHtml()")<0);
+  ok("Eingabemaske ohne Uhr-Aufnahmeband", form.indexOf("watchRecBanner()")<0);
+  /* Der Weg zur Karte MUSS bleiben, sonst käme man nicht mehr hin. */
+  ok("Knopf zur Vollbild-Karte bleibt", form.indexOf("playToggleFocusMap()")>=0);
   /* Fahnensteuerung v1.90 KOMPLETT entfernt: sie war eine Handeingabe pro
      Loch, die im Alltag nicht gepflegt wurde — und ungepflegte Werte
      verschlechtern die Rechnung, statt sie zu verbessern. Ziel ist jetzt
@@ -1907,6 +1919,178 @@ group("Umschalter — Zustand kippen reicht nicht");
   /* Gegenprobe: playMapTick allein genügt NICHT — es baut das SVG nicht neu. */
   ok("kein Umschalter verlässt sich auf playMapTick",
      !/toggle\w+\(\);\s*playMapTick\(\)/.test(ctr));
+}
+
+/* ============ 24aa. Fairwaybreite in der Schlägerwahl ============ */
+group("Enge Landezone — wird die Fairwaybreite wirklich berücksichtigt?");
+{
+  const S=G("STRAT"), DB=G("DB"), P=G("PLAY");
+  if (S && typeof S.tee === "function" && DB && P) {
+    const mLat=111320, mLng=65500;
+    const at=(n,e=0)=>[54.0+n/mLat, 10.0+e/mLng];
+    const box=(a,b,hb)=>[at(a,-hb),at(a,hb),at(b,hb),at(b,-hb),at(a,-hb)];
+    DB.clubDistances=[{club:"Driver",carry:215,reach:232},{club:"3 Wood",carry:195,reach:206},
+      {club:"5 Wood",carry:180,reach:190},{club:"4 Iron",carry:160,reach:166},
+      {club:"6-Eisen",carry:150,reach:154}];
+    P.holes=[{hole:1,par:4,len:380,si:5}]; P.idx=0;
+    const gruen={kind:"green", ring:box(366,394,14)};
+    const lauf=(nm,feats)=>{
+      const geo={holes:{1:{tee:at(0), green:at(380)}}, features:feats};
+      DB.courses=[{name:nm, geo}]; P.course=nm;
+      const ev=S.tee(geo,nm,1,"bal",20);
+      const b=ev.best, n=Object.values(b.frac).reduce((a,c)=>a+c,0);
+      return {club:b.club.name, fw:(b.frac[S.LIE.fairway]||0)/n, es:b.es};
+    };
+    /* WICHTIG für den Testaufbau: Das Lageraster liest `geo.features` mit
+       `kind`, NICHT `holes[n].fairway`. Wer das verwechselt, misst gar nichts —
+       genau daran ist mein erster Versuch gescheitert und legte fälschlich
+       nahe, die Breite werde ignoriert. */
+    const breit=lauf("BR",[{kind:"fairway",ring:box(120,290,30)},gruen]);
+    const eng  =lauf("EN",[{kind:"fairway",ring:box(120,290,7)},gruen]);
+    ok("breites Fairway → hohe Trefferquote", breit.fw>0.85, "FW "+Math.round(breit.fw*100)+"%");
+    ok("enges Fairway → deutlich niedriger", eng.fw < breit.fw-0.3,
+       `${Math.round(breit.fw*100)}% -> ${Math.round(eng.fw*100)}%`);
+    ok("enges Fairway → höherer Erwartungswert", eng.es > breit.es,
+       `${breit.es.toFixed(3)} -> ${eng.es.toFixed(3)}`);
+
+    /* DER ENTSCHEIDENDE FALL: Verengt sich das Fairway erst in der Landezone
+       des Drivers, muss der Caddy einen kürzeren Schläger wählen, der davor
+       bleibt. Das ist der eigentliche Nutzen der Simulation. */
+    const trichter=lauf("TR",[{kind:"fairway",ring:box(120,200,30)},
+                              {kind:"fairway",ring:box(200,290,7)},gruen]);
+    ok("Verengung in der Landezone → kürzerer Schläger",
+       trichter.club!=="Driver", "gewählt: "+trichter.club);
+    ok("und trotzdem hohe Trefferquote", trichter.fw>0.85,
+       "FW "+Math.round(trichter.fw*100)+"%");
+    DB.courses=[]; DB.clubDistances=[]; P.holes=[];
+  }
+}
+
+/* ============ 24ab. Formatierung und klebende Leisten ============ */
+group("num() ist ein Parser, kein Formatierer");
+{
+  const src=fs.readFileSync(FILE,"utf8");
+  const nurCode = [...src.matchAll(/<script([^>]*)>([\s\S]*?)<\/script>/g)]
+    .filter(m=>!/\bsrc=|application\/json|text\/markdown|devdocs/.test(m[1]))
+    .map(m=>m[2]).join("\n").replace(/\/\*[\s\S]*?\*\//g,"");
+  /* `num(x)` parst Text zu Zahl und IGNORIERT ein zweites Argument. Wer
+     `num(v,1)` schreibt in der Annahme, das runde, bekommt den vollen Float:
+     in der Korrelationsansicht stand „38.888888888888886". Zum Formatieren
+     ist `fmtN(v,d)` da. */
+  ok("kein num() mit zweitem Argument im Code",
+     !/\bnum\([^()]{0,60},\s*\d\)/.test(nurCode));
+  ok("fmtN wird für die Median-Tafel benutzt",
+     /fmtN\(x\.gut,1\)/.test(src) && /fmtN\(x\.schlecht,1\)/.test(src));
+  ok("Quoten bekommen eine Einheit", /einheit=\/quote\|%\/i\.test\(lab\)/.test(src));
+
+  /* Kopfzeile und Unternavigation klebten BEIDE auf top:0 und stapelten sich.
+     Sichtbar wurde es im Browser-Vollbild, wo der Sicherheitsabstand oben
+     wegfällt und die Kopfzeile schrumpft. */
+  ok("Unternavigation klebt unter der Kopfzeile",
+     /#subnav\{position:sticky;top:var\(--hh/.test(src));
+  ok("Kopfhöhe wird zur Laufzeit gemessen", /function syncHeaderH/.test(src));
+  ok("Neumessung bei Vollbildwechsel", /fullscreenchange[\s\S]{0,60}syncHeaderH/.test(src));
+  ok("Kopfzeile hat höheren z-index als die Unternavigation",
+     /header\{position:sticky;top:0;z-index:20/.test(src) && /#subnav\{[^}]*z-index:19/.test(src));
+}
+
+/* ============ 24ac. Testbeschreibungen ============ */
+group("Testbeschreibungen — vollständig und zur Skala passend");
+{
+  const src=fs.readFileSync(FILE,"utf8");
+  const a=src.indexOf('"testDefs": [');
+  let b=src.indexOf("[", a), d=0, p=b;
+  while(p<src.length){ if(src[p]==="[") d++; else if(src[p]==="]"){ d--; if(!d) break; } p++; }
+  let defs=[]; try{ defs=JSON.parse(src.slice(b,p+1)); }catch(e){ defs=[]; }
+  ok("testDefs lesbar", defs.length>0, "Tests: "+defs.length);
+  if(defs.length){
+    /* Eine Beschreibung von 28 Zeichen („3-Ball Pressure Putting Test") ist
+       nur eine Wiederholung des Titels und hilft niemandem, der den Test zum
+       ersten Mal aufbaut. */
+    const kurz=defs.filter(t=>(t.description||"").length<400).map(t=>t.key);
+    ok("keine Beschreibung unter 400 Zeichen", kurz.length===0, kurz.join(", "));
+    /* Einheitliche Gliederung: ohne sie sucht man bei jedem Test woanders. */
+    ["WOFÜR","AUFBAU","ABLAUF","FEHLERQUELLE","ZÄHLWEISE"].forEach(abschnitt=>{
+      const ohne=defs.filter(t=>(t.description||"").indexOf(abschnitt)<0).map(t=>t.key);
+      ok("alle Tests haben "+abschnitt, ohne.length===0, ohne.slice(0,4).join(", "));
+    });
+    /* Die Richtwerte werden AUS benchmark.levels erzeugt — sie können damit
+       nicht von der tatsächlichen Bewertungsskala abweichen. Genau dieses
+       Auseinanderlaufen ist bei handgeschriebenen Werten die Regel. */
+    const mitSkala=defs.filter(t=>t.benchmark&&t.benchmark.levels);
+    const ohneRicht=mitSkala.filter(t=>(t.description||"").indexOf("RICHTWERTE")<0).map(t=>t.key);
+    ok("Tests mit Skala nennen Richtwerte", ohneRicht.length===0, ohneRicht.join(", "));
+    const falsch=mitSkala.filter(t=>{
+      const l=t.benchmark.levels;
+      return (t.description||"").indexOf("Scratch "+l[4])<0;
+    }).map(t=>t.key);
+    ok("Richtwerte stimmen mit der Skala überein", falsch.length===0, falsch.join(", "));
+  }
+}
+
+/* ============ 24ad. Löschungen müssen den Sync überleben ============ */
+group("Grabsteine — ein gelöschter Schläger darf nicht zurückkommen");
+{
+  const merge=G("mergeDB"), tombAdd=G("tombAdd"), tombClear=G("tombClear"), DB=G("DB");
+  if (typeof merge === "function" && typeof tombAdd === "function" && DB) {
+    /* DER FEHLER: `_mergeArr` VEREINIGT beide Listen. Ein lokal gelöschter
+       Eintrag fehlt danach lokal nur noch — die Repo-Fassung wird kommentarlos
+       wieder hinzugefügt. Ein gelöschtes „5 Wood" tauchte deshalb sofort wieder
+       auf. Dieselbe Klasse wie das Object.assign-Problem bei DB.ui (v1.74):
+       das FEHLEN einer Sache ist keine Information, die ein Merge lesen kann. */
+    DB.tomb={};
+    const repo={clubDistances:[{id:"C1",club:"Driver"},{id:"C2",club:"5 Wood"}]};
+
+    tombAdd("clubDistances","5 Wood");
+    const lokal={clubDistances:[{id:"C1",club:"Driver"}], tomb:DB.tomb};
+    const m=merge(lokal, repo);
+    const namen=m.clubDistances.map(c=>c.club);
+    ok("gelöschter Schläger bleibt weg", namen.indexOf("5 Wood")<0, namen.join(", "));
+    ok("die anderen bleiben erhalten", namen.indexOf("Driver")>=0);
+    ok("Grabstein wandert mit", !!(m.tomb && m.tomb.clubDistances &&
+       m.tomb.clubDistances["5 Wood"]));
+
+    /* Wird der Name später neu angelegt, muss er wieder erscheinen — sonst
+       wäre er dauerhaft verbrannt. Zwei Wege führen dahin: ein NEUERER
+       Zeitstempel am Eintrag, oder das ausdrückliche Aufheben des Grabsteins. */
+    const spaeter=new Date(Date.now()+120000).toISOString();
+    const m2=merge({clubDistances:[{id:"C3",club:"5 Wood",updated:spaeter}], tomb:m.tomb}, repo);
+    ok("neuer Eintrag mit jüngerem Zeitstempel kommt durch",
+       m2.clubDistances.some(c=>c.club==="5 Wood"),
+       m2.clubDistances.map(c=>c.club).join(", "));
+
+    if (typeof tombClear === "function") {
+      DB.tomb=JSON.parse(JSON.stringify(m.tomb));
+      tombClear("clubDistances","5 Wood");
+      const m3=merge({clubDistances:[{id:"C4",club:"5 Wood"}], tomb:DB.tomb}, repo);
+      ok("aufgehobener Grabstein gibt den Namen frei",
+         m3.clubDistances.some(c=>c.club==="5 Wood"));
+    }
+    /* Grabsteine beider Seiten vereinigen — die SPAETERE Zeit gewinnt.
+       Ohne das käme ein auf dem Handy gelöschter Eintrag über die Uhr zurück. */
+    const mt=G("_mergeTomb");
+    if (typeof mt === "function") {
+      const a={clubDistances:{"3 Wood":"2026-08-01T10:00:00Z"}};
+      const b={clubDistances:{"3 Wood":"2026-08-05T10:00:00Z", "PW":"2026-08-02T10:00:00Z"}};
+      const v=mt(a,b);
+      eq("spätere Zeit gewinnt", v.clubDistances["3 Wood"], "2026-08-05T10:00:00Z");
+      eq("Grabstein nur einer Seite bleibt", v.clubDistances["PW"], "2026-08-02T10:00:00Z");
+      ok("leere Eingaben stören nicht", JSON.stringify(mt(null,null))==="{}");
+    }
+    const tf=G("_tombFor");
+    if (typeof tf === "function") {
+      eq("Bereich ohne Grabsteine liefert leeres Objekt",
+         JSON.stringify(tf({},"clubDistances")), "{}");
+      eq("vorhandener Bereich wird geliefert",
+         tf({tomb:{clubDistances:{"X":"t"}}},"clubDistances").X, "t");
+    }
+
+    /* Ohne Grabstein bleibt alles wie bisher — die Vereinigung. */
+    DB.tomb={};
+    const m4=merge({clubDistances:[{id:"C1",club:"Driver"}], tomb:{}}, repo);
+    eq("ohne Grabstein wird weiterhin vereinigt", m4.clubDistances.length, 2);
+    DB.tomb={};
+  }
 }
 
 /* ================= 25. Gepflegt vs. gemessen ================= */
