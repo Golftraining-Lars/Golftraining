@@ -152,7 +152,7 @@ try {
                  "caddyClubs","clubNorm","clubRename","bagFreiName","bagMessSpalte",
                  "tombAdd","tombClear","tombDel","MERGE_KEY","_mergeTomb","_tombFor",
                  "playCaddyNow","playTooFar","playAimChain","playMapSlot","playFocusDefault",
-                 "hcpGap","whsPool","courseStats","nassFaktor","errZeit","todayISO","puttDiagnose","sgHoleShots","sgVerlauf",
+                 "hcpGap","whsPool","courseStats","nassFaktor","errZeit","todayISO","puttDiagnose","sgHole","sgHoleShots","sgVerlauf",
                  "holeGir","holeUpDown","holeSandSave","platzAnalyse","taskFortschritt",
                  "warmupSchedule","warmupKorrektiv","WARMUP_PLANS","medianSplit","pearson",
                  "rKrit","gpKey","gpLabel","gpTotalES","pickClub","_aimClub","_aimLerp",
@@ -2550,6 +2550,45 @@ group("puttDiagnose — WOHIN gehen die Fehlputts?");
     const gH=[]; for(let i=0;i<12;i++) gH.push(loch(i<6?"Gelocht":"Kurz"));
     const g=pd([{holes:gH}]);
     eq("gelochte Putts zählen nicht als Fehler", g.daneben, 6);
+  }
+}
+
+/* ============ 24ao. Quality: raus aus der Eingabe, drin in der Rechnung ============ */
+group("quality — doppelte Erfassung entfernt, Altdaten bleiben nutzbar");
+{
+  const src=fs.readFileSync(FILE,"utf8");
+  const nurCode = [...src.matchAll(/<script([^>]*)>([\s\S]*?)<\/script>/g)]
+    .filter(m=>!/\bsrc=|application\/json|text\/markdown|devdocs/.test(m[1]))
+    .map(m=>m[2]).join("\n").replace(/\/\*[\s\S]*?\*\//g,"");
+  /* `quality` misst DASSELBE wie „Rest zur Fahne", nur in gröberen Bändern:
+     den Abstand zum Loch nach dem Approach. Für die Position B (SG Approach)
+     wurde es NIE herangezogen — dort zählt allein distToPin. Es war reine
+     Doppelerfassung, und der Name lud zu falschen Einträgen ein: „Quality"
+     klingt nach einer Bewertung des Schlags, ist aber eine Distanz. */
+  ok("keine Eingabe mehr im Spielmodus",
+     !/playSel\('quality'/.test(nurCode));
+  ok("keine Eingabe mehr im Rundeneditor",
+     nurCode.indexOf('data-f="quality"')<0);
+  ok("Optionsliste wird nicht mehr aufgebaut", nurCode.indexOf("qOpts")<0);
+  /* ABER: Der Rückfall MUSS bleiben — Altrunden tragen das Feld, und ohne ihn
+     verlören sie ihr Putt-SG. */
+  ok("Rückfall in sgHole erhalten", /sgBandMid\(h\.quality\)/.test(nurCode));
+  ok("zählt weiter zur Abdeckung", /sgBandMid\(h\.quality\)!=null/.test(nurCode));
+
+  /* Und der Nachweis an echten Daten: ein Loch NUR mit quality muss weiterhin
+     ein Putt-Ergebnis liefern. */
+  const sg=G("sgHole");
+  if (typeof sg === "function") {
+    const loch={hole:1,par:4,si:5,len:380,score:4,putts:2,appr:"100-120m",quality:"2m"};
+    const r=sg(loch,20);
+    ok("Altrunde mit quality liefert weiter SG",
+       r && r.putt!=null && isFinite(r.putt), JSON.stringify(r&&r.putt));
+    /* Gegenprobe: Ohne jede der drei Quellen MUSS die Rechnung aussteigen —
+       sonst würde sie eine Zahl erfinden. */
+    const ohne={hole:1,par:4,si:5,len:380,score:4,putts:2,appr:"100-120m"};
+    const r2=sg(ohne,20);
+    ok("ohne jede Quelle: unvollständig gemeldet",
+       r2 && (r2.teilweise===true || r2.putt==null), JSON.stringify(r2&&r2.fehlt));
   }
 }
 

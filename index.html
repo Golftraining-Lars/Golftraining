@@ -2821,6 +2821,20 @@ erkennbar ist, dass es ein Video gab.
 > **Regel:** Bei JEDER inhaltlichen Änderung hier oben einen datierten Eintrag ergänzen (neueste
 > zuerst): Datum · was geändert · betroffene Bereiche. Kurz halten.
 
+- **v2.23.0 · 2026-08-10** — **„Quality (nach Approach)" aus der Eingabe entfernt.** Das Feld
+  misst **dasselbe wie „Rest zur Fahne"**, nur in gröberen Bändern: den Abstand zum Loch nach dem
+  Annäherungsschlag. Für die **Position B**, aus der SG Approach entsteht, wurde es **nie**
+  herangezogen — dort zählt allein `distToPin`. Es diente ausschließlich als **dritter Rückfall**
+  für die Puttlänge, hinter „Länge des 1. Putts" und „Rest zur Fahne". Wer eines von beiden
+  pflegt, tippte es doppelt.
+  Der Name lud zusätzlich zu falschen Einträgen ein: „Quality" klingt nach einer Bewertung des
+  Schlags, ist aber eine Distanz.
+  Entfernt aus **beiden** Eingabemasken (Spielmodus und Rundeneditor) sowie die nun unnötige
+  Optionsliste. **Der Rückfall in `sgHole` bleibt** — Altrunden tragen das Feld und verlören
+  sonst ihr Putt-SG; im Prüfstand an einer Altrunde nachgewiesen. Auf der Uhr war es bereits mit
+  v2.20 entfallen. 7 Prüfungen, darunter die Gegenprobe, dass die Rechnung ohne jede der drei
+  Quellen als unvollständig meldet statt eine Zahl zu erfinden.
+
 - **v2.22.0 · 2026-08-10** — **Putt-Diagnose: zwei neue Felder und eine Auswertung, die eine
   Trainingsentscheidung liefert.** Bei Approaches gibt es `apprMiss` seit langem — beim Putten
   fehlte die Entsprechung, obwohl dort die größte Lücke liegt (SG Putten −4,73).
@@ -16553,6 +16567,13 @@ function sgHole(h, hcp){
      (Holed/Gimme/<1m/…/>5m), auch wenn der Name das nicht verraet. */
   let cM = sgBandMid(h.firstPutt);
   if(cM==null && gir && h.distToPin!=null) cM = +h.distToPin;
+  /* `quality` ist seit v2.23 NICHT MEHR EINGEBBAR — der Rueckfall bleibt aber,
+     weil Altrunden das Feld tragen. Es misst dasselbe wie „Rest zur Fahne",
+     nur in groberen Baendern: den Abstand zum Loch nach dem Approach. Der
+     Name legte etwas anderes nahe („Quality" klingt nach einer Bewertung des
+     Schlags), was zu falschen Eintraegen einlud. Wer „Rest zur Fahne" oder die
+     Puttlaenge pflegt, braucht es nicht — beide sind genauer und stehen
+     vorher in der Kette. */
   if(cM==null) cM = sgBandMid(h.quality);
   if(cM==null){ out.teilweise=true; out.fehlt="1.-Putt-Distanz"; return out; }
   const esC = L.lookup(Math.max(0.5,cM), "green", H);
@@ -18836,7 +18857,7 @@ function playWichtigHtml(){
       ${playSel('club','Tee-Schläger',DB.teeClubs||[])}
       ${playNum('bunkerN','Bunker Anzahl','0')}
       ${playSel('penType','Penalty Typ',DB.penaltyTypes||[])}
-      ${playSel('quality','Quality (nach Approach)',DB.qualityOpts||[])}
+     
     </div>`; }
 
 /* In der Klappe bleibt nur, was selten gebraucht wird ODER berechnet werden
@@ -23471,7 +23492,7 @@ function openAddRound(existing, draftRound){
     const apprOpts=DB.approachBuckets.map(b=>`<option value="${b}">${b}</option>`).join("");
     const teeOpts=DB.teeResults.map(t=>`<option value="${t}">${t}</option>`).join("");
     const opt=(arr)=>`<option value="">–</option>`+arr.map(x=>`<option value="${esc(x)}">${esc(x)}</option>`).join("");
-    const fpOpts=opt(DB.firstPuttDist||[]), qOpts=opt(DB.qualityOpts||[]), clubOpts=opt(DB.teeClubs||[]),
+    const fpOpts=opt(DB.firstPuttDist||[]), clubOpts=opt(DB.teeClubs||[]),
       pmOpts=opt(DB.puttMiss||[]), prOpts=opt(DB.puttRest||[]),
       lieOpts=opt(DB.approachLies||[]), amOpts=opt(DB.approachMiss||[]),
     acOpts=opt((DB.clubDistances||[]).map(c=>c.club).filter(Boolean)), btOpts=opt(DB.bunkerTypes||[]), ptOpts=opt(DB.penaltyTypes||[]), jn=opt(["Ja","Nein"]);
@@ -23517,7 +23538,7 @@ function openAddRound(existing, draftRound){
           <div class="field" style="${fS}"><label>Tee-Schläger</label><select class="hin" data-f="club">${clubOpts}</select></div>
           <div class="field num" style="${fS}"><label>Bunker Anzahl</label><input inputmode="numeric" class="hin" data-f="bunkerN" value="${ex.bunkerN??''}" placeholder="0"></div>
           <div class="field" style="${fS}"><label>Penalty Typ</label><select class="hin" data-f="penType">${ptOpts}</select></div>
-          <div class="field" style="${fS}"><label>Quality (nach Approach)</label><select class="hin" data-f="quality">${qOpts}</select></div>
+         
         </div>
         <details class="descbox" style="margin:9px 0 0">
           <summary style="padding:9px 11px"><span>Selten nötig · sonst berechnet</span><span class="chev-d">▾</span></summary>
@@ -24782,7 +24803,7 @@ function openComp(idx){
 /* ================= NAV ================= */
 let current="dash";
 const FAB_ACTION={rounds:startRound,comp:openAddComp,notes:openAddNote,swing:openSwingEdit};
-const APP_VERSION="2.22.0"; // App-Anzeigeversion (NICHT SEED.version! Diese bei jeder Änderung erhöhen)
+const APP_VERSION="2.23.0"; // App-Anzeigeversion (NICHT SEED.version! Diese bei jeder Änderung erhöhen)
 /* ---------- Darstellung: Hell/Dunkel (DB.ui.theme = "auto" | "light" | "dark") ---------- */
 const _darkMQ = (window.matchMedia? window.matchMedia("(prefers-color-scheme: dark)") : null);
 function themeSetting(){ return (DB && DB.ui && DB.ui.theme) || "auto"; }
