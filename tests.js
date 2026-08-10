@@ -152,7 +152,7 @@ try {
                  "caddyClubs","clubNorm","clubRename","bagFreiName","bagMessSpalte",
                  "tombAdd","tombClear","tombDel","MERGE_KEY","_mergeTomb","_tombFor",
                  "playCaddyNow","playTooFar","playAimChain","playMapSlot","playFocusDefault",
-                 "hcpGap","whsPool","courseStats","nassFaktor","errZeit","todayISO","puttDiagnose","sgHole","sgHoleShots","sgVerlauf",
+                 "hcpGap","whsPool","courseStats","nassFaktor","errZeit","todayISO","puttDiagnose","sgHole","verlaesslich","testFaellig","zielPrognose","indexTempo","trainingsEmpfehlung","fitnessWirkung","stratRueckschau","sgHoleShots","sgVerlauf",
                  "holeGir","holeUpDown","holeSandSave","platzAnalyse","taskFortschritt",
                  "warmupSchedule","warmupKorrektiv","WARMUP_PLANS","medianSplit","pearson",
                  "rKrit","gpKey","gpLabel","gpTotalES","pickClub","_aimClub","_aimLerp",
@@ -2589,6 +2589,100 @@ group("quality — doppelte Erfassung entfernt, Altdaten bleiben nutzbar");
     const r2=sg(ohne,20);
     ok("ohne jede Quelle: unvollständig gemeldet",
        r2 && (r2.teilweise===true || r2.putt==null), JSON.stringify(r2&&r2.fehlt));
+  }
+}
+
+/* ============ 24ap. Tempo, Verlässlichkeit, Fälligkeit ============ */
+group("Von der Messung zur Handlung");
+{
+  /* VERLÄSSLICHKEIT statt Bestwert: Ein einmaliges 39er-Neun sagt wenig.
+     „Dein bestes Drittel liegt bei 42" sagt, was du ABRUFEN kannst — und
+     genau das entscheidet im Wettkampf. */
+  const vl=G("verlaesslich");
+  if (typeof vl === "function") {
+    ok("unter 6 Werten keine Aussage", vl([70,72,74], true)===null);
+    const r=vl([68,70,71,72,73,75,78,80], true);
+    ok("liefert Kennzahlen", !!r);
+    eq("Bestwert", r.best, 68);
+    ok("typisch liegt zwischen gut und schlecht",
+       r.gut <= r.typisch && r.typisch <= r.schlecht,
+       `${r.gut} / ${r.typisch} / ${r.schlecht}`);
+    /* Bei „größer ist besser" muss sich die Richtung umkehren. */
+    const h=vl([10,20,30,40,50,60,70,80], false);
+    eq("größer-ist-besser: Bestwert", h.best, 80);
+    ok("und die Reihenfolge dreht", h.gut >= h.typisch && h.typisch >= h.schlecht,
+       `${h.gut} / ${h.typisch} / ${h.schlecht}`);
+  }
+
+  /* TESTFÄLLIGKEIT: Ein Test ohne Wiederholung ergibt keinen Verlauf und ist
+     wertlos. Es stand aber nur das Datum da — „12.03." sagt nicht, ob das
+     lange her ist. */
+  const tf=G("testFaellig"), DB=G("DB");
+  if (typeof tf === "function" && DB) {
+    const alt=DB.tests;
+    DB.tests=[];
+    ok("nie getestet wird erkannt", tf("gibtsNicht").nie===true);
+    const vorTagen=n=>new Date(Date.now()-n*86400000).toISOString().slice(0,10);
+    DB.tests=[{defKey:"probe", date:vorTagen(100), total:20}];
+    const f=tf("probe");
+    ok("Alter wird berechnet", f.tage>=99 && f.tage<=101, "tage="+f.tage);
+    ok("über 90 Tage ist fällig", f.faellig===true);
+    DB.tests=[{defKey:"probe", date:vorTagen(70), total:20}];
+    ok("70 Tage: bald fällig", tf("probe").bald===true && tf("probe").faellig===false);
+    DB.tests=[{defKey:"probe", date:vorTagen(10), total:20}];
+    ok("10 Tage: weder noch",
+       tf("probe").faellig===false && tf("probe").bald===false);
+    DB.tests=alt;
+  }
+
+  /* PROGNOSE: Eine Kurve sagt „es geht abwärts"; die Frage ist „wie schnell,
+     und wann bin ich da?". Ohne Bewegung in die richtige Richtung darf KEINE
+     Prognose entstehen — sonst erfindet sie ein Datum. */
+  const zp=G("zielPrognose");
+  if (typeof zp === "function") {
+    ok("ohne Ziel keine Prognose", zp(null)===null);
+  }
+}
+
+/* ============ 24aq. Fitness-Wirkung und Strategie-Rückschau ============ */
+group("Beobachtungen, die als solche gekennzeichnet sind");
+{
+  const fw=G("fitnessWirkung"), sr=G("stratRueckschau"), DB=G("DB");
+  if (typeof fw === "function" && DB) {
+    /* Fitness und Golf wurden getrennt erfasst — ob sich das Training
+       auszahlt, konnte niemand beantworten. Beide Bereiche haben aber
+       Zeitstempel. WICHTIG: Das Ergebnis ist eine BEOBACHTUNG, kein Beweis;
+       wer im Sommer mehr trainiert, spielt auch bei besserem Wetter. */
+    const altF=DB.fitnessSessions, altG=DB.gpsShots, altC=DB.clubDistances;
+    DB.fitnessSessions=[]; DB.gpsShots=[];
+    ok("ohne Daten keine Aussage", fw().reicht===false);
+
+    DB.clubDistances=[{id:"C1",club:"Driver",carry:215,total:232}];
+    const monat=(m,n,dist)=>{
+      for(let i=0;i<n;i++) DB.fitnessSessions.push({id:"F"+m+i, date:`2026-0${m}-1${i%9}`, type:"Kraft"});
+      for(let i=0;i<6;i++) DB.gpsShots.push({id:"G"+m+i, ts:`2026-0${m}-15T10:00:00Z`,
+        club:"Driver", dist:dist+i%3, swing:"Voll"});
+    };
+    monat(1, 12, 225); monat(2, 10, 224);   // viel Training
+    monat(3,  1, 215); monat(4,  0, 214);   // wenig
+    const r=fw();
+    ok("mit 4 Monaten reicht es", r.reicht===true, JSON.stringify(r).slice(0,90));
+    if(r.reicht){
+      ok("Monate werden getrennt", r.nMit>=2 && r.nOhne>=2, `${r.nMit}/${r.nOhne}`);
+      ok("Unterschied wird beziffert", isFinite(r.diff), "diff="+r.diff);
+      ok("mehr Training = mehr Länge in diesen Daten", r.diff>0, String(r.diff));
+    }
+    /* Nur volle Schwünge dürfen zählen — ein halber Wedge würde die
+       Driver-Länge verfälschen. */
+    ok("filtert auf Driver und volle Schwünge",
+       /clubNorm\(x\.club\)!=="driver"/.test(fs.readFileSync(FILE,"utf8")));
+    DB.fitnessSessions=altF; DB.gpsShots=altG; DB.clubDistances=altC;
+  }
+  if (typeof sr === "function" && DB) {
+    const alt=DB.strat;
+    DB.strat={};
+    ok("ohne Gameplans keine Rückschau", sr().reicht===false);
+    DB.strat=alt;
   }
 }
 

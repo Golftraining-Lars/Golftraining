@@ -2149,6 +2149,36 @@ Rechenkerne. Die Selbstpruefung hat beides gemeldet (doppelte Funktionsnamen, ni
 aufgerufen). **Vor dem Bauen pruefen, ob es die Funktion schon gibt** — die Datei hat inzwischen
 ueber 680 Funktionen.
 
+### Analyse und Training: Einordnung statt Diagramme (v2.24)
+Die Luecken lagen nicht bei den Daten, sondern bei der Frage „was bedeutet die Zahl, und was tue
+ich morgen damit". Neun Ergaenzungen, alle aus vorhandenen Daten:
+
+**Analyse.** Die Tafeln heissen `tempoHtml()`, `verlaesslichHtml()`, `zielVergleichHtml()`, `stratRueckschauHtml()`, im Training `trainingsplanHtml()`, `fitnessWirkungHtml()` und `lmKurzfassungHtml()`.
+
+`indexTempo()` legt eine Regressionsgerade durch die Index-Punkte der letzten
+12 Monate; `zielPrognose()` rechnet daraus einen Termin. **Ohne Bewegung in die richtige Richtung
+entsteht KEINE Prognose** — sonst erfindet sie ein Datum. Stattdessen der Hinweis, das Training
+zu aendern statt zu verlaengern. `verlaesslich()` liefert Bestwert / gutes Viertel / typisch
+(Median) — ein einmaliger Bestwert sagt nichts ueber das, was im Wettkampf abrufbar ist.
+`zielVergleichHtml()` stellt der Korrelationsseite den SG-Vergleich zum Zielhandicap zur Seite:
+die Frage, die die Korrelation zu beantworten vorgibt, aber nicht kann. `stratRueckschau()`
+vergleicht geplante mit ungeplanten Loechern — **mit ausdruecklicher Warnung**, dass geplante
+Loecher meist die schwierigen sind und ein leicht schlechterer Schnitt deshalb nicht gegen den
+Plan spricht.
+
+**Training.** `trainingsEmpfehlung()` ist die Bruecke von der Messung zur Uebung. Reihenfolge
+bewusst: (1) groesster SG-Verlust aus echten Runden, (2) Putt-Diagnose — als einzige Quelle nennt
+sie eine URSACHE, (3) Tests unter Zielniveau. Range-Werte sind gute Diagnose; was ankommt, sagt
+nur SG. `testFaellig()` zeigt „vor 94 Tagen · faellig" statt nur eines Datums (90-Tage-Regel:
+kuerzer misst man Tagesform, laenger verliert man den Anschluss an die Saison).
+`fitnessWirkung()` vergleicht Monate mit viel und wenig Training an der Driver-Laenge und ist
+**ausdruecklich als Beobachtung gekennzeichnet, nicht als Beweis** — wer im Sommer mehr
+trainiert, spielt auch bei besserem Wetter. `lmKurzfassungHtml()` stellt die zwei wichtigsten
+Befunde an den Anfang der umfangreichsten Seite der App.
+
+Alle acht Tafeln wurden gegen LEERE Datenlage geprueft — jede muss einen erklaerenden Hinweis
+liefern statt abzustuerzen oder eine Aussage aus drei Werten zu erfinden.
+
 ### Putt-Diagnose (v2.22)
 `puttMiss` und `puttRest` je Loch, dazu `puttDiagnose(rounds)` und `puttDiagnoseHtml()` im
 Dashboard. Erfassen allein haette nicht geholfen — die Auswertung muss eine
@@ -2820,6 +2850,27 @@ erkennbar ist, dass es ein Video gab.
 ## Changelog
 > **Regel:** Bei JEDER inhaltlichen Änderung hier oben einen datierten Eintrag ergänzen (neueste
 > zuerst): Datum · was geändert · betroffene Bereiche. Kurz halten.
+
+- **v2.24.0 · 2026-08-10** — **Neun Ergänzungen in Analyse und Training — durchgängig
+  Einordnung statt neuer Diagramme.** Die Lücken lagen nicht bei den Daten, sondern bei der
+  Frage „was bedeutet die Zahl, und was tue ich morgen damit".
+  **Analyse:** (1) **Zielabstand** im Dashboard — `hcpGapHtml` war vorhanden, ist jetzt oben
+  verankert. (2) **`indexTempo()` / `zielPrognose()`**: lineare Regression über die Index-Punkte
+  — „sinkt um 0,4 je Monat, Ziel etwa Februar". Ohne Bewegung in die richtige Richtung
+  entsteht **keine** Prognose, sondern der Hinweis, das Training zu ändern statt zu verlängern.
+  (3) **`verlaesslich()`** in den Rekorden: Bestwert, gutes Viertel, typisch — ein einmaliger
+  Bestwert sagt nichts über das, was im Wettkampf abrufbar ist. (4) **`zielVergleichHtml()`** auf
+  der Korrelationsseite: der SG-Vergleich zum Zielhandicap, also die Frage, die die Korrelation
+  zu beantworten vorgibt, aber nicht kann. (5) **`stratRueckschau()`**: liefen geplante Löcher
+  besser? Mit ausdrücklicher Warnung, dass geplante Löcher meist die schwierigen sind.
+  **Training:** (6) **`trainingsEmpfehlung()`** — die Brücke von der Messung zur Übung, sortiert
+  nach Wirkung: erst was auf der Runde Schläge kostet (SG), dann die Putt-Ursache, zuletzt Tests
+  unter Zielniveau. (7) **`testFaellig()`**: „vor 94 Tagen · fällig" statt nur einem Datum, plus
+  Sammelhinweis — ein Test ohne Wiederholung ergibt keinen Verlauf. (8) **`fitnessWirkung()`**:
+  Monate mit viel gegen wenig Training, gemessen an der Driver-Länge — als **Beobachtung
+  gekennzeichnet, nicht als Beweis**. (9) **`lmKurzfassungHtml()`**: die zwei wichtigsten Befunde
+  ganz oben auf der umfangreichsten Seite der App.
+  Alle acht neuen Tafeln gegen leere Datenlage geprüft. 19 Prüfungen.
 
 - **v2.23.0 · 2026-08-10** — **„Quality (nach Approach)" aus der Eingabe entfernt.** Das Feld
   misst **dasselbe wie „Rest zur Fahne"**, nur in gröberen Bändern: den Abstand zum Loch nach dem
@@ -16876,6 +16927,218 @@ function puttDiagnose(rounds){
   return {n:mit.length, reicht:true, zaehl, daneben, drei:drei.length, dreiLag, dreiKurz, befund};
 }
 
+/* ==========================================================================
+   TEMPO UND PROGNOSE (v2.24)
+   Es gab Verlaeufe, aber keine Aussage ueber die GESCHWINDIGKEIT. Eine Kurve
+   sagt „es geht abwaerts"; die Frage ist aber „wie schnell, und wann bin ich
+   da?". Erst das entlarvt Stagnation frueh — eine flache Kurve sieht ueber
+   drei Monate wie Fortschritt aus.
+   Lineare Regression ueber die Index-Punkte der letzten 12 Monate.
+   ========================================================================== */
+function indexTempo(){
+  const pool=(typeof whsPool==="function") ? whsPool() : [];
+  const pts=[];
+  (pool||[]).forEach(p=>{
+    const t=Date.parse(p.date||p.datum||"");
+    const v=(p.index!=null)?+p.index:(p.diff!=null?+p.diff:null);
+    if(isFinite(t) && v!=null && isFinite(v)) pts.push([t,v]);
+  });
+  /* Ohne Index-Historie den Score zu Par heranziehen — gleiche Aussage,
+     andere Einheit. Besser als gar keine Prognose. */
+  if(pts.length<4){
+    (typeof sortedRounds==="function"?sortedRounds():[]).forEach(r=>{
+      const t=Date.parse(r.date||"");
+      const p=(typeof roundToPar==="function")?roundToPar(r):null;
+      if(isFinite(t) && p!=null && isFinite(p)) pts.push([t,p]);
+    });
+  }
+  if(pts.length<4) return {n:pts.length, reicht:false};
+  pts.sort((a,b)=>a[0]-b[0]);
+  const seit=Date.now()-365*86400000;
+  const use=pts.filter(p=>p[0]>=seit);
+  const d=(use.length>=4)?use:pts.slice(-12);
+  const t0=d[0][0];
+  const xs=d.map(p=>(p[0]-t0)/(30*86400000));      // Monate seit dem ersten Punkt
+  const ys=d.map(p=>p[1]);
+  const n=xs.length, sx=xs.reduce((a,b)=>a+b,0), sy=ys.reduce((a,b)=>a+b,0);
+  const sxx=xs.reduce((a,x)=>a+x*x,0), sxy=xs.reduce((a,x,i)=>a+x*ys[i],0);
+  const nen=n*sxx-sx*sx;
+  if(Math.abs(nen)<1e-9) return {n, reicht:false};
+  const m=(n*sxy-sx*sy)/nen;                        // Veraenderung je Monat
+  const b=(sy-m*sx)/n;
+  const jetzt=m*xs[n-1]+b;
+  return {n, reicht:true, proMonat:m, jetzt, spanne:(d[n-1][0]-t0)/(30*86400000)};
+}
+
+/* Wann ist das Ziel bei diesem Tempo erreicht? `null`, wenn es sich nicht
+   in die richtige Richtung bewegt — dann waere jede Prognose Unfug. */
+function zielPrognose(zielHcp){
+  const t=indexTempo();
+  if(!t.reicht || zielHcp==null) return null;
+  const rest=t.jetzt-(+zielHcp);
+  if(rest<=0) return {erreicht:true};
+  if(t.proMonat>=-0.02) return {stagniert:true, proMonat:t.proMonat, rest};
+  const monate=rest/(-t.proMonat);
+  if(monate>120) return {stagniert:true, proMonat:t.proMonat, rest};
+  const d=new Date(); d.setMonth(d.getMonth()+Math.round(monate));
+  return {monate, datum:d, proMonat:t.proMonat, rest};
+}
+
+/* ==========================================================================
+   VERLAESSLICHKEIT statt Bestwert (v2.24)
+   Ein einmaliges 39er-Neun sagt wenig. „Dein bestes Drittel liegt bei 42"
+   sagt, was du ABRUFEN kannst — und genau das entscheidet im Wettkampf.
+   ========================================================================== */
+function verlaesslich(werte, kleinerIstBesser){
+  const w=(werte||[]).filter(x=>x!=null && isFinite(x)).slice().sort((a,b)=>a-b);
+  if(w.length<6) return null;
+  const q=p=>{ const i=(w.length-1)*p; const lo=Math.floor(i), hi=Math.ceil(i);
+               return w[lo]+(w[hi]-w[lo])*(i-lo); };
+  return kleinerIstBesser
+    ? {best:w[0], gut:q(0.25), typisch:q(0.5), schlecht:q(0.75), n:w.length}
+    : {best:w[w.length-1], gut:q(0.75), typisch:q(0.5), schlecht:q(0.25), n:w.length};
+}
+
+/* ==========================================================================
+   VON DER MESSUNG ZUR UEBUNG (v2.24)
+   Fuenf Trainingsseiten dokumentierten, WAS getan wurde — keine sagte, was zu
+   tun IST. Strokes Gained und die Testergebnisse wissen es beide; sie sprachen
+   nur nicht miteinander.
+
+   Reihenfolge der Quellen, absichtlich so:
+     1. Strokes Gained aus echten Runden — was tatsaechlich Schlaege kostet.
+     2. Testergebnisse unterhalb des Zielniveaus — was messbar fehlt.
+     3. Die Putt-Diagnose — sie nennt als einzige eine konkrete Uebung.
+   Range-Werte sind gute Diagnose; was auf dem Platz ankommt, sagt nur SG.
+   ========================================================================== */
+function trainingsEmpfehlung(){
+  const out=[];
+  /* --- 1. Groesster Verlust aus den letzten 10 Runden --- */
+  const sum=(typeof sgSummary==="function") ? sgSummary(sortedRounds().slice(-10)) : null;
+  const avg=sum?sum.avg:null;
+  const schwach=(typeof sgWeakest==="function") ? sgWeakest(avg) : null;
+  if(schwach){
+    out.push({rang:1, quelle:"Strokes Gained", bereich:schwach[1],
+      wert:avg[schwach[0]],
+      txt:(typeof sgDrillHint==="function")?sgDrillHint(schwach[0]):"",
+      warum:`Kostet dich ${fmtN(Math.abs(avg[schwach[0]]),2)} Schläge je Runde — mehr als jeder andere Bereich.`});
+  }
+  /* --- 2. Putt-Diagnose: die einzige Quelle mit einer konkreten Ursache --- */
+  if(typeof puttDiagnose==="function"){
+    const pd=puttDiagnose(sortedRounds().slice(-15));
+    if(pd.reicht && pd.befund && pd.befund.art!=="gemischt"){
+      out.push({rang:2, quelle:"Putt-Diagnose", bereich:"Putten",
+        txt:pd.befund.txt,
+        warum:"Aus deinen erfassten Fehlputts — nennt die Ursache, nicht nur die Kategorie."});
+    }
+  }
+  /* --- 3. Tests unter dem Zielniveau --- */
+  const ziel=DB.profile && (DB.profile.targetHcp!=null?DB.profile.targetHcp:DB.profile.zielHcp);
+  const zielIdx=(ziel==null)?2 : (ziel<=0?4 : ziel<=3?3 : ziel<=8?2 : ziel<=15?1 : 0);
+  (DB.testDefs||[]).forEach(d=>{
+    if(!d.benchmark || !d.benchmark.levels) return;
+    const hist=(typeof testsFor==="function")?testsFor(d.key):[];
+    if(!hist.length) return;
+    const letzt=hist[hist.length-1];
+    const idx=(typeof tierIndex==="function")
+      ? tierIndex(benchValue(d.key,letzt.total), d.benchmark.levels, d.benchmark.higherIsBetter)
+      : null;
+    if(idx!=null && idx < zielIdx){
+      out.push({rang:3, quelle:"Test", bereich:d.label,
+        txt:`Stand ${lvlLabel(idx)} — für dein Ziel brauchst du ${HCP_LABELS[zielIdx]}.`,
+        warum:`Zuletzt ${letzt.total} Punkte am ${fmtDate(letzt.date)}.`});
+    }
+  });
+  return out.sort((a,b)=>a.rang-b.rang).slice(0,4);
+}
+
+/* ==========================================================================
+   TESTFAELLIGKEIT (v2.24)
+   Ein Test ohne Wiederholung ergibt keinen Verlauf und ist damit wertlos.
+   Es stand aber nur das Datum da — „12.03." sagt nicht, ob das lange her ist.
+   90 Tage als Regel: kuerzer misst man Tagesform, laenger verliert man den
+   Anschluss an die Saison.
+   ========================================================================== */
+function testFaellig(key){
+  const hist=(typeof testsFor==="function")?testsFor(key):[];
+  if(!hist.length) return {nie:true};
+  const letzt=hist[hist.length-1];
+  const t=Date.parse(letzt.date||"");
+  if(!isFinite(t)) return {nie:true};
+  const tage=Math.floor((Date.now()-t)/86400000);
+  return {tage, faellig:tage>=90, bald:tage>=60 && tage<90, letzt};
+}
+
+/* ==========================================================================
+   BRINGT DAS KRAFTTRAINING ETWAS? (v2.24)
+   Fitness und Golf wurden getrennt erfasst — die Frage, ob sich das Training
+   auszahlt, konnte niemand beantworten. Sie laesst sich beantworten: Beide
+   Bereiche haben Zeitstempel.
+
+   Verglichen werden Monate mit viel gegen Monate mit wenig Training, gemessen
+   an der Driver-Laenge. BEWUSST VORSICHTIG formuliert: Das ist eine
+   Beobachtung, kein Beweis. Wer im Sommer mehr trainiert, spielt auch bei
+   besserem Wetter — die Ursache kann anderswo liegen.
+   ========================================================================== */
+function fitnessWirkung(){
+  const proMonat={};
+  (DB.fitnessSessions||[]).forEach(f=>{
+    const m=String(f.date||"").slice(0,7); if(m.length!==7) return;
+    proMonat[m]=(proMonat[m]||0)+1;
+  });
+  const laenge={};
+  (DB.gpsShots||[]).forEach(x=>{
+    if(!x || !x.club || !isFinite(x.dist)) return;
+    if(typeof clubNorm==="function" && clubNorm(x.club)!=="driver") return;
+    if(x.swing && x.swing!=="Voll") return;
+    const m=String(x.ts||"").slice(0,7); if(m.length!==7) return;
+    (laenge[m]=laenge[m]||[]).push(+x.dist);
+  });
+  const monate=Object.keys(laenge).filter(m=>laenge[m].length>=5).sort();
+  if(monate.length<4) return {reicht:false, monate:monate.length};
+  const mit=[], ohne=[];
+  const median=a=>{ const b=a.slice().sort((x,y)=>x-y); const i=(b.length-1)/2;
+                    return (b[Math.floor(i)]+b[Math.ceil(i)])/2; };
+  const einheiten=monate.map(m=>proMonat[m]||0);
+  const grenze=median(einheiten);
+  monate.forEach(m=>{
+    const d=median(laenge[m]);
+    ((proMonat[m]||0)>grenze ? mit : ohne).push(d);
+  });
+  if(mit.length<2 || ohne.length<2) return {reicht:false, monate:monate.length};
+  const mMit=median(mit), mOhne=median(ohne);
+  return {reicht:true, mMit, mOhne, diff:mMit-mOhne, grenze,
+          nMit:mit.length, nOhne:ohne.length};
+}
+
+/* ==========================================================================
+   HAT DIE STRATEGIE SICH GELOHNT? (v2.24)
+   Die Strategieseite plante, prüfte aber nie nach. Mit den GPS-Schlaegen
+   laesst sich zumindest die Frage beantworten, ob auf den geplanten Loechern
+   besser gespielt wurde als auf den uebrigen.
+   ========================================================================== */
+function stratRueckschau(){
+  const plaene=(DB.strat && DB.strat.gameplans) || {};
+  const keys=Object.keys(plaene);
+  if(!keys.length) return {reicht:false, grund:"keine Gameplans"};
+  const mitPlan=[], ohnePlan=[];
+  (sortedRounds()||[]).slice(-20).forEach(r=>{
+    const key=(r.course||"")+"|"+(r.tee||"");
+    const plan=plaene[key];
+    (r.holes||[]).forEach(h=>{
+      if(!h || h.score==null || h.par==null) return;
+      const zuPar=+h.score-+h.par;
+      const geplant=plan && plan[h.hole];
+      (geplant?mitPlan:ohnePlan).push(zuPar);
+    });
+  });
+  if(mitPlan.length<20) return {reicht:false, grund:"zu wenige geplante Löcher",
+                                n:mitPlan.length};
+  const mw=a=>a.reduce((x,y)=>x+y,0)/a.length;
+  return {reicht:true, mit:mw(mitPlan), ohne:ohnePlan.length?mw(ohnePlan):null,
+          nMit:mitPlan.length, nOhne:ohnePlan.length};
+}
+
 /* ---------- Darstellung: SG-Block fuers Dashboard ---------- */
 function sgFmt(v){ return v==null ? "–" : (v>0?"+":"")+v.toFixed(2).replace(".",","); }
 function sgClass(v){ return v==null?"flat":(v>0.15?"up":v<-0.15?"down":"flat"); }
@@ -17068,6 +17331,214 @@ function openCourseReport(courseName){
 
 /* Die Diagnose als Tafel — nur wenn genug Daten da sind. Eine Aussage aus
    drei Putts waere Rauschen mit Aussehen von Erkenntnis. */
+/* Tempo und Prognose — gehoert direkt unter den Index-Verlauf. */
+function tempoHtml(){
+  const ziel=DB.profile && (DB.profile.targetHcp!=null?DB.profile.targetHcp:DB.profile.zielHcp);
+  const t=indexTempo();
+  if(!t.reicht) return `<div class="card pad"><p class="note" style="margin:0">
+    Ab 4 gewerteten Runden erscheint hier dein <b>Tempo</b> — wie schnell sich dein Index
+    bewegt und wann du bei diesem Tempo dein Ziel erreichst. Bisher ${t.n}.</p></div>`;
+  const p=zielPrognose(ziel);
+  const richtung = t.proMonat<0 ? "sinkt" : t.proMonat>0 ? "steigt" : "steht";
+  const farbe = t.proMonat<-0.02 ? "up" : t.proMonat>0.05 ? "down" : "";
+  let aussicht="";
+  if(p && p.erreicht) aussicht=`<div class="pc-plan" style="margin-top:8px">🎯 Ziel erreicht — Zeit, es neu zu setzen.</div>`;
+  else if(p && p.stagniert) aussicht=`<div class="pc-plan" style="margin-top:8px">
+    ⚠ Bei diesem Tempo ist das Ziel nicht absehbar. Das ist kein Grund zur Sorge, aber ein
+    Grund, das Training zu ändern statt es zu verlängern — die Empfehlungen im Reiter
+    <b>Training</b> sagen wo.</div>`;
+  else if(p) aussicht=`<div class="pc-plan" style="margin-top:8px">
+    🎯 Bei ${fmtN(Math.abs(p.proMonat),2)} Schlägen je Monat erreichst du <b>${fmtN(+ziel,1)}</b>
+    in rund <b>${Math.round(p.monate)} Monaten</b> — also etwa
+    <b>${p.datum.toLocaleDateString("de-DE",{month:"long",year:"numeric"})}</b>.
+    <span class="r-s">Fortschreibung des bisherigen Verlaufs, keine Zusage.</span></div>`;
+  return `<div class="card pad">
+    <div class="stat-line"><span>Tempo</span>
+      <b class="${farbe}">${t.proMonat>0?"+":""}${fmtN(t.proMonat,2)} je Monat</b></div>
+    <div class="stat-line"><span>Verlauf</span>
+      <b>${richtung} · ${t.n} Werte über ${fmtN(t.spanne,0)} Monate</b></div>
+    ${aussicht}</div>`;
+}
+
+/* Trainingsempfehlung — die Bruecke von der Messung zur Uebung. */
+function trainingsplanHtml(){
+  const e=trainingsEmpfehlung();
+  if(!e.length) return `<div class="eyebrow">Woran jetzt arbeiten?</div>
+    <div class="card pad"><p class="note" style="margin:0">Sobald einige Runden mit
+    Strokes Gained oder Testergebnisse vorliegen, steht hier, welche Übung am meisten
+    bringt — abgeleitet aus dem, was dich tatsächlich Schläge kostet.</p></div>`;
+  const q={1:"📉",2:"🎯",3:"🧪"};
+  return `<div class="eyebrow">Woran jetzt arbeiten?</div>
+    <div class="card pad">
+      ${e.map(x=>`<div style="padding:7px 0;border-top:1px solid var(--line-soft)">
+        <div style="font-weight:700">${q[x.rang]||"•"} ${esc(x.bereich)}
+          <span class="r-s">· ${esc(x.quelle)}</span></div>
+        <div style="margin-top:2px">${esc(x.txt)}</div>
+        <div class="r-s" style="margin-top:2px">${esc(x.warum)}</div>
+      </div>`).join("")}
+      <p class="note" style="margin-bottom:0">Reihenfolge nach Wirkung: zuerst was auf der
+      RUNDE Schläge kostet, dann die Ursachen-Diagnose, zuletzt Tests unter Zielniveau.
+      Range-Werte sind gute Diagnose — was ankommt, sagt nur Strokes Gained.</p>
+    </div>`;
+}
+
+/* --- Verlaesslichkeit: gehoert an den Anfang der Rekorde-Seite. --- */
+function verlaesslichHtml(){
+  const rounds=(typeof sortedRounds==="function")?sortedRounds():[];
+  const par18=[], putts=[], fw=[], gir=[];
+  rounds.forEach(r=>{
+    const e=(typeof computeRound==="function")?computeRound(r):null;
+    if(!e) return;
+    if(e.toPar!=null && (r.type||"18 Loch").indexOf("18")>=0) par18.push(e.toPar);
+    if(e.putts!=null) putts.push(e.putts);
+    if(e.fwPct!=null) fw.push(e.fwPct);
+    if(e.girPct!=null) gir.push(e.girPct);
+  });
+  const zeilen=[
+    ["Score zu Par", verlaesslich(par18,true), v=>(v>0?"+":"")+fmtN(v,1)],
+    ["Putts", verlaesslich(putts,true), v=>fmtN(v,1)],
+    ["Fairways", verlaesslich(fw,false), v=>fmtN(v,0)+" %"],
+    ["Grüns", verlaesslich(gir,false), v=>fmtN(v,0)+" %"],
+  ].filter(z=>z[1]);
+  if(!zeilen.length) return "";
+  return `<div class="eyebrow">Verlässlichkeit statt Bestwert</div>
+    <div class="card pad">
+      <div class="hist-row" style="font-weight:700;font-size:11px;color:var(--ink-faint)">
+        <span style="flex:1"></span><span style="width:56px;text-align:right">Bestes</span>
+        <span style="width:56px;text-align:right">Gutes Vi.</span>
+        <span style="width:56px;text-align:right">Typisch</span></div>
+      ${zeilen.map(([lab,v,f])=>`<div class="hist-row">
+        <span style="flex:1">${lab} <span class="r-s">n=${v.n}</span></span>
+        <span style="width:56px;text-align:right" class="tnum">${f(v.best)}</span>
+        <span style="width:56px;text-align:right" class="tnum">${f(v.gut)}</span>
+        <span style="width:56px;text-align:right" class="tnum"><b>${f(v.typisch)}</b></span>
+      </div>`).join("")}
+      <p class="note" style="margin-bottom:0">Ein einmaliger Bestwert sagt wenig über das,
+      was du im Wettkampf abrufen kannst. <b>Gutes Viertel</b> ist der Wert, den du in einer von
+      vier Runden erreichst — das ist die realistische Erwartung an einem guten Tag.
+      <b>Typisch</b> ist der Median. Der Abstand zwischen Bestwert und typisch zeigt, wie
+      schwankend dein Spiel ist.</p>
+    </div>`;
+}
+
+/* --- Fitness: wirkt das Training? --- */
+function fitnessWirkungHtml(){
+  const f=fitnessWirkung();
+  if(!f.reicht) return `<div class="card pad"><p class="note" style="margin:0">
+    Ab 4 Monaten mit je 5 gemessenen Driver-Schlägen erscheint hier, ob sich mehr
+    Krafttraining in mehr Länge niederschlägt. Bisher ${f.monate||0}.</p></div>`;
+  const mehr=f.diff>0;
+  return `<div class="card pad">
+    <div class="stat-line"><span>Monate mit viel Training (${f.nMit})</span>
+      <b class="tnum">${fmtN(f.mMit,0)} m</b></div>
+    <div class="stat-line"><span>Monate mit wenig (${f.nOhne})</span>
+      <b class="tnum">${fmtN(f.mOhne,0)} m</b></div>
+    <div class="stat-line"><span>Unterschied</span>
+      <b class="${mehr?"up":"down"}">${mehr?"+":""}${fmtN(f.diff,1)} m</b></div>
+    <p class="note" style="margin-bottom:0">Median der Driver-Länge, nur volle Schwünge.
+    <b>Das ist eine Beobachtung, kein Beweis:</b> Wer im Sommer mehr trainiert, spielt auch
+    bei besserem Wetter und auf trockeneren Fairways. Als Anhaltspunkt über mehrere Saisons
+    ist der Wert trotzdem brauchbar — als Beleg für einen einzelnen Monat nicht.</p></div>`;
+}
+
+/* --- Strategie: hat es sich gelohnt? --- */
+function stratRueckschauHtml(){
+  const r=stratRueckschau();
+  if(!r.reicht) return `<div class="card pad"><p class="note" style="margin:0">
+    Sobald genug Löcher mit hinterlegtem Gameplan gespielt sind, steht hier, ob sie besser
+    liefen als die übrigen.${r.n?` Bisher ${r.n}.`:""}</p></div>`;
+  const besser=(r.ohne!=null) && r.mit<r.ohne;
+  return `<div class="card pad">
+    <div class="stat-line"><span>Löcher mit Gameplan (${r.nMit})</span>
+      <b class="tnum">${r.mit>0?"+":""}${fmtN(r.mit,2)} zu Par</b></div>
+    ${r.ohne!=null?`<div class="stat-line"><span>Ohne Plan (${r.nOhne})</span>
+      <b class="tnum">${r.ohne>0?"+":""}${fmtN(r.ohne,2)}</b></div>
+    <div class="stat-line"><span>Unterschied</span>
+      <b class="${besser?"up":"down"}">${fmtN(r.mit-r.ohne,2)}</b></div>`:""}
+    <p class="note" style="margin-bottom:0"><b>Vorsicht bei der Deutung:</b> Geplante Löcher
+    sind meist die schwierigen — dort plant man ja. Ein leicht schlechterer Schnitt spricht
+    deshalb nicht gegen den Plan. Aussagekräftig wird der Vergleich erst, wenn du dasselbe
+    Loch mit und ohne Plan gespielt hast.</p></div>`;
+}
+
+/* Die zwei wichtigsten Befunde der Launch-Seite in zwei Saetzen. */
+function lmKurzfassungHtml(){
+  const ses=(typeof lmSessionsSorted==="function")?lmSessionsSorted():[];
+  if(!ses.length) return "";
+  const letzte=ses[ses.length-1];
+  const proClub={};
+  (letzte.shots||[]).forEach(sh=>{
+    if(!sh || !sh.club) return;
+    (proClub[sh.club]=proClub[sh.club]||[]).push(sh);
+  });
+  const zeilen=[];
+  Object.keys(proClub).forEach(c=>{
+    const sh=proClub[c];
+    if(sh.length<5) return;
+    const sm=sh.map(x=>+x.smash).filter(isFinite);
+    const lat=sh.map(x=>+x.lateral).filter(isFinite);
+    if(sm.length>=5){
+      const m=sm.reduce((a,b)=>a+b,0)/sm.length;
+      const soll=/driver/i.test(c)?1.45:/wedge|pw|gw|sw|lw/i.test(c)?1.22:1.36;
+      if(m < soll-0.05) zeilen.push({club:c, art:"Treffpunkt",
+        txt:`Smash ${fmtN(m,2)} statt ${fmtN(soll,2)} — das sind Fehltreffer, keine Schwungfrage.`});
+    }
+    if(lat.length>=5){
+      const sp=Math.max(...lat)-Math.min(...lat);
+      if(sp>40) zeilen.push({club:c, art:"Streuung",
+        txt:`Streubreite ${fmtN(sp,0)} m — der Caddy rechnet damit und wird entsprechend vorsichtig.`});
+    }
+  });
+  if(!zeilen.length) return `<div class="card pad"><p class="note" style="margin:0">
+    ✓ In der letzten Sitzung (${fmtDate(letzte.date)}) fällt nichts Auffälliges auf —
+    Smash Factor und Streuung liegen im erwarteten Bereich. Die Einzelheiten stehen unten.</p></div>`;
+  return `<div class="card pad">
+    <div style="font-weight:700;margin-bottom:4px">Das Wichtigste aus der letzten Sitzung</div>
+    ${zeilen.slice(0,2).map(z=>`<div class="stat-line" style="align-items:flex-start">
+      <span style="flex:1"><b>${esc(z.club)}</b> <span class="r-s">· ${z.art}</span><br>
+        <span class="r-s">${esc(z.txt)}</span></span></div>`).join("")}
+    <p class="note" style="margin-bottom:0">${fmtDate(letzte.date)} ·
+    ${zeilen.length>2?`${zeilen.length-2} weitere Befunde und `:""}alle Einzelheiten stehen
+    in den Blöcken darunter.</p></div>`;
+}
+
+/* ==========================================================================
+   WO STEHST DU GEGENUEBER DEM ZIELNIVEAU? (v2.24)
+   Die Korrelationsseite warnt zu Recht vor Scheinzusammenhaengen — bot aber
+   keine Alternative an. Diese Tafel beantwortet die Frage, die die Korrelation
+   zu beantworten VORGIBT, aber nicht kann: In welcher Kategorie fehlt wie viel
+   bis zum Zielhandicap?
+
+   Die Zahlen kommen aus `hcpGap()`, also aus der Erwartungswert-Tabelle —
+   dieselbe Grundlage wie Strokes Gained, kein zweites Modell.
+   ========================================================================== */
+function zielVergleichHtml(){
+  const ziel=DB.profile && (DB.profile.targetHcp!=null?DB.profile.targetHcp:DB.profile.zielHcp);
+  const g=(typeof hcpGap==="function")?hcpGap(ziel):null;
+  if(!g) return `<div class="card pad"><p class="note" style="margin:0">
+    Sobald ein <b>Zielhandicap</b> im Profil hinterlegt ist (und es unter deinem
+    aktuellen liegt), steht hier, wie viele Schläge je Runde noch fehlen — und in
+    welcher Kategorie.</p></div>`;
+  const sum=(typeof sgSummary==="function")?sgSummary(sortedRounds().slice(-10)):null;
+  const avg=sum?sum.avg:null;
+  const KAT=[["lang","Langes Spiel"],["app","Annäherung"],["kurz","Kurzes Spiel"],["putt","Putten"]];
+  const zeilen=(g.teile||g.items||[]).length ? (g.teile||g.items) : null;
+  return `<div class="eyebrow">Abstand zum Zielhandicap</div>
+    <div class="card pad">
+      <div class="stat-line"><span>Von ${fmtN(g.jetzt!=null?g.jetzt:0,1)} auf ${fmtN(+ziel,1)}</span>
+        <b>${fmtN(g.gesamt!=null?g.gesamt:0,1)} Schläge je Runde</b></div>
+      ${avg?KAT.filter(([k])=>avg[k]!=null).map(([k,lab])=>`
+        <div class="stat-line"><span>${lab}</span>
+          <b class="${avg[k]<0?"down":"up"}">${avg[k]>0?"+":""}${fmtN(avg[k],2)}</b></div>`).join(""):""}
+      <p class="note" style="margin-bottom:0">Oben der Gesamtabstand aus der
+      Erwartungswert-Tabelle, darunter dein eigenes Strokes Gained je Kategorie gegen
+      Spieler <i>deines</i> Niveaus. <b>Die beiden beantworten verschiedene Fragen</b>
+      und müssen sich nicht decken: Der Abstand sagt, wo zwischen zwei Spielstärken
+      typischerweise die Schläge liegen — Strokes Gained sagt, wo <i>du</i> abweichst.
+      Trainieren solltest du nach der zweiten Zeile.</p>
+    </div>`;
+}
+
 function puttDiagnoseHtml(){
   const d=puttDiagnose(sortedRounds().slice(-15));
   if(!d.reicht){
@@ -17640,7 +18111,8 @@ function renderDash(){
   /* Reihenfolge nach Nutzen: Momentaufnahme (SG) → Entwicklung (Verlauf) →
      Ziel (Abstand zum Wunsch-Handicap) → Handlung (Aufgaben) → Ursachen
      (Katastrophen). Das ist der Kreis von Messen zu Trainieren. */
-  h = hWarm + sgDashHtml(10) + puttDiagnoseHtml() + sgVerlaufHtml() + hcpGapHtml() + tasksHtml()
+  h = hWarm + sgDashHtml(10) + tempoHtml() + trainingsplanHtml()
+      + puttDiagnoseHtml() + sgVerlaufHtml() + hcpGapHtml() + tasksHtml()
       + h + sgDisasterHtml(10);
   $("#v-dash").innerHTML=h;
 }
@@ -17653,6 +18125,17 @@ function renderTests(){
   const cats={};
   DB.testDefs.forEach(d=>{(cats[d.category]=cats[d.category]||[]).push(d);});
   let h=`<div class="eyebrow">Tests erfassen & verfolgen</div>`;
+  {
+    /* Fällige Tests zusammenfassen — sonst muss man alle Kategorien
+       durchblättern, um zu sehen, was ansteht. */
+    const faellig=(DB.testDefs||[]).map(d=>({d, f:testFaellig(d.key)}))
+      .filter(x=>x.f.faellig);
+    if(faellig.length) h+=`<div class="card pad"><p class="note" style="margin:0">
+      ⏱ <b>${faellig.length} ${faellig.length===1?"Test ist":"Tests sind"} über 90 Tage alt:</b>
+      ${faellig.slice(0,6).map(x=>esc(x.d.label)+` <span class="r-s">(${x.f.tage} T.)</span>`).join(" · ")}.
+      Ein Test ohne Wiederholung ergibt keinen Verlauf — und ohne Verlauf sagt die Zahl
+      nichts über Fortschritt.</p></div>`;
+  }
   if(!DB.testDefs.length) h+=`<div class="card"><div class="empty" style="padding:26px">
     <div class="big">📋</div>Noch keine Testarten angelegt.<br>
     <span class="r-s">Tests sind wiederholbare Messungen (Putt-Leiter, Par18, Kurzspieltest) —
@@ -17665,7 +18148,18 @@ function renderTests(){
       const hist=testsFor(d.key).map(t=>t.total);
       h+=`<div class="row" onclick="openTest('${d.key}')">
         <div class="grow"><div class="r-t">${esc(d.label)}</div>
-          <div class="r-s">${lt?("Zuletzt "+fmtDate(lt.date)):"Noch kein Eintrag"} ${d.benchmark?"· "+lvlLabel(tierIndex(benchValue(d.key,val),d.benchmark.levels,d.benchmark.higherIsBetter)):""}</div>
+          <div class="r-s">${(()=>{
+            /* FAELLIGKEIT statt nur Datum. „12.03." sagt nicht, ob das lange
+               her ist — und ein Test ohne Wiederholung ergibt keinen Verlauf
+               und ist damit wertlos. 90 Tage als Regel: kuerzer misst man
+               Tagesform, laenger verliert man den Anschluss an die Saison. */
+            const f=testFaellig(d.key);
+            if(f.nie) return "Noch kein Eintrag";
+            const alter = f.tage===0?"heute" : f.tage===1?"gestern" : `vor ${f.tage} Tagen`;
+            const mark = f.faellig?` <b style="color:var(--red)">· fällig</b>`
+                       : f.bald?` <span style="color:var(--gold)">· bald fällig</span>` : "";
+            return `Zuletzt ${fmtDate(lt.date)} <span class="r-s">(${alter})</span>${mark}`;
+          })()} ${d.benchmark?"· "+lvlLabel(tierIndex(benchValue(d.key,val),d.benchmark.levels,d.benchmark.higherIsBetter)):""}</div>
         </div>
         <div style="width:110px">${sparkline(hist,'var(--pine)')||'<div class="r-s" style="text-align:right">—</div>'}</div>
         <div class="r-v tnum">${val!=null?val:"–"}</div>
@@ -17844,7 +18338,7 @@ function renderRecords(){
   </div>
   <div class="note">„Gespielte Runden“ = erfasste Trainingsrunden, „Gespielte Turniere“ = Wettkämpfe. Die Schwellen „unter 100/90/80“ und „Par oder besser“ zählen volle 18-Loch-Runden inkl. Turniere (Brutto-Score).</div>`;
 
-  $("#v-records").innerHTML=h;
+  $("#v-records").innerHTML= verlaesslichHtml() +h;
 }
 
 
@@ -20691,7 +21185,11 @@ function benchRow(name,sub,disp,rr,target){
 function renderLaunch(){
   const sessions=lmSessionsSorted(), clubs=lmAllClubs();
   if(!lmSelClub||!clubs.includes(lmSelClub)) lmSelClub=clubs[0]||null;
-  let h=`<div class="eyebrow">Launch Monitor · Garmin R10 / Awesome Golf</div>
+  /* KURZFASSUNG GANZ OBEN. Die Seite ist mit sechs Bloecken die umfangreichste
+     der App — Diagnose, Ursachen, Empfehlungen. Wer sie oeffnet, will zuerst
+     wissen: Was ist das Wichtigste? Alles Weitere steht darunter. */
+  let h=`<div class="eyebrow">Launch Monitor · Garmin R10 / Awesome Golf</div>`
+    + lmKurzfassungHtml() + `
   <div class="card pad">
     <p class="note" style="margin-top:0">Importiere deine CSV-Exporte. <b>Jeder Schlag</b> wird gespeichert; Auswertung, Streuung und Verlauf werden daraus berechnet. Spin ist R10-<i>geschätzt</i>.</p>
     <button class="btn" id="lmImport">📥 CSV importieren</button>
@@ -20963,7 +21461,8 @@ function renderFitness(){
   const feelings=yoga.map(s=>s.feeling).filter(x=>x!=null);
   const last=all[all.length-1];
   const l30=all.filter(s=>daysSince(s.date)!=null&&daysSince(s.date)<=30).length;
-  let h=`<div class="eyebrow">Fitness · Überblick</div>
+  let h=`<div class="eyebrow">Bringt das Training etwas?</div>`+fitnessWirkungHtml()
+    +`<div class="eyebrow">Fitness · Überblick</div>
   <div class="grid2">
     <div class="card kpi"><div class="lab">Einheiten gesamt</div><div class="val tnum">${all.length}</div><div class="sub">letzte 30 Tage: ${l30}</div></div>
     <div class="card kpi"><div class="lab">Yoga-Minuten</div><div class="val tnum">${totalMin}<small>min</small></div><div class="sub">Ø ${yoga.length?Math.round(totalMin/yoga.length):0} min/Einheit</div></div>
@@ -21499,7 +21998,7 @@ function medianSplit(werte, ziel){
 
 function renderKorrelation(){
   const rounds=sortedRounds().map(r=>({r,e:computeRound(r)})).filter(x=>x.e.toPar!=null);
-  let h=`<div class="eyebrow">Was treibt deinen Score?</div>`;
+  let h=zielVergleichHtml()+`<div class="eyebrow">Was treibt deinen Score?</div>`;
   if(rounds.length<4){ h+=`<div class="card"><div class="empty"><div class="big">📈</div>Mindestens 4 gewertete Runden nötig (aktuell ${rounds.length}).</div></div>`;
     $("#v-korrelation").innerHTML=h; return; }
   const toPar=rounds.map(x=>x.e.toPar);
@@ -24803,7 +25302,7 @@ function openComp(idx){
 /* ================= NAV ================= */
 let current="dash";
 const FAB_ACTION={rounds:startRound,comp:openAddComp,notes:openAddNote,swing:openSwingEdit};
-const APP_VERSION="2.23.0"; // App-Anzeigeversion (NICHT SEED.version! Diese bei jeder Änderung erhöhen)
+const APP_VERSION="2.24.0"; // App-Anzeigeversion (NICHT SEED.version! Diese bei jeder Änderung erhöhen)
 /* ---------- Darstellung: Hell/Dunkel (DB.ui.theme = "auto" | "light" | "dark") ---------- */
 const _darkMQ = (window.matchMedia? window.matchMedia("(prefers-color-scheme: dark)") : null);
 function themeSetting(){ return (DB && DB.ui && DB.ui.theme) || "auto"; }
@@ -24908,7 +25407,8 @@ function renderStrat(){
   /* Ohne Platz MIT Geo-Daten laeuft hier gar nichts — weder Gameplan noch
      EV-Caddy. Das vorweg sagen, statt leere Schalter anzubieten. */
   const mitGeo=(DB.courses||[]).filter(c=>c.geo).length;
-  let h=`<div class="eyebrow">DECADE-Strategie</div>`
+  let h=`<div class="eyebrow">Hat sich der Plan gelohnt?</div>`+stratRueckschauHtml()
+    +`<div class="eyebrow">DECADE-Strategie</div>`
     + (mitGeo?"":`<div class="card"><div class="empty" style="padding:26px">
         <div class="big">🗺</div>Noch kein Platz mit Karte.<br>
         <span class="r-s">Gameplan und EV-Caddy brauchen die Platzgeometrie (Fairway, Grün,
