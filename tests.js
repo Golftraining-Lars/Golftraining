@@ -36,11 +36,11 @@ const COVERAGE_BASELINE_FUNCS = (
     "_linePath _merLat _merLng _merX _merY _mkHoles _mkTee _phoneLive _projPerp _ringPath" +" "+
     "_satTiles _teeSC _tileLat applyGeoOverrides approachStrength bandT bindPanZoom blockFind" +" "+
     "buildHoleGeo caddyBlockHtml caddyPlan caddyPositionPlan clubFamily clubPlan compass8" +" "+
-    "computeRound computeTotal courseSVG deleteNote distToRing featBbox featPoints" +" "+
-    "finalizeGeo fitFind fmtDur fmtN geoBBox geoEdDown geoEdHoleFixHtml geoEdMove geoLL" +" "+
-    "goalFind golfLinkify greenRingFor holeHistory holeSpine holeTrouble idbGet idbImgDel" +" "+
-    "idbImgGet idbImgSet idbSatDel idbSet idbVidDel idbVidGet idbVidSet isVideoUrl ladder" +" "+
-    "lateralHazards lineChart lineLenM linkHref liveStart lmBuildRecs lmCarryStrip" +" "+
+    "computeRound computeTotal courseReportHtml courseSVG deleteNote distToRing featBbox" +" "+
+    "featPoints finalizeGeo fitFind fmtDur fmtN geoBBox geoEdDown geoEdHoleFixHtml geoEdMove" +" "+
+    "geoLL goalFind golfLinkify greenRingFor holeHistory holeSpine holeTrouble idbGet" +" "+
+    "idbImgDel idbImgGet idbImgSet idbSatDel idbSet idbVidDel idbVidGet idbVidSet isVideoUrl" +" "+
+    "ladder lateralHazards lineChart lineLenM linkHref liveStart lmBuildRecs lmCarryStrip" +" "+
     "lmDiagScatter lmDispersion lmGet lmPct lmPearson lmStatObj lvlChip manualTipHtml mapLL" +" "+
     "mkLink nearestHole normalizeClub openAddComp openAddNote openAddRound openBlockEditor" +" "+
     "openCourseEditor openFitnessDetail openGoalEditor openKraftEditor openRound openTest" +" "+
@@ -50,9 +50,9 @@ const COVERAGE_BASELINE_FUNCS = (
     "roundKPIs roundLL roundWeatherHtml satCourseSrc satCourseTiles satLayer satSrcFor" +" "+
     "satTileKey satTilePx satTileRes selOpts sgCoverageHtml sgDashHtml sgDisasterHtml" +" "+
     "sgLeerHtml sparkline strkDown strkZoomAt strkZoomBtn swDaysSince swNormTag targetFor" +" "+
-    "teeNames thinRing warmupBloeckeHtml weatherByGeo weatherEffectHtml wikiCountCat" +" "+
-    "wikiCountGrp wikiEsc wikiGroupIcon wikiGroupOf wikiNormTag wikiSuggest wikiTagsOf" +" "+
-    "windArrowChar"
+    "teeNames thinRing turnierPrepHtml warmupBloeckeHtml weatherByGeo weatherEffectHtml" +" "+
+    "wikiCountCat wikiCountGrp wikiEsc wikiGroupIcon wikiGroupOf wikiNormTag wikiSuggest" +" "+
+    "wikiTagsOf windArrowChar"
 ).split(" ");
 
 const COVERAGE_BASELINE_STRAT = (
@@ -1485,6 +1485,103 @@ group("Warum Korrekturen wirkungslos SCHIENEN");
     ok("Netz zuerst, mit Zeitlimit", /Promise\.race/.test(sw) && /1500/.test(sw));
     ok("Cache bleibt als Rückfall (Startgarantie im Funkloch)",
        /return cached \|\|/.test(sw));
+  }
+}
+
+/* ============ 26. Verlauf, Zielabstand, Aufgaben ============ */
+group("Der Kreis von Messen zu Trainieren");
+{
+  const verlauf=G("sgVerlauf"), gap=G("hcpGap"), fort=G("taskFortschritt"),
+        analyse=G("platzAnalyse"), DB=G("DB"), STRAT=G("STRAT");
+
+  if (typeof verlauf === "function" && DB) {
+    const mk=(d,sc)=>({id:"R"+d, date:d, course:"T", holes:
+      Array.from({length:18},(_,i)=>({hole:i+1,par:4,len:350,score:sc,putts:2,
+        appr:"110–140",lie:"Fairway",distToPin:6,firstPutt:"6m",girDirect:"Ja"}))});
+    DB.rounds=["2026-05-01","2026-05-08","2026-05-15","2026-05-22","2026-05-29",
+               "2026-06-05","2026-06-12"].map((d,i)=>mk(d, 5));
+    const p=verlauf(5);
+    /* Ein gleitendes Fenster ist Pflicht: eine einzelne Runde schwankt so
+       stark, dass eine Rohkurve nur Rauschen zeigt. */
+    ok("Verlauf entsteht ab genug Runden", p.length>0, p.length+" Punkte");
+    ok("jeder Punkt trägt einen Fenster-Umfang", p.every(x=>x.n>=3));
+    ok("Fenster wächst nicht über die Vorgabe", p.every(x=>x.n<=5));
+    DB.rounds=[mk("2026-05-01",5)];
+    ok("zu wenige Runden → leer", verlauf(5).length===0);
+    DB.rounds=[];
+  }
+
+  if (typeof gap === "function" && STRAT) {
+    /* „HCP 18 → 16" ist abstrakt; in Schlägen je Kategorie wird es eine
+       Baustelle. Die Rechnung kommt aus der ES-Tabelle der App selbst. */
+    const g=gap(10);
+    ok("liefert einen Abstand", !!g);
+    if(g){
+      ok("Summe positiv (Ziel ist besser)", g.summe>0, "Summe "+g.summe.toFixed(2));
+      eq("vier Kategorien", g.teile.length, 4);
+      ok("absteigend sortiert — größte Baustelle zuerst",
+         g.teile.every((t,i)=>i===0 || g.teile[i-1].gap>=t.gap));
+      const s2=g.teile.reduce((a,t)=>a+t.gap,0);
+      ok("Teile summieren zur Gesamtsumme", Math.abs(s2-g.summe)<1e-9);
+    }
+    ok("Ziel schlechter als jetzt → kein Abstand", gap(99)===null);
+    ok("ohne Ziel → null", gap(null)===null);
+  }
+
+  if (typeof fort === "function") {
+    ok("ohne Startwert kein Fortschritt", fort({kat:"putt", sgStart:null})===null);
+    ok("ohne Aufgabe null", fort(null)===null);
+  }
+
+  if (typeof analyse === "function" && DB) {
+    DB.rounds=[
+      {id:"A",date:"2026-05-01",course:"T",holes:[
+        {hole:1,par:4,score:6,putts:2},{hole:2,par:3,score:3,putts:2}]},
+      {id:"B",date:"2026-05-08",course:"T",holes:[
+        {hole:1,par:4,score:7,putts:3},{hole:2,par:3,score:3,putts:2}]}
+    ];
+    const a=analyse("T");
+    ok("Platzanalyse liefert Ergebnis", !!a);
+    if(a){
+      eq("beide Runden gezählt", a.runden, 2);
+      /* Das teuerste Loch muss oben stehen — sonst hilft die Liste nicht. */
+      eq("teuerstes Loch zuerst", a.loecher[0].hole, 1);
+      near("Schnitt über Par auf Loch 1", a.loecher[0].schnitt, 2.5, 0.01);
+      eq("Doppelbogeys gezählt", a.loecher[0].dbl, 2);
+    }
+    ok("unbekannter Platz → null", analyse("XX")===null);
+    DB.rounds=[];
+  }
+}
+
+/* ============ 24q. Platzbericht ============ */
+group("courseStats — wo verliere ich AUF DIESEM Platz?");
+{
+  const cs=G("courseStats"), DB=G("DB");
+  if (typeof cs === "function" && DB) {
+    DB.courses=[{name:"T", tees:{Gelb:{holes:[
+      {hole:1,par:4,len:350,si:5},{hole:2,par:3,len:150,si:17},{hole:3,par:5,len:480,si:1}]}}}];
+    const mk=(s1,s2,s3)=>({course:"T",tee:"Gelb",side:"18 Loch",date:"2026-08-01",
+      holes:[{hole:1,score:s1,putts:2},{hole:2,score:s2,putts:2},{hole:3,score:s3,putts:2}]});
+    DB.rounds=[mk(6,3,5), mk(7,3,6), mk(6,4,5)];   // Loch 1 ist das Problemloch
+    const r=cs("T");
+    ok("liefert einen Bericht", !!r);
+    if(r){
+      eq("Runden gezählt", r.runden, 3);
+      /* Loch 1: +2,+3,+2 => Schnitt +2,33 — muss ganz oben stehen.
+         Genau darum geht es: der Schnitt über ALLE Plätze hilft vor einem
+         Turnier nicht, die eigenen Problemlöcher HIER schon. */
+      eq("Problemloch zuerst", r.problem[0].hole, 1);
+      near("Schnitt des Problemlochs", r.problem[0].schnitt, 2.33, 0.02);
+      eq("Doppelbogey-Quote", r.problem[0].dblQuote, 1);
+      ok("starke Löcher am Ende", r.stark[0].schnitt <= r.problem[0].schnitt);
+      /* Nachgerechnet: Runde 1 = +2, Runde 2 = +4, Runde 3 = +3 → 9/3 = 3.
+         (Nicht mit dem Schnitt des Problemlochs verwechseln — das war mein
+         eigener Rechenfehler beim ersten Ansatz.) */
+      near("über Par je Runde", r.ueberProRunde, 3, 0.02);
+    }
+    ok("unbekannter Platz → null", cs("Gibt-es-nicht") === null);
+    DB.rounds=[]; DB.courses=[];
   }
 }
 

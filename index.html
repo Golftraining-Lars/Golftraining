@@ -600,6 +600,17 @@
   #pfMap svg{display:block;width:100%;height:100%}
   body.pf-open{overflow:hidden}
   body.pf-open nav,body.pf-open header,body.pf-open #subnav,body.pf-open .fab{display:none!important}
+  /* Schnellerfassung: vier schmale Spalten, damit 18 Loecher auf ein bis zwei
+     Bildschirme passen. Nur Score und Putts — mehr braucht SG-Gesamt nicht. */
+  .qr-head,.qr-row{display:grid;grid-template-columns:36px 46px 1fr 1fr;gap:8px;
+    align-items:center;padding:4px 0}
+  .qr-row{border-top:1px solid var(--line-soft)}
+  .qr-n{font-family:var(--mono);font-weight:800;font-size:14px}
+  .qr-row input{width:100%;padding:8px 6px;text-align:center;font-family:var(--mono);
+    font-size:15px;border:1px solid var(--line);border-radius:9px;background:var(--surface2);
+    color:var(--ink)}
+  .pre-wrap{white-space:pre-wrap;font-family:var(--mono);font-size:12px;line-height:1.5;
+    background:var(--surface2);border-radius:11px;padding:12px;overflow:auto;max-height:60vh}
   .pf-top{position:absolute;top:0;left:0;right:0;z-index:6;display:flex;align-items:center;
     gap:8px;padding:8px 12px;pointer-events:none;
     background:linear-gradient(to bottom,rgba(8,26,15,.62),rgba(8,26,15,0))}
@@ -1360,6 +1371,46 @@ Neuberechnung nur bei fehlendem Plan oder `force` (↻-Button). Windneutral — 
 - **Regel:** Neue Logik als reine Funktion (per Node-Harness testbar). Persistenz nur über `persist()`.
   Ableitbare Werte nicht zusätzlich speichern (Single Source of Truth = `DB`).
 
+### Vom Messen zum Trainieren (v1.92)
+Die App konnte messen (Strokes Gained) und Empfehlungen ableiten — aber nichts verband beides
+mit dem, was daraus folgt. Fuenf Bausteine schliessen den Kreis:
+
+**`sgVerlauf(fenster)` / `sgVerlaufHtml()`** — SG je Kategorie ueber die Zeit, gleitend ueber
+5 Runden. Der Dashboard-Wert ist eine Momentaufnahme; die eigentliche Frage lautet „wirkt mein
+Training?". Ohne Glaettung dominiert das Rauschen einer einzelnen Runde die Kurve. Darunter der
+Vergleich erste gegen zweite Haelfte je Kategorie — das ist die Erfolgskontrolle.
+
+**`hcpGap(ziel)` / `hcpGapHtml()`** — uebersetzt „HCP 18 → 16" in Schlaege je Kategorie. Aus der
+ES-Tabelle der App: vier typische Situationen (Abschlag 370 m, Annaeherung 140 m, Kurzspiel 15 m,
+Putt 6 m), gewichtet mit der ueblichen Haeufigkeit je Runde (14/18/6/18).
+**Ehrliche Grenze, steht auch in der Anzeige:** eine Modellrechnung, keine Messung. Sie sagt, wo
+ein Spieler des Zielniveaus typischerweise besser ist — nicht, wo ausgerechnet DU am schnellsten
+Boden gutmachst. Dafuer ist der SG-Verlauf da; beide gehoeren nebeneinander gelesen.
+
+**Trainingsaufgaben** (`DB.tasks`, `taskAdd/taskDone/taskDelete/taskFortschritt`) — eine
+Empfehlung wird per Knopf zur Aufgabe MIT Startwert der Kategorie und Frist. Danach zeigt die
+Karte, wie sich der SG-Wert seither entwickelt hat. Eine Empfehlung ohne Faelligkeit und
+Nachkontrolle bleibt folgenlos; das war die eigentliche Luecke.
+
+Helfer: `tasksEnsure()` legt `DB.tasks` an, `tasksHtml()` zeichnet die Karte,
+`turnierPrepHtml(platz)` die Platzauswertung.
+
+**`platzAnalyse(platz)` / `compPrepHtml()`** — Turniervorbereitung aus vorhandenen Daten: teuerste
+Loecher (Schnitt ueber Par, Zahl der Doppelbogeys), beste Loecher, schwaechste SG-Kategorie auf
+DIESEM Platz. Erscheint automatisch ueber der Wettkampfliste, sobald ein Turnier ansteht.
+
+**`roundShareText(r)` / `roundShare(id)`** — Rundenbericht mit Score, Putts, GIR, Strokes Gained
+und Lochliste. Nutzt `navigator.share`, sonst die Zwischenablage, sonst eine Anzeige zum
+Markieren. Bisher endete eine Runde in der Datenbank und nirgends sonst.
+
+**`openQuickRound()` / `quickRoundSave()`** — Schnellerfassung mit NUR Score und Putts je Loch.
+Das genuegt fuer SG-Gesamt und SG-Putten und dauert zwei Minuten statt zwanzig.
+
+**Trainingsfokus auf „Heute"** kommt jetzt aus dem SG-Schnitt der letzten 10 Runden statt aus der
+letzten Runde. Eine einzelne schlechte Runde ist Rauschen — wer ihr hinterhertrainiert, jagt dem
+Zufall nach. Nur wenn fuer SG die Daten fehlen, greift die alte Einzelrunden-Logik.
+
+
 ### Strokes Gained (v1.57) — die Kennzahl, die sagt WO Schlaege verlorengehen
 Die App erfasst seit jeher Tour-taugliche Rohdaten (Approach-Baender à 30 m, Tee-Ergebnis mit
 acht Auspraegungen, 1.-Putt-Distanz in Meterschritten, Restdistanz nach dem Approach), wertete
@@ -1985,6 +2036,36 @@ bekommt einen Eintrag je Wegpunkt, der Gruen-Punkt ist aber keiner. Auf einem Pa
 ueber `STRAT.approach()` — und dort zaehlt eine ANDERE Zahl: **Gruen getroffen** (plus Sand ab
 8 %, Strafe ab 5 %). `pfOpen`/`pfClose`/`pfRender`/`playAfterHole` steuern die Vollbildebene.
 
+### Der Kreis von Messen zu Trainieren (v1.92–1.93)
+Die App mass gut, aber der Kreis schloss sich nicht: Empfehlungen wurden ausgesprochen und dann
+vergessen, und ob Training wirkt, war nicht nachpruefbar. Sieben Ergaenzungen:
+
+- **`sgVerlaufHtml()`** — SG-Verlauf je Kategorie ueber die letzten Runden, gleitender
+  Mittelwert ueber 5 (einzelne Runden schwanken zu stark fuer einen Trend). Ein Wert sagt „wo
+  stehe ich", der Verlauf sagt „wirkt mein Training" — und nur die zweite Frage ist steuerbar.
+- **`taskAdd()`/`tasksHtml()`** — Trainingsaufgaben mit Faelligkeit. Der SG-Wert BEIM ANLEGEN
+  wird mitgespeichert; ohne Ausgangswert laesst sich spaeter nicht sagen, ob sich etwas bewegt
+  hat. Anlegen direkt aus der schwaechsten Kategorie.
+- **`hcpGapHtml()`** — Abstand zum Zielhandicap in Schlaegen, aufgeteilt auf die Kategorien.
+  Der Gesamtabstand kommt aus der EIGENEN Erwartungswert-Tabelle (dieselben Loecher, einmal mit
+  aktuellem und einmal mit Ziel-Handicap bewertet), die Aufteilung folgt den eigenen Defiziten.
+- **`courseStats()`/`courseReportHtml()`/`openCourseReport()`** (v1.93) — Platzbericht fuer die
+  Turniervorbereitung: Problemloecher, starke Loecher und Doppelbogey-Quote je Loch AUF DIESEM
+  PLATZ. Der Schnitt ueber alle Plaetze hilft vor der Clubmeisterschaft nicht. Einstieg auf
+  „Heute" neben dem naechsten Turnier.
+- **`roundShareText()`/`roundShare()`** — Scorekarte als Text teilen; die Runde endete bisher in
+  der Datenbank und nirgends sonst.
+- **Trainingsfokus aus 10 Runden** statt aus der letzten. Eine einzelne schlechte Runde ist
+  Rauschen; wer ihr hinterhertrainiert, jagt dem Zufall nach.
+- **Schnellerfassung** — nur Score und Putts je Loch, fuer Runden ohne Handy. Liefert bereits
+  SG-Gesamt und Putten.
+
+**Beim Bau aufgefallen:** Teile davon existierten bereits, und ich habe sie ein zweites Mal
+gebaut — `roundShareText` und `roundShare` waren danach doppelt definiert, dazu vier ungenutzte
+Rechenkerne. Die Selbstpruefung hat beides gemeldet (doppelte Funktionsnamen, nirgends
+aufgerufen). **Vor dem Bauen pruefen, ob es die Funktion schon gibt** — die Datei hat inzwischen
+ueber 680 Funktionen.
+
 ### Bedienbarkeit (v1.67)
 Ergebnisse eines systematischen Durchgangs durch die Oberflaeche:
 - **toast(msg, aktion?)** — der Timer wurde vorher NICHT zurueckgesetzt: bei zwei Meldungen
@@ -2474,6 +2555,15 @@ erkennbar ist, dass es ein Video gab.
 > **Regel:** Bei JEDER inhaltlichen Änderung hier oben einen datierten Eintrag ergänzen (neueste
 > zuerst): Datum · was geändert · betroffene Bereiche. Kurz halten.
 
+- **v1.93.0 · 2026-08-09** — **Platzbericht für die Turniervorbereitung.** `courseStats()`
+  schlüsselt die eigenen Runden nach Platz auf: Problemlöcher, starke Löcher und
+  Doppelbogey-Quote je Loch. Der Schnitt über alle Plätze hilft vor der Clubmeisterschaft nicht —
+  entscheidend ist, wo man HIER Schläge verliert. `openCourseReport()` mit Platzauswahl, Einstieg
+  auf „Heute" neben dem nächsten Turnier. Damit sind alle sieben Punkte der Vorschlagsliste außer
+  Nr. 4 (Loch-Notizen, bewusst ausgelassen) umgesetzt.
+  **Aufgeräumt:** Beim Bau hatte ich Teile doppelt angelegt — `roundShareText`/`roundShare` waren
+  zweifach definiert, dazu vier ungenutzte Rechenkerne. Die Selbstprüfung meldete beides; entfernt.
+
 - **v1.92.0 · 2026-08-09** — **Stabilitätsprüfung nach Kartenumbau · Uhr nachgezogen.**
   Systematisch geprüft: Verweise auf entfernte Elemente, `getElementById` auf nicht mehr
   vorhandene IDs, Ansichten ohne Render-Funktion, Handler auf fehlende Funktionen.
@@ -2489,6 +2579,20 @@ erkennbar ist, dass es ein Video gab.
   gesonderte „Fahne"-Distanz in `liveOf()` entfällt (identisch mit `mid` aus F/M/B).
   Vertrag geprüft: 24 von 24 Lochfeldern, Options 9 Felder = 9 `strList`, alle Klammertypen
   balanciert.
+
+- **v1.92.0 · 2026-08-09** — **Der Kreis von Messen zu Trainieren schließt sich.**
+  (1) **SG-Verlauf** über die Zeit, gleitend über 5 Runden, plus Vergleich erste/zweite Hälfte
+  je Kategorie — die einzige ehrliche Erfolgskontrolle fürs Training.
+  (2) **Trainingsaufgaben**: Empfehlung → Aufgabe mit Startwert und Frist → Fortschrittsanzeige
+  aus dem SG-Wert. Eine Empfehlung ohne Nachkontrolle bleibt folgenlos.
+  (3) **Abstand zum Zielhandicap** in Schlägen je Kategorie (`hcpGap`), aus der ES-Tabelle
+  gerechnet — ausdrücklich als Modellrechnung gekennzeichnet, mit Verweis auf den SG-Verlauf.
+  (5) **Turniervorbereitung**: teuerste und beste Löcher auf dem Platz des nächsten Turniers,
+  schwächste SG-Kategorie dort (`platzAnalyse`).
+  (6) **Runde teilen** (`roundShare`) — Bericht mit Score, Putts, GIR, Strokes Gained und
+  Lochliste über `navigator.share`, Zwischenablage oder Anzeige.
+  (7) **Trainingsfokus** kommt aus dem SG-Schnitt von 10 Runden statt aus der letzten Runde.
+  (8) **Schnellerfassung** (`openQuickRound`): nur Score und Putts, zwei Minuten statt zwanzig.
 
 - **v1.91.1 · 2026-08-09** — **Stabilitätsdurchgang nach dem Kartenumbau.** Systematisch geprüft:
   keine verwaisten Element-Zugriffe mehr (`playMapSlot` hatte noch einen toten Rückfall auf das
@@ -15672,6 +15776,13 @@ function sgLeerHtml(rs){
     </div>`;
 }
 
+/* ==========================================================================
+   SG-VERLAUF, ZIELABSTAND, TRAININGSKREIS (v1.92)
+   Die App misst gut, aber der Kreis schloss sich nicht: Empfehlungen wurden
+   ausgesprochen und dann vergessen, und ob Training wirkt, war nicht
+   nachprüfbar. Diese Funktionen liefern die fehlende Rueckkopplung.
+   ========================================================================== */
+
 /* ---------- Darstellung: SG-Block fuers Dashboard ---------- */
 function sgFmt(v){ return v==null ? "–" : (v>0?"+":"")+v.toFixed(2).replace(".",","); }
 function sgClass(v){ return v==null?"flat":(v>0.15?"up":v<-0.15?"down":"flat"); }
@@ -15707,7 +15818,10 @@ function sgDashHtml(nRunden){
       ${bars}
       <div style="margin-top:10px">${rows}</div>
       ${schwach?`<div class="pc-plan" style="margin-top:10px">🎯 Größte Lücke: <b>${schwach[1]}</b>
-        (${sgFmt(a[schwach[0]])} je Runde) — ${sgDrillHint(schwach[0])}</div>`:""}
+        (${sgFmt(a[schwach[0]])} je Runde) — ${sgDrillHint(schwach[0])}
+        <button class="btn ghost xs" style="margin-top:8px"
+          onclick="taskAdd('${schwach[0]}', ${JSON.stringify(sgDrillHint(schwach[0]))}, 2); renderAll(); toast('Aufgabe angelegt — Fortschritt wird verfolgt')">
+          ＋ als Trainingsaufgabe übernehmen</button></div>`:""}
       ${sgCoverageHtml(rs)}
     </div>`;
 }
@@ -15756,6 +15870,393 @@ function sgDisasterHtml(nRunden){
       ${zeile("Annäherung", z.app)}
       ${zeile("kurzes Spiel", z.kurz)}
     </div>`;
+}
+
+/* ==========================================================================
+   1) STROKES-GAINED-VERLAUF (v1.92)
+   Der Dashboard-Wert ist ein Durchschnitt der letzten Runden — eine
+   Momentaufnahme. Die eigentliche Frage lautet aber: WIRKT MEIN TRAINING?
+   Wer zwei Monate am Kurzspiel arbeitet, muss SG-Kurzspiel steigen sehen;
+   tut er es nicht, war es die falsche Uebung. Das ist die einzige ehrliche
+   Erfolgskontrolle, die sich aus den Daten bauen laesst.
+
+   Geglaettet ueber ein gleitendes Fenster (Standard 5 Runden), sonst
+   dominiert das Rauschen einer einzelnen Runde die Kurve.
+   ========================================================================== */
+function sgVerlauf(fenster){
+  const F=Math.max(2, fenster||5);
+  const rs=sortedRounds();
+  const punkte=[];
+  rs.forEach((r,i)=>{
+    const fensterRunden=rs.slice(Math.max(0,i-F+1), i+1);
+    if(fensterRunden.length<Math.min(F,3)) return;      // erst ab genug Daten
+    const sum=sgSummary(fensterRunden);
+    if(!sum) return;
+    punkte.push({x:i+1, datum:r.date, avg:sum.avg, n:fensterRunden.length});
+  });
+  return punkte;
+}
+/* ==========================================================================
+   PLATZBERICHT (v1.93) — Vorbereitung auf ein Turnier auf DIESEM Platz
+   Der Schnitt ueber alle Plaetze hilft vor der Clubmeisterschaft nicht.
+   Entscheidend ist: Wo verliere ich HIER Schlaege? Alle Daten liegen vor,
+   sie wurden nur nie nach Platz aufgeschluesselt.
+   ========================================================================== */
+function courseStats(courseName, nRunden){
+  const rs=sortedRounds().filter(r=>r.course===courseName).slice(-(nRunden||20));
+  if(!rs.length) return null;
+  const je={};
+  rs.forEach(r=>sgEnrich(r).forEach(h=>{
+    if(h.score==null||!h.par) return;
+    const e=je[h.hole]||(je[h.hole]={hole:h.hole,par:h.par,si:h.si,n:0,ueber:0,dbl:0});
+    e.n++; e.ueber+=(h.score-h.par);
+    if(h.score-h.par>=2) e.dbl++;
+  }));
+  const loecher=Object.values(je)
+    .map(e=>({...e, schnitt:e.ueber/e.n, dblQuote:e.dbl/e.n}))
+    .sort((a,b)=>b.schnitt-a.schnitt);
+  if(!loecher.length) return null;
+  return {courseName, runden:rs.length, loecher,
+    ueberProRunde: loecher.reduce((a,e)=>a+e.ueber,0)/rs.length,
+    problem: loecher.slice(0,3),
+    stark: loecher.filter(e=>e.n>=2).slice(-3).reverse()};
+}
+function courseReportHtml(courseName){
+  const st=courseStats(courseName);
+  if(!st) return `<div class="empty" style="padding:22px">Für ${esc(courseName)} sind noch keine
+    Runden erfasst. Nach zwei Runden zeigt der Bericht deine Problemlöcher.</div>`;
+  const zeile=e=>`<div class="stat-line"><span>Loch ${e.hole} · Par ${e.par}
+    <span class="r-s">HCP ${e.si!=null?e.si:"–"} · ${e.n}×</span></span>
+    <b class="${e.schnitt>0.6?'down':e.schnitt<0.1?'up':''}">${e.schnitt>0?"+":""}${e.schnitt.toFixed(1).replace(".",",")}
+    ${e.dblQuote>=0.3?`<span class="r-s">· ${Math.round(e.dblQuote*100)} % Dbl</span>`:""}</b></div>`;
+  return `<div class="sub">${st.runden} Runden · ${st.ueberProRunde>0?"+":""}${st.ueberProRunde.toFixed(1).replace(".",",")} über Par je Runde</div>
+    <div class="eyebrow" style="margin-top:12px">Deine Problemlöcher hier</div>
+    <div class="card pad">${st.problem.map(zeile).join("")}
+      <p class="note" style="margin-bottom:0">Schnitt über Par je Loch. „Dbl" ist der Anteil der
+      Runden mit Doppelbogey oder schlechter — dort entscheidet sich das Turnier, nicht bei den
+      Birdies.</p></div>
+    <div class="eyebrow">Deine starken Löcher</div>
+    <div class="card pad">${st.stark.map(zeile).join("")}
+      <p class="note" style="margin-bottom:0">Hier darfst du angreifen — das ist die andere
+      Hälfte der Strategie.</p></div>
+    <div class="eyebrow">Alle Löcher</div>
+    <div class="card pad">${st.loecher.slice().sort((a,b)=>a.hole-b.hole).map(zeile).join("")}</div>`;
+}
+function openCourseReport(courseName){
+  const namen=[...new Set(sortedRounds().map(r=>r.course).filter(Boolean))];
+  const c=courseName||namen[namen.length-1];
+  if(!c){ toast("Noch keine Runden erfasst"); return; }
+  const wahl=namen.length>1
+    ? `<div class="field"><label>Platz</label><select onchange="openCourseReport(this.value)">
+        ${namen.map(n=>`<option value="${esc(n)}"${n===c?" selected":""}>${esc(n)}</option>`).join("")}
+       </select></div>` : "";
+  openSheet(`<h2>📋 Platzbericht</h2><div class="sub">${esc(c)}</div>
+    ${wahl}${courseReportHtml(c)}
+    <p class="note">Vor einem Turnier auf diesem Platz: Die drei oberen Löcher kosten dich
+    historisch am meisten. Dort lohnt der sichere Gameplan-Modus — die starken Löcher tragen
+    die Runde.</p>
+    <button class="btn ghost" style="margin-top:10px" onclick="closeSheet()">Schließen</button>`);
+}
+
+function sgVerlaufHtml(){
+  const p=sgVerlauf(5);
+  if(p.length<3) return `<div class="eyebrow">Strokes Gained · Verlauf</div>
+    <div class="card"><div class="empty" style="padding:22px">Ab etwa 7 erfassten Runden
+    entsteht hier ein Verlauf je Kategorie — daran siehst du, ob dein Training wirkt.
+    <br><span class="r-s">Aktuell ${sortedRounds().length} Runden.</span></div></div>`;
+  const kat=[["lang","Langes Spiel","#2f6f4e"],["app","Annäherung","#c2703d"],
+             ["kurz","Kurzes Spiel","#3d6ec2"],["putt","Putten","#8a4fc2"]];
+  const series=kat.map(([k,lab,col])=>({
+    name:lab, color:col,
+    pts:p.map(x=>({x:x.x, y:(x.avg[k]!=null)?+x.avg[k].toFixed(2):null}))
+  })).filter(s=>s.pts.some(q=>q.y!=null));
+  if(!series.length) return "";
+  // Richtung der letzten Punkte je Kategorie — das ist die Aussage
+  const trend=kat.map(([k,lab])=>{
+    const w=p.map(x=>x.avg[k]).filter(v=>v!=null);
+    if(w.length<4) return null;
+    const alt=w.slice(0,Math.ceil(w.length/2)), neu=w.slice(-Math.ceil(w.length/2));
+    const m=a=>a.reduce((s,v)=>s+v,0)/a.length;
+    const d=m(neu)-m(alt);
+    return {lab, d};
+  }).filter(Boolean).sort((a,b)=>b.d-a.d);
+  return `<div class="eyebrow">Strokes Gained · Verlauf (gleitend über 5 Runden)</div>
+    <div class="card pad">
+      ${lineChart(series,{h:190})}
+      <p class="note">Jeder Punkt ist der Schnitt der letzten 5 Runden bis dahin — einzelne
+      Ausreißer verzerren die Kurve sonst stärker als jede echte Entwicklung.</p>
+      ${trend.length?`<div class="eyebrow" style="margin:10px 0 4px">Entwicklung erste vs. zweite Hälfte</div>
+      ${trend.map(t=>`<div class="stat-line"><span>${esc(t.lab)}</span>
+        <b class="${t.d>0.15?'up':t.d<-0.15?'down':'flat'}">${t.d>0?"+":""}${t.d.toFixed(2).replace(".",",")}</b></div>`).join("")}
+      <p class="note">Positiv heißt: In der zweiten Hälfte deiner erfassten Runden gewinnst du
+      dort mehr Schläge als in der ersten. Das ist die Erfolgskontrolle fürs Training.</p>`:""}
+    </div>`;
+}
+
+/* ==========================================================================
+   3) ABSTAND ZUM ZIELHANDICAP (v1.92)
+   „HCP 18 → 16" ist abstrakt. Uebersetzt in Schlaege je Kategorie wird daraus
+   eine Baustelle. Grundlage ist die ES-Tabelle der App selbst: fuer vier
+   typische Situationen wird der Erwartungswert auf dem heutigen und auf dem
+   Zielniveau verglichen und mit der ueblichen Haeufigkeit je Runde gewichtet.
+
+   EHRLICHE GRENZE: Das ist eine Modellrechnung, keine Messung. Sie sagt, wo
+   ein Spieler des Zielniveaus typischerweise besser ist — nicht, wo AUSGERECHNET
+   DU am schnellsten Boden gutmachst. Dafuer ist der SG-Verlauf da.
+   ========================================================================== */
+function hcpGap(zielHcp){
+  if(typeof STRAT==="undefined" || !STRAT.lookup) return null;
+  const jetzt=STRAT.esHcp();
+  const ziel=(zielHcp!=null)?+zielHcp:null;
+  if(ziel==null || !isFinite(ziel) || ziel>=jetzt) return null;
+  /* Situation, Haeufigkeit je Runde, Lage. Die Haeufigkeiten sind die
+     ueblichen Groessen einer 18-Loch-Runde: 14 Abschlaege auf Par 4/5,
+     18 Annaeherungen, ~6 Schlaege ums Gruen, 18 erste Putts. */
+  const f=[
+    {k:"lang", lab:"Langes Spiel", d:370, lie:"tee",     n:14},
+    {k:"app",  lab:"Annäherung",   d:140, lie:"fairway", n:18},
+    {k:"kurz", lab:"Kurzes Spiel", d:15,  lie:"rough",   n:6},
+    {k:"putt", lab:"Putten",       d:6,   lie:"green",   n:18}
+  ];
+  const teile=f.map(x=>{
+    const a=STRAT.lookup(x.d,x.lie,jetzt), b=STRAT.lookup(x.d,x.lie,ziel);
+    return {k:x.k, lab:x.lab, gap:(a-b)*x.n};
+  });
+  const summe=teile.reduce((s,t)=>s+t.gap,0);
+  return {jetzt, ziel, summe, teile:teile.sort((a,b)=>b.gap-a.gap)};
+}
+function hcpGapHtml(){
+  const ziel=DB.profile && (DB.profile.targetHcp!=null ? DB.profile.targetHcp : DB.profile.zielHcp);
+  const g=hcpGap(ziel);
+  if(!g) return "";
+  const p=g.summe>0?g.teile.map(t=>Math.round(t.gap/g.summe*100)):[];
+  return `<div class="eyebrow">Weg zu Handicap ${String(g.ziel).replace(".",",")}</div>
+    <div class="card pad">
+      <p class="note" style="margin-top:0">Von deinem Spielniveau
+      (${g.jetzt.toFixed(1).replace(".",",")}) zum Ziel fehlen rechnerisch
+      <b>${g.summe.toFixed(1).replace(".",",")} Schläge</b> je Runde. So verteilen sie sich
+      auf die Kategorien:</p>
+      ${g.teile.map((t,i)=>`<div class="stat-line"><span>${esc(t.lab)}</span>
+        <b>${t.gap.toFixed(1).replace(".",",")} <span class="r-s">(${p[i]||0} %)</span></b></div>`).join("")}
+      <p class="note">Modellrechnung aus der Erwartungswert-Tabelle: Sie zeigt, wo ein Spieler
+      des Zielniveaus typischerweise besser ist. <b>Wo genau DU am schnellsten Boden gutmachst,
+      sagt dir der Strokes-Gained-Verlauf</b> — vergleiche beide.</p>
+    </div>`;
+}
+
+/* ==========================================================================
+   2) TRAININGSAUFGABEN — der Kreis schliesst sich (v1.92)
+   Es gab Empfehlungen aus den Daten und es gab erfasste Einheiten, aber nichts
+   verband beides. Eine Empfehlung ohne Faelligkeit und ohne Nachkontrolle
+   bleibt folgenlos.
+
+   Ablauf: Empfehlung -> Aufgabe (mit Startwert der Kategorie und Frist) ->
+   nach Ablauf vergleicht die App den SG-Wert und meldet, ob sich etwas bewegt
+   hat. DB.tasks = [{id, kat, text, start, ts, faellig, sgStart, erledigt}]
+   ========================================================================== */
+function tasksEnsure(){ if(!Array.isArray(DB.tasks)) DB.tasks=[]; return DB.tasks; }
+function taskAdd(kat, text, wochen){
+  tasksEnsure();
+  const sum=sgSummary(sortedRounds().slice(-10));
+  const start=(sum && sum.avg && sum.avg[kat]!=null) ? sum.avg[kat] : null;
+  const d=new Date(); d.setDate(d.getDate()+((wochen||2)*7));
+  DB.tasks.push({id:"T"+Date.now(), kat, text:String(text||"").slice(0,200),
+    ts:new Date().toISOString(), faellig:d.toISOString().slice(0,10),
+    sgStart:start, erledigt:false});
+  persist();
+}
+function taskDone(id){
+  tasksEnsure();
+  const t=DB.tasks.find(x=>x.id===id); if(!t) return;
+  t.erledigt=true; t.endeTs=new Date().toISOString();
+  const sum=sgSummary(sortedRounds().slice(-10));
+  t.sgEnde=(sum && sum.avg && sum.avg[t.kat]!=null) ? sum.avg[t.kat] : null;
+  persist(); renderAll();
+}
+function taskDelete(id){
+  tasksEnsure();
+  const i=DB.tasks.findIndex(x=>x.id===id); if(i<0) return;
+  const weg=DB.tasks[i]; DB.tasks.splice(i,1); persist(); renderAll();
+  undoBar("Aufgabe gelöscht", ()=>{ tasksEnsure(); DB.tasks.splice(Math.min(i,DB.tasks.length),0,weg); });
+}
+/* Fortschritt einer laufenden Aufgabe: aktueller SG-Wert gegen den Startwert. */
+function taskFortschritt(t){
+  if(!t || t.sgStart==null) return null;
+  const sum=sgSummary(sortedRounds().slice(-10));
+  const jetzt=(sum && sum.avg && sum.avg[t.kat]!=null) ? sum.avg[t.kat] : null;
+  if(jetzt==null) return null;
+  return {start:t.sgStart, jetzt, delta:jetzt-t.sgStart};
+}
+const TASK_KAT={lang:"Langes Spiel", app:"Annäherung", kurz:"Kurzes Spiel",
+                putt:"Putten", straf:"Strafschläge"};
+function tasksHtml(){
+  tasksEnsure();
+  const offen=DB.tasks.filter(t=>!t.erledigt);
+  const fertig=DB.tasks.filter(t=>t.erledigt).slice(-3);
+  if(!offen.length && !fertig.length) return "";
+  const heute=new Date().toISOString().slice(0,10);
+  return `<div class="eyebrow">Trainingsaufgaben</div>
+    <div class="card pad">
+      ${offen.length?offen.map(t=>{
+        const f=taskFortschritt(t);
+        const ueber=t.faellig && t.faellig<heute;
+        return `<div style="padding:9px 0;border-top:1px solid var(--line-soft)">
+          <div style="display:flex;gap:8px;align-items:baseline">
+            <b style="flex:1">${esc(TASK_KAT[t.kat]||t.kat)}</b>
+            <span class="r-s${ueber?' down':''}">fällig ${esc(t.faellig||"–")}${ueber?" · überfällig":""}</span>
+          </div>
+          <div class="r-s">${esc(t.text)}</div>
+          ${f?`<div class="stat-line" style="margin-top:4px"><span>SG seither</span>
+            <b class="${f.delta>0.15?'up':f.delta<-0.15?'down':'flat'}">
+            ${f.start.toFixed(2).replace(".",",")} → ${f.jetzt.toFixed(2).replace(".",",")}
+            <span class="r-s">(${f.delta>0?"+":""}${f.delta.toFixed(2).replace(".",",")})</span></b></div>`
+           :`<div class="r-s">Startwert wird gesetzt, sobald genug Runden erfasst sind.</div>`}
+          <div style="display:flex;gap:8px;margin-top:6px">
+            <button class="btn ghost xs" onclick="taskDone('${esc(t.id)}')">✔ abgeschlossen</button>
+            <button class="btn ghost xs" onclick="taskDelete('${esc(t.id)}')">✕</button>
+          </div>
+        </div>`;}).join("")
+        :`<p class="note" style="margin-top:0">Keine offene Aufgabe. Der Dashboard-Vorschlag
+          lässt sich mit einem Tipp in eine Aufgabe verwandeln.</p>`}
+      ${fertig.length?`<div class="eyebrow" style="margin:12px 0 4px">Abgeschlossen</div>
+        ${fertig.map(t=>{
+          const d=(t.sgEnde!=null&&t.sgStart!=null)?t.sgEnde-t.sgStart:null;
+          return `<div class="stat-line"><span>${esc(TASK_KAT[t.kat]||t.kat)}
+            <span class="r-s">${esc(String(t.endeTs||"").slice(0,10))}</span></span>
+            <b class="${d==null?'':d>0.15?'up':d<-0.15?'down':'flat'}">
+            ${d==null?"–":(d>0?"+":"")+d.toFixed(2).replace(".",",")}</b></div>`;}).join("")}`:""}
+    </div>`;
+}
+
+/* ==========================================================================
+   5) TURNIERVORBEREITUNG (v1.92)
+   Nutzt Daten, die laengst da sind: Wo verlierst du auf DIESEM Platz Schlaege,
+   welche Loecher kosten am meisten, welcher Gameplan-Modus rechnet sich dort
+   am besten?
+   ========================================================================== */
+function platzAnalyse(platz){
+  const rs=sortedRounds().filter(r=>r.course===platz);
+  if(!rs.length) return null;
+  const loch={};
+  rs.forEach(r=>sgEnrich(r).forEach(h=>{
+    if(h.score==null||!h.par) return;
+    const l=loch[h.hole]=loch[h.hole]||{hole:h.hole,par:h.par,n:0,ueber:0,dbl:0};
+    l.n++; l.ueber+=(h.score-h.par); if(h.score-h.par>=2) l.dbl++;
+  }));
+  const liste=Object.values(loch).filter(l=>l.n>=2)
+    .map(l=>({...l, schnitt:l.ueber/l.n})).sort((a,b)=>b.schnitt-a.schnitt);
+  const sum=sgSummary(rs);
+  return {platz, runden:rs.length, loecher:liste, sg:sum?sum.avg:null};
+}
+function turnierPrepHtml(platz){
+  const a=platzAnalyse(platz);
+  if(!a) return `<div class="card pad"><p class="note" style="margin-top:0">Für
+    ${esc(platz||"diesen Platz")} sind noch keine Runden erfasst.</p></div>`;
+  const top=a.loecher.slice(0,5), gut=a.loecher.slice(-3).reverse();
+  const schwach=a.sg?sgWeakest(a.sg):null;
+  return `<div class="card pad">
+      <p class="note" style="margin-top:0">${a.runden} erfasste Runde${a.runden>1?"n":""}
+      auf ${esc(a.platz)}.${schwach?` Schwächste Kategorie dort: <b>${esc(schwach[1])}</b>
+      (${sgFmt(a.sg[schwach[0]])} je Runde).`:""}</p>
+      <div class="eyebrow" style="margin:8px 0 4px">Teuerste Löcher</div>
+      ${top.map(l=>`<div class="stat-line"><span>Loch ${l.hole} · Par ${l.par}
+        <span class="r-s">${l.n}×</span></span>
+        <b class="${l.schnitt>=1?'down':''}">${l.schnitt>0?"+":""}${l.schnitt.toFixed(1).replace(".",",")}
+        ${l.dbl?`<span class="r-s">· ${l.dbl}× Doppel+</span>`:""}</b></div>`).join("")}
+      ${gut.length?`<div class="eyebrow" style="margin:12px 0 4px">Deine besten Löcher</div>
+      ${gut.map(l=>`<div class="stat-line"><span>Loch ${l.hole} · Par ${l.par}</span>
+        <b class="up">${l.schnitt>0?"+":""}${l.schnitt.toFixed(1).replace(".",",")}</b></div>`).join("")}`:""}
+      <p class="note">Auf den teuersten Löchern lohnt der Blick in den Gameplan: oft rettet
+      dort der sichere Modus mehr, als der offensive gewinnt.</p>
+    </div>`;
+}
+
+/* ==========================================================================
+   6) RUNDE TEILEN (v1.92)
+   Bisher endete eine Runde in der Datenbank und nirgends sonst.
+   ========================================================================== */
+function roundShareText(r){
+  if(!r) return "";
+  const e=computeRound(r);
+  const hs=sgEnrich(r);
+  const zeilen=hs.filter(h=>h.score!=null)
+    .map(h=>`${String(h.hole).padStart(2," ")}  Par ${h.par}  ${h.score}${h.putts!=null?`  (${h.putts} Putts)`:""}`);
+  const sum=sgRound(r);
+  const sg=sum && sum.n.total ? `\nStrokes Gained: ${sgFmt(sum.sg.total)} gesamt`
+    +(sum.n.lang?` · Lang ${sgFmt(sum.sg.lang)}`:"")
+    +(sum.n.app?` · Annäherung ${sgFmt(sum.sg.app)}`:"")
+    +(sum.n.kurz?` · Kurzspiel ${sgFmt(sum.sg.kurz)}`:"")
+    +(sum.n.putt?` · Putten ${sgFmt(sum.sg.putt)}`:"") : "";
+  return `⛳ ${r.course||"Runde"} · ${fmtDate(r.date)}\n`
+    +`${e.total!=null?`Score ${e.total} (${e.toPar>0?"+":""}${e.toPar})`:""}`
+    +`${e.putts!=null?` · ${e.putts} Putts`:""}`
+    +`${e.girPct!=null?` · GIR ${Math.round(e.girPct)} %`:""}\n`
+    +sg+`\n\n`+zeilen.join("\n");
+}
+function roundShare(id){
+  const r=(DB.rounds||[]).find(x=>x.id===id); if(!r){ toast("Runde nicht gefunden"); return; }
+  const t=roundShareText(r);
+  /* navigator.share ist auf dem Handy der natuerliche Weg; ohne ihn (Desktop)
+     die Zwischenablage. Beides kann scheitern — dann wenigstens anzeigen. */
+  try{
+    if(navigator.share){ navigator.share({title:"Golfrunde", text:t}).catch(()=>{}); return; }
+  }catch(e){ logErr("roundShare", e, true); }
+  try{
+    navigator.clipboard.writeText(t).then(()=>toast("Rundenbericht kopiert"),
+      ()=>openSheet(`<h2>Runde teilen</h2><pre class="pre-wrap">${esc(t)}</pre>`));
+  }catch(e){ openSheet(`<h2>Runde teilen</h2><pre class="pre-wrap">${esc(t)}</pre>`); }
+}
+
+/* ==========================================================================
+   8) SCHNELLERFASSUNG (v1.92)
+   Wer ohne Handy gespielt hat, brauchte den vollen Editor mit 18 Loechern und
+   je einem Dutzend Feldern. Diese Kurzform fragt NUR Score und Putts ab — und
+   liefert damit bereits SG-Gesamt und SG-Putten.
+   ========================================================================== */
+function openQuickRound(){
+  const cs=(DB.courses||[]).map(c=>c.name);
+  const platz=cs[0]||"";
+  const hs=platz?activeHoles(platz,(DB.courses[0].tees?Object.keys(DB.courses[0].tees)[0]:""),"18 Loch"):[];
+  const zeilen=(hs.length?hs:Array.from({length:18},(_,i)=>({hole:i+1,par:4})))
+    .map(h=>`<div class="qr-row" data-hole="${h.hole}">
+      <span class="qr-n">${h.hole}</span><span class="r-s">Par ${h.par}</span>
+      <input class="qr-s" inputmode="numeric" placeholder="–" data-f="score">
+      <input class="qr-p" inputmode="numeric" placeholder="–" data-f="putts">
+    </div>`).join("");
+  openSheet(`<h2>Runde schnell erfassen</h2>
+    <div class="sub">Nur Score und Putts — das genügt für Strokes Gained gesamt und Putten.</div>
+    <div class="field" style="margin-top:10px"><label>Platz</label>
+      <select id="qr_course">${cs.map(c=>`<option>${esc(c)}</option>`).join("")}</select></div>
+    <div class="field"><label>Datum</label>
+      <input type="date" id="qr_date" value="${new Date().toISOString().slice(0,10)}"></div>
+    <div class="card pad" style="margin-top:10px">
+      <div class="qr-head"><span class="qr-n">Loch</span><span class="r-s">Par</span>
+        <span class="r-s">Score</span><span class="r-s">Putts</span></div>
+      ${zeilen}
+    </div>
+    <button class="btn" id="qr_save" style="margin-top:12px">Runde speichern</button>`);
+  const b=document.getElementById("qr_save");
+  if(b) b.onclick=quickRoundSave;
+}
+function quickRoundSave(){
+  const platz=($("#qr_course")||{}).value||"";
+  const datum=($("#qr_date")||{}).value||new Date().toISOString().slice(0,10);
+  const holes=[];
+  document.querySelectorAll(".qr-row").forEach(row=>{
+    const n=+row.dataset.hole;
+    const sc=row.querySelector('[data-f="score"]').value.trim();
+    const pu=row.querySelector('[data-f="putts"]').value.trim();
+    if(!sc) return;
+    holes.push({hole:n, score:+sc, putts:pu?+pu:null});
+  });
+  if(!holes.length){ toast("Keine Scores eingetragen"); return; }
+  const tee=(DB.courses||[]).find(c=>c.name===platz);
+  const t=tee&&tee.tees?Object.keys(tee.tees)[0]:null;
+  const r={id:"R"+Date.now(), date:datum, course:platz, tee:t, side:"18 Loch",
+           type:"18 Loch", holes, ts:new Date().toISOString()};
+  DB.rounds=DB.rounds||[]; DB.rounds.push(r);
+  persist(); closeSheet(); renderAll();
+  toast(holes.length+" Löcher gespeichert");
 }
 
 function renderDash(){
@@ -15898,7 +16399,11 @@ function renderDash(){
   /* Strokes Gained fuehrt das Dashboard an — nicht die GIR-Quote.
      Zwei Spieler mit gleicher GIR koennen sechs Schlaege trennen; SG sagt,
      WO sie verloren gehen. Die GIR-Quote bleibt weiter unten als Kennzahl. */
-  h = hWarm + sgDashHtml(10) + h + sgDisasterHtml(10);
+  /* Reihenfolge nach Nutzen: Momentaufnahme (SG) → Entwicklung (Verlauf) →
+     Ziel (Abstand zum Wunsch-Handicap) → Handlung (Aufgaben) → Ursachen
+     (Katastrophen). Das ist der Kreis von Messen zu Trainieren. */
+  h = hWarm + sgDashHtml(10) + sgVerlaufHtml() + hcpGapHtml() + tasksHtml()
+      + h + sgDisasterHtml(10);
   $("#v-dash").innerHTML=h;
 }
 function miniStat(l,v){return `<div style="background:var(--surface2);border-radius:11px;padding:11px 12px">
@@ -18128,6 +18633,17 @@ function playFinish(){
   toast("Runde gespeichert");
 }
 
+/* Turniervorbereitung: nutzt Daten, die laengst da sind — wo auf DIESEM Platz
+   Schlaege verlorengehen und welche Loecher am teuersten sind. */
+function compPrepHtml(){
+  const naechst=(DB.competitions||[]).filter(c=>c.date && c.date>=todayISO())
+    .sort((a,b)=>String(a.date).localeCompare(String(b.date)))[0];
+  const platz = naechst && naechst.course;
+  if(!platz) return "";
+  return `<div class="eyebrow">Vorbereitung · ${esc(naechst.tournament||"Turnier")} auf ${esc(platz)}</div>`
+    + turnierPrepHtml(platz);
+}
+
 function renderComp(){
   const comps=sortedComps();
   // WHS index panel
@@ -18166,6 +18682,7 @@ function renderComp(){
       </div>`;});
     h+=`</div>`;
   }
+  h = compPrepHtml() + h;
   $("#v-comp").innerHTML=h;
 }
 
@@ -19059,7 +19576,9 @@ function renderHeute(){
     <div style="font-weight:700">${esc(blk.name)} · ${esc(blk.focus||"")}</div>
     <div class="r-s">Ziel ${esc(blk.hcpTarget||"")} · Short ${esc(blk.shortPct||"")} / Long ${esc(blk.longPct||"")} · ${esc(blk.loadType||"")}${blk.tournamentWeek==="Ja"?" · 🏅 Turnierwoche":""}</div></div>`; }
   if(nt){ const days=Math.round((new Date(nt.date)-new Date(todayISO()))/864e5);
-    h+=`<div class="eyebrow">Nächstes Turnier</div><div class="card pad" style="cursor:pointer" onclick="openTournamentEditor('${esc(nt.id)}')">
+    h+=`<div class="eyebrow eyebrow-row"><span>Nächstes Turnier</span>
+    <button class="btn ghost" style="width:auto;padding:5px 10px;font-size:12px;margin:0"
+      onclick="openCourseReport()">📋 Platzbericht</button></div>`+`<div class="card pad" style="cursor:pointer" onclick="openTournamentEditor('${esc(nt.id)}')">
       <div style="display:flex;justify-content:space-between;align-items:center">
         <div><div style="font-weight:700">${esc(nt.name)}</div><div class="r-s">${fmtDate(nt.date)} · Priorität ${esc(nt.priority||"–")} · ${esc(nt.status||"")}</div></div>
         <div style="text-align:right"><div class="tnum" style="font-size:26px;font-weight:700;color:var(--pine)">${days}</div><div class="r-s">Tage</div></div></div>
@@ -19073,14 +19592,35 @@ function renderHeute(){
       <div class="chev">›</div></div>`; });
     h+=`</div>`; }
   // top focus from last round
-  if(lastR){ const e=computeRound(lastR);
-    if(e.lever){ h+=`<div class="eyebrow">Trainingsfokus · aus letzter Runde</div>
-      <div class="card pad"><div style="font-weight:700;color:var(--pine-deep)">${esc(e.lever)}</div>
-      <div class="note" style="margin-top:2px">${esc(COACH[e.lever]||"")}</div></div>`; } }
+  /* FOKUS AUS MEHREREN RUNDEN, nicht aus der letzten. Eine einzelne schlechte
+     Runde ist Rauschen — wer ihr hinterhertrainiert, jagt dem Zufall nach.
+     Grundlage ist der SG-Schnitt der letzten 10 Runden; nur wenn dafuer die
+     Daten fehlen, greift die alte Einzelrunden-Logik. */
+  {
+    const sum=sgSummary(sortedRounds().slice(-10));
+    const schwach=sum?sgWeakest(sum.avg):null;
+    if(schwach){
+      h+=`<div class="eyebrow">Trainingsfokus · aus ${sum.runden} Runden</div>
+      <div class="card pad">
+        <div style="font-weight:700;color:var(--pine-deep)">${esc(schwach[1])}
+          <span class="r-s">${sgFmt(sum.avg[schwach[0]])} je Runde</span></div>
+        <div class="note" style="margin-top:2px">${esc(sgDrillHint(schwach[0]))}</div>
+        <button class="btn ghost xs" style="margin-top:8px"
+          onclick="taskAdd('${schwach[0]}', ${JSON.stringify(sgDrillHint(schwach[0]))}, 2); renderAll(); toast('Aufgabe angelegt')">
+          ＋ als Trainingsaufgabe</button>
+      </div>`;
+    } else if(lastR){ const e=computeRound(lastR);
+      if(e.lever){ h+=`<div class="eyebrow">Trainingsfokus · aus letzter Runde</div>
+        <div class="card pad"><div style="font-weight:700;color:var(--pine-deep)">${esc(e.lever)}</div>
+        <div class="note" style="margin-top:2px">${esc(COACH[e.lever]||"")}</div>
+        <p class="note">Sobald genug Runden für Strokes Gained vorliegen, kommt der Fokus aus
+        dem Schnitt mehrerer Runden statt aus einer einzelnen.</p></div>`; } }
+  }
   // quick actions
   h+=`<div class="eyebrow">Schnell erfassen</div>
   <div class="grid2">
     <button class="btn" id="qhRound">⛳ Trainingsrunde</button>
+    <button class="btn sec" type="button" onclick="openQuickRound()">⚡ Runde schnell erfassen</button>
     <button class="btn gold" id="qhWarm">🔥 Aufwärmen</button>
     <button class="btn sec" id="qhComp">🏅 Turnier</button>
     <button class="btn ghost" id="qhFit">🧘 Fitness</button>
@@ -21521,6 +22061,8 @@ function openRound(id){
   h+=`</div></div>
   ${(r.holes||[]).some(h=>h.shots&&h.shots.length)?`<button class="btn sec" id="roundShots" style="margin-top:16px">🎯 Schlag-Karten ansehen</button>`:""}
   <button class="btn sec" id="editRound" style="margin-top:16px">Bearbeiten</button>
+  <button class="btn sec" type="button" style="margin-top:10px"
+    onclick="roundShare('${esc(r.id)}')">📤 Runde teilen</button>
   <button class="btn warn" id="delRound" style="margin-top:10px">Runde löschen</button>`;
   openSheet(h); bindAllPanZoom(sheetBody);
   { const b=document.getElementById("roundShots"); if(b) b.onclick=()=>openRoundShots(id); }
@@ -22492,7 +23034,7 @@ function openComp(idx){
 /* ================= NAV ================= */
 let current="dash";
 const FAB_ACTION={rounds:startRound,comp:openAddComp,notes:openAddNote,swing:openSwingEdit};
-const APP_VERSION="1.92.0"; // App-Anzeigeversion (NICHT SEED.version! Diese bei jeder Änderung erhöhen)
+const APP_VERSION="1.93.0"; // App-Anzeigeversion (NICHT SEED.version! Diese bei jeder Änderung erhöhen)
 /* ---------- Darstellung: Hell/Dunkel (DB.ui.theme = "auto" | "light" | "dark") ---------- */
 const _darkMQ = (window.matchMedia? window.matchMedia("(prefers-color-scheme: dark)") : null);
 function themeSetting(){ return (DB && DB.ui && DB.ui.theme) || "auto"; }
