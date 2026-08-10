@@ -152,7 +152,7 @@ try {
                  "caddyClubs","clubNorm","clubRename","bagFreiName","bagMessSpalte",
                  "tombAdd","tombClear","tombDel","MERGE_KEY","_mergeTomb","_tombFor",
                  "playCaddyNow","playTooFar","playAimChain","playMapSlot","playFocusDefault",
-                 "hcpGap","whsPool","courseStats","nassFaktor","errZeit","todayISO","sgHoleShots","sgVerlauf",
+                 "hcpGap","whsPool","courseStats","nassFaktor","errZeit","todayISO","puttDiagnose","sgHoleShots","sgVerlauf",
                  "holeGir","holeUpDown","holeSandSave","platzAnalyse","taskFortschritt",
                  "warmupSchedule","warmupKorrektiv","WARMUP_PLANS","medianSplit","pearson",
                  "rKrit","gpKey","gpLabel","gpTotalES","pickClub","_aimClub","_aimLerp",
@@ -2496,6 +2496,60 @@ group("errZeit — UTC speichern, Ortszeit anzeigen");
       .map(m=>m[2]).join("\n").replace(/\/\*[\s\S]*?\*\//g,"");
     ok("kein rohes toISOString().slice(0,10) mehr",
        nurCode.indexOf('new Date().toISOString().slice(0,10)')<0);
+  }
+}
+
+/* ============ 24an. Putt-Diagnose ============ */
+group("puttDiagnose — WOHIN gehen die Fehlputts?");
+{
+  const pd=G("puttDiagnose");
+  if (typeof pd === "function") {
+    /* Bei Approaches gibt es `apprMiss` seit langem — beim Putten fehlte die
+       Entsprechung, obwohl dort die größte Lücke liegt. Erst die Richtung
+       macht aus „schlecht geputtet" eine Trainingsentscheidung. */
+    const loch=(miss,rest,putts)=>({hole:1,par:4,score:4,putts:putts||2,
+                                    puttMiss:miss,puttRest:rest});
+    /* Unter 10 Putts wird KEINE Aussage getroffen — drei Putts wären
+       Rauschen mit dem Aussehen von Erkenntnis. */
+    const wenig=pd([{holes:[loch("Kurz"),loch("Lang"),loch("Links")]}]);
+    ok("zu wenig Daten wird erkannt", wenig.reicht===false, "n="+wenig.n);
+    eq("und die Anzahl wird genannt", wenig.n, 3);
+
+    /* Fall 1: überwiegend kurz -> Längenkontrolle. */
+    const kurzH=[]; for(let i=0;i<12;i++) kurzH.push(loch(i<9?"Kurz":"Rechts"));
+    const k=pd([{holes:kurzH}]);
+    ok("genug Daten", k.reicht===true);
+    eq("kurz gezählt", k.zaehl.kurz, 9);
+    ok("Befund: Längenkontrolle", k.befund && k.befund.art==="kurz", k.befund&&k.befund.txt);
+
+    /* Fall 2: systematisch eine Seite -> Startlinie. */
+    const seiteH=[]; for(let i=0;i<12;i++) seiteH.push(loch(i<9?"Links":"Kurz"));
+    const se=pd([{holes:seiteH}]);
+    ok("Befund: Seite", se.befund && se.befund.art==="seite", se.befund&&se.befund.txt);
+    ok("nennt die richtige Seite", /LINKS/.test(se.befund.txt));
+
+    /* Fall 3: gleichmäßig verteilt -> kein systematischer Fehler. */
+    const mixH=[];
+    ["Kurz","Lang","Links","Rechts"].forEach(m=>{ for(let i=0;i<3;i++) mixH.push(loch(m)); });
+    const mi=pd([{holes:mixH}]);
+    ok("Befund: gemischt", mi.befund && mi.befund.art==="gemischt", mi.befund&&mi.befund.txt);
+
+    /* DER KERN DES ZWEITEN FELDES: Dreiputts nach Ursache trennen. Aus 12 m
+       auf 3 m liegen gelassen ist ein Lag-Problem; aus 12 m auf 1 m und dann
+       verfehlt ein Kurzputt-Problem. Ohne `puttRest` nicht unterscheidbar. */
+    const dreiH=[];
+    for(let i=0;i<10;i++) dreiH.push(loch("Kurz","Gimme",2));
+    dreiH.push(loch("Kurz","3m",3));      // Lag
+    dreiH.push(loch("Kurz",">3m",3));     // Lag
+    dreiH.push(loch("Links","1m",3));     // Kurzputt
+    const d3=pd([{holes:dreiH}]);
+    eq("Dreiputts erkannt", d3.drei, 3);
+    eq("davon Lag-Problem", d3.dreiLag, 2);
+    eq("davon Kurzputt-Problem", d3.dreiKurz, 1);
+    /* Gegenprobe: „Gelocht" ist kein Fehlputt. */
+    const gH=[]; for(let i=0;i<12;i++) gH.push(loch(i<6?"Gelocht":"Kurz"));
+    const g=pd([{holes:gH}]);
+    eq("gelochte Putts zählen nicht als Fehler", g.daneben, 6);
   }
 }
 

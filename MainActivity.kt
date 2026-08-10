@@ -298,6 +298,28 @@ import kotlin.math.sqrt
  *     gesonderte „Fahne"-Distanz — sie waere identisch mit `mid` aus F/M/B und
  *     damit nur Rauschen auf einem kleinen Display.
  *
+ *  2026-08-10 (23) · PUTT-DIAGNOSE: zwei neue Felder je Loch.
+ *     Bei Approaches gibt es `apprMiss` seit langem — beim Putten fehlte die
+ *     Entsprechung, obwohl dort die groesste Luecke liegt. Erfassen allein
+ *     haette nicht geholfen; die beiden Felder beantworten zusammen die
+ *     einzige Frage, die beim Putten zaehlt: WORAN liegt es?
+ *       · `puttMiss` — wohin ging der erste Putt daneben? Ueberwiegend KURZ
+ *         heisst Laengenkontrolle oder zu zaghaft (in zwei Einheiten
+ *         aenderbar); systematisch EINE SEITE heisst Startlinie oder
+ *         Aim-Point (Technik, Tor-Drill). Zwei verschiedene Uebungen.
+ *       · `puttRest` — was blieb NACH dem ersten Putt liegen? Erst damit
+ *         laesst sich ein Dreiputt zuordnen: aus 12 m auf 3 m liegen gelassen
+ *         ist ein Lag-Problem, aus 12 m auf 1 m und dann verfehlt ein
+ *         Kurzputt-Problem. Ohne dieses Feld nicht unterscheidbar.
+ *     Angebunden: HoleEntry, Lesen (optS), Schreiben (beide Stellen),
+ *     Zusammenfuehren, „leer"-Pruefung, detailCount und zwei SelectRows direkt
+ *     unter der Puttlaenge — dort traegt man beides im selben Moment ein.
+ *     Die PWA wertet sie in `puttDiagnose()` aus (Dashboard).
+ *
+ *     ACHTUNG BEI `Options`: Die Klasse wird POSITIONELL konstruiert. Die
+ *     beiden neuen Listen stehen deshalb AM ENDE — eine Liste in der Mitte
+ *     verschoebe alle folgenden still gegeneinander.
+ *
  *  2026-08-10 (22) · BUILD-FEHLER: „Unresolved reference: gps".
  *     Die Akku-Warnung las `gps` — den gibt es in GolfWatchApp aber nicht.
  *     `gps` ist der Zustand INNERHALB von HomeScreen (Z5415) und ausserdem
@@ -1016,7 +1038,11 @@ data class Options(
     val firstPuttDist: List<String>,
     val qualityOpts: List<String>,
     val bunkerTypes: List<String>,
-    val penaltyTypes: List<String>
+    val penaltyTypes: List<String>,
+    /* ANS ENDE ANGEHAENGT. Options wird POSITIONELL konstruiert — eine neue
+       Liste in der Mitte verschoebe alle folgenden still gegeneinander. */
+    val puttMissOpts: List<String>,
+    val puttRestOpts: List<String>
 )
 
 // Schlägerlänge aus DB.clubDistances (carry/total in Metern)
@@ -1091,6 +1117,16 @@ data class HoleEntry(
     val apprClub: String? = null,
     val penN: Int? = null,
     val firstPutt: String? = null,
+    /* PUTT-DIAGNOSE (2026-08-10). Bei Approaches gibt es `apprMiss` seit
+       langem — beim Putten fehlte die Entsprechung, obwohl dort die groesste
+       Luecke liegt. Zusammen beantworten die beiden Felder die einzige Frage,
+       die beim Putten zaehlt: WORAN liegt es?
+         · puttMiss  — ueberwiegend KURZ heisst Laengenkontrolle, systematisch
+           eine SEITE heisst Startlinie. Zwei verschiedene Uebungen.
+         · puttRest  — trennt Dreiputts nach Ursache: langer Rest = Lag,
+           kurzer Rest = Kurzputt. Ohne dieses Feld nicht unterscheidbar. */
+    val puttMiss: String? = null,
+    val puttRest: String? = null,
     val quality: String? = null,
     val club: String? = null,
     val lie: String? = null,
@@ -2349,6 +2385,35 @@ private object Net {
                     "Out",
                     "Unspielbar"
                 )
+            ),
+            strList(
+                db,
+                "puttMiss",
+                listOf(
+                    "Gelocht",
+                    "Kurz",
+                    "Lang",
+                    "Links",
+                    "Rechts",
+                    "Kurz links",
+                    "Kurz rechts",
+                    "Lang links",
+                    "Lang rechts"
+                )
+            ),
+            strList(
+                db,
+                "puttRest",
+                listOf(
+                    "Gelocht",
+                    "Gimme",
+                    "<0,5m",
+                    "1m",
+                    "1,5m",
+                    "2m",
+                    "3m",
+                    ">3m"
+                )
             )
         )
 
@@ -2760,6 +2825,14 @@ private fun buildRoundJson(
             h.put("firstPutt", it)
         }
 
+        e.puttMiss?.let {
+            h.put("puttMiss", it)
+        }
+
+        e.puttRest?.let {
+            h.put("puttRest", it)
+        }
+
         e.quality?.let {
             h.put("quality", it)
         }
@@ -2850,6 +2923,14 @@ private fun entryToJson(
 
     e.firstPutt?.let {
         put("firstPutt", it)
+    }
+
+    e.puttMiss?.let {
+        put("puttMiss", it)
+    }
+
+    e.puttRest?.let {
+        put("puttRest", it)
     }
 
     e.quality?.let {
@@ -2961,6 +3042,8 @@ private fun jsonToEntry(
     apprClub = optS(o, "apprClub"),
     penN = optI(o, "penN"),
     firstPutt = optS(o, "firstPutt"),
+            puttMiss = optS(o, "puttMiss"),
+            puttRest = optS(o, "puttRest"),
     quality = optS(o, "quality"),
     club = optS(o, "club"),
     lie = optS(o, "lie"),
@@ -4031,6 +4114,8 @@ fun GolfWatchApp(
                 apprClub = cur.apprClub ?: inc.apprClub,
                 penN = cur.penN ?: inc.penN,
                 firstPutt = cur.firstPutt ?: inc.firstPutt,
+            puttMiss = cur.puttMiss ?: inc.puttMiss,
+            puttRest = cur.puttRest ?: inc.puttRest,
                 quality = cur.quality ?: inc.quality,
                 club = cur.club ?: inc.club,
                 lie = cur.lie ?: inc.lie,
@@ -6697,10 +6782,38 @@ private fun ScorePage(
             item {
                 SelectRow("1. Putt ⭐", entry.firstPutt) {
                     onPick(
-                        "1.-Putt-Distanz",
+                        "Länge des 1. Putts",
                         opts.firstPuttDist,
                         entry.firstPutt
                     ) { e, s -> e.copy(firstPutt = s) }
+                }
+            }
+
+            /* PUTT-DIAGNOSE. Steht direkt unter der Puttlaenge, weil man beide
+               im selben Moment eintraegt — beim Verlassen des Gruens.
+               Zusammen beantworten sie die einzige Frage, die beim Putten
+               zaehlt: WORAN liegt es? Ueberwiegend kurz heisst
+               Laengenkontrolle, systematisch eine Seite heisst Startlinie —
+               zwei voellig verschiedene Uebungen. Und der Rest nach dem ersten
+               Putt trennt Dreiputts nach Ursache: langer Rest = Lag,
+               kurzer Rest = Kurzputt. */
+            item {
+                SelectRow("1. Putt ging …", entry.puttMiss) {
+                    onPick(
+                        "1. Putt ging …",
+                        opts.puttMissOpts,
+                        entry.puttMiss
+                    ) { e, s -> e.copy(puttMiss = s) }
+                }
+            }
+
+            item {
+                SelectRow("Rest danach", entry.puttRest) {
+                    onPick(
+                        "Rest nach 1. Putt",
+                        opts.puttRestOpts,
+                        entry.puttRest
+                    ) { e, s -> e.copy(puttRest = s) }
                 }
             }
         }
@@ -6826,7 +6939,7 @@ private fun DetailPage(
        eingebbar (siehe unten), und ein Zaehler, der etwas mitzaehlt, wozu es
        keine Eingabe gibt, sendet den Nutzer auf die Suche. */
     val detailCount = listOf<Any?>(
-        entry.gir, entry.firstPutt, entry.club,
+        entry.gir, entry.firstPutt, entry.puttMiss, entry.puttRest, entry.club,
         entry.lie, entry.bunkerN, entry.b1, entry.penType,
         entry.ud, entry.ss, entry.recovery
     ).count { it != null }

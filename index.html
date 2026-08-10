@@ -2149,6 +2149,23 @@ Rechenkerne. Die Selbstpruefung hat beides gemeldet (doppelte Funktionsnamen, ni
 aufgerufen). **Vor dem Bauen pruefen, ob es die Funktion schon gibt** — die Datei hat inzwischen
 ueber 680 Funktionen.
 
+### Putt-Diagnose (v2.22)
+`puttMiss` und `puttRest` je Loch, dazu `puttDiagnose(rounds)` und `puttDiagnoseHtml()` im
+Dashboard. Erfassen allein haette nicht geholfen — die Auswertung muss eine
+TRAININGSENTSCHEIDUNG liefern:
+
+- ueberwiegend **kurz** -> Laengenkontrolle oder zu zaghaft (Lag-Leiter, bewusst 30 cm hinter das
+  Loch spielen). In zwei Einheiten aenderbar.
+- systematisch **eine Seite** -> Startlinie oder Aim-Point (Tor-Drill, Leseschulung). Technik.
+- Dreiputt mit **langem Rest** -> Lag-Problem. Mit **kurzem Rest** -> Kurzputt-Problem.
+  Diese Unterscheidung ist NUR mit `puttRest` moeglich; genau deshalb sind es zwei Felder.
+
+**Unter 10 erfassten ersten Putts wird bewusst keine Aussage getroffen.** Drei Putts waeren
+Rauschen mit dem Aussehen von Erkenntnis; stattdessen steht dort, wie viele noch fehlen.
+
+`errZeit(iso, nurUhrzeit)` rechnet ISO-Zeitstempel in Ortszeit um (Fehlerprotokoll). Gespeichert
+bleibt UTC — ein absoluter, geraeteunabhaengig vergleichbarer Zeitpunkt.
+
 ### Schlaeger sind ueber den NAMEN verknuepft (v2.14)
 Wichtig fuer jede Aenderung an der Schlaegerverwaltung: Es gibt **keine id-Verknuepfung**. Alles
 haengt am Namen —
@@ -2803,6 +2820,20 @@ erkennbar ist, dass es ein Video gab.
 ## Changelog
 > **Regel:** Bei JEDER inhaltlichen Änderung hier oben einen datierten Eintrag ergänzen (neueste
 > zuerst): Datum · was geändert · betroffene Bereiche. Kurz halten.
+
+- **v2.22.0 · 2026-08-10** — **Putt-Diagnose: zwei neue Felder und eine Auswertung, die eine
+  Trainingsentscheidung liefert.** Bei Approaches gibt es `apprMiss` seit langem — beim Putten
+  fehlte die Entsprechung, obwohl dort die größte Lücke liegt (SG Putten −4,73).
+  **`puttMiss`** („1. Putt ging …"): Überwiegend kurz heißt Längenkontrolle oder zu zaghaft;
+  systematisch eine Seite heißt Startlinie oder Aim-Point. Zwei völlig verschiedene Übungen.
+  **`puttRest`** („Rest nach 1. Putt"): trennt Dreiputts nach Ursache — langer Rest = Lag-Problem,
+  kurzer Rest = Kurzputt-Problem. Ohne dieses Feld nicht unterscheidbar; genau deshalb sind es
+  zwei Felder und nicht eines.
+  Neu `puttDiagnose()` mit Tafel im Dashboard: Verteilung kurz/lang/links/rechts, ein Befund im
+  Klartext samt Übungsempfehlung und die Aufteilung der Dreiputts. **Unter 10 erfassten Putts
+  wird bewusst KEINE Aussage getroffen** — drei Putts wären Rauschen mit dem Aussehen von
+  Erkenntnis; stattdessen steht dort, wie viele noch fehlen. Auf der Uhr ebenfalls eingebaut
+  (siehe MainActivity.kt), direkt unter der Puttlänge. 12 Prüfungen.
 
 - **v2.20.0 · 2026-08-10** — **„1.-Putt-Distanz" war missverständlich beschriftet.** Gemeint ist
   die **Länge des ersten Putts** — der Abstand zum Loch, wenn man das Grün betritt —, nicht der
@@ -12342,6 +12373,27 @@ const SEED = {
    ]
   }
  },
+ "puttMiss": [
+  "Gelocht",
+  "Kurz",
+  "Lang",
+  "Links",
+  "Rechts",
+  "Kurz links",
+  "Kurz rechts",
+  "Lang links",
+  "Lang rechts"
+ ],
+ "puttRest": [
+  "Gelocht",
+  "Gimme",
+  "<0,5m",
+  "1m",
+  "1,5m",
+  "2m",
+  "3m",
+  ">3m"
+ ],
  "firstPuttDist": [
   "Holed",
   "Gimme",
@@ -16748,6 +16800,61 @@ function sgLeerHtml(rs){
    nachprüfbar. Diese Funktionen liefern die fehlende Rueckkopplung.
    ========================================================================== */
 
+/* ==========================================================================
+   PUTT-DIAGNOSE (v2.22)
+   Erfassen allein hilft nicht — die beiden neuen Felder muessen eine Frage
+   beantworten, und zwar die einzige, die beim Putten zaehlt:
+   WORAN liegt es?
+
+     · Ueberwiegend KURZ  -> Laengenkontrolle oder schlicht zu zaghaft.
+       Das ist in zwei Trainingseinheiten aenderbar (Lag-Leiter, bewusst
+       30 cm hinter das Loch spielen).
+     · Systematisch EINE SEITE -> Startlinie oder Aim-Point. Das ist
+       Technik und braucht ein Tor-Drill oder eine Leseschulung.
+     · Dreiputts trotz kurzer Reste -> Kurzputt-Problem, nicht Lag.
+     · Dreiputts mit langen Resten -> Lag-Problem, nicht Kurzputt.
+
+   Die letzten beiden lassen sich NUR mit `puttRest` unterscheiden. Genau
+   deshalb sind es zwei Felder und nicht eines.
+   ========================================================================== */
+function puttDiagnose(rounds){
+  const hs=[];
+  (rounds||[]).forEach(r=>(r.holes||[]).forEach(h=>{ if(h) hs.push(h); }));
+  const mit=hs.filter(h=>h.puttMiss);
+  if(mit.length<10) return {n:mit.length, reicht:false};
+
+  const zaehl={kurz:0, lang:0, links:0, rechts:0, gelocht:0};
+  mit.forEach(h=>{
+    const m=String(h.puttMiss).toLowerCase();
+    if(m.indexOf("gelocht")>=0){ zaehl.gelocht++; return; }
+    if(m.indexOf("kurz")>=0) zaehl.kurz++;
+    if(m.indexOf("lang")>=0) zaehl.lang++;
+    if(m.indexOf("links")>=0) zaehl.links++;
+    if(m.indexOf("rechts")>=0) zaehl.rechts++;
+  });
+  const daneben=mit.length-zaehl.gelocht;
+
+  /* Dreiputts nach Ursache trennen. „Langer Rest" heisst: Der erste Putt hat
+     die Aufgabe nicht geloest — Lag. „Kurzer Rest" heisst: Der zweite Putt
+     ist gefallen, obwohl er kurz war — Kurzputt. */
+  const drei=hs.filter(h=>(+h.putts||0)>=3 && h.puttRest);
+  const lang=r=>/(^|\s)(2m|3m|>3m)/.test(String(r));
+  const dreiLag=drei.filter(h=>lang(h.puttRest)).length;
+  const dreiKurz=drei.length-dreiLag;
+
+  let befund=null;
+  if(daneben>=8){
+    const kurzQ=zaehl.kurz/daneben, seiteQ=Math.abs(zaehl.links-zaehl.rechts)/daneben;
+    if(kurzQ>=0.55) befund={art:"kurz", txt:
+      `${Math.round(kurzQ*100)} % deiner verfehlten Putts bleiben KURZ. Das ist Längenkontrolle, keine Linie — spiel bewusst 30 cm hinter das Loch.`};
+    else if(seiteQ>=0.35) befund={art:"seite", txt:
+      `Deine Fehlputts gehen deutlich häufiger nach ${zaehl.links>zaehl.rechts?"LINKS":"RECHTS"} (${Math.max(zaehl.links,zaehl.rechts)} zu ${Math.min(zaehl.links,zaehl.rechts)}). Das ist Startlinie oder Aim-Point — ein Tor-Drill deckt es auf.`};
+    else befund={art:"gemischt", txt:
+      "Deine Fehlputts verteilen sich gleichmäßig. Kein systematischer Fehler — hier hilft Menge vor Technik."};
+  }
+  return {n:mit.length, reicht:true, zaehl, daneben, drei:drei.length, dreiLag, dreiKurz, befund};
+}
+
 /* ---------- Darstellung: SG-Block fuers Dashboard ---------- */
 function sgFmt(v){ return v==null ? "–" : (v>0?"+":"")+v.toFixed(2).replace(".",","); }
 function sgClass(v){ return v==null?"flat":(v>0.15?"up":v<-0.15?"down":"flat"); }
@@ -16936,6 +17043,38 @@ function openCourseReport(courseName){
     historisch am meisten. Dort lohnt der sichere Gameplan-Modus — die starken Löcher tragen
     die Runde.</p>
     <button class="btn ghost" style="margin-top:10px" onclick="closeSheet()">Schließen</button>`);
+}
+
+/* Die Diagnose als Tafel — nur wenn genug Daten da sind. Eine Aussage aus
+   drei Putts waere Rauschen mit Aussehen von Erkenntnis. */
+function puttDiagnoseHtml(){
+  const d=puttDiagnose(sortedRounds().slice(-15));
+  if(!d.reicht){
+    return `<div class="eyebrow">Putt-Diagnose</div><div class="card pad">
+      <p class="note" style="margin:0">Ab 10 erfassten ersten Putts erscheint hier, WOHIN
+      deine Fehlputts gehen — kurz, lang oder zu einer Seite. Bisher ${d.n}.
+      Das Feld „1. Putt ging …" steht in der Eingabemaske direkt unter der Puttlänge.</p></div>`;
+  }
+  const z=d.zaehl;
+  const bal=(lab,v)=>{
+    const p=d.daneben?Math.round(v/d.daneben*100):0;
+    return `<div class="stat-line"><span>${lab}</span>
+      <b>${v} <span class="r-s">${p} %</span></b></div>`;
+  };
+  return `<div class="eyebrow">Putt-Diagnose · ${d.n} erste Putts</div>
+    <div class="card pad">
+      ${bal("Kurz geblieben", z.kurz)}
+      ${bal("Zu lang", z.lang)}
+      ${bal("Nach links", z.links)}
+      ${bal("Nach rechts", z.rechts)}
+      <div class="stat-line"><span>Gelocht</span><b>${z.gelocht}</b></div>
+      ${d.befund?`<div class="pc-plan" style="margin-top:10px">🎯 ${esc(d.befund.txt)}</div>`:""}
+      ${d.drei?`<p class="note" style="margin-bottom:0"><b>${d.drei} Dreiputts</b> —
+        davon ${d.dreiLag} mit langem Rest nach dem ersten Putt (<b>Lag-Problem</b>)
+        und ${d.dreiKurz} mit kurzem Rest (<b>Kurzputt-Problem</b>).
+        Das sind verschiedene Baustellen: Lag übt man mit der Meter-Leiter,
+        Kurzputt mit dem Tor-Drill.</p>`:""}
+    </div>`;
 }
 
 function sgVerlaufHtml(){
@@ -17480,7 +17619,7 @@ function renderDash(){
   /* Reihenfolge nach Nutzen: Momentaufnahme (SG) → Entwicklung (Verlauf) →
      Ziel (Abstand zum Wunsch-Handicap) → Handlung (Aufgaben) → Ursachen
      (Katastrophen). Das ist der Kreis von Messen zu Trainieren. */
-  h = hWarm + sgDashHtml(10) + sgVerlaufHtml() + hcpGapHtml() + tasksHtml()
+  h = hWarm + sgDashHtml(10) + puttDiagnoseHtml() + sgVerlaufHtml() + hcpGapHtml() + tasksHtml()
       + h + sgDisasterHtml(10);
   $("#v-dash").innerHTML=h;
 }
@@ -19133,6 +19272,8 @@ function renderPlay(){
     <div class="play-quick2">
       ${playSel('appr','Approach-Distanz ⭐',DB.approachBuckets||[])}
       ${playSel('firstPutt','Länge des 1. Putts ⭐',DB.firstPuttDist||[])}
+      ${playSel('puttMiss','1. Putt ging …',DB.puttMiss||[])}
+      ${playSel('puttRest','Rest nach 1. Putt',DB.puttRest||[])}
       <p class="note" style="grid-column:1/-1;margin:2px 0 0">
         <b>Länge des 1. Putts</b> = Abstand zum Loch, wenn du das Grün betrittst — nicht das,
         was nach dem Putt übrig bleibt. Aus dieser Zahl berechnet sich das Strokes Gained beim
@@ -23331,6 +23472,7 @@ function openAddRound(existing, draftRound){
     const teeOpts=DB.teeResults.map(t=>`<option value="${t}">${t}</option>`).join("");
     const opt=(arr)=>`<option value="">–</option>`+arr.map(x=>`<option value="${esc(x)}">${esc(x)}</option>`).join("");
     const fpOpts=opt(DB.firstPuttDist||[]), qOpts=opt(DB.qualityOpts||[]), clubOpts=opt(DB.teeClubs||[]),
+      pmOpts=opt(DB.puttMiss||[]), prOpts=opt(DB.puttRest||[]),
       lieOpts=opt(DB.approachLies||[]), amOpts=opt(DB.approachMiss||[]),
     acOpts=opt((DB.clubDistances||[]).map(c=>c.club).filter(Boolean)), btOpts=opt(DB.bunkerTypes||[]), ptOpts=opt(DB.penaltyTypes||[]), jn=opt(["Ja","Nein"]);
     const fS="margin:0";
@@ -23355,6 +23497,8 @@ function openAddRound(existing, draftRound){
         <div class="in-grid" style="grid-template-columns:1fr 1fr;margin-top:8px">
           <div class="field" style="${fS}"><label>Approach-Distanz ⭐</label><select class="hin" data-f="appr"><option value="">–</option>${apprOpts}</select></div>
           <div class="field" style="${fS}"><label>Länge des 1. Putts ⭐</label><select class="hin" data-f="firstPutt">${fpOpts}</select></div>
+      <div class="field" style="${fS}"><label>1. Putt ging …</label><select class="hin" data-f="puttMiss">${pmOpts}</select></div>
+      <div class="field" style="${fS}"><label>Rest nach 1. Putt</label><select class="hin" data-f="puttRest">${prOpts}</select></div>
         </div>
         <div class="in-grid" style="grid-template-columns:1fr auto;align-items:end;margin-top:8px">
           <div class="field num" style="${fS}"><label>Rest zur Fahne (m)</label><input inputmode="decimal" class="hin" data-f="distToPin" value="${ex.distToPin??''}" placeholder="–"></div>
@@ -24638,7 +24782,7 @@ function openComp(idx){
 /* ================= NAV ================= */
 let current="dash";
 const FAB_ACTION={rounds:startRound,comp:openAddComp,notes:openAddNote,swing:openSwingEdit};
-const APP_VERSION="2.20.0"; // App-Anzeigeversion (NICHT SEED.version! Diese bei jeder Änderung erhöhen)
+const APP_VERSION="2.22.0"; // App-Anzeigeversion (NICHT SEED.version! Diese bei jeder Änderung erhöhen)
 /* ---------- Darstellung: Hell/Dunkel (DB.ui.theme = "auto" | "light" | "dark") ---------- */
 const _darkMQ = (window.matchMedia? window.matchMedia("(prefers-color-scheme: dark)") : null);
 function themeSetting(){ return (DB && DB.ui && DB.ui.theme) || "auto"; }
@@ -25275,6 +25419,21 @@ function ensureDefaults(){
      das Loch faellt aus der Strokes-Gained-Zerlegung. sgBandMid("Holed") = 0. */
   if(Array.isArray(DB.firstPuttDist) && DB.firstPuttDist.indexOf("Holed")<0)
     DB.firstPuttDist.unshift("Holed");
+
+  /* PUTT-DIAGNOSE (v2.22). Bei Approaches gibt es `apprMiss` seit langem —
+     beim Putten fehlte die Entsprechung, obwohl dort die groesste Luecke liegt.
+     Die beiden Felder beantworten zusammen die entscheidende Frage:
+       · `puttMiss`  — WOHIN ging der erste Putt daneben? Ueberwiegend KURZ
+         heisst Laengenkontrolle oder Mut; systematisch auf EINER Seite heisst
+         Startlinie oder Aim-Point. Zwei voellig verschiedene Uebungen.
+       · `puttRest`  — was blieb NACH dem ersten Putt liegen? Erst damit laesst
+         sich ein Dreiputt zuordnen: aus 12 m auf 3 m liegen gelassen ist ein
+         Lag-Problem, aus 12 m auf 1 m und dann verfehlt ein Kurzputt-Problem. */
+  if(!Array.isArray(DB.puttMiss) || !DB.puttMiss.length)
+    DB.puttMiss=["Gelocht","Kurz","Lang","Links","Rechts",
+                 "Kurz links","Kurz rechts","Lang links","Lang rechts"];
+  if(!Array.isArray(DB.puttRest) || !DB.puttRest.length)
+    DB.puttRest=["Gelocht","Gimme","<0,5m","1m","1,5m","2m","3m",">3m"];
 
   /* Schwunglaenge je Schlag (v1.98). Halbe und Dreiviertel-Wedges sowie
      Punch-Schlaege haben voellig andere Laengen als der volle Schwung — ohne
