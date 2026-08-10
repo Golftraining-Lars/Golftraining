@@ -660,6 +660,13 @@
   .pf-bottom{flex:0 0 auto;z-index:6;
     padding:10px 12px calc(env(safe-area-inset-bottom) + 12px);
     background:linear-gradient(to top,rgba(8,26,15,.82),rgba(8,26,15,.55))}
+  /* Zweispaltige Zielabstand-Tafel: Modellweg gegen eigenes Defizit. */
+  .gap-row{display:grid;grid-template-columns:1fr auto auto;gap:10px;align-items:baseline;
+    padding:7px 0;border-top:1px solid var(--line-soft)}
+  .gap-head{border-top:none;font-size:11px;letter-spacing:.4px;text-transform:uppercase;
+    color:var(--ink-soft)}
+  .gap-a,.gap-b{font-family:var(--mono);text-align:right;min-width:78px}
+  .gap-b{min-width:64px}
   .pf-mode{display:flex;gap:8px;align-items:center;margin-bottom:8px}
   .pf-mode .risk-seg{flex:1;margin:0}
   .pf-mode .risk-seg button{padding:9px 6px;font-size:12.5px}
@@ -2048,6 +2055,32 @@ bekommt einen Eintrag je Wegpunkt, der Gruen-Punkt ist aber keiner. Auf einem Pa
 ueber `STRAT.approach()` — und dort zaehlt eine ANDERE Zahl: **Gruen getroffen** (plus Sand ab
 8 %, Strafe ab 5 %). `pfOpen`/`pfClose`/`pfRender`/`playAfterHole` steuern die Vollbildebene.
 
+### Zwei Bezugspunkte, die sich zu widersprechen SCHIENEN (v2.01)
+Zwei Tafeln zeigten scheinbar Gegensaetzliches: Strokes Gained sagte „langes Spiel +4,04 — deine
+Staerke", der Zielabstand sagte „langes Spiel 13,6 Schlaege — dein groesstes Defizit". Beides
+stimmt, weil sie gegen VERSCHIEDENE Bezugspunkte rechnen:
+
+- **Strokes Gained** vergleicht mit einem Spieler DEINES Niveaus (ES-Basis). „+4,04" heisst:
+  besser als ein typischer 20er. Das ist die Staerkenverteilung INNERHALB des Handicaps.
+- **Weg zum Ziel** ist eine Modellrechnung aus der Erwartungswert-Tabelle: wie gross der Abstand
+  zwischen zwei Niveaus UEBERHAUPT ist und wie er sich typischerweise verteilt. Sagt nichts ueber
+  den Spieler — beim Golf liegt der groesste absolute Unterschied nun mal im langen Spiel.
+
+Ein Spieler kann also im langen Spiel ueberdurchschnittlich fuer sein Handicap sein UND dort den
+laengsten Weg vor sich haben. Kein Widerspruch, sondern zwei Fragen.
+
+**Die Tafel zeigt jetzt beide Spalten nebeneinander** — „Weg dorthin" (Modell) und „Bei dir
+offen" (eigenes negatives SG) — und leitet daraus zwei Saetze ab:
+- **⚡ Schnellster Hebel** = groesstes eigenes Defizit. Aufholen kostet keine neue Technik.
+  Liegt es ueber dem Modellanteil, wird das ausdruecklich gesagt: dann ist dort mehr offen, als
+  fuer das Ziel ueberhaupt noetig waere.
+- **🏔 Laengste Strecke** = groesster Modellanteil, mit dem Hinweis, wenn man dort bereits
+  ueberdurchschnittlich ist.
+
+**Ausserdem:** Die SG-Kategorien summieren sich nicht zwingend zum Gesamtwert, weil jede nur
+ueber die Runden gemittelt wird, in denen sie auswertbar war. Weicht die Summe um mehr als
+0,15 ab, steht das jetzt als Hinweis darunter — vorher sah es nach einem Rechenfehler aus.
+
 ### Der Kreis von Messen zu Trainieren (v1.92–1.93)
 Die App mass gut, aber der Kreis schloss sich nicht: Empfehlungen wurden ausgesprochen und dann
 vergessen, und ob Training wirkt, war nicht nachpruefbar. Sieben Ergaenzungen:
@@ -2607,6 +2640,35 @@ erkennbar ist, dass es ein Video gab.
 ## Changelog
 > **Regel:** Bei JEDER inhaltlichen Änderung hier oben einen datierten Eintrag ergänzen (neueste
 > zuerst): Datum · was geändert · betroffene Bereiche. Kurz halten.
+
+- **v2.02.0 · 2026-08-10** — **BUGFIX: Der Caddy baute aus großer Entfernung absurde Ketten.**
+  Aus 3,2 km rechnete `_aimBuild()` von der eigenen Position: 3077 m Rest geteilt durch 215 m
+  Schlägerlänge ergab **15 Schläge**, und die Karte stapelte vierzehn „Layup"-Beschriftungen
+  übereinander. Der „zu weit"-Fall fehlte in der Bedingung für den Startpunkt. Jetzt gilt:
+  **zu weit weg = wie am Abschlag planen** — also der Plan FÜRS LOCH mit Par−2 Schlägen, genau
+  wie gewünscht. Zweites Sicherheitsnetz: die Schlagzahl ist auf 4 gedeckelt, mehr ist auf keinem
+  Loch ein sinnvoller Plan. Nachgewiesen: aus 3,2 km identisch zum Abschlagsplan (Driver → PW),
+  auf der Bahn weiterhin ab eigener Position.
+
+- **v2.01.0 · 2026-08-10** — **Zielabstand und Strokes Gained schienen sich zu widersprechen.**
+  SG rechnet gegen einen Spieler DEINES Niveaus („langes Spiel +4,04" = besser als ein typischer
+  20er), der Zielabstand ist eine Modellrechnung über den Abstand ZWISCHEN zwei Niveaus („13,6
+  Schläge") — beim Golf liegt der größte absolute Unterschied im langen Spiel, unabhängig vom
+  Spieler. Beides stimmt, die Darstellung machte es nur nicht klar. Die Tafel zeigt jetzt beide
+  Spalten nebeneinander („Weg dorthin" / „Bei dir offen") und leitet ab: **⚡ Schnellster Hebel**
+  (größtes eigenes Defizit — Aufholen ohne neue Technik) und **🏔 Längste Strecke** (größter
+  Modellanteil). Zusätzlich weist das SG-Feld jetzt aus, wenn die Kategorien sich nicht zum
+  Gesamtwert addieren — das liegt an unterschiedlich vielen auswertbaren Löchern je Kategorie und
+  sah bisher nach einem Rechenfehler aus.
+
+- **v2.00.0 · 2026-08-10** — **BUGFIX „Unexpected end of input": Der Knopf „als Trainingsaufgabe"
+  tat nichts.** Der Handler setzte `${JSON.stringify(sgDrillHint(kat))}` in ein `onclick="…"` —
+  und JSON.stringify liefert **doppelte** Anführungszeichen. Die beenden das HTML-Attribut
+  vorzeitig, der Rest des Handlers wird abgeschnitten, und der Browser meldet einen SyntaxError.
+  Im Quelltext sieht dabei alles richtig aus. Behoben an der Wurzel: `taskAdd(kat)` holt den Text
+  jetzt selbst aus `sgDrillHint(kat)`, es wird gar kein Text mehr durchgereicht (beide
+  Aufrufstellen). **Selbstprüfung Nr. 8b** meldet die Fehlerklasse künftig als Fehler, drei
+  Prüfungen im Prüfstand sichern sie ab.
 
 - **v1.99.0 · 2026-08-10** — **KORREKTUR: Index ausschließlich aus Turnieren.** In v1.98 hatte
   ich die Anforderung falsch herum umgesetzt — statt EDS abzuschaffen ließ ich jede erfasste
@@ -4218,6 +4280,21 @@ function selfCheck(src){
   if(!views.length) add("warn","Keine Ansichten erkannt — Prüfung 8 greift nicht",[]);
   else if(fehlt.length) add("err","Ansicht ohne Render-Funktion (bliebe leer)",fehlt);
   else add("ok","Alle "+views.length+" Ansichten haben eine Render-Funktion",[]);
+
+  /* 8b) Doppelte Anfuehrungszeichen in onclick-Attributen.
+     `${JSON.stringify(...)}` in einem onclick="…" beendet das Attribut
+     vorzeitig — der Handler wird abgeschnitten und der Browser meldet
+     „SyntaxError: Unexpected end of input". Der Knopf tut dann gar nichts,
+     ohne dass im Quelltext etwas auffaellt. Genau so ist der Knopf
+     „als Trainingsaufgabe" ausgefallen. */
+  {
+    const treffer=[];
+    const re8b=/onclick="[^"]{0,300}JSON\.stringify/g;
+    let m8; while((m8=re8b.exec(src))) treffer.push(src.slice(0,m8.index).split("\n").length);
+    if(treffer.length) add("err","JSON.stringify in onclick — bricht das Attribut auf",
+      treffer.map(z=>"Zeile "+z));
+    else add("ok","Keine JSON.stringify-Einsetzung in onclick",[]);
+  }
 
   /* 9) Laufzeitfehler dieser und frueherer Sitzungen.
      Die Selbstpruefung ist statisch — sie haette den F-Fehler nie gefunden
@@ -16015,15 +16092,30 @@ function sgDashHtml(nRunden){
   return `<div class="eyebrow eyebrow-row"><span>Strokes Gained · letzte ${sum.runden} Runden</span>
       <span class="app-ver">${sgFmt(a.total)} / Runde</span></div>
     <div class="card pad">
-      <p class="note" style="margin-top:0">Gegen einen Spieler deines Niveaus (ES-Basis
-      ${STRAT.esHcp().toFixed(1).replace(".",",")}). Plus heißt gewonnen, Minus verloren.</p>
+      <p class="note" style="margin-top:0">Gegen einen Spieler <b>deines Niveaus</b>
+      (ES-Basis ${STRAT.esHcp().toFixed(1).replace(".",",")}). Plus heißt gewonnen, Minus verloren.
+      Es geht also um deine Stärkenverteilung INNERHALB deines Handicaps — nicht um den Abstand
+      zu Scratch. Den zeigt „Weg zu Handicap …" weiter unten.</p>
       ${bars}
       <div style="margin-top:10px">${rows}</div>
       ${schwach?`<div class="pc-plan" style="margin-top:10px">🎯 Größte Lücke: <b>${schwach[1]}</b>
         (${sgFmt(a[schwach[0]])} je Runde) — ${sgDrillHint(schwach[0])}
         <button class="btn ghost xs" style="margin-top:8px"
-          onclick="taskAdd('${schwach[0]}', ${JSON.stringify(sgDrillHint(schwach[0]))}, 2); renderAll(); toast('Aufgabe angelegt — Fortschritt wird verfolgt')">
+          onclick="taskAdd('${schwach[0]}', null, 2); renderAll(); toast('Aufgabe angelegt — Fortschritt wird verfolgt')">
           ＋ als Trainingsaufgabe übernehmen</button></div>`:""}
+      ${(()=>{
+        /* Die Kategorien summieren sich NICHT zwingend zum Gesamtwert: jede
+           wird nur ueber die Runden gemittelt, in denen sie auswertbar war —
+           und das sind je Kategorie unterschiedlich viele. Ohne diesen Hinweis
+           sieht es nach einem Rechenfehler aus. */
+        const teil=["lang","app","kurz","putt","straf"]
+          .map(k=>a[k]!=null?a[k]:0).reduce((x,y)=>x+y,0);
+        const diff=Math.abs(teil-(a.total!=null?a.total:0));
+        return diff>0.15 ? `<p class="note">Die Kategorien ergeben zusammen
+          ${sgFmt(teil)}, der Gesamtwert lautet ${sgFmt(a.total)}. Die Differenz entsteht,
+          weil jede Kategorie nur über die Runden gemittelt wird, in denen sie auswertbar war —
+          siehe unten.</p>` : "";
+      })()}
       ${sgCoverageHtml(rs)}
     </div>`;
 }
@@ -16231,18 +16323,67 @@ function hcpGapHtml(){
   const ziel=DB.profile && (DB.profile.targetHcp!=null ? DB.profile.targetHcp : DB.profile.zielHcp);
   const g=hcpGap(ziel);
   if(!g) return "";
-  const p=g.summe>0?g.teile.map(t=>Math.round(t.gap/g.summe*100)):[];
+  const sum=sgSummary(sortedRounds().slice(-10));
+  const avg=sum?sum.avg:null;
+
+  /* ZWEI SPALTEN, ZWEI FRAGEN — vorher standen sie in getrennten Tafeln und
+     schienen sich zu widersprechen:
+
+     „Weg dorthin"  = Modellrechnung aus der Erwartungswert-Tabelle. Wie gross
+        ist der Abstand zwischen deinem und dem Zielniveau UEBERHAUPT, und wie
+        verteilt er sich typischerweise. Sagt nichts ueber DICH — beim Golf
+        liegt der groesste absolute Unterschied nun mal im langen Spiel.
+
+     „Bei dir offen" = dein eigenes Strokes Gained gegen Spieler DEINES Niveaus.
+        Nur negative Werte zaehlen: Das ist verschenktes Potenzial, das ohne
+        technische Umstellung zurueckzuholen ist.
+
+     Deshalb kann das lange Spiel gleichzeitig deine STAERKE sein (positives SG)
+     und die laengste Strecke zum Ziel (grosser Modellabstand). Das ist kein
+     Widerspruch, sondern die Antwort auf zwei verschiedene Fragen. */
+  const zeilen=g.teile.map(t=>{
+    const eigen = (avg && avg[t.k]!=null) ? avg[t.k] : null;
+    const offen = (eigen!=null && eigen<0) ? -eigen : 0;
+    const pct = g.summe>0 ? Math.round(t.gap/g.summe*100) : 0;
+    return {...t, eigen, offen, pct};
+  });
+  const laengste = zeilen.slice().sort((a,b)=>b.gap-a.gap)[0];
+  const schnellste = zeilen.slice().sort((a,b)=>b.offen-a.offen)[0];
+
+  const rows=zeilen.map(z=>`<div class="gap-row">
+      <span class="gap-lab">${esc(z.lab)}</span>
+      <b class="gap-a">${z.gap.toFixed(1).replace(".",",")}<span class="r-s"> (${z.pct} %)</span></b>
+      <b class="gap-b ${z.offen>0?'down':'flat'}">${z.offen>0?z.offen.toFixed(1).replace(".",","):"–"}</b>
+    </div>`).join("");
+
   return `<div class="eyebrow">Weg zu Handicap ${String(g.ziel).replace(".",",")}</div>
     <div class="card pad">
-      <p class="note" style="margin-top:0">Von deinem Spielniveau
-      (${g.jetzt.toFixed(1).replace(".",",")}) zum Ziel fehlen rechnerisch
-      <b>${g.summe.toFixed(1).replace(".",",")} Schläge</b> je Runde. So verteilen sie sich
-      auf die Kategorien:</p>
-      ${g.teile.map((t,i)=>`<div class="stat-line"><span>${esc(t.lab)}</span>
-        <b>${t.gap.toFixed(1).replace(".",",")} <span class="r-s">(${p[i]||0} %)</span></b></div>`).join("")}
-      <p class="note">Modellrechnung aus der Erwartungswert-Tabelle: Sie zeigt, wo ein Spieler
-      des Zielniveaus typischerweise besser ist. <b>Wo genau DU am schnellsten Boden gutmachst,
-      sagt dir der Strokes-Gained-Verlauf</b> — vergleiche beide.</p>
+      <div class="gap-row gap-head">
+        <span class="gap-lab"></span>
+        <b class="gap-a">Weg dorthin</b>
+        <b class="gap-b">Bei dir offen</b>
+      </div>
+      ${rows}
+      <p class="note"><b>Weg dorthin</b> — Modellrechnung: wie sich der Abstand von
+      ${g.jetzt.toFixed(1).replace(".",",")} zu ${String(g.ziel).replace(".",",")}
+      (${g.summe.toFixed(1).replace(".",",")} Schläge je Runde) typischerweise verteilt.
+      Sagt nichts über dich; beim Golf liegt der größte absolute Unterschied im langen Spiel.<br>
+      <b>Bei dir offen</b> — dein Strokes Gained gegen Spieler deines Niveaus, nur die Minusseite.
+      Das ist verschenktes Potenzial, das ohne technische Umstellung zurückzuholen ist.</p>
+      ${schnellste && schnellste.offen>0.3 ? `<div class="pc-plan">
+        ⚡ <b>Schnellster Hebel: ${esc(schnellste.lab)}</b> — dort liegst du
+        ${schnellste.offen.toFixed(1).replace(".",",")} Schläge unter deinem eigenen Niveau.
+        ${schnellste.gap < schnellste.offen
+          ? `Bemerkenswert: Das ist MEHR, als für ${String(g.ziel).replace(".",",")} überhaupt
+             nötig wäre (${schnellste.gap.toFixed(1).replace(".",",")}). Reines Aufholen, keine
+             neue Technik.`
+          : `Aufholen kostet nichts an Technik — das ist der günstigste Weg.`}
+      </div>`:""}
+      ${laengste ? `<div class="r-s" style="margin-top:8px">🏔 Längste Strecke:
+        <b>${esc(laengste.lab)}</b> (${laengste.gap.toFixed(1).replace(".",",")} Schläge).
+        ${(avg && avg[laengste.k]!=null && avg[laengste.k]>0)
+          ? "Dort bist du für dein Niveau bereits überdurchschnittlich — das ist die Langstrecke, nicht der schnelle Gewinn."
+          : "Hier liegt zugleich der größte Teil des Weges."}</div>`:""}
     </div>`;
 }
 
@@ -16257,7 +16398,14 @@ function hcpGapHtml(){
    hat. DB.tasks = [{id, kat, text, start, ts, faellig, sgStart, erledigt}]
    ========================================================================== */
 function tasksEnsure(){ if(!Array.isArray(DB.tasks)) DB.tasks=[]; return DB.tasks; }
+/* `text` ist optional und wird sonst aus sgDrillHint(kat) geholt.
+   WARUM: Vorher setzte der Aufrufer `${JSON.stringify(sgDrillHint(kat))}` in ein
+   onclick="…"-Attribut ein. JSON.stringify liefert DOPPELTE Anfuehrungszeichen —
+   die beenden das Attribut vorzeitig, der Rest des Handlers wird abgeschnitten
+   und der Browser meldet „SyntaxError: Unexpected end of input". Der Knopf tat
+   nichts. Der einzige verlaessliche Weg ist, gar keinen Text durchzureichen. */
 function taskAdd(kat, text, wochen){
+  if(text==null && typeof sgDrillHint==="function") text=sgDrillHint(kat);
   tasksEnsure();
   const sum=sgSummary(sortedRounds().slice(-10));
   const start=(sum && sum.avg && sum.avg[kat]!=null) ? sum.avg[kat] : null;
@@ -18102,7 +18250,8 @@ function pfCaddyKurz(){
         if(L&&L.club) plan=" · ab Tee "+escShort(L.club)+(L.dist?` ${L.dist} m`:""); }
       catch(e){ logErr("pfCaddyKurz:far", e, true); }
       return `<button type="button" class="pf-cad-line" onclick="pfInfoToggle()">
-        📍 <b>${tf>=1000?(tf/1000).toFixed(1).replace(".",",")+" km":tf+" m"}</b> — zu weit${esc(plan)}
+        📍 <b>${tf>=1000?(tf/1000).toFixed(1).replace(".",",")+" km":tf+" m"}</b> — zu weit ·
+        <b>Lochplan</b>${esc(plan)}
         <span class="pf-cad-more">▾</span></button>`; } }
   const fmb=greenFMB(PLAY.here,h.hole);
   const now=playCaddyNow();
@@ -18570,7 +18719,13 @@ function _aimBuild(strategic){
      Plan von dort und aenderte sich nie. Am Tee (unter 30 m) bleibt es beim
      Abschlag, sonst ist der eigene Standort der Startpunkt; das ist die
      Schlagfolge, die von HIER aus noch kommt. */
-  const amTee = (!PLAY.here) || (hr.tee && geoDist(PLAY.here,hr.tee)<30);
+  /* ZU WEIT WEG = wie am Abschlag planen. Ohne diesen Fall rechnete die Kette
+     von der eigenen Position aus: aus 3077 m Rest und 215 m Schlaegerlaenge
+     wurden 15 Schlaege — die Karte zeigte vierzehn uebereinandergestapelte
+     „Layup"-Beschriftungen. Sinnvoll ist dann der Plan FUER DAS LOCH, also
+     ab Tee mit Par−2 Schlaegen. */
+  const zuWeit = (typeof playTooFar==="function") ? (playTooFar()!=null) : false;
+  const amTee = zuWeit || (!PLAY.here) || (hr.tee && geoDist(PLAY.here,hr.tee)<30);
   const start = amTee ? (hr.tee||PLAY.here||hr.green) : PLAY.here;
   /* Wie viele Schlaege bis zum Gruen? Vom Tee Par−2 (GIR). Von unterwegs so
      viele, wie die Restdistanz mit dem laengsten Schlaeger noch braucht —
@@ -18579,7 +18734,10 @@ function _aimBuild(strategic){
   if(!amTee){
     const reach0=clubs.length?(clubs[0].carry||clubs[0].dist):200;
     const restNow=geoDist(start,hr.green);
-    nShots=Math.max(1, Math.ceil(restNow/Math.max(60,reach0)));
+    /* Deckel bei 4: mehr Schlaege bis zum Gruen sind auf keinem Loch ein
+       sinnvoller PLAN. Zweites Netz gegen absurde Ketten, falls die
+       Entfernungspruefung einmal nicht greift. */
+    nShots=Math.max(1, Math.min(4, Math.ceil(restNow/Math.max(60,reach0))));
   }
   const reach=clubs[0].carry||clubs[0].dist;
   const pts=[start], evs=[];
@@ -20087,7 +20245,7 @@ function renderHeute(){
           <span class="r-s">${sgFmt(sum.avg[schwach[0]])} je Runde</span></div>
         <div class="note" style="margin-top:2px">${esc(sgDrillHint(schwach[0]))}</div>
         <button class="btn ghost xs" style="margin-top:8px"
-          onclick="taskAdd('${schwach[0]}', ${JSON.stringify(sgDrillHint(schwach[0]))}, 2); renderAll(); toast('Aufgabe angelegt')">
+          onclick="taskAdd('${schwach[0]}', null, 2); renderAll(); toast('Aufgabe angelegt')">
           ＋ als Trainingsaufgabe</button>
       </div>`;
     } else if(lastR){ const e=computeRound(lastR);
@@ -23523,7 +23681,7 @@ function openComp(idx){
 /* ================= NAV ================= */
 let current="dash";
 const FAB_ACTION={rounds:startRound,comp:openAddComp,notes:openAddNote,swing:openSwingEdit};
-const APP_VERSION="1.99.0"; // App-Anzeigeversion (NICHT SEED.version! Diese bei jeder Änderung erhöhen)
+const APP_VERSION="2.02.0"; // App-Anzeigeversion (NICHT SEED.version! Diese bei jeder Änderung erhöhen)
 /* ---------- Darstellung: Hell/Dunkel (DB.ui.theme = "auto" | "light" | "dark") ---------- */
 const _darkMQ = (window.matchMedia? window.matchMedia("(prefers-color-scheme: dark)") : null);
 function themeSetting(){ return (DB && DB.ui && DB.ui.theme) || "auto"; }

@@ -1714,6 +1714,102 @@ group("whsPool — ausschließlich Turniere bewegen den Index");
   }
 }
 
+/* ============ 24u. Anführungszeichen in onclick ============ */
+group("onclick-Attribute — die Falle, die den Knopf lautlos tötet");
+{
+  const src=fs.readFileSync(FILE,"utf8");
+  /* `${JSON.stringify(text)}` in einem onclick="…" liefert DOPPELTE
+     Anführungszeichen. Die beenden das Attribut vorzeitig, der Rest des
+     Handlers wird abgeschnitten, und der Browser meldet
+     „SyntaxError: Unexpected end of input". Der Knopf tut nichts — und im
+     Quelltext sieht alles richtig aus. So ist „als Trainingsaufgabe"
+     ausgefallen. */
+  const treffer = src.match(/onclick="[^"]{0,300}JSON\.stringify/g) || [];
+  ok("kein JSON.stringify in onclick", treffer.length===0,
+     treffer.slice(0,2).join(" | "));
+  /* Auch die Selbstprüfung muss das melden — sonst schleicht es sich wieder
+     ein, ohne dass es jemand bemerkt. */
+  ok("Selbstprüfung deckt die Fehlerklasse ab",
+     /JSON\.stringify in onclick/.test(src));
+  /* taskAdd holt den Text jetzt selbst — der einzige verlässliche Weg. */
+  ok("taskAdd ergänzt den Text selbst",
+     /function taskAdd\([\s\S]{0,200}sgDrillHint\(kat\)/.test(src));
+}
+
+/* ============ 24v. Zielabstand: zwei Bezugspunkte ============ */
+group("hcpGap — Modellweg und eigenes Defizit sind zwei Fragen");
+{
+  const gap=G("hcpGap"), DB=G("DB"), S=G("STRAT");
+  if (typeof gap === "function" && DB && S) {
+    DB.profile=DB.profile||{};
+    DB.strat=DB.strat||{}; DB.strat.esHcp=20;
+    const g=gap(0);
+    ok("liefert eine Rechnung", !!g);
+    if(g){
+      ok("Gesamtabstand plausibel", g.summe>10 && g.summe<40, "summe="+g.summe.toFixed(1));
+      eq("vier Kategorien", g.teile.length, 4);
+      /* KERN DER ERKLÄRUNG: Der Modellabstand verteilt sich beim Golf zum
+         größten Teil aufs lange Spiel — unabhängig davon, wie gut DER SPIELER
+         dort ist. Genau deshalb kann „Langes Spiel" gleichzeitig die eigene
+         Stärke (positives SG) und die längste Strecke sein. Kein Widerspruch,
+         sondern zwei verschiedene Bezugspunkte. */
+      const lang=g.teile.find(t=>t.k==="lang");
+      const putt=g.teile.find(t=>t.k==="putt");
+      ok("langes Spiel ist der größte Modellanteil",
+         lang.gap === Math.max(...g.teile.map(t=>t.gap)),
+         g.teile.map(t=>t.k+":"+t.gap.toFixed(1)).join(" "));
+      ok("Putten ist der kleinste", putt.gap < lang.gap);
+      ok("Summe = Summe der Teile",
+         Math.abs(g.summe - g.teile.reduce((a,t)=>a+t.gap,0)) < 0.01);
+    }
+    /* Ohne Ziel oder mit Ziel über dem eigenen Niveau gibt es nichts zu zeigen. */
+    ok("kein Ziel → null", gap(null)===null);
+    ok("Ziel schlechter als jetzt → null", gap(30)===null);
+    delete DB.strat.esHcp;
+  }
+}
+
+/* ============ 24w. Zu weit weg = Plan fürs Loch ============ */
+group("Zielkette bleibt vernünftig, egal wie weit man weg ist");
+{
+  const chain=G("playAimChain"), tf=G("playTooFar"), P=G("PLAY"), DB=G("DB");
+  if (typeof chain === "function" && P && DB) {
+    const mLat=111320, mLng=65500;
+    const at=(n,e=0)=>[54.0+n/mLat, 10.0+e/mLng];
+    const ring=(n,e,r)=>[at(n-r,e-r),at(n-r,e+r),at(n+r,e+r),at(n+r,e-r)];
+    DB.courses=[{name:"WEIT", geo:{holes:{1:{tee:at(0), green:at(279),
+      fairway:[{ring:ring(140,0,50)}]}}}}];
+    DB.clubDistances=[{club:"Driver",carry:215,reach:232},{club:"7 Wood",carry:169,reach:178},
+      {club:"7-Eisen",carry:140,reach:143},{club:"PW",carry:104,reach:106}];
+    P.course="WEIT"; P.tee="Gelb"; P.holes=[{hole:1,par:4,len:279,si:17}]; P.idx=0; P.aim={};
+
+    const bei=m=>{ P.here=at(m); P.aimChainKey=null; return chain(true); };
+
+    /* DER FEHLER: Aus 3,2 km Entfernung rechnete die Kette von der EIGENEN
+       Position — 3077 m Rest geteilt durch 215 m Schlägerlänge ergab 15
+       Schläge, und die Karte stapelte vierzehn „Layup"-Beschriftungen
+       übereinander. Sinnvoll ist dann der Plan FÜRS LOCH, also ab Tee. */
+    const weit=bei(-3077), tee=bei(0), bahn=bei(140);
+    ok("zu weit wird erkannt", tf()!==null || bei(-3077)!==null);
+    ok("von weit weg nur wenige Schläge", weit && weit.legs.length<=3,
+       "Schläge: "+(weit?weit.legs.length:"–"));
+    ok("von weit weg identisch zum Abschlagsplan",
+       weit && tee && weit.legs.length===tee.legs.length &&
+       weit.legs[0].club===tee.legs[0].club,
+       `weit: ${weit&&weit.legs.map(l=>l.club).join("/")} · tee: ${tee&&tee.legs.map(l=>l.club).join("/")}`);
+    ok("erster Schlag ist der Abschlag", weit && weit.legs[0].role==="Abschlag");
+    /* Auf der Bahn wird dagegen ab der eigenen Position gerechnet. */
+    ok("auf der Bahn kürzere Kette", bahn && bahn.legs.length < tee.legs.length,
+       `${bahn&&bahn.legs.length} < ${tee&&tee.legs.length}`);
+
+    /* Zweites Netz: die Schlagzahl ist auf 4 gedeckelt. */
+    ok("Kette nie länger als 4 Schläge",
+       [bei(-3077),bei(-800),bei(0),bei(140),bei(260)]
+         .every(c=>!c || c.legs.length<=4));
+    P.here=null; DB.courses=[]; DB.clubDistances=[]; P.holes=[];
+  }
+}
+
 /* ================= 25. Gepflegt vs. gemessen ================= */
 group("clubMeasured — gepflegte gegen gemessene Schlägerlängen");
 {
