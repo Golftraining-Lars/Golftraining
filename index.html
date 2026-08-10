@@ -2562,6 +2562,19 @@ erkennbar ist, dass es ein Video gab.
 > **Regel:** Bei JEDER inhaltlichen Änderung hier oben einen datierten Eintrag ergänzen (neueste
 > zuerst): Datum · was geändert · betroffene Bereiche. Kurz halten.
 
+- **v1.96.0 · 2026-08-10** — **Absturz beim Wischen auf der Karte behoben.**
+  (1) **`Cannot read properties of null (reading 'x')`** in `playMapBind` (59× protokolliert):
+  Der Pan-Zweig las `PLAY.mapView.x` — und `mapView` ist zwischen Ansichtswechsel und erstem
+  `playMapRender()` kurz `null`, außerdem setzt `playToggleFocusMap()` es bewusst zurück. Wischt
+  man genau dann, warf jedes Bewegungsereignis erneut. Jetzt `if(!v) return;` plus eine Prüfung
+  auf den vorherigen Zeigerpunkt.
+  (2) **Kartenmodus heilt sich selbst:** `pfRender()` setzt `body.play-mode` und die aktive
+  Ansicht bei jedem Zeichnen nach. Wird die Ansicht von außen gewechselt, kamen sonst Kopfzeile
+  und Navigation zurück und die Karte steckte in einem Kasten.
+  (3) **Fehlermeldungen verdecken die Karte nicht mehr:** Wiederholungen desselben Fehlers
+  erscheinen nach dem dritten Mal höchstens noch einmal pro Minute. Ein Fehler in einem
+  Bewegungsereignis feuert im Dutzend — die Einblendung stand dauerhaft über der Bahn.
+
 - **v1.95.0 · 2026-08-10** — **Sechs Punkte von der Runde.**
   (1) **BUGFIX „E" trotz Schlägen über Par:** Fehlt bei einem Loch `par`, wird die Summe **NaN** —
   und NaN ist weder größer noch kleiner als 0, also erschien „E" (even). Ursache war
@@ -3920,9 +3933,15 @@ function logErr(where, e, silent){
     // Gleicher Fehler an gleicher Stelle -> zaehlen statt anhaengen
     const vorh=ERRLOG.find(r=>r.where===w && r.msg===m);
     if(vorh){ vorh.n=(vorh.n||1)+1; vorh.last=jetzt; _errSave();
+      /* WIEDERHOLUNGEN NUR SELTEN MELDEN. Ein Fehler in einem Bewegungs-
+         Ereignis feuert im Dutzend; die Einblendung stand dann dauerhaft ueber
+         der Karte und verdeckte genau das, was man sehen wollte. Erste drei
+         Vorkommen normal, danach hoechstens einmal pro Minute. */
       if(!silent){ const now=Date.now();
-        if(now-_errLastToast>4000 && typeof toast==="function"){ _errLastToast=now;
-          toast("⚠ "+w+" — "+m.slice(0,60)+" ("+vorh.n+"×)"); } }
+        const takt = (vorh.n<=3) ? 4000 : 60000;
+        if(now-(vorh.toastAt||0)>takt && typeof toast==="function"){
+          vorh.toastAt=now; _errLastToast=now;
+          toast("⚠ "+w+" — "+m.slice(0,50)+" ("+vorh.n+"×)"); } }
       return; }
     const rec={at:jetzt, last:jetzt, n:1, where:w, msg:m,
       stack:(e&&e.stack?String(e.stack).split("\n").slice(0,4).join(" | "):"").slice(0,400)};
@@ -17880,6 +17899,16 @@ function pfInfoToggle(){ PLAY.pfInfoOpen=!PLAY.pfInfoOpen; pfRender(); }
 
 function pfRender(){
   if(!PLAY.active || !PLAY.mapFocus) return;
+  /* SELBSTHEILEND. Wird die Ansicht von aussen gewechselt (renderAll, ein
+     Menuepunkt, ein Blatt), fehlt danach `body.play-mode` — Kopfzeile und
+     Navigation kommen zurueck und die Karte steckt in einem Kasten. Hier
+     jedes Mal nachziehen, statt sich auf den Zustand beim Oeffnen zu
+     verlassen. */
+  if(!document.body.classList.contains("play-mode")) document.body.classList.add("play-mode");
+  const sec=document.getElementById("v-play");
+  if(sec && !sec.classList.contains("active")){
+    try{ setView("play"); }catch(e){ logErr("pfRender:setView", e, true); }
+  }
   const h=PLAY.holes[PLAY.idx]; if(!h) return;
   const N=PLAY.holes.length, geo=playGeo();
   const gd=geo&&greenDims(geo,h.hole);
@@ -18695,6 +18724,7 @@ function playMapBind(svg){
   svg.addEventListener("pointermove",e=>{
     if(!ptrs.has(e.pointerId)||!base) return;
     const prev=ptrs.get(e.pointerId); ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY});
+    if(!prev) return;                       // Zeiger erst jetzt erfasst
     const r=svg.getBoundingClientRect();
     if(tapStart && Math.hypot(e.clientX-tapStart.x, e.clientY-tapStart.y)>8){
       tapStart.moved=true;
@@ -18703,7 +18733,10 @@ function playMapBind(svg){
     if(aimDrag && ptrs.size===1){
       playAimMoveTo(svg,e.clientX,e.clientY);            // Ziel verschieben
     } else if(ptrs.size===1){
-      const v=PLAY.mapView;
+      /* mapView kann null sein — playToggleFocusMap() setzt es zurueck, und
+         zwischen Ansichtswechsel und erstem playMapRender() liegt ein Moment.
+         Wischt man genau dann, warf `v.x` „Cannot read properties of null". */
+      const v=PLAY.mapView; if(!v) return;
       PLAY.mapView=playMapClamp({x:v.x-(e.clientX-prev.x)/Math.max(1,r.width)*v.w,
         y:v.y-(e.clientY-prev.y)/Math.max(1,r.height)*v.h, w:v.w, h:v.h});
     } else if(ptrs.size>=2 && pinch){
@@ -23218,7 +23251,7 @@ function openComp(idx){
 /* ================= NAV ================= */
 let current="dash";
 const FAB_ACTION={rounds:startRound,comp:openAddComp,notes:openAddNote,swing:openSwingEdit};
-const APP_VERSION="1.95.0"; // App-Anzeigeversion (NICHT SEED.version! Diese bei jeder Änderung erhöhen)
+const APP_VERSION="1.96.0"; // App-Anzeigeversion (NICHT SEED.version! Diese bei jeder Änderung erhöhen)
 /* ---------- Darstellung: Hell/Dunkel (DB.ui.theme = "auto" | "light" | "dark") ---------- */
 const _darkMQ = (window.matchMedia? window.matchMedia("(prefers-color-scheme: dark)") : null);
 function themeSetting(){ return (DB && DB.ui && DB.ui.theme) || "auto"; }
