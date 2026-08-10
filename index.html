@@ -2804,6 +2804,17 @@ erkennbar ist, dass es ein Video gab.
 > **Regel:** Bei JEDER inhaltlichen Änderung hier oben einen datierten Eintrag ergänzen (neueste
 > zuerst): Datum · was geändert · betroffene Bereiche. Kurz halten.
 
+- **v2.20.0 · 2026-08-10** — **„1.-Putt-Distanz" war missverständlich beschriftet.** Gemeint ist
+  die **Länge des ersten Putts** — der Abstand zum Loch, wenn man das Grün betritt —, nicht der
+  Rest danach. Genau daraus berechnet `sgHole` das Putt-Ergebnis
+  (`lookup(distanz,"green") − putts`). Wer den Rest nach dem Putt einträgt, bekommt systematisch
+  stark negatives Putt-SG: Aus 0,5 m zwei Putts sind fast ein ganzer Schlag Verlust — je Loch.
+  Feld umbenannt in **„Länge des 1. Putts ⭐"**, dazu ein erklärender Hinweis unter den
+  SG-Pflichtfeldern. **Auf der Uhr ist die Quality-Eingabe entfallen** (siehe MainActivity.kt):
+  Sie trug keine eigene Information, sondern diente nur als dritter Rückfall für dieselbe Größe —
+  auf einem Loch mit Grüntreffer ist es dieselbe Zahl, zweimal eingetippt. Das Feld selbst bleibt
+  im Datenmodell, damit Altrunden und der Rückfall weiter funktionieren.
+
 - **v2.19.0 · 2026-08-10** — **Höhenraster verbessert · Prüfstand meldete „bestanden" für
   Gruppen, die nie liefen.**
   **Raster:** (1) `ELEV` lebte nur im Arbeitsspeicher — nach jedem Start war alles weg, auf dem
@@ -19096,7 +19107,12 @@ function renderPlay(){
          nicht ausgefuellt — ohne sie bleibt von SG nur der Gesamtwert. -->
     <div class="play-quick2">
       ${playSel('appr','Approach-Distanz ⭐',DB.approachBuckets||[])}
-      ${playSel('firstPutt','1.-Putt-Distanz ⭐',DB.firstPuttDist||[])}
+      ${playSel('firstPutt','Länge des 1. Putts ⭐',DB.firstPuttDist||[])}
+      <p class="note" style="grid-column:1/-1;margin:2px 0 0">
+        <b>Länge des 1. Putts</b> = Abstand zum Loch, wenn du das Grün betrittst — nicht das,
+        was nach dem Putt übrig bleibt. Aus dieser Zahl berechnet sich das Strokes Gained beim
+        Putten: Wer aus 8 m zwei Putts braucht, hat nichts verloren; wer aus 1 m zwei braucht,
+        einen ganzen Schlag.</p>
       ${teeField}
       ${playNum('distToPin','Rest zur Fahne nach Approach (m)')}
     </div>
@@ -23306,7 +23322,7 @@ function openAddRound(existing, draftRound){
              blieb dadurch meist leer — ohne sie liefert SG nur den Gesamtwert. -->
         <div class="in-grid" style="grid-template-columns:1fr 1fr;margin-top:8px">
           <div class="field" style="${fS}"><label>Approach-Distanz ⭐</label><select class="hin" data-f="appr"><option value="">–</option>${apprOpts}</select></div>
-          <div class="field" style="${fS}"><label>1.-Putt-Distanz ⭐</label><select class="hin" data-f="firstPutt">${fpOpts}</select></div>
+          <div class="field" style="${fS}"><label>Länge des 1. Putts ⭐</label><select class="hin" data-f="firstPutt">${fpOpts}</select></div>
         </div>
         <div class="in-grid" style="grid-template-columns:1fr auto;align-items:end;margin-top:8px">
           <div class="field num" style="${fS}"><label>Rest zur Fahne (m)</label><input inputmode="decimal" class="hin" data-f="distToPin" value="${ex.distToPin??''}" placeholder="–"></div>
@@ -24590,7 +24606,7 @@ function openComp(idx){
 /* ================= NAV ================= */
 let current="dash";
 const FAB_ACTION={rounds:startRound,comp:openAddComp,notes:openAddNote,swing:openSwingEdit};
-const APP_VERSION="2.19.0"; // App-Anzeigeversion (NICHT SEED.version! Diese bei jeder Änderung erhöhen)
+const APP_VERSION="2.20.0"; // App-Anzeigeversion (NICHT SEED.version! Diese bei jeder Änderung erhöhen)
 /* ---------- Darstellung: Hell/Dunkel (DB.ui.theme = "auto" | "light" | "dark") ---------- */
 const _darkMQ = (window.matchMedia? window.matchMedia("(prefers-color-scheme: dark)") : null);
 function themeSetting(){ return (DB && DB.ui && DB.ui.theme) || "auto"; }
