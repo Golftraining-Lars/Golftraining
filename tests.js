@@ -2206,7 +2206,11 @@ group("clubRename — Verknüpfung über Uhr, R10 und Runden");
       const m=gemessen("5 Holz");
       ok("gemessene Länge folgt dem neuen Namen", m && m.nTotal>=6,
          JSON.stringify(m));
-      ok("unter dem alten Namen nichts mehr", (gemessen("5 Wood")||{}).nTotal===0);
+      /* HINWEIS: „5 Wood" und „5 Holz" sind seit v2.17 derselbe normalisierte
+         Schläger (holz5) — die Messungen werden unter BEIDEN Schreibweisen
+         gefunden. Das ist gewollt: Der R10 schreibt Englisch, die Bag oft
+         Deutsch. Geprüft wird deshalb eine echte Umbenennung. */
+      ok("unter einem anderen Schläger nichts", (gemessen("Driver")||{}).nTotal!==8);
     }
     ok("gleicher Name ändert nichts", ren("Driver","Driver")===0);
     ok("leerer Name ändert nichts", ren("","X")===0);
@@ -2273,6 +2277,48 @@ group("bagMessSpalte — R10 und GPS neben den gepflegten Werten");
     /* Ohne gepflegten Wert gibt es nichts zu vergleichen — dann neutral. */
     ok("ohne Vergleichswert neutral", /var\(--ink\)/.test(sp(180, 9, null)));
     ok("Anzahl steht im Titel", /n=12/.test(sp(182, 12, 180)));
+  }
+}
+
+/* ============ 24ai. Schlägernamen vereinheitlichen ============ */
+group("clubNorm — R10 schreibt Englisch, die Bag steht auf Deutsch");
+{
+  const norm=G("clubNorm"), gemessen=G("clubMeasured"), DB=G("DB");
+  if (typeof norm === "function") {
+    /* DER FEHLER: `clubMeasured` verglich die Namen EXAKT. Der Garmin R10
+       exportiert „7 Iron", die Bag steht auf „7-Eisen" — es passte nichts
+       zusammen, und die Spalte blieb leer, obwohl reichlich Messungen
+       vorlagen. Kein Fehler war sichtbar, nur ein Strich. */
+    const gleich=(a,b)=>norm(a)===norm(b);
+    ok("7 Iron findet 7-Eisen", gleich("7 Iron","7-Eisen"), norm("7 Iron"));
+    ok("Eisen 5 in beiden Reihenfolgen", gleich("5 Iron","Eisen 5"));
+    ok("Kurzform 7i", gleich("7i","7-Eisen"));
+    ok("3 Wood findet 3 Holz", gleich("3 Wood","3 Holz"));
+    ok("3W findet 3 Wood", gleich("3W","3 Wood"));
+    ok("Pitching Wedge findet PW", gleich("Pitching Wedge","PW"));
+    ok("Sand Wedge findet SW", gleich("Sand Wedge","SW"));
+    ok("Gap und Lob Wedge", gleich("Gap Wedge","GW") && gleich("Lob Wedge","LW"));
+    ok("Hybrid findet 4H", gleich("4 Hybrid","4H"));
+    ok("Loft im Namen stört nicht", gleich("6 Iron","6-Eisen 30°"));
+    ok("Teilschlag-Zusatz stört nicht", gleich("SW · 45 m","SW"));
+    /* GENAUSO WICHTIG: verschiedene Schläger dürfen NICHT verschmelzen —
+       sonst landen die Messungen zweier Schläger auf einem Eintrag. */
+    ok("7 und 6 Eisen bleiben getrennt", !gleich("7 Iron","6 Iron"));
+    ok("3 und 5 Holz bleiben getrennt", !gleich("3 Wood","5 Wood"));
+    ok("PW und SW bleiben getrennt", !gleich("PW","SW"));
+    ok("Driver und Holz bleiben getrennt", !gleich("Driver","3 Wood"));
+    ok("leerer Name ergibt leeren Schlüssel", norm("")==="" && norm(null)==="");
+
+    /* Und der Zweck: Die Messungen müssen jetzt ankommen. */
+    if (typeof gemessen === "function" && DB) {
+      DB.lmSessions=[{id:"L1",shots:[]}];
+      for(let i=0;i<10;i++) DB.lmSessions[0].shots.push({club:"7 Iron",carry:138+i%3});
+      DB.gpsShots=[];
+      const m=gemessen("7-Eisen");
+      ok("R10-Messungen werden trotz anderer Schreibweise gefunden",
+         m && m.nCarry>=8, JSON.stringify(m));
+      DB.lmSessions=[]; DB.gpsShots=[];
+    }
   }
 }
 

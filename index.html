@@ -2130,6 +2130,16 @@ haengt am Namen —
 Deshalb ist `MERGE_KEY.clubDistances = x => x.club` auch richtig so: Wuerde man auf ids
 schluesseln, erzeugte jeder von der Uhr geschriebene Schlaeger eine Dublette.
 
+**Namen werden zum Zuordnen VEREINHEITLICHT (`clubNorm`, v2.17).** Der Garmin R10 exportiert
+englische Namen („7 Iron", „Pitching Wedge"), die Bag steht oft auf Deutsch („7-Eisen", „PW").
+`clubMeasured` verglich exakt und fand deshalb NICHTS, obwohl reichlich Messungen vorlagen — die
+Spalte blieb leer, ohne dass ein Fehler sichtbar war. `clubNorm` bildet einen Vergleichsschluessel
+(Loft und Trennzeichen weg, Englisch auf Deutsch, Gattung + Nummer): `7 Iron` · `7-Eisen` ·
+`Eisen 7` · `7i` ergeben alle `eisen7`. Angezeigt wird weiterhin der gepflegte Name.
+**Genauso wichtig:** verschiedene Schlaeger duerfen NICHT verschmelzen — 7/6 Eisen, 3/5 Holz und
+PW/SW bleiben getrennt, im Pruefstand abgesichert. Messungen, die zu KEINEM Schlaeger passen,
+listet die Schlaeger-Ansicht jetzt namentlich auf.
+
 **Umbenennen muss die Historie mitziehen** (`clubRename(alt,neu)`). Ohne das haengt beim
 Umbenennen alles ab, was unter dem alten Namen gemessen wurde: Der Caddy lernt die Laenge nicht
 mehr, „gepflegt vs. gemessen" zeigt nichts, die R10-Streuung ist verloren. Sichtbar wird das erst
@@ -2760,6 +2770,17 @@ erkennbar ist, dass es ein Video gab.
 ## Changelog
 > **Regel:** Bei JEDER inhaltlichen Änderung hier oben einen datierten Eintrag ergänzen (neueste
 > zuerst): Datum · was geändert · betroffene Bereiche. Kurz halten.
+
+- **v2.17.0 · 2026-08-10** — **R10-Messungen kamen nie an: englische gegen deutsche
+  Schlägernamen.** `clubMeasured` verglich die Namen **exakt**. Der Garmin R10 exportiert
+  „7 Iron", die Bag steht auf „7-Eisen" — es passte nichts zusammen, die Spalte blieb leer,
+  obwohl zahlreiche Messungen vorlagen. Kein Fehler war sichtbar, nur ein Strich.
+  Neu `clubNorm(name)`: Loft und Trennzeichen weg, Englisch auf Deutsch, Gattung + Nummer —
+  `7 Iron`/`7-Eisen`/`Eisen 7`/`7i` ergeben alle `eisen7`, ebenso `3 Wood`/`3 Holz`/`3W` und
+  `Pitching Wedge`/`PW`. Angezeigt wird weiterhin der gepflegte Name. **Verschiedene Schläger
+  bleiben getrennt** (7/6 Eisen, 3/5 Holz, PW/SW) — 16 Prüfungen sichern beide Richtungen ab.
+  Zusätzlich listet die Schläger-Ansicht **Messungen ohne passenden Schläger** namentlich auf,
+  damit eine leere Spalte nicht wieder rätselhaft bleibt.
 
 - **v2.16.0 · 2026-08-10** — **Messwerte als Spalten in der Schlägertabelle.** Neben den
   gepflegten Werten stehen jetzt **⚙ R10** (gemessener Carry aus Launch-Monitor-Sitzungen) und
@@ -13688,6 +13709,45 @@ function clubShort(name){
   const tail=parts[1]?parts[1].trim():"";                        // z.B. "45 m" (Teilschlag)
   return tail? head+" "+tail : head;
 }
+/* ==========================================================================
+   SCHLAEGERNAMEN VEREINHEITLICHEN (v2.17)
+
+   Der Garmin R10 exportiert ENGLISCHE Namen („7 Iron", „3 Wood", „Pitching
+   Wedge"), die Bag steht aber oft auf Deutsch („7-Eisen", „3 Holz", „PW").
+   `clubMeasured` verglich exakt — und fand deshalb NICHTS, obwohl reichlich
+   Messungen vorlagen. Die Spalte blieb leer, ohne dass ein Fehler sichtbar war.
+
+   `clubNorm` bildet einen Vergleichsschluessel: Kleinschreibung, Loft und
+   Trennzeichen weg, Englisch auf Deutsch, dann Gattung + Nummer.
+       „7 Iron" · „7-Eisen" · „Eisen 7" · „7i"      -> "eisen7"
+       „3 Wood" · „3 Holz" · „3W"                   -> "holz3"
+       „Pitching Wedge" · „PW"                      -> "wedgep"
+   ANGEZEIGT wird weiterhin der gepflegte Name — normalisiert wird nur zum
+   Zuordnen. ========================================================================== */
+function clubNorm(name){
+  let t=String(name||"").toLowerCase();
+  t=t.replace(/\s*\d+(?:[.,]\d+)?\s*°/g,"");          // Loft
+  t=t.replace(/·.*$/,"");                              // Teilschlag-Zusatz
+  t=t.replace(/[\s\-_.]/g,"");
+  if(!t) return "";
+  if(/^(driver|dr|1w|1holz|1wood)$/.test(t)) return "driver";
+  if(/^(putter|pt)$/.test(t)) return "putter";
+  // Wedges: Buchstabe entscheidet
+  const w=t.match(/^(pitching|gap|sand|lob|p|g|s|l)(wedge|w)$/);
+  if(w) return "wedge"+w[1][0];
+  if(/^(pw|gw|sw|lw)$/.test(t)) return "wedge"+t[0];
+  // Gattung + Nummer, in beiden Reihenfolgen und beiden Sprachen
+  const gat=(g)=> /iron|eisen|^i$/.test(g)?"eisen"
+              : /wood|holz|^w$/.test(g)?"holz"
+              : /hybrid|rescue|^h$/.test(g)?"hybrid"
+              : /utility|^u$/.test(g)?"hybrid" : null;
+  let m=t.match(/^(\d{1,2})(iron|eisen|wood|holz|hybrid|rescue|utility|i|w|h|u)$/);
+  if(m){ const g=gat(m[2]); if(g) return g+m[1]; }
+  m=t.match(/^(iron|eisen|wood|holz|hybrid|rescue|utility)(\d{1,2})$/);
+  if(m){ const g=gat(m[1]); if(g) return g+m[2]; }
+  return t;                                            // unbekannt: unveraendert
+}
+
 function clubList(){
   const cs=Array.isArray(DB.clubDistances)?DB.clubDistances:[];
   return cs.map(c=>({name:c.club, carry:(c.carry!=null?+c.carry:null), total:(c.total!=null?+c.total:null)}))
@@ -21290,10 +21350,13 @@ function clubMeasured(name){
      Caddy-Empfehlung waere systematisch zu kurz. Schlaege ohne Angabe gelten
      als voll (so waren alle Altdaten gemeint). */
   const voll=x=>!x.swing || x.swing==="Voll";
-  const gps=(DB.gpsShots||[]).filter(x=>x.club===name && x.ts>cut && isFinite(x.dist) && voll(x)).map(x=>x.dist);
+  /* Ueber den NORMALISIERTEN Namen zuordnen — der R10 schreibt „7 Iron", die
+     Bag steht auf „7-Eisen". Exakter Vergleich fand deshalb nichts. */
+  const key=clubNorm(name);
+  const gps=(DB.gpsShots||[]).filter(x=>clubNorm(x.club)===key && x.ts>cut && isFinite(x.dist) && voll(x)).map(x=>x.dist);
   const lm=[];
   (DB.lmSessions||[]).forEach(se=>(se.shots||[]).forEach(sh=>{
-    if(sh && sh.club===name && isFinite(sh.carry)) lm.push(sh.carry); }));
+    if(sh && clubNorm(sh.club)===key && isFinite(sh.carry)) lm.push(sh.carry); }));
   const t=(arr)=> (arr.length>=8 && STRAT._trimmedSd) ? STRAT._trimmedSd(arr) : null;
   const tl=t(lm), tg=t(gps);
   return { carry: tl?Math.round(tl.mean):null, nCarry: tl?tl.n:0,       // R10 = Carry
@@ -21476,6 +21539,29 @@ function renderBag(){
   <button class="btn ghost" id="bagAdd" style="margin-top:10px">＋ Schläger hinzufügen</button>
   <button class="btn ghost" id="bagR10" style="margin-top:8px">📥 R10-Session-CSV importieren (Streuung je Schläger)</button>
   <input type="file" id="bagR10File" accept=".csv,text/csv" style="display:none">`;
+  {
+    /* NICHT ZUGEORDNETE MESSUNGEN sichtbar machen. Liegen R10- oder
+       GPS-Schlaege unter einem Namen vor, zu dem es keinen Schlaeger in der
+       Bag gibt, blieb die Spalte einfach leer — man sucht dann den Fehler in
+       der Anzeige statt beim Namen. */
+    const bekannt=new Set(list.map(c=>clubNorm(c.club)));
+    const fremd={};
+    (DB.lmSessions||[]).forEach(se=>(se.shots||[]).forEach(sh=>{
+      if(!sh||!sh.club||!isFinite(sh.carry)) return;
+      const k=clubNorm(sh.club); if(bekannt.has(k)) return;
+      (fremd[sh.club]=fremd[sh.club]||{n:0,quelle:"R10"}).n++; }));
+    (DB.gpsShots||[]).forEach(x=>{
+      if(!x||!x.club||!isFinite(x.dist)) return;
+      const k=clubNorm(x.club); if(bekannt.has(k)) return;
+      (fremd[x.club]=fremd[x.club]||{n:0,quelle:"GPS"}).n++; });
+    const fl=Object.keys(fremd).sort((a,b)=>fremd[b].n-fremd[a].n);
+    if(fl.length) h+=`<div class="card pad"><p class="note" style="margin:0">
+      🔍 <b>Messungen ohne passenden Schläger:</b>
+      ${fl.slice(0,8).map(n=>`${esc(n)} <span class="r-s">(${fremd[n].quelle}, ${fremd[n].n})</span>`).join(" · ")}.
+      Die Namen werden beim Zuordnen vereinheitlicht („7 Iron" findet „7-Eisen"), diese hier
+      passen aber zu keinem Eintrag. Lege den Schläger an oder benenne ihn passend —
+      das Umbenennen zieht vorhandene Messungen automatisch mit.</p></div>`;
+  }
   {
     const ohne=list.filter(c=>!(c.carry>0) && !(c.total>0));
     if(ohne.length) h+=`<div class="card pad"><p class="note" style="margin:0">
@@ -24302,7 +24388,7 @@ function openComp(idx){
 /* ================= NAV ================= */
 let current="dash";
 const FAB_ACTION={rounds:startRound,comp:openAddComp,notes:openAddNote,swing:openSwingEdit};
-const APP_VERSION="2.16.0"; // App-Anzeigeversion (NICHT SEED.version! Diese bei jeder Änderung erhöhen)
+const APP_VERSION="2.17.0"; // App-Anzeigeversion (NICHT SEED.version! Diese bei jeder Änderung erhöhen)
 /* ---------- Darstellung: Hell/Dunkel (DB.ui.theme = "auto" | "light" | "dark") ---------- */
 const _darkMQ = (window.matchMedia? window.matchMedia("(prefers-color-scheme: dark)") : null);
 function themeSetting(){ return (DB && DB.ui && DB.ui.theme) || "auto"; }
