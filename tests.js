@@ -143,7 +143,20 @@ try {
                  "_tileX","_tileY","satTileUrl","satTileRange","satZoomFor","ringCentroid",
                  "clubSigma","lmSplit","lmNum","lmMatchCol","lmParse","lmMarkOut","lmClean",
                  "playMapInitView","qaTok","sgHole","sgRound","sgSummary","sgBandMid","sgLie",
-                 "sgWeakest","sgFmt","sgClass","clubMeasured","sgDrillHint","sgEnrich"];
+                 "sgWeakest","sgFmt","sgClass","clubMeasured","sgDrillHint","sgEnrich",
+                 /* WICHTIG: Fehlt ein Name hier, liefert G(...) undefined. Die Pruefgruppe
+                    steht dann hinter einem typeof-Waechter und wird KOMMENTARLOS
+                    uebersprungen — der Pruefstand meldet trotzdem "bestanden".
+                    So liefen 48 Pruefungen still ins Leere. Abschnitt 24al prueft das. */
+                 "ELEV","elevGet","elevKey","elevPrefetchHole","elevDelta","condFaktor",
+                 "caddyClubs","clubNorm","clubRename","bagFreiName","bagMessSpalte",
+                 "tombAdd","tombClear","tombDel","MERGE_KEY","_mergeTomb","_tombFor",
+                 "playCaddyNow","playTooFar","playAimChain","playMapSlot","playFocusDefault",
+                 "hcpGap","whsPool","courseStats","nassFaktor","sgHoleShots","sgVerlauf",
+                 "holeGir","holeUpDown","holeSandSave","platzAnalyse","taskFortschritt",
+                 "warmupSchedule","warmupKorrektiv","WARMUP_PLANS","medianSplit","pearson",
+                 "rKrit","gpKey","gpLabel","gpTotalES","pickClub","_aimClub","_aimLerp",
+                 "_nearest","_reaching"];
   const epilog = "\n;globalThis.__T={" +
     namen.map(n => `${n}: (typeof ${n}!=="undefined"?${n}:undefined)`).join(",") + "};";
   vm.runInContext(code + epilog, ctx, { timeout: 20000 });
@@ -2319,6 +2332,114 @@ group("clubNorm — R10 schreibt Englisch, die Bag steht auf Deutsch");
          m && m.nCarry>=8, JSON.stringify(m));
       DB.lmSessions=[]; DB.gpsShots=[];
     }
+  }
+}
+
+/* ============ 24aj. Bedingungen in der Schlägerwahl ============ */
+group("condFaktor / caddyClubs — Höhe wirkt jetzt auf die Empfehlung");
+{
+  const cf=G("condFaktor"), cc=G("caddyClubs"), DB=G("DB"), PL=G("playsLike");
+  if (typeof cf === "function" && typeof cc === "function" && DB) {
+    /* DER FEHLER bis v2.17: Höhe, Wind, Temperatur und Regen wirkten NUR auf
+       die Anzeige („spielt wie 165 m"). Die Empfehlung dahinter rechnete mit
+       der flachen Distanz — richtige Zahl, falscher Schläger. Bei 15 m
+       Anstieg ist das ein ganzer Schläger daneben. */
+    DB.clubDistances=[{id:"C1",club:"Driver",carry:215,total:232},
+                      {id:"C2",club:"6-Eisen",carry:150,total:154},
+                      {id:"C3",club:"7-Eisen",carry:140,total:143}];
+    /* Ohne Bedingungen bleibt alles wie bisher — Altaufrufer ohne Argument. */
+    const roh=cc();
+    ok("ohne Argument unveränderte Reichweiten",
+       roh.length===3 && roh[0].dist===232, JSON.stringify(roh.map(c=>c.dist)));
+    /* Mit Faktor <1 (bergauf) schrumpfen die Reichweiten: Der Schläger deckt
+       weniger Boden ab, also greift der Caddy zum längeren. */
+    const bergauf=cc({f:0.9});
+    ok("bergauf kürzere Reichweiten", bergauf[0].dist < roh[0].dist,
+       `${roh[0].dist} -> ${bergauf[0].dist}`);
+    eq("Rohwert bleibt erhalten", bergauf[0].rohDist, 232);
+    const bergab=cc({f:1.1});
+    ok("bergab längere Reichweiten", bergab[0].dist > roh[0].dist);
+    ok("Reihenfolge bleibt absteigend",
+       bergauf.every((c,i)=>i===0 || bergauf[i-1].dist>=c.dist));
+
+    /* condFaktor selbst: ohne Punkte oder ohne Wetter neutral. */
+    const leer=cf(null,null);
+    eq("ohne Punkte neutral", leer.f, 1);
+    ok("liefert Bestandteile für die Anzeige", Array.isArray(leer.teile));
+    /* Der Faktor ist gedeckelt — ein Wert jenseits ±25 % käme nur aus
+       fehlerhaften Höhendaten und würde die Schlägerwahl verreißen. */
+    const src=fs.readFileSync(FILE,"utf8");
+    ok("Faktor auf ±25 % gedeckelt",
+       /Math\.max\(0\.75, Math\.min\(1\.25/.test(src));
+    /* Und die Anzeige muss den Einfluss ausweisen. */
+    const nurCode = [...src.matchAll(/<script([^>]*)>([\s\S]*?)<\/script>/g)]
+      .filter(m=>!/\bsrc=|application\/json|text\/markdown|devdocs/.test(m[1]))
+      .map(m=>m[2]).join("\n");
+    ok("Caddy weist die Spielt-wie-Distanz aus", /spielt wie <b>/.test(nurCode));
+    ok("Bestandteile werden genannt (bergauf/Wind/nass)",
+       /⛰ bergauf/.test(nurCode) && /Gegenwind/.test(nurCode) && /🌧 nass/.test(nurCode));
+
+    /* Gegenprobe an playsLike: bergauf spielt länger. */
+    if (typeof PL === "function") {
+      const flach=PL(150, 15, 0, 0, 0, 0);
+      const hoch =PL(150, 15, 0, 0, 0, 15);
+      ok("15 m Anstieg spielen länger", hoch > flach + 10, `${flach} -> ${hoch}`);
+    }
+    DB.clubDistances=[];
+  }
+}
+
+/* ============ 24ak. Höhenraster ============ */
+group("elevGet — Interpolation statt exakter Treffer");
+{
+  const get=G("elevGet"), key=G("elevKey"), ELEV=G("ELEV"), pre=G("elevPrefetchHole");
+  if (typeof get === "function" && typeof key === "function" && ELEV) {
+    Object.keys(ELEV).forEach(k=>delete ELEV[k]);
+    const mLat=111320;
+    for(let i=0;i<=8;i++) ELEV[key(54.0+(i*25)/mLat, 10.0)] = 100 + i*0.4;
+    /* DER FEHLER: elevGet verlangte den Schlüssel auf ~11 m EXAKT. Beim Gehen
+       traf er praktisch nie — die Höhe blieb null, die Korrektur fiel STILL
+       aus. Man sah eine „spielt wie"-Zeile ohne Höhenanteil und hielt das für
+       flaches Gelände. */
+    near("exakter Stützpunkt", get(54.0, 10.0), 100, 0.001);
+    near("Stützpunkt bei 200 m", get(54.0+200/mLat, 10.0), 103.2, 0.001);
+    [[12,100.19],[37,100.59],[63,101.01],[111,101.78]].forEach(([m,soll])=>{
+      const v=get(54.0+m/mLat, 10.0);
+      ok("interpoliert bei "+m+" m", v!=null && Math.abs(v-soll)<0.25,
+         v==null?"null":v.toFixed(2)+" statt "+soll);
+    });
+    /* Die Gesamtdifferenz geht in playsLike ein — sie muss exakt stimmen. */
+    near("Höhendifferenz über 200 m", get(54.0+200/mLat,10.0)-get(54.0,10.0), 3.2, 0.05);
+    eq("weit seitlich davon: null", get(54.0+50/mLat, 10.002), null);
+    eq("leeres Raster: null",
+       (Object.keys(ELEV).forEach(k=>delete ELEV[k]), get(54.0,10.0)), null);
+    ok("Vorladen der ganzen Bahn vorhanden", typeof pre === "function");
+    const src=fs.readFileSync(FILE,"utf8");
+    ok("Raster wird gespeichert", /localStorage\.setItem\(ELEV_KEY/.test(src));
+    ok("Raster wird beim Start geladen", /localStorage\.getItem\(ELEV_KEY\)/.test(src));
+    ok("Größe gedeckelt", /k\.length>4000/.test(src));
+  }
+}
+
+/* ============ 24al. Der Prüfstand selbst ============ */
+group("Übergabeliste vollständig — sonst laufen Gruppen still ins Leere");
+{
+  /* WAS PASSIERT IST: Fehlt ein Name in `namen`, liefert G(...) undefined.
+     Die Gruppe steht hinter einem typeof-Wächter und wird KOMMENTARLOS
+     übersprungen — gemeldet wird trotzdem „bestanden". So waren 48 Prüfungen
+     stillgelegt, ohne dass es auffiel. Das ist die wichtigste Prüfung der
+     Datei: Sie verhindert, dass alle anderen lügen. */
+  const src=fs.readFileSync(__filename,"utf8");
+  const listeM=src.match(/const namen = \[([\s\S]*?)\];/);
+  ok("Übergabeliste gefunden", !!listeM);
+  if(listeM){
+    const liste=new Set((listeM[1].match(/"([^"]+)"/g)||[]).map(x=>x.slice(1,-1)));
+    const angefordert=new Set();
+    let m; const re=/\bG\("([^"]+)"\)/g;
+    while((m=re.exec(src))) angefordert.add(m[1]);
+    const fehlen=[...angefordert].filter(n=>!liste.has(n));
+    ok("jeder über G() angeforderte Name wird übergeben", fehlen.length===0,
+       fehlen.slice(0,8).join(", "));
   }
 }
 

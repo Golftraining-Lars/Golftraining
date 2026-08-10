@@ -285,6 +285,119 @@ import kotlin.math.sqrt
  *  ------------------------------------------------------------------------
  *  CHANGELOG (neueste zuerst — bei JEDER Änderung ergänzen: Datum · was · wo)
  *  ------------------------------------------------------------------------
+ *  2026-08-09 (11) · FAHNENSTEUERUNG ENTFERNT — Gleichzug mit PWA v1.90.
+ *     Die PWA hat die tagesgenaue Fahnenlage ersatzlos gestrichen: eine
+ *     Handeingabe pro Loch, die im Alltag nicht gepflegt wurde — und
+ *     ungepflegte Werte verschlechtern die Rechnung, statt sie zu verbessern.
+ *     Die Uhr hat die Tiefe ohnehin nur GELESEN, nie gesetzt; ohne Pflege in
+ *     der PWA gaebe es hier nichts mehr zu lesen.
+ *     Entfallen: Geo.pinPoint(), AppData.pins, der Zustand `pinDepth` samt
+ *     Parameter in buildRoundJson/Loaded, das Feld "pins" im Runden-JSON und
+ *     die drei Parser-Bloecke.
+ *     targetOf() liefert jetzt IMMER die Gruenmitte. In liveOf() entfaellt die
+ *     gesonderte „Fahne"-Distanz — sie waere identisch mit `mid` aus F/M/B und
+ *     damit nur Rauschen auf einem kleinen Display.
+ *
+ *  2026-08-10 (15) · ABGLEICH mit PWA v2.19. KEINE Aenderung noetig — geprueft
+ *     und hier festgehalten, damit der naechste Durchgang nicht danach sucht:
+ *
+ *     · GRABSTEINE (PWA v2.11/2.12): Das Handy fuehrt `DB.tomb`, damit
+ *       Loeschungen den Sync ueberleben. Die Uhr kennt das Feld NICHT — sie
+ *       muss es auch nicht: `pushDraft` liest mit `JSONObject(readData())` das
+ *       VOLLSTAENDIGE Repo-JSON, aendert nur `_draftRound`/`gpsShots` und
+ *       schreibt dasselbe Objekt zurueck. Unbekannte Felder bleiben dabei
+ *       unveraendert erhalten. `readData()` holt vorher ueber FRESH_URL einen
+ *       frischen Stand, faellt nur im Fehlerfall auf DATA_URL zurueck.
+ *       WICHTIG FUER KUENFTIGE AENDERUNGEN: Niemals ein NEUES JSONObject
+ *       aufbauen und hochladen — damit waeren Grabsteine und alles andere
+ *       Unbekannte weg.
+ *
+ *     · SCHLAEGERLISTE: Die Uhr hat KEINE eigene. Sie liest `clubDistances`
+ *       und ueberspringt Eintraege ohne jede Distanz
+ *       (`if (carry == null && total == null) continue`). Das betrifft auch die
+ *       Auswahl beim Schlagtracken — ein frisch angelegter Schlaeger fehlt auf
+ *       der Uhr, bis Carry oder Gesamtlaenge gesetzt ist. Die PWA weist seit
+ *       v2.15 darauf hin.
+ *       Die Namens-Vereinheitlichung `clubNorm` (PWA v2.17, „7 Iron" findet
+ *       „7-Eisen") laeuft NUR im Handy — die Uhr zeigt die gepflegten Namen,
+ *       und das ist richtig so.
+ *
+ *     · SCHWUNGLAENGE (PWA v1.98): `gpsShots[].swing` (Voll/3-4/Halb/Punch …)
+ *       entscheidet, ob ein Schlag fuer die gelernte Schlaegerlaenge zaehlt.
+ *       Die Uhr schreibt das Feld nicht — ihre Schlaege gelten damit als VOLL,
+ *       so wie alle Altdaten. Wer auf der Uhr einen halben Wedge trackt,
+ *       sollte ihn am Handy nachtragen.
+ *
+ *     · HOEHENRASTER (PWA v2.19) ist rein lokal (localStorage) und beruehrt
+ *       den Sync nicht.
+ *
+ *     · Alle 23 Lochfelder werden weiterhin geschrieben (geprueft), Struktur
+ *       geprueft: Klammerbilanz 0, 17 lokale Funktionen in korrekter
+ *       Reihenfolge, Feldzugriffe gegen die Datenklassen sauber.
+ *
+ *  2026-08-09 (14) · BUILD-FEHLER: „Unresolved reference 'name'".
+ *     `clubs.map { it.name }` — ClubDist heisst das Feld aber `club`:
+ *         data class ClubDist(val club: String, val carry: Int?, val total: Int?)
+ *     Korrigiert zu `clubs.map { it.club }`.
+ *
+ *     PRUEFUNG dagegen: Feldzugriffe der Form `<sammlung>….{ it.X }` gegen die
+ *     Felder der zugehoerigen data class abgleichen (25 Datenklassen erfasst).
+ *     Damit waere auch dieser Fehler vor dem Build aufgefallen.
+ *
+ *  2026-08-09 (13) · BUILD-FEHLER: „No value passed for parameter 'onCancelFetch'".
+ *     ZWEI zusammenhaengende Klammerfehler, die sich gegenseitig kaschiert
+ *     haben — deshalb war die Datei global ausgeglichen und der Compiler
+ *     meldete etwas voellig anderes:
+ *
+ *     (a) Im onFetchPhone-Lambda schloss eine `}` nach `geo = parseGeo(...)`
+ *         den else-Zweig ZU FRUEH. Die folgenden Zeilen benutzen aber `dc`
+ *         (dc.holes, dc.name) — das geht nur dort, wo dc nicht null ist.
+ *         Folge: alles danach rutschte eine Ebene heraus, und onCancelFetch
+ *         samt vier weiteren Argumenten landete AUSSERHALB des
+ *         HomeScreen-Aufrufs. Der Compiler meldete den Fehler an der
+ *         Aufrufzeile — 150 Zeilen ueber der Ursache.
+ *
+ *     (b) Am ENDE von GolfWatchApp fehlte eine `}`. Die falsch platzierte
+ *         Klammer aus (a) hat sie ersetzt, weshalb die Gesamtbilanz stimmte.
+ *         Erst nach Behebung von (a) wurde (b) sichtbar.
+ *
+ *     PRUEFUNG, die das findet: eine kontextsichere Klammerbilanz, die
+ *     Strings, VERSCHACHTELTE ${}-Vorlagen, Roh-Strings und Kommentare
+ *     ueberspringt. Eine naive Zaehlung scheitert an Zeilen wie
+ *         "${it.course.name} · ${ it.entries.values.count { e -> ... } } Loecher"
+ *     weil sie die schliessende Klammer des inneren Lambdas fuer das Ende der
+ *     Vorlage haelt. Zusaetzlich pruefen: liegt JEDES benannte Argument eines
+ *     mehrzeiligen Aufrufs auf Klammertiefe 0? 108 Aufrufe geprueft.
+ *
+ *  2026-08-09 (12) · BUILD-FEHLER behoben: „Unresolved reference 'recLiveJson'".
+ *     recLiveJson() stand bei recBegin() — also WEITER UNTEN als der erste
+ *     Aufrufer in syncNow(). Lokale Funktionen in Kotlin sind erst AB ihrer
+ *     Deklaration sichtbar; anders als Methoden eines object/class, wo die
+ *     Reihenfolge egal ist. Jetzt direkt vor syncNow(), unterhalb des
+ *     remember-Zustands `rec`.
+ *
+ *     REGEL FUER GolfWatchApp: Jede lokale `fun` MUSS oberhalb ihres ersten
+ *     Aufrufers stehen. Alle 17 lokalen Funktionen wurden dagegen geprueft.
+ *     Wer eine neue einfuegt, setzt sie moeglichst weit oben — direkt nach den
+ *     remember-Zustaenden, die sie liest.
+ *
+ *  2026-08-09 (11) · ABGLEICH mit PWA v1.91. KEINE Aenderung noetig — hier
+ *     festgehalten, damit der naechste Durchgang nicht danach sucht:
+ *     · Der Umbau des Spielmodus auf Vollbild und dann auf eine normale
+ *       Ansicht (PWA v1.69-1.91) betraf ausschliesslich die Darstellung am
+ *       HANDY. Die Schnittstelle ist unveraendert: Entwurf `_draftRound`,
+ *       Live-Zeiger `live` inkl. `rec` (Schlagaufnahme), Tombstone
+ *       `ui.draftDiscardedTs`, Gameplan unter `DB.strat.gameplans["Kurs|Tee"]`.
+ *     · Alle Lochfelder der PWA werden geschrieben (geprueft): hole, par, si,
+ *       len, score, putts, tee, appr, apprMiss, apprClub, lie, distToPin,
+ *       firstPutt, quality, club, bunkerN, b1, penType, ud, ss, recovery,
+ *       girDirect, shots.
+ *     · FAHNENSTEUERUNG: in der PWA mit v1.90 komplett entfernt (DB.pins,
+ *       pinPoint, greenAxisEdges). Die Uhr hatte das bereits am 2026-08-08
+ *       aufgegeben (siehe Eintrag „Entfallen: Geo.pinPoint(), AppData.pins")
+ *       — beide Seiten zielen jetzt einheitlich auf die GRUENMITTE. Es gibt
+ *       nichts mehr abzugleichen.
+ *
  *  2026-08-09 (10) · NEUES FELD apprClub (Approach-Schlaeger).
  *     Bisher wurde nur der TEE-Schlaeger erfasst. Damit liess sich die
  *     Streuung je Schlaeger nur fuer den Abschlag lernen — nicht fuer Eisen
@@ -294,7 +407,7 @@ import kotlin.math.sqrt
  *     NEUER PARAMETER `clubNames` in PlayPager und ScorePage: opts.teeClubs
  *     enthaelt nur KATEGORIEN (Driver/Holz/Hybrid/Eisen), fuer den
  *     Approach-Schlaeger braucht es die echten Namen aus der Bag
- *     (clubs.map { it.name }).
+ *     (clubs.map { it.club } — das Feld heisst `club`, NICHT `name`).
  *
  *  2026-08-09 (9) · SCHLAGAUFNAHME GERAETEUEBERGREIFEND.
  *     Der Live-Zeiger `_draftRound.live` traegt jetzt zusaetzlich eine
@@ -789,7 +902,6 @@ data class AppData(
     val opts: Options,
     val hi: Double?,
     val clubs: List<ClubDist>,
-    val pins: Map<String, Double>,  // "<Platz>|<Loch>" -> Fahnentiefe 0..1
     val draft: RepoDraft? = null,   // laufende Handy-Runde (falls vorhanden)
     // "<Platz>|<Tee>" -> Loch -> Plan (nur club + targetDesc, bewusst schlank)
     val plans: Map<String, Map<Int, PlanHole>> = emptyMap()
@@ -1147,64 +1259,9 @@ object Geo {
         return if (depth <= 0 || width <= 0) null else depth to width
     }
 
-    // Fahnenposition: d = Tiefe 0 (vordere Kante) .. 1 (hintere Kante),
-    // gemessen entlang der Achse Abschlag -> Grünmitte (wie pinPoint in der PWA).
-    fun pinPoint(
-        geo: CourseGeo,
-        n: Int,
-        d: Double,
-        cache: MutableMap<Int, List<LL>?>
-    ): LL? {
-
-        val hg = geo.holes[n] ?: return null
-        val center = hg.green ?: return null
-        val ring = greenRingFor(geo, n, cache) ?: return center
-        if (ring.size < 3) return center
-
-        val from = hg.tee ?: return center
-
-        val lat0 = center.lat
-        val lng0 = center.lng
-
-        val ox = projX(center.lng, lat0, lng0)
-        val oy = projY(center.lat, lat0)
-        val fx = projX(from.lng, lat0, lng0)
-        val fy = projY(from.lat, lat0)
-
-        var ax = ox - fx
-        var ay = oy - fy
-        val len = hypot(ax, ay).let { if (it == 0.0) 1.0 else it }
-        ax /= len
-        ay /= len
-
-        var mn = Double.MAX_VALUE
-        var mx = -Double.MAX_VALUE
-        var fp: LL? = null
-        var bp: LL? = null
-
-        ring.forEach { p ->
-            val px = projX(p.lng, lat0, lng0)
-            val py = projY(p.lat, lat0)
-            val proj = px * ax + py * ay
-            if (proj < mn) {
-                mn = proj
-                fp = p
-            }
-            if (proj > mx) {
-                mx = proj
-                bp = p
-            }
-        }
-
-        val f = fp ?: return center
-        val b = bp ?: return center
-        val t = d.coerceIn(0.0, 1.0)
-
-        return LL(
-            f.lat + (b.lat - f.lat) * t,
-            f.lng + (b.lng - f.lng) * t
-        )
-    }
+    /* pinPoint ENTFERNT (2026-08-09): die PWA fuehrt keine Fahnentiefen mehr
+       (dort v1.90 ersatzlos gestrichen). Ziel ist durchgaengig die Gruenmitte;
+       die Uhr hat die Tiefe ohnehin nur GELESEN, nie gesetzt. */
 
     // Gefahr auf der Spiellinie: near/far = Entfernung vom Standpunkt bis
     // Eintritt/Austritt in die Fläche (Meter).
@@ -2163,23 +2220,11 @@ private object Net {
 
         clubs.sortByDescending { it.reach }
 
-        // Fahnenpositionen aus der PWA: "<Platz>|<Loch>" -> {d,date}
-        val pins = HashMap<String, Double>()
-        db.optJSONObject("pins")?.let { po ->
-            po.keys().forEach { k ->
-                val o = po.optJSONObject(k)
-                if (o != null && o.has("d")) {
-                    pins[k] = o.optDouble("d", 0.5)
-                }
-            }
-        }
-
         return AppData(
             courses,
             opts,
             hi,
             clubs,
-            pins,
             parseDraft(db),
             parsePlans(db)
         )
@@ -2778,7 +2823,6 @@ private fun saveLocal(
     roundStart: Long?,
     entries: Map<Int, HoleEntry>,
     clubs: List<ClubDist>,
-    pinDepth: Map<Int, Double>,
     measurements: List<JSONObject>,
     roundId: String? = null,
     side: String = "18 Loch"
@@ -2844,9 +2888,7 @@ private fun saveLocal(
     o.put("clubs", cl)
 
     // Fahnentiefen dieses Platzes
-    val pd = JSONObject()
-    pinDepth.forEach { (k, v) -> pd.put(k.toString(), v) }
-    o.put("pins", pd)
+    // Fahnentiefen entfallen (2026-08-09): Ziel ist die Gruenmitte.
 
     // noch nicht gepushte Schlag-Messungen
     val ms = JSONArray()
@@ -2870,7 +2912,6 @@ private data class Loaded(
     val roundStart: Long?,
     val entries: MutableMap<Int, HoleEntry>,
     val clubs: List<ClubDist>,
-    val pinDepth: Map<Int, Double>,
     val measurements: List<JSONObject>,
     // Ohne diese beiden ging beim Fortsetzen verloren, dass die Runde vom
     // Handy stammt (-> die PWA legte beim Speichern eine zweite an) und
@@ -2952,12 +2993,6 @@ private fun loadLocal(
         }
         clubs.sortByDescending { it.reach }
 
-        val pins = HashMap<Int, Double>()
-        o.optJSONObject("pins")?.let { p ->
-            p.keys().forEach { k ->
-                k.toIntOrNull()?.let { n -> pins[n] = p.optDouble(k, 0.5) }
-            }
-        }
 
         val ms = ArrayList<JSONObject>()
         o.optJSONArray("measurements")?.let { a ->
@@ -2985,7 +3020,6 @@ private fun loadLocal(
                 },
                 map,
                 clubs,
-                pins,
                 ms,
                 o.optString("roundId").ifEmpty { null },
                 o.optString("side", "18 Loch").ifEmpty { "18 Loch" }
@@ -3687,10 +3721,6 @@ fun GolfWatchApp(
         mutableStateOf<List<ClubDist>>(emptyList())
     }
 
-    var pinDepth by remember {
-        mutableStateOf<Map<Int, Double>>(emptyMap())
-    }
-
     val measurements = remember {
         mutableStateListOf<JSONObject>()
     }
@@ -3802,7 +3832,6 @@ fun GolfWatchApp(
                 roundStart,
                 entries,
                 clubs,
-                pinDepth,
                 measurements,
                 roundId,
                 side
@@ -3862,6 +3891,28 @@ fun GolfWatchApp(
             persist()
             status = "⌚↔📱 abgeglichen"
         }
+    }
+
+    /* Laufende Schlagaufnahme fuer den Live-Zeiger.
+
+       WICHTIG — REIHENFOLGE: Diese Funktion MUSS oberhalb ihres ersten
+       Aufrufers stehen. Lokale Funktionen in Kotlin sind erst AB ihrer
+       Deklaration sichtbar; stand sie weiter unten (bei recBegin), brach der
+       Build mit „Unresolved reference 'recLiveJson'" in syncNow() ab.
+       `rec` ist weiter oben als remember-Zustand deklariert, passt also.
+
+       Nur wenn bereits ein Schlaeger gewaehlt ist — vorher hat das Handy
+       nichts anzuzeigen. */
+    fun recLiveJson(): JSONObject? {
+        val r = rec ?: return null
+        val st = r.start ?: return null
+        val c = r.club ?: return null
+        return JSONObject()
+            .put("src", "watch")
+            .put("club", c)
+            .put("at", r.at)
+            .put("lat", st.lat)
+            .put("lng", st.lng)
     }
 
     fun syncNow() {
@@ -4001,14 +4052,14 @@ fun GolfWatchApp(
     val fix = if (screen == "play") Live.fix else null
 
     // Zielpunkt des aktuellen Lochs: Fahne (falls Tiefe bekannt), sonst Grünmitte
+    /* Ziel ist die GRUENMITTE. Die Fahnensteuerung wurde in der PWA v1.90
+       ersatzlos entfernt (Handeingabe pro Loch, die im Alltag nicht gepflegt
+       wurde — ungepflegte Werte verschlechtern die Rechnung). Die Uhr hat sie
+       nur GELESEN, nie gesetzt; ohne Pflege in der PWA gaebe es hier nichts
+       mehr zu lesen. Beide Apps zielen jetzt auf dasselbe. */
     fun targetOf(hole: Int): LL? {
         val g = geo ?: return null
-        val d = pinDepth[hole]
-        return if (d != null) {
-            Geo.pinPoint(g, hole, d, ringCache)
-        } else {
-            g.holes[hole]?.green
-        }
+        return g.holes[hole]?.green
     }
 
     fun liveOf(hole: Int): PlayLive {
@@ -4033,13 +4084,10 @@ fun GolfWatchApp(
             )
 
         val fmb = Geo.greenFMB(f.ll(), g, hole, ringCache)
-        val pinD = pinDepth[hole]
-
-        val pin = if (pinD != null) {
-            targetOf(hole)?.let { Geo.dist(f.ll(), it).roundToInt() }
-        } else {
-            null
-        }
+        /* Keine gesonderte „Fahne"-Distanz mehr: Ziel ist die Gruenmitte, und
+           die steht bereits als `mid` in F/M/B. Eine zweite Zeile mit demselben
+           Wert waere nur Rauschen auf einem kleinen Display. */
+        val pin: Int? = null
 
         return PlayLive(
             true,
@@ -4225,20 +4273,6 @@ fun GolfWatchApp(
     }
 
     // ---------------- Schlagtracking ----------------
-
-    /* Laufende Aufnahme fuer den Live-Zeiger. Nur wenn bereits ein Schlaeger
-       gewaehlt ist — vorher hat das Handy nichts anzuzeigen. */
-    fun recLiveJson(): JSONObject? {
-        val r = rec ?: return null
-        val st = r.start ?: return null
-        val c = r.club ?: return null
-        return JSONObject()
-            .put("src", "watch")
-            .put("club", c)
-            .put("at", r.at)
-            .put("lat", st.lat)
-            .put("lng", st.lng)
-    }
 
     fun recBegin() {
         val f = Live.fix
@@ -4546,14 +4580,16 @@ fun GolfWatchApp(
                                     ringCache.clear()
                                     geo = parseGeo(dc.geoRaw)
 
-                                    val pd = HashMap<Int, Double>()
-                                    d.pins.forEach { (k, v) ->
-                                        val parts = k.split("|")
-                                        if (parts.size == 2 && parts[0] == dc.name) {
-                                            parts[1].toIntOrNull()?.let { n -> pd[n] = v }
-                                        }
-                                    }
-                                    pinDepth = pd
+                                    /* HIER STAND EINE `}` ZU VIEL — sie schloss den
+                                       else-Zweig zu frueh. Die folgenden Zeilen
+                                       benutzen `dc` (dc.holes, dc.name); das geht nur
+                                       INNERHALB dieses Zweigs, wo dc nicht null ist.
+                                       Folge der Fehlstellung: alles danach rutschte
+                                       eine Ebene heraus, und `onCancelFetch` samt vier
+                                       weiteren Argumenten landete AUSSERHALB des
+                                       HomeScreen-Aufrufs — der Compiler meldete
+                                       „No value passed for parameter 'onCancelFetch'"
+                                       an einer Stelle 150 Zeilen weiter oben. */
 
                                     entries.clear()
                                     measurements.clear()
@@ -4582,6 +4618,7 @@ fun GolfWatchApp(
                                     status = "▶ ${dc.name} · $tee · Loch " +
                                             (course?.holes?.getOrNull(idx)?.hole ?: 1)
                                     screen = "play"
+
                                 }
 
                             } else {
@@ -4655,7 +4692,6 @@ fun GolfWatchApp(
                         tee = it.tee
                         hi = it.hi
                         clubs = it.clubs
-                        pinDepth = it.pinDepth
                         roundId = it.roundId
                         side = it.side
 
@@ -4688,18 +4724,6 @@ fun GolfWatchApp(
                                 if (d != null) {
                                     data = d
                                     if (d.clubs.isNotEmpty()) clubs = d.clubs
-                                    val cn = course?.name
-                                    if (cn != null) {
-                                        val pd = HashMap<Int, Double>()
-                                        d.pins.forEach { (k, v) ->
-                                            val parts = k.split("|")
-                                            if (parts.size == 2 && parts[0] == cn) {
-                                                parts[1].toIntOrNull()
-                                                    ?.let { n -> pd[n] = v }
-                                            }
-                                        }
-                                        if (pd.isNotEmpty()) pinDepth = pd
-                                    }
                                 }
                             }
                         }
@@ -4772,16 +4796,6 @@ fun GolfWatchApp(
                     ringCache.clear()
                     geo = parseGeo(c.geoRaw)
 
-                    // Fahnentiefen dieses Platzes übernehmen
-                    val pd = HashMap<Int, Double>()
-                    data?.pins?.forEach { (k, v) ->
-                        val parts = k.split("|")
-                        if (parts.size == 2 && parts[0] == c.name) {
-                            parts[1].toIntOrNull()?.let { n -> pd[n] = v }
-                        }
-                    }
-                    pinDepth = pd
-
                     entries.clear()
                     measurements.clear()
 
@@ -4841,7 +4855,8 @@ fun GolfWatchApp(
                         total = cs.holes.size,
                         status = status,
                         opts = opts,
-                        clubNames = clubs.map { it.name },
+                        // ClubDist heisst das Feld `club`, NICHT `name`.
+                        clubNames = clubs.map { it.club },
                         toPar = opNow,
                         thru = thruNow,
 

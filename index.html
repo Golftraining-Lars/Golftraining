@@ -626,6 +626,9 @@
   .pf-hole b{font-family:var(--mono);font-size:20px;font-weight:800;line-height:1}
   .pf-hole span{font-size:11.5px;opacity:.9;line-height:1.2}
   /* Front/Mitte/Back kompakt zwischen Loch und Score. */
+  /* Einflusszeile: Hoehe, Wind, Naesse — warum der Schlaeger anders ausfaellt. */
+  .pf-bed{display:block;font-size:11.5px;font-weight:600;opacity:.92;margin-top:2px;color:#ffd9a0}
+  .pf-bed b{font-family:var(--mono)}
   .pf-fmb{display:flex;gap:6px;background:rgba(12,32,20,.72);backdrop-filter:blur(8px);
     border-radius:14px;padding:6px 9px;color:#fff;font-family:var(--mono);font-size:13px;
     font-weight:700;line-height:1}
@@ -2060,6 +2063,36 @@ bekommt einen Eintrag je Wegpunkt, der Gruen-Punkt ist aber keiner. Auf einem Pa
 ueber `STRAT.approach()` — und dort zaehlt eine ANDERE Zahl: **Gruen getroffen** (plus Sand ab
 8 %, Strafe ab 5 %). `pfOpen`/`pfClose`/`pfRender`/`playAfterHole` steuern die Vollbildebene.
 
+### Bedingungen wirken auf die SCHLAEGERWAHL (v2.18)
+Bis hierher wirkten Hoehe, Wind, Temperatur und Regen **nur auf die Anzeige** („spielt wie
+165 m"). Die Empfehlung dahinter rechnete mit der flachen Distanz — man bekam die richtige Zahl
+zu sehen und den falschen Schlaeger dazu. Bei 15 m Anstieg ist das ein ganzer Schlaeger daneben.
+
+**Woher die Hoehe kommt:** NICHT aus OSM — dort gibt es an Golfobjekten praktisch keine
+`ele`-Tags, und Hoehenlinien werden gar nicht abgefragt. `elevEnsure()` holt sie gebuendelt bei
+Open-Meteo (globales Hoehenraster), gecacht auf 4 Nachkommastellen (~11 m Stuetzpunkte).
+`elevDelta()` unterdrueckt alles unter 1,5 m als Rauschen. **Grenze:** Ein erhoehtes Gruen, das
+3 m ueber dem Fairway liegt, verschwindet in diesem Raster — verlaesslich ist es fuer echte
+Gelaendesteigungen, nicht fuer die letzten Meter. Ohne Netz faellt die Korrektur still weg.
+
+**Der Ansatz:** Nicht die Distanz vergroessern, sondern die SCHLAEGER verkleinern. Ein
+150-m-Eisen deckt bergauf keine 150 m Boden mehr ab. `condFaktor(from,to)` liefert
+`f = Distanz / playsLike(Distanz)`; `caddyClubs(cond)` skaliert damit `dist` und `carry`. Die
+gesamte Geometrie (Raster, Streuung, Hindernisse) bleibt unveraendert — nur die Reichweiten
+schrumpfen oder wachsen. Der Faktor ist auf **±25 %** gedeckelt: alles darueber kaeme nur aus
+fehlerhaften Hoehendaten und wuerde die Schlaegerwahl verreissen.
+
+Gemessen an 150 m Rest mit einer typischen Bag:
+
+    eben           spielt wie 152 m · Faktor 0,987 -> 6 Eisen
+    10 m bergauf   spielt wie 162 m · Faktor 0,926 -> 4 Eisen
+    15 m bergauf   spielt wie 167 m · Faktor 0,898 -> 5 Wood
+    10 m bergab    spielt wie 144 m · Faktor 1,042 -> 6 Eisen
+
+**Ausgewiesen wird es auch:** Die Caddy-Zeile zeigt „spielt wie 167 m · ⛰ bergauf 15 m ·
+🌬 Gegenwind 4 m/s" — sonst wundert man sich, warum bei 150 m ein 5 Wood empfohlen wird.
+`caddyClubs()` ohne Argument verhaelt sich unveraendert, alle Altaufrufer bleiben gueltig.
+
 ### Zwei Bezugspunkte, die sich zu widersprechen SCHIENEN (v2.01)
 Zwei Tafeln zeigten scheinbar Gegensaetzliches: Strokes Gained sagte „langes Spiel +4,04 — deine
 Staerke", der Zielabstand sagte „langes Spiel 13,6 Schlaege — dein groesstes Defizit". Beides
@@ -2770,6 +2803,35 @@ erkennbar ist, dass es ein Video gab.
 ## Changelog
 > **Regel:** Bei JEDER inhaltlichen Änderung hier oben einen datierten Eintrag ergänzen (neueste
 > zuerst): Datum · was geändert · betroffene Bereiche. Kurz halten.
+
+- **v2.19.0 · 2026-08-10** — **Höhenraster verbessert · Prüfstand meldete „bestanden" für
+  Gruppen, die nie liefen.**
+  **Raster:** (1) `ELEV` lebte nur im Arbeitsspeicher — nach jedem Start war alles weg, auf dem
+  Platz im Funkloch gab es gar keine Höhen. Jetzt in `localStorage`, gedeckelt auf 4000 Punkte,
+  bewusst nicht im Sync-JSON. (2) Der Schlüssel verlangte einen exakten Treffer auf ~11 m; beim
+  Gehen traf er praktisch nie und die Korrektur fiel **still** aus. Jetzt Interpolation aus den
+  **vier nächsten** Punkten (inverse Distanzgewichtung, 60 m Umkreis) — nur vier, weil alle
+  Punkte im Umkreis den Wert zu entfernten Stützpunkten hinziehen. Abweichung gegen einen
+  linearen Anstieg unter 12 cm, die Gesamtdifferenz über die Bahn exakt. (3) `elevPrefetchHole()`
+  legt beim Lochwechsel ein Profil entlang der Spiellinie an (alle ~25 m) — vorher waren nur Tee,
+  Grün und Standort bekannt, ein Tal auf halber Bahn unsichtbar. `elevSave()` schreibt das Raster gebündelt nach jedem Abruf zurück. (4) Über 60 m liefert `elevGet`
+  bewusst `null` statt eines erfundenen Werts.
+  **Prüfstand:** Fehlt ein Name in der Übergabeliste, liefert `G(...)` `undefined`; die Gruppe
+  steht hinter einem `typeof`-Wächter und wird kommentarlos übersprungen — gemeldet wird trotzdem
+  Erfolg. So waren **48 Prüfungen stillgelegt**. Nach dem Nachtragen: 607 → 655. Neuer Abschnitt
+  **24al** prüft das selbst und ist damit die wichtigste Prüfung der Datei — sie verhindert, dass
+  alle anderen lügen.
+
+- **v2.18.0 · 2026-08-10** — **Höhe, Wind und Regen wirken jetzt auf die SCHLÄGERWAHL.** Bisher
+  nur auf die Anzeige — richtige Zahl, falscher Schläger. Neu skaliert `caddyClubs(cond)` die
+  Reichweiten mit `condFaktor()` (`f = Distanz / playsLike(Distanz)`, gedeckelt auf ±25 %):
+  Ein 150-m-Eisen deckt bergauf keine 150 m Boden mehr ab. Die Geometrie bleibt unverändert, nur
+  die Reichweiten schrumpfen oder wachsen. Bei 150 m Rest: eben 6 Eisen, **10 m bergauf 4 Eisen,
+  15 m bergauf 5 Wood**, 10 m bergab wieder 6 Eisen. Der Caddy **weist den Einfluss aus**
+  („spielt wie 167 m · ⛰ bergauf 15 m · 🌬 Gegenwind 4 m/s"), sonst wäre die Empfehlung nicht
+  nachvollziehbar. **Zur Höhenquelle:** nicht OSM (dort gibt es keine brauchbaren Höhen), sondern
+  das Open-Meteo-Höhenraster; unter 1,5 m gilt als Rauschen, ein 3 m erhöhtes Grün erfasst das
+  Raster nicht. `caddyClubs()` ohne Argument bleibt unverändert. 12 Prüfungen.
 
 - **v2.17.0 · 2026-08-10** — **R10-Messungen kamen nie an: englische gegen deutsche
   Schlägernamen.** `clubMeasured` verglich die Namen **exakt**. Der Garmin R10 exportiert
@@ -13832,8 +13894,61 @@ function clubSigma(name, dist){
     const v=arr.reduce((a,b)=>a+(b-m)*(b-m),0)/arr.length; return Math.max(4,Math.round(Math.sqrt(v))); }
   return Math.max(6, Math.round(dist*0.06));
 }
-function caddyClubs(){
-  return clubList().map(c=>({name:c.name, dist:c.reach, carry:(c.carry!=null?c.carry:c.reach), sigma:clubSigma(c.name,c.reach)}))
+/* ==========================================================================
+   BEDINGUNGEN IN DIE SCHLAEGERWAHL (v2.18)
+
+   Hoehe, Wind, Temperatur und Regen wirkten bis hierher NUR auf die Anzeige
+   („spielt wie 165 m"). Die Empfehlung dahinter rechnete mit der flachen
+   Distanz — man bekam die richtige Zahl zu sehen und den falschen Schlaeger
+   dazu. Auf einem Loch mit 15 m Anstieg ist das ein ganzer Schlaeger daneben.
+
+   Der Ansatz: Nicht die Distanz vergroessern, sondern die SCHLAEGER
+   verkleinern. Ein 150-m-Eisen deckt bergauf eben keine 150 m Boden mehr ab.
+   Faktor f = d / playsLike(d) — bergauf kleiner als 1, mit Rueckenwind
+   groesser. Damit bleibt die gesamte Geometrie (Raster, Streuung, Hindernisse)
+   unveraendert; nur die Reichweiten schrumpfen oder wachsen.
+
+   `condFaktor(from,to)` liefert den Faktor UND die Bestandteile fuer die
+   Anzeige — der Spieler soll sehen, warum ein anderer Schlaeger empfohlen wird.
+   ========================================================================== */
+function condFaktor(from, to){
+  const leer={f:1, dElev:null, plays:null, roh:null, teile:[]};
+  if(!from || !to) return leer;
+  let roh=null;
+  try{ roh=geoDist(from,to); }catch(e){ logErr("condFaktor:dist", e, true); return leer; }
+  if(!(roh>0)) return leer;
+  const dElev=(typeof elevDelta==="function") ? elevDelta(from,to) : null;
+  if(!WEATHER && !dElev) return leer;
+  let brg=null;
+  try{ brg=bearingDeg(from,to); }catch(e){ logErr("condFaktor:bearing", e, true); }
+  const plays=playsLike(roh,
+    WEATHER?WEATHER.temp:null, WEATHER?WEATHER.windMs:null, WEATHER?WEATHER.windDir:null,
+    brg, dElev);
+  if(!(plays>0)) return leer;
+  const teile=[];
+  if(dElev!=null && Math.abs(dElev)>=1.5)
+    teile.push(`${dElev>0?"⛰ bergauf":"⛰ bergab"} ${Math.abs(Math.round(dElev))} m`);
+  if(WEATHER && brg!=null && WEATHER.windMs!=null){
+    const w=windRel(WEATHER.windMs, WEATHER.windDir, brg);
+    if(w && w.head<-0.5) teile.push(`🌬 Gegenwind ${Math.abs(w.head).toFixed(0)} m/s`);
+    else if(w && w.head>0.5) teile.push(`🌬 Rückenwind ${w.head.toFixed(0)} m/s`);
+  }
+  if(typeof nassFaktor==="function" && nassFaktor()>0) teile.push("🌧 nass");
+  /* Deckeln: Ein Faktor jenseits ±25 % kaeme nur aus fehlerhaften Hoehendaten. */
+  const f=Math.max(0.75, Math.min(1.25, roh/plays));
+  return {f, dElev, plays:Math.round(plays), roh:Math.round(roh), teile};
+}
+
+/* `cond` optional: mit Bedingungen skalierte Reichweiten. Ohne Argument
+   verhaelt sich die Funktion wie bisher — alle Altaufrufer bleiben gueltig. */
+function caddyClubs(cond){
+  const f=(cond && isFinite(cond.f) && cond.f>0) ? cond.f : 1;
+  return clubList().map(c=>{
+      const reach=(c.reach!=null)?Math.round(c.reach*f):null;
+      const carry=(c.carry!=null)?Math.round(c.carry*f):reach;
+      return {name:c.name, dist:reach, carry, sigma:clubSigma(c.name,c.reach),
+              rohDist:c.reach, rohCarry:c.carry};
+    })
     .filter(c=>c.dist!=null).sort((a,b)=>b.dist-a.dist);
 }
 function playerMissBias(){
@@ -14598,9 +14713,72 @@ function windRel(windMs, windDir, bearing){
    groesser sind als der gesamte Temperatureffekt. Faustregel der Ballistik:
    der Zuschlag entspricht etwa der Hoehendifferenz, bergab etwas gedaempft
    (der Ball faellt flacher ein und rollt mehr aus). */
-const ELEV={}; let _elevBusy=false;
+/* ==========================================================================
+   HOEHENRASTER (v2.19) — vier Schwaechen behoben
+   1. NICHT PERSISTENT: `ELEV` lebte nur im Arbeitsspeicher. Nach jedem
+      App-Start war alles weg — auf dem Platz im Funkloch gab es damit GAR
+      KEINE Hoehen, also genau dort nicht, wo man sie braucht. Jetzt in
+      localStorage (bewusst LOKAL, nicht im Sync-JSON: das Raster waere sonst
+      schnell groesser als die eigentlichen Daten).
+   2. EXAKTER TREFFER noetig: Der Schluessel hat 4 Nachkommastellen (~11 m).
+      Beim Gehen aendert sich die Position staendig, er traf praktisch nie, und
+      die Hoehenkorrektur fiel STILL aus. Jetzt wird interpoliert.
+   3. KEIN VORRAT: Geholt wurden nur Tee, Gruen und Standort — ein Tal auf
+      halber Bahn war unsichtbar. `elevPrefetchHole` legt ein Profil an.
+   4. Ueber 60 m liefert `elevGet` bewusst `null` statt eines erfundenen Werts.
+   ========================================================================== */
+const ELEV_KEY="gt_elev_v1";
+const ELEV=(function(){
+  try{ const t=localStorage.getItem(ELEV_KEY); if(t){ const o=JSON.parse(t); if(o&&typeof o==="object") return o; } }
+  catch(e){ /* kein Raster gespeichert oder unlesbar — leer starten */ }
+  return {};
+})();
+let _elevBusy=false, _elevDirty=false;
+function elevSave(){
+  if(!_elevDirty) return; _elevDirty=false;
+  try{
+    /* Deckel: mehr als 4000 Punkte braucht niemand (ueber 200 Loecher).
+       Bei Ueberlauf die aeltesten verwerfen — Einfuegereihenfolge. */
+    const k=Object.keys(ELEV);
+    if(k.length>4000) k.slice(0,k.length-4000).forEach(x=>delete ELEV[x]);
+    localStorage.setItem(ELEV_KEY, JSON.stringify(ELEV));
+  }catch(e){ logErr("elevSave", e, true); }
+}
 function elevKey(la,lo){ return la.toFixed(4)+","+lo.toFixed(4); }
-function elevGet(la,lo){ const v=ELEV[elevKey(la,lo)]; return v===undefined?null:v; }
+function elevGet(la,lo){
+  const v=ELEV[elevKey(la,lo)];
+  if(v!==undefined) return v;
+  const mLat=111320, mLng=111320*Math.cos(la*Math.PI/180);
+  const nah=[];
+  for(const k in ELEV){
+    const p=k.split(","); const a=+p[0], b=+p[1];
+    const dx=(b-lo)*mLng, dy=(a-la)*mLat, d2=dx*dx+dy*dy;
+    if(d2>3600) continue;                 // > 60 m sagt nichts mehr aus
+    if(d2<1) return ELEV[k];
+    nah.push([d2, ELEV[k]]);
+  }
+  if(!nah.length) return null;
+  /* NUR DIE VIER NAECHSTEN. Alle Punkte im Umkreis zu mitteln zoege den Wert
+     zu entfernten Stuetzpunkten hin — bei gleichmaessigem Anstieg ergaebe das
+     systematisch zu hohe Werte in der Mitte. */
+  nah.sort((x,y)=>x[0]-y[0]);
+  let sw=0, sv=0;
+  nah.slice(0,4).forEach(([d2,v])=>{ const w=1/d2; sw+=w; sv+=w*v; });
+  return sw? sv/sw : null;
+}
+/* Hoehenprofil einer Bahn vorladen — danach ist sie dauerhaft abgedeckt,
+   auch offline und auch an Stellen, an denen man noch nie war. */
+function elevPrefetchHole(geo, holeNo){
+  try{
+    const hr=holeRef(geo, holeNo); if(!hr||!hr.tee||!hr.green) return;
+    const d=geoDist(hr.tee, hr.green);
+    const n=Math.max(2, Math.min(24, Math.round(d/25)));
+    const pts=[];
+    for(let i=0;i<=n;i++){ const t=i/n;
+      pts.push([hr.tee[0]+(hr.green[0]-hr.tee[0])*t, hr.tee[1]+(hr.green[1]-hr.tee[1])*t]); }
+    elevEnsure(pts);
+  }catch(e){ logErr("elevPrefetchHole", e, true); }
+}
 // Holt fehlende Hoehen gebuendelt (Open-Meteo Elevation, kein Key, CORS ok)
 async function elevEnsure(points){
   const need=points.filter(p=>p && ELEV[elevKey(p[0],p[1])]===undefined).slice(0,100);
@@ -14610,7 +14788,9 @@ async function elevEnsure(points){
     const la=need.map(p=>p[0].toFixed(4)).join(","), lo=need.map(p=>p[1].toFixed(4)).join(",");
     const r=await fetch(`https://api.open-meteo.com/v1/elevation?latitude=${la}&longitude=${lo}`,{cache:"force-cache"});
     if(r.ok){ const j=await r.json();
-      (j.elevation||[]).forEach((e,i)=>{ if(need[i]&&isFinite(e)) ELEV[elevKey(need[i][0],need[i][1])]=e; }); }
+      (j.elevation||[]).forEach((e,i)=>{ if(need[i]&&isFinite(e)){
+        ELEV[elevKey(need[i][0],need[i][1])]=e; _elevDirty=true; } });
+      elevSave(); }
   }catch(_){ logErr("catch", _, true); }
   _elevBusy=false;
 }
@@ -18732,8 +18912,20 @@ function pfCaddyKurz(){
     : "";
   const wind = (WEATHER&&WEATHER.windMs!=null)
     ? ` · ${Math.round(WEATHER.windMs*3.6)} km/h` : "";
+  /* Front · Mitte · Back — die Angabe, nach der man den Schlaeger waehlt. */
+  const fmbTxt = fmb
+    ? `<span class="pf-fmb">${fmb.front!=null?fmb.front:"–"} · <b>${fmb.mid}</b> · ${fmb.back!=null?fmb.back:"–"}</span>`
+    : "";
+  /* EINFLUSS DER BEDINGUNGEN AUSWEISEN. Ohne diese Zeile wundert man sich,
+     warum bei 150 m ein 165-m-Eisen empfohlen wird — die Hoehe steckt seit
+     v2.18 in der Schlaegerwahl, nicht mehr nur in der Anzeige. */
+  const bed = (now && now.spieltWie)
+    ? `<span class="pf-bed">spielt wie <b>${now.spieltWie} m</b>${
+        (now.cond && now.cond.teile.length) ? " · "+esc(now.cond.teile.join(" · ")) : ""}</span>`
+    : "";
   return `<button type="button" class="pf-cad-line" onclick="pfInfoToggle()">
-    <b>${rest!=null?rest+" m":"–"}</b>${esc(empf)}${esc(wind)} <span class="pf-cad-more">▾</span></button>`;
+    <b>${rest!=null?rest+" m":"–"}</b>${esc(empf)}${esc(wind)}
+    ${bed}${fmbTxt}<span class="pf-cad-more">▾</span></button>`;
 }
 function pfInfoToggle(){ PLAY.pfInfoOpen=!PLAY.pfInfoOpen; pfRender(); }
 
@@ -19192,10 +19384,16 @@ function _aimChainKey(){
   return [k, PLAY.tee, caddyMode(), p, JSON.stringify(ov)].join("|");
 }
 
+let _aimCond=null;      // Bedingungen der zuletzt gebauten Kette (fuer die Anzeige)
 function _aimBuild(strategic){
   const h=PLAY.holes[PLAY.idx], geo=playGeo(); if(!h||!geo) return null;
   const hr=holeRef(geo,h.hole); if(!hr||!hr.green) return null;
-  const clubs=caddyClubs(); if(!clubs.length) return null;
+  /* Bedingungen ab dem Startpunkt zum Gruen — sie skalieren die Reichweiten,
+     damit der Caddy bergauf tatsaechlich mehr Schlaeger nimmt und nicht nur
+     eine groessere Zahl anzeigt. */
+  const _cond0=condFaktor((PLAY.here && !( (!PLAY.here) || (hr.tee && geoDist(PLAY.here,hr.tee)<30) ) ? PLAY.here : hr.tee) || hr.tee, hr.green);
+  _aimCond=_cond0;
+  const clubs=caddyClubs(_cond0); if(!clubs.length) return null;
   const key=playAimKey(); const ov=(PLAY.aim&&PLAY.aim[key])||{};
   /* AB DER EIGENEN POSITION, sobald das Tee verlassen ist. Vorher startete die
      Kette immer am Abschlag — die orange Linie zeigte den ganzen Weg ueber den
@@ -19282,6 +19480,7 @@ function playAimChain(force){
   const key=_aimChainKey();
   if(!force && !_aimDragging && PLAY.aimChain && PLAY.aimChainKey===key) return PLAY.aimChain;
   const ch=_aimBuild(!_aimDragging);
+  if(ch) ch.cond=_aimCond;
   PLAY.aimChain=ch;
   PLAY.aimChainKey=_aimDragging?"":key;      // Schnellbau nicht als gueltig merken
   return ch;
@@ -19484,7 +19683,10 @@ function playMapRender(){
        landet das als UNBEHANDELTE Promise-Ablehnung — im Protokoll ohne
        Funktionsnamen, nur „Promise: …". Genau so tauchte der toFixed-Fehler
        dreimal zusaetzlich und schlechter lesbar auf. */
-    if(hr) elevEnsure([hr.tee,hr.green,PLAY.here].filter(Boolean))
+    /* Ganze Bahn vorladen statt nur drei Punkte — sonst ist ein Tal auf halber
+     Bahn unsichtbar und beim Gehen fehlt jeder Stuetzpunkt. */
+  if(hr) elevPrefetchHole(geo, h.hole);
+  if(hr) elevEnsure([hr.tee,hr.green,PLAY.here].filter(Boolean))
       .then(()=>{ if(PLAY.active) playLiveRefresh&&playLiveRefresh(); })
       .catch(e=>logErr("playMapRender:elev", e, true));
   }catch(_){ logErr("catch", _, true); }
@@ -24388,7 +24590,7 @@ function openComp(idx){
 /* ================= NAV ================= */
 let current="dash";
 const FAB_ACTION={rounds:startRound,comp:openAddComp,notes:openAddNote,swing:openSwingEdit};
-const APP_VERSION="2.17.0"; // App-Anzeigeversion (NICHT SEED.version! Diese bei jeder Änderung erhöhen)
+const APP_VERSION="2.19.0"; // App-Anzeigeversion (NICHT SEED.version! Diese bei jeder Änderung erhöhen)
 /* ---------- Darstellung: Hell/Dunkel (DB.ui.theme = "auto" | "light" | "dark") ---------- */
 const _darkMQ = (window.matchMedia? window.matchMedia("(prefers-color-scheme: dark)") : null);
 function themeSetting(){ return (DB && DB.ui && DB.ui.theme) || "auto"; }
