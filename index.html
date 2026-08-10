@@ -652,11 +652,7 @@
   .pf-caddy .pc-head,.pf-caddy b{color:#fff}
   .pf-caddy .pc-why,.pf-caddy .r-s,.pf-caddy .pc-plan{color:rgba(255,255,255,.85)}
   #pfCtrls{position:absolute;top:58px;right:10px;z-index:7}
-  /* Messwert-Anzeige: bewusst haesslich und klein, sie ist ein Werkzeug. */
-  #pfDbg{position:absolute;left:6px;right:6px;top:4px;
-    z-index:9;background:rgba(0,0,0,.82);color:#8fe3b0;font-family:var(--mono);
-    font-size:9.5px;line-height:1.35;padding:4px 6px;border-radius:7px;word-break:break-all}
-  /* IM FLUSS, nicht absolut: so sitzt sie immer am Ende des Inhalts. */
+    /* IM FLUSS, nicht absolut: so sitzt sie immer am Ende des Inhalts. */
   .pf-bottom{flex:0 0 auto;z-index:6;
     padding:10px 12px calc(env(safe-area-inset-bottom) + 12px);
     background:linear-gradient(to top,rgba(8,26,15,.82),rgba(8,26,15,.55))}
@@ -2111,6 +2107,30 @@ Rechenkerne. Die Selbstpruefung hat beides gemeldet (doppelte Funktionsnamen, ni
 aufgerufen). **Vor dem Bauen pruefen, ob es die Funktion schon gibt** — die Datei hat inzwischen
 ueber 680 Funktionen.
 
+### Spielweise und Adressleiste (v2.05)
+**`pfFullscreen()`** (⛶ in der Kartenleiste) blendet ueber die Fullscreen-API die Adressleiste
+aus. Ein normaler Browser-Tab kann sie nicht dauerhaft verstecken — das ist eine
+Sicherheitsvorgabe, und die API braucht eine Nutzergeste. **Dauerhaft ohne Browser-Rahmen** geht
+es nur, wenn die App zum Startbildschirm hinzugefuegt wird; sie laeuft dann als PWA im
+standalone-Modus.
+
+**Spielweise (`tee()`-Bewertung).** Vorher wirkte der Modus AUSSCHLIESSLICH ueber das Gewicht der
+Strafquote. Auf einem Loch ohne Wasser und Aus war `pen` fuer alle Kandidaten 0 — die drei
+Bewertungen waren rechnerisch identisch, der Umschalter tat sichtbar nichts. Jetzt:
+
+    safe: es + 1.50·pen + 0.40·sand + 0.12·rough + blk
+    bal:  es + 0.50·pen + 0.18·sand + 0.05·rough + blk
+    aggr: es + 0.25·pen + 0.06·sand + 0.00·rough + blk
+
+`es` bleibt der Kern; die Gewichte verschieben nur, wie stark ein RISIKO ueber den reinen
+Erwartungswert hinaus bestraft wird. Offensiv straft Strafgebiete weiterhin leicht — sie ganz zu
+ignorieren waere nicht mutig, sondern falsch.
+
+**Zum Verstaendnis:** Bleibt die Empfehlung beim Umschalten gleich, gibt es auf diesem Loch kein
+Risiko, das eine andere Wahl rechtfertigen wuerde — dann ist der Schlaeger in jeder Spielweise
+der richtige. Das steht als Hinweis in der aufgeklappten Caddy-Anzeige, damit es nicht wie ein
+Fehler wirkt.
+
 ### Acht Aenderungen von der Runde (v1.98)
 - **Schwunglaenge je Schlag** (`playRecSwing`, `DB.swingTypes`): Voll · 3/4 · Halb · Viertel ·
   Punch · Flop · Chip · Bunker, direkt am Aufnahmeband waehlbar und in `gpsShots.swing`
@@ -2640,6 +2660,40 @@ erkennbar ist, dass es ein Video gab.
 ## Changelog
 > **Regel:** Bei JEDER inhaltlichen Änderung hier oben einen datierten Eintrag ergänzen (neueste
 > zuerst): Datum · was geändert · betroffene Bereiche. Kurz halten.
+
+- **v2.05.0 · 2026-08-10** — **Spielweise wirkte nur auf Strafgebiete · Adressleiste ausblendbar.**
+  (1) Die Modi unterschieden sich **ausschließlich** im Gewicht der Strafquote
+  (`safe: es+1,5·pen`, `bal: es+0,5·pen`, `aggr: es`). Auf einem Loch ohne Wasser und Aus war
+  `pen` für alle Kandidaten 0 — die drei Bewertungen waren rechnerisch identisch und der
+  Umschalter tat sichtbar nichts. Das ist auch fachlich zu eng: „sicher" heißt auf den meisten
+  Löchern nicht „Wasser meiden", sondern Bunker und Rough meiden. Jetzt gehen **Sand- und
+  Rough-Anteil** mit ein, je Spielweise gewichtet; offensiv straft Strafgebiete weiterhin leicht
+  (0,25) — sie ganz zu ignorieren wäre nicht mutig, sondern falsch. Der Erwartungswert selbst
+  bleibt modusunabhängig, nur die Risikogewichtung verschiebt sich.
+  **Wichtig zum Verständnis:** Bleibt die Empfehlung beim Umschalten gleich, gibt es auf diesem
+  Loch kein Risiko, das eine andere Wahl rechtfertigen würde. Das steht jetzt als Hinweis in der
+  aufgeklappten Caddy-Anzeige, statt wie ein Fehler zu wirken.
+  (2) **⛶-Knopf** in der Kartenleiste: blendet über die Fullscreen-API die Adressleiste aus.
+  Ein normaler Tab kann sie nicht dauerhaft verstecken — dauerhaft geht das nur, wenn die App
+  zum Startbildschirm hinzugefügt wird (PWA im standalone-Modus).
+
+- **v2.04.0 · 2026-08-10** — **BUGFIX: Scorekarte schließen landete in der Eingabemaske.**
+  `closeSheet()` baut seinen History-Eintrag über `history.back()` ab — das löst ein popstate
+  aus, und der Handler hielt es für die Zurück-Taste und wechselte in die Eingabe. Neu
+  unterscheidet `_popEigen` das selbst ausgelöste Ereignis vom Nutzerdruck; ein Zeitgeber setzt
+  die Markierung zurück, falls das popstate ausbleibt und sonst den nächsten echten Zurück-Druck
+  schlucken würde. **Nebenbei:** `closeSheet()` gab weiterhin den Wake Lock frei — jedes Blatt
+  im Spielmodus (Scorekarte, Details) hätte den Bildschirm einschlafen lassen. Jetzt bleibt er
+  während einer laufenden Runde gehalten. Beide Abläufe simuliert: ✕ führt zurück auf die Karte,
+  die echte Zurück-Taste weiterhin in die Eingabemaske.
+
+- **v2.03.0 · 2026-08-10** — **Messanzeige im Spielmodus entfernt.** `pfFacts`, `pfDbgRender`,
+  `pfDbgToggle`, das Element `#pfDbg`, dessen CSS, der ⓘ-Schalter in der Kartenleiste, der Knopf
+  in der Diagnose und die Vorgabe `DB.ui.pfDebug` sind vollständig entfallen. Sie hat ihren Zweck
+  erfüllt — sie fand die 56-px-Differenz zwischen `documentElement.clientHeight` und dem
+  sichtbaren Bildschirm, an der zwölf Anläufe gescheitert waren — und verdeckte danach nur noch
+  die Karte. Die **Versionsanzeige in der Diagnose bleibt**: Sie beantwortet die Frage „läuft
+  überhaupt die neue Fassung?", die während der Fehlersuche mehrfach entscheidend war.
 
 - **v2.02.0 · 2026-08-10** — **BUGFIX: Der Caddy baute aus großer Entfernung absurde Ketten.**
   Aus 3,2 km rechnete `_aimBuild()` von der eigenen Position: 3077 m Rest geteilt durch 215 m
@@ -4004,7 +4058,6 @@ erkennbar ist, dass es ein Video gab.
         <div id="pfTop" class="pf-top"></div>
         <div id="pfCaddy" class="pf-caddy"></div>
         <div class="play-map-ctrls" id="pfCtrls"></div>
-        <div id="pfDbg" style="display:none"></div>
       </div>
       <div id="pfBottom" class="pf-bottom"></div>
     </div>
@@ -13684,8 +13737,30 @@ const STRAT={
         // die Landeflaeche dahinter aussieht.
         const aim=this._off(teeP,brg,carry,0,g.mLat,g.mLng);
         const blk=this.blocked(g,teeP,aim);
-        const score = (mode==="safe"? es+1.5*pen : mode==="aggr"? es : es+0.5*pen) + blk;
-        cands.push({club:cl,lineDeg:dl,brg,es,pen,score,frac,sg,blk});
+        /* ==========================================================================
+           SPIELWEISE WIRKT AUF MEHR ALS STRAFGEBIETE (v2.05)
+           Vorher unterschieden sich die Modi NUR im Gewicht der Strafquote.
+           Auf einem Loch ohne Wasser und Aus war `pen` fuer alle Kandidaten 0,
+           und sicher/normal/offensiv lieferten exakt dasselbe Ergebnis — der
+           Umschalter tat sichtbar nichts. Das ist auch fachlich zu eng: Die
+           Entscheidung „sicher" heisst auf den meisten Loechern nicht
+           „Wasser meiden", sondern Bunker und Rough meiden und dafuer kuerzer
+           bleiben.
+
+           Jetzt gehen Sand- und Rough-Anteil mit ein, jeweils mit einem
+           Gewicht je Spielweise. `es` (erwartete Restschlaege) bleibt der Kern
+           — die Gewichte verschieben nur, wie stark ein RISIKO ueber den
+           reinen Erwartungswert hinaus bestraft wird. Offensiv straft
+           Strafgebiete weiterhin leicht: sie ganz zu ignorieren waere nicht
+           mutig, sondern falsch. */
+        const nS=S.length;
+        const sandQ=(frac[this.LIE.sand]||0)/nS;
+        const roughQ=((frac[this.LIE.rough]||0)+(frac[this.LIE.recovery]||0))/nS;
+        const w = mode==="safe" ? {pen:1.5, sand:0.40, rough:0.12}
+                : mode==="aggr" ? {pen:0.25, sand:0.06, rough:0.00}
+                                : {pen:0.5,  sand:0.18, rough:0.05};
+        const score = es + w.pen*pen + w.sand*sandQ + w.rough*roughQ + blk;
+        cands.push({club:cl,lineDeg:dl,brg,es,pen,score,frac,sg,blk,sandQ,roughQ});
       }
     });
     cands.sort((a,b)=>a.score-b.score);
@@ -18076,7 +18151,9 @@ function shotRecHtml(){ const h=PLAY.holes[PLAY.idx]; const rec=PLAY.rec;
 
    Ersatzlos entfallen: pfFit, pfViewportH, pfApplyHeight, pfVerify, die
    dialog-Sonderbehandlung (showModal/cancel/close) und die popstate-
-   Verrenkungen. `pfFacts`/`pfDbgRender` bleiben als Diagnose.
+   Verrenkungen. Die Messanzeige (pfFacts/pfDbgRender/pfDbgToggle) ist mit
+   v2.03 ebenfalls entfallen — sie hat die Ursache gefunden und wird nicht
+   mehr gebraucht.
    ========================================================================== */
 let _pfVorher=null;                 // Ansicht, aus der heraus gestartet wurde
 
@@ -18098,6 +18175,28 @@ function pfOpen(){
   /* Karte erst nach dem ersten Bild rechnen — playMapRender() blockiert mit
      Monte-Carlo und Kacheln oft ueber eine Sekunde. */
   setTimeout(()=>{ if(PLAY.active && PLAY.mapFocus) playMapRender(); }, 0);
+}
+
+/* ==========================================================================
+   ADRESSLEISTE AUSBLENDEN (v2.05)
+   Ein normaler Browser-Tab kann die Adressleiste nicht dauerhaft verstecken —
+   das ist eine Sicherheitsvorgabe. Zwei Wege gibt es:
+   1. Die Fullscreen-API. Braucht eine Nutzergeste, deshalb der ⛶-Knopf.
+      Damit ist die Leiste weg, bis man sie mit Zurueck/Wischen zurueckholt.
+   2. Zum Startbildschirm hinzufuegen. Die App laeuft dann als PWA im
+      standalone-Modus — ganz ohne Browser-Rahmen, dauerhaft. Das ist der
+      bessere Weg fuer die Runde; der Knopf ist die Loesung fuer zwischendurch.
+   ========================================================================== */
+function pfFullscreen(){
+  const el=document.documentElement;
+  try{
+    if(document.fullscreenElement){ document.exitFullscreen(); return; }
+    const r=el.requestFullscreen||el.webkitRequestFullscreen;
+    if(!r){ toast("Vollbild nicht unterstützt — App zum Startbildschirm hinzufügen"); return; }
+    const p=r.call(el, {navigationUI:"hide"});
+    if(p&&p.catch) p.catch(e=>{ logErr("pfFullscreen", e, true);
+      toast("Vollbild abgelehnt — App zum Startbildschirm hinzufügen"); });
+  }catch(e){ logErr("pfFullscreen", e, true); toast("Vollbild nicht möglich"); }
 }
 
 function pfClose(){
@@ -18122,33 +18221,6 @@ function pfRestoreView(){
   document.body.classList.remove("play-mode");
   const z=_pfVorher||"rounds"; _pfVorher=null;
   try{ setView(z); }catch(e){ logErr("pfRestoreView", e, true); }
-}
-
-/* Messwerte zur Fehlersuche — haben die Ursache gefunden und bleiben. */
-function pfFacts(){
-  const el=document.getElementById("pfMapWrap"); if(!el) return null;
-  const r=el.getBoundingClientRect();
-  const cs=window.getComputedStyle?getComputedStyle(el):{};
-  return { rectTop:Math.round(r.top), rectH:Math.round(r.height), rectW:Math.round(r.width),
-    innerH:window.innerHeight||0,
-    clientH:(document.documentElement&&document.documentElement.clientHeight)||0,
-    vvH:(window.visualViewport&&Math.round(window.visualViewport.height))||0,
-    position: cs.position||"?" };
-}
-function pfDbgToggle(){
-  DB.ui=DB.ui||{}; DB.ui.pfDebug=!DB.ui.pfDebug; persistSoon(); pfRender();
-}
-function pfDbgRender(){
-  const box=document.getElementById("pfDbg"); if(!box) return;
-  if(!(DB.ui&&DB.ui.pfDebug)){ box.style.display="none"; return; }
-  box.style.display="block";
-  const f=pfFacts(); if(!f) return;
-  const b=document.getElementById("pfBottom");
-  const rb=b?b.getBoundingClientRect():null;
-  box.innerHTML=`<b>v${esc(APP_VERSION)}</b> · Karte ${f.rectW}×${f.rectH} @${f.rectTop}
-    · Leiste unten ${rb?Math.round(rb.bottom):0}
-    · innerH ${f.innerH} clientH ${f.clientH} vvH ${f.vvH}
-    · Lücke ${Math.round((f.innerH||0)-(rb?rb.bottom:0))} px`;
 }
 
 /* ==========================================================================
@@ -18327,20 +18399,15 @@ function pfRender(){
     cad.innerHTML = PLAY.pfInfoOpen
       ? `<button type="button" class="pf-cad-x" onclick="pfInfoToggle()">▲ weniger</button>`
         + playInfoHtml()
+        + `<p class="note" style="margin-bottom:0">Spielweise <b>${
+            {safe:"sicher",bal:"normal",aggr:"offensiv"}[caddyMode()]||caddyMode()}</b>:
+          gewichtet Straf-, Sand- und Rough-Anteil unterschiedlich. Bleibt die Empfehlung beim
+          Umschalten gleich, gibt es auf diesem Loch kein Risiko, das eine andere Wahl
+          rechtfertigen würde — dann ist der Schläger in jeder Spielweise der richtige.</p>`
       : pfCaddyKurz();
   }
 
   pfCtrlsRender();
-  pfDbgRender();
-  /* Laufend nachmessen: die interessanten Aenderungen passieren NACH dem
-     Zeichnen (Adressleiste, Kartenaufbau). Ein Intervall statt einmalig. */
-  if(!PLAY._dbgT && DB.ui && DB.ui.pfDebug){
-    PLAY._dbgT=setInterval(()=>{
-      if(!document.body.classList.contains("play-mode")){
-        clearInterval(PLAY._dbgT); PLAY._dbgT=null; return; }
-      pfDbgRender();
-    }, 1000);
-  }
 
   const bot=document.getElementById("pfBottom");
   if(bot){
@@ -18384,6 +18451,7 @@ function pfRender(){
       `<button type="button" class="${k===md?'on':''}" onclick="setCaddyMode('${k}')">${lab}</button>`).join("");
     bot.innerHTML=band
       +`<div class="pf-mode"><div class="risk-seg">${modi}</div>
+         <button type="button" class="pf-card-btn" onclick="pfFullscreen()" title="Adressleiste ausblenden">⛶</button>
          <button type="button" class="pf-card-btn" onclick="openPlayCard()">🗒 Karte</button></div>`
       +`<div class="pf-acts">
       <button class="nav" type="button" onclick="playPrev()" ${PLAY.idx===0?"disabled":""}>◀</button>
@@ -18570,9 +18638,7 @@ function playMapCtrlsHtml(){
    bei jedem Refresh. */
 function pfCtrlsRender(){
   const el=document.getElementById("pfCtrls"); if(!el) return;
-  el.innerHTML = playMapCtrlsHtml()
-    + `<button type="button" class="${DB.ui&&DB.ui.pfDebug?'on':''}" onclick="pfDbgToggle()"
-        title="Messwerte einblenden">ⓘ</button>`;
+  el.innerHTML = playMapCtrlsHtml();
 }
 function playMapCtrlsRefresh(){ pfCtrlsRender(); }
 /* ---------- Automatischer Ausschnitt --------------------------------------
@@ -22020,7 +22086,6 @@ function renderData(){
   <div class="card pad">
     <button class="btn ghost" type="button" onclick="showErrLog()">🐞 Fehlerprotokoll (${ERRLOG.length})</button>
     <button class="btn ghost" type="button" style="margin-top:8px" onclick="runSelfCheck()">🔍 Selbstprüfung</button>
-    <button class="btn ghost" type="button" style="margin-top:8px" onclick="pfDbgToggle()">📐 Messwerte im Spielmodus ein/aus</button>
     <div class="stat-line" style="margin-top:10px"><span>Laufende Version</span><b>v${esc(APP_VERSION)}</b></div>
     <button class="btn sec" type="button" style="margin-top:8px" onclick="swForceUpdate()">⟳ Neueste Fassung laden (Cache leeren)</button>
     <p class="note" style="margin-bottom:0">Der Offline-Cache liefert beim Start bewusst die
@@ -22220,16 +22285,31 @@ function openSheet(html){
 function closeSheet(){
   backdrop.classList.remove("open"); sheet.classList.remove("open");
   document.documentElement.classList.remove("sheet-open");
-  if(typeof wakeRelease==="function") wakeRelease();
+  /* Waehrend einer laufenden Runde den Bildschirm NICHT freigeben — der
+     Kartenmodus ruft closeSheet() beim Oeffnen, und jedes Blatt (Scorekarte,
+     Details) schliesst ueber diese Funktion. */
+  if(typeof wakeRelease==="function" && !(typeof PLAY!=="undefined" && PLAY.active))
+    wakeRelease();
   if(typeof playStopSync==="function") playStopSync();
   /* Im Vollbildmodus laeuft die Runde WEITER, auch wenn ein Blatt schliesst —
      dort GPS und eine laufende Schlagaufnahme abzuwuergen waere fatal. */
   const _pfAn = (typeof PLAY!=="undefined" && PLAY.active && PLAY.mapFocus);
   if(typeof liveStop==="function" && !_pfAn){ liveStop(); MAPST.live=false; CADDYPOS.live=false;
     if(typeof PLAY!=="undefined"){ PLAY.live=false; PLAY.rec=null; } }
-  if(_sheetHist){ _sheetHist=false; try{ history.back(); }catch(e){ logErr("catch", e, true); } }   // eigenen History-Eintrag wieder abbauen
+  /* Der eigene History-Eintrag wird abgebaut — das loest ein popstate aus.
+     OHNE Markierung haelt der Handler das fuer die Zurueck-Taste: Schloss man
+     im Kartenmodus die Scorekarte mit ✕, landete man in der Eingabemaske
+     statt zurueck auf der Karte. `_popEigen` unterscheidet beides. */
+  if(_sheetHist){ _sheetHist=false; _popEigen=true;
+    try{ history.back(); }catch(e){ logErr("catch", e, true); _popEigen=false; }
+    /* Sicherheitsnetz: bleibt das popstate aus, darf die Markierung nicht
+       haengen bleiben und den naechsten echten Zurueck-Druck schlucken. */
+    setTimeout(()=>{ _popEigen=false; }, 400);
+  }
 }
+let _popEigen=false;   // true, solange ein selbst ausgeloestes history.back() laeuft
 window.addEventListener("popstate",()=>{                    // Zurück-Taste (Android/Browser)
+  if(_popEigen){ _popEigen=false; return; }   // stammt von closeSheet, nicht vom Nutzer
   /* Reihenfolge zaehlt: liegt das Vollbild oben, muss ZUERST es weichen —
      sonst landet man mit einem Tipp aus der Runde heraus. */
   /* Im Karten-Spielmodus fuehrt Zurueck zur Eingabemaske, nicht aus der App.
@@ -23681,7 +23761,7 @@ function openComp(idx){
 /* ================= NAV ================= */
 let current="dash";
 const FAB_ACTION={rounds:startRound,comp:openAddComp,notes:openAddNote,swing:openSwingEdit};
-const APP_VERSION="2.02.0"; // App-Anzeigeversion (NICHT SEED.version! Diese bei jeder Änderung erhöhen)
+const APP_VERSION="2.05.0"; // App-Anzeigeversion (NICHT SEED.version! Diese bei jeder Änderung erhöhen)
 /* ---------- Darstellung: Hell/Dunkel (DB.ui.theme = "auto" | "light" | "dark") ---------- */
 const _darkMQ = (window.matchMedia? window.matchMedia("(prefers-color-scheme: dark)") : null);
 function themeSetting(){ return (DB && DB.ui && DB.ui.theme) || "auto"; }
@@ -24315,10 +24395,6 @@ function ensureDefaults(){
      Nutzerentscheidung unterscheiden, deshalb wird er genau EINMAL
      zurueckgesetzt und das ueber ein Merkzeichen festgehalten. */
   DB.ui=DB.ui||{};
-  /* Die Messanzeige EINMAL automatisch einschalten. Ohne echte Zahlen vom
-     Geraet ist die Vollbild-Fehlersuche Raten — und Raten hat zehn Runden
-     gekostet. Der ⓘ-Schalter in der Kartenleiste blendet sie wieder aus. */
-  if(DB.ui.pfDebug===undefined) DB.ui.pfDebug=true;
   /* Den Altwert AKTIV auf true setzen statt ihn zu loeschen — eine Loeschung
      kann sich gegen die Repo-Fassung nicht durchsetzen (Object.assign-Merge).
      Wird nicht mehr gelesen, aber so verschwindet er auch aus dem Repo. */

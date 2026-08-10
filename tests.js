@@ -56,7 +56,7 @@ const COVERAGE_BASELINE_FUNCS = (
 ).split(" ");
 
 const COVERAGE_BASELINE_STRAT = (
-    "_fp _halton _interp _invNorm _off _segDist esHcp esOffset grid learnFromGps" +" "+
+    "_fp _halton _interp _invNorm _off _segDist esOffset grid learnFromGps" +" "+
     "learnLateralFromRounds planCourse planFor planHole playingLevel pointESTo samples shotEV"
 ).split(" ");
 
@@ -1471,10 +1471,22 @@ group("Warum Korrekturen wirkungslos SCHIENEN");
      beim Start kam die gespeicherte Fassung, die neue erst beim ÜBERNÄCHSTEN
      Start. Während der Entwicklung testet man damit stundenlang eine Version
      zu alt — und hält jede Korrektur für wirkungslos. */
-  ok("Live-Messung im Vollbild vorhanden", /function pfDbgRender/.test(src));
-  ok("Version wird im Vollbild angezeigt", /pfDbgRender[\s\S]{0,1400}APP_VERSION/.test(src));
-  ok("Messanzeige startet eingeschaltet", /pfDebug===undefined\) DB\.ui\.pfDebug=true/.test(src));
-  ok("Lücke unten wird ausgewiesen", /Lücke unten/.test(src));
+  /* Die Live-Messung im Spielmodus ist mit v2.03 ENTFERNT — sie hat ihren
+     Zweck erfüllt (sie fand die 56-px-Differenz zwischen clientHeight und
+     Bildschirm) und verdeckte danach nur noch die Karte. Geprüft wird jetzt,
+     dass sie vollständig weg ist. */
+  /* NUR den ausführbaren Code prüfen: Doku und Changelog nennen die entfernten
+     Funktionen weiterhin — als Historie, das ist gewollt. */
+  const nurCode = [...src.matchAll(/<script([^>]*)>([\s\S]*?)<\/script>/g)]
+    .filter(m=>!/\bsrc=|application\/json|text\/markdown|devdocs/.test(m[1]))
+    .map(m=>m[2]).join("\n")
+    .replace(/\/\*[\s\S]*?\*\//g,"").replace(/\/\/[^\n]*/g,"");
+  ok("Messanzeige vollständig entfernt",
+     !/pfDbgRender|pfDbgToggle|pfFacts|pfDebug/.test(nurCode));
+  ok("kein Messwert-Element im Markup", !/id="pfDbg"/.test(src));
+  /* Die Versionsanzeige in der Diagnose bleibt — sie beantwortet die Frage
+     „läuft überhaupt die neue Fassung?" und hat dort ihren Platz. */
+  ok("Version steht weiterhin in der Diagnose", /Laufende Version/.test(src));
   ok("Version steht in der Diagnose", /Laufende Version/.test(src));
   ok("Update-Erzwingen vorhanden", /function swForceUpdate/.test(src));
   ok("Update leert nur den Hüllen-Cache, nicht die Kacheln",
@@ -1807,6 +1819,69 @@ group("Zielkette bleibt vernünftig, egal wie weit man weg ist");
        [bei(-3077),bei(-800),bei(0),bei(140),bei(260)]
          .every(c=>!c || c.legs.length<=4));
     P.here=null; DB.courses=[]; DB.clubDistances=[]; P.holes=[];
+  }
+}
+
+/* ============ 24x. Blatt schließen ≠ Zurück-Taste ============ */
+group("_popEigen — eigenes history.back() vom Nutzer unterscheiden");
+{
+  const src=fs.readFileSync(FILE,"utf8");
+  /* closeSheet() baut seinen History-Eintrag über history.back() ab — das löst
+     ein popstate aus. Ohne Markierung hielt der Handler das für die
+     Zurück-Taste: Schloss man im Kartenmodus die Scorekarte mit ✕, landete man
+     in der EINGABEMASKE statt zurück auf der Karte. */
+  ok("Markierung vorhanden", /let _popEigen/.test(src));
+  ok("closeSheet setzt sie vor history.back()",
+     /_popEigen=true;[\s\S]{0,120}history\.back\(\)/.test(src));
+  ok("popstate-Handler wertet sie zuerst aus",
+     /addEventListener\("popstate"[\s\S]{0,200}if\(_popEigen\)/.test(src));
+  /* Sicherheitsnetz: bleibt das popstate aus, darf die Markierung nicht hängen
+     bleiben und den nächsten echten Zurück-Druck schlucken. */
+  ok("Markierung wird per Zeitgeber zurückgesetzt",
+     /setTimeout\(\(\)=>\{ _popEigen=false; \}/.test(src));
+  /* Der Wachhalter darf während einer Runde nicht freigegeben werden — jedes
+     Blatt (Scorekarte, Details) läuft über closeSheet. */
+  ok("Wake Lock bleibt während der Runde",
+     /wakeRelease==="function" && !\(typeof PLAY!=="undefined" && PLAY\.active\)/.test(src));
+}
+
+/* ============ 24y. Spielweise wirkt auf mehr als Strafgebiete ============ */
+group("Caddy-Modus — safe/bal/aggr müssen sich unterscheiden");
+{
+  const S=G("STRAT"), DB=G("DB");
+  if (S && typeof S.tee === "function" && DB) {
+    const mLat=111320, mLng=65500;
+    const at=(n,e=0)=>[54.0+n/mLat, 10.0+e/mLng];
+    const ring=(n,e,r)=>[at(n-r,e-r),at(n-r,e+r),at(n+r,e+r),at(n+r,e-r)];
+    const geo={holes:{1:{tee:at(0), green:at(279),
+      fairway:[{ring:ring(150,0,22)}], bunker:[{ring:ring(200,20,12)}]}}};
+    DB.courses=[{name:"MODE", geo}];
+    DB.clubDistances=[{club:"Driver",carry:215,reach:232},{club:"3 Wood",carry:195,reach:206},
+      {club:"7 Wood",carry:169,reach:178},{club:"7-Eisen",carry:140,reach:143}];
+    const ev={};
+    ["safe","bal","aggr"].forEach(m=>{ ev[m]=S.tee(geo,"MODE",1,m,20); });
+    ok("alle drei Modi liefern eine Bewertung", ev.safe&&ev.bal&&ev.aggr);
+    if(ev.safe&&ev.bal&&ev.aggr){
+      /* KERN: Vorher unterschieden sich die Modi NUR im Gewicht der
+         Strafquote. Ohne Wasser oder Aus war `pen` überall 0 — die drei
+         Bewertungen waren identisch und der Umschalter tat sichtbar nichts.
+         Jetzt gehen Sand- und Rough-Anteil mit ein. */
+      ok("sicher bewertet strenger als normal",
+         ev.safe.best.score > ev.bal.best.score,
+         `${ev.safe.best.score.toFixed(3)} > ${ev.bal.best.score.toFixed(3)}`);
+      ok("normal strenger als offensiv",
+         ev.bal.best.score > ev.aggr.best.score,
+         `${ev.bal.best.score.toFixed(3)} > ${ev.aggr.best.score.toFixed(3)}`);
+      /* Offensiv darf Strafgebiete NICHT ganz ignorieren — das wäre nicht
+         mutig, sondern falsch. */
+      ok("offensiv straft Strafgebiete weiterhin",
+         /mode==="aggr" \? \{pen:0\.25/.test(fs.readFileSync(FILE,"utf8")));
+      /* Der Erwartungswert bleibt in allen Modi derselbe — nur die
+         Risikogewichtung verschiebt sich. */
+      ok("Erwartungswert selbst ist modusunabhängig",
+         Math.abs(ev.safe.best.es-ev.aggr.best.es)<0.001);
+    }
+    DB.courses=[]; DB.clubDistances=[];
   }
 }
 
