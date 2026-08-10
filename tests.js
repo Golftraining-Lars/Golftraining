@@ -47,12 +47,12 @@ const COVERAGE_BASELINE_FUNCS = (
     "openYogaEditor parseGeoJSONCourse parseOverpassCourse playCaddyHtml playField" +" "+
     "playMapBind playMapClamp playNum playSel playTooFarHtml qaExpand qaFold qaSearch" +" "+
     "qaSections qaStem rateAbs rateR rateSmash rateStd refreshRepoSection renderGeoImport" +" "+
-    "roundKPIs roundLL roundWeatherHtml satCourseSrc satCourseTiles satLayer satSrcFor" +" "+
-    "satTileKey satTilePx satTileRes selOpts sgCoverageHtml sgDashHtml sgDisasterHtml" +" "+
-    "sgLeerHtml sparkline strkDown strkZoomAt strkZoomBtn swDaysSince swNormTag targetFor" +" "+
-    "teeNames thinRing turnierPrepHtml warmupBloeckeHtml weatherByGeo weatherEffectHtml" +" "+
-    "wikiCountCat wikiCountGrp wikiEsc wikiGroupIcon wikiGroupOf wikiNormTag wikiSuggest" +" "+
-    "wikiTagsOf windArrowChar"
+    "roundCardHtml roundKPIs roundLL roundWeatherHtml satCourseSrc satCourseTiles satLayer" +" "+
+    "satSrcFor satTileKey satTilePx satTileRes selOpts sgCoverageHtml sgDashHtml" +" "+
+    "sgDisasterHtml sgLeerHtml sparkline strkDown strkZoomAt strkZoomBtn swDaysSince" +" "+
+    "swNormTag targetFor teeNames thinRing turnierPrepHtml warmupBloeckeHtml weatherByGeo" +" "+
+    "weatherEffectHtml wikiCountCat wikiCountGrp wikiEsc wikiGroupIcon wikiGroupOf" +" "+
+    "wikiNormTag wikiSuggest wikiTagsOf windArrowChar"
 ).split(" ");
 
 const COVERAGE_BASELINE_STRAT = (
@@ -1656,6 +1656,62 @@ group("Über Par — „E\" trotz Schlägen darüber");
   eq("und wird gezählt", mitLuecke.ohnePar, 1);
   eq("nur gewertete Löcher zählen", mitLuecke.pl, 2);
   eq("gar keine Scores → Strich", rechne([{par:4,score:null}]).txt, "–");
+}
+
+/* ============ 24s. Regen im Caddy ============ */
+group("nassFaktor — Regen wirkt auf Carry UND Auslauf");
+{
+  const nf=G("nassFaktor");
+  if (typeof nf === "function") {
+    /* Der Caddy kannte Temperatur, Wind und Höhe — Regen nicht, obwohl er
+       zwei Wirkungen hat: nasser Ball kostet Carry (~3 %), und nasse Fairways
+       rollen praktisch nicht. Zusammen leicht zwei Schlägerlängen. */
+    eq("ohne Wetter trocken", nf(null), 0);
+    eq("0 mm/h trocken", nf({precip:0}), 0);
+    eq("2,5 mm/h = voll nass", nf({precip:2.5}), 1);
+    eq("Starkregen gedeckelt", nf({precip:10}), 1);
+    near("1,25 mm/h = halb", nf({precip:1.25}), 0.5, 0.01);
+    /* Ersatzweise der WMO-Code, wenn keine Menge geliefert wird. */
+    eq("Code 0 = klar", nf({code:0}), 0);
+    near("Code 53 = Niesel", nf({code:53}), 0.3, 0.01);
+    near("Code 63 = Regen", nf({code:63}), 0.6, 0.01);
+    near("Code 82 = Schauer", nf({code:82}), 0.8, 0.01);
+    eq("Code 95 = Gewitter", nf({code:95}), 1);
+
+    /* Die Wirkung auf den Auslauf als Rechnung: roll * (1 - 0.9 * nass).
+       Bei stetigem Regen bleiben von 25 m Auslauf 2,5 m. */
+    const roll=(c,nass)=>Math.max(0,Math.min(35,c))*(1-0.9*nass);
+    near("trocken voller Auslauf", roll(25,0), 25, 0.01);
+    near("stetiger Regen: kaum Auslauf", roll(25,1), 2.5, 0.01);
+    near("Niesel dämpft leicht", roll(25,0.3), 18.25, 0.01);
+    ok("Auslauf sinkt monoton mit Nässe",
+       roll(25,0) > roll(25,0.3) && roll(25,0.3) > roll(25,1));
+  }
+}
+
+/* ============ 24t. Index nur aus Turnieren ============ */
+group("whsPool — ausschließlich Turniere bewegen den Index");
+{
+  const pool=G("whsPool"), DB=G("DB");
+  if (typeof pool === "function" && DB) {
+    /* Trainingsrunden dürfen den Index NICHT bewegen. Vorher flossen Runden
+       ein, die als EDS markiert waren — jede Übungsrunde hätte den Wert
+       verwässert, der das Turnierniveau abbilden soll. */
+    DB.competitions=[{date:"2026-05-01", sd:18.2, tournament:"Clubmeisterschaft"},
+                     {date:"2026-06-01", sd:16.9, course:"Nordplatz"}];
+    DB.rounds=[{id:"X1", date:"2026-05-15", course:"Übung", countHcp:true,
+                holes:[{hole:1,par:4,score:9,putts:2}]},
+               {id:"X2", date:"2026-06-15", course:"Übung", countHcp:false,
+                holes:[{hole:1,par:4,score:4,putts:2}]}];
+    const p=pool();
+    eq("nur die zwei Turniere", p.length, 2);
+    ok("alle Einträge sind Turniere", p.every(x=>x.src==="Turnier"));
+    ok("die als EDS markierte Runde zählt NICHT",
+       !p.some(x=>String(x.label||"").indexOf("Übung")>=0));
+    ok("chronologisch sortiert", p[0].date <= p[1].date);
+    DB.competitions=[]; DB.rounds=[];
+    eq("ohne Turniere leer", pool().length, 0);
+  }
 }
 
 /* ================= 25. Gepflegt vs. gemessen ================= */
