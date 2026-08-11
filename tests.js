@@ -152,7 +152,7 @@ try {
                  "caddyClubs","clubNorm","clubRename","bagFreiName","bagMessSpalte",
                  "tombAdd","tombClear","tombDel","MERGE_KEY","_mergeTomb","_tombFor",
                  "playCaddyNow","playTooFar","playAimChain","playMapSlot","playFocusDefault",
-                 "hcpGap","whsPool","courseStats","nassFaktor","errZeit","todayISO","puttDiagnose","sgHole","verlaesslich","testFaellig","zielPrognose","indexTempo","trainingsEmpfehlung","fitnessWirkung","stratRueckschau","sgHoleShots","sgVerlauf",
+                 "hcpGap","whsPool","courseStats","nassFaktor","errZeit","todayISO","puttDiagnose","sgHole","verlaesslich","testFaellig","stretchToggle","STRETCH_DONE","MALASKA_DYN","MALASKA_STAT","MALASKA_SVG","malaskaBild","POST_ROUND","POST_SVG","malaskaVideo","postBild","postToggle","POST_DONE","WARMUP_PLANS","openPostStretchSheet","openStretchSheet","fmtN","fmtDate","fmtDT","fmtDur","zielPrognose","indexTempo","trainingsEmpfehlung","fitnessWirkung","stratRueckschau","sgHoleShots","sgVerlauf",
                  "holeGir","holeUpDown","holeSandSave","platzAnalyse","taskFortschritt",
                  "warmupSchedule","warmupKorrektiv","WARMUP_PLANS","medianSplit","pearson",
                  "rKrit","gpKey","gpLabel","gpTotalES","pickClub","_aimClub","_aimLerp",
@@ -1060,7 +1060,9 @@ group("Aufwärmen — rückwärts von der Abschlagzeit");
 {
   const sched=G("warmupSchedule"), plans=G("WARMUP_PLANS"), korr=G("warmupKorrektiv");
   if (plans) {
-    ["kurz","standard","turnier","nach"].forEach(id=>
+    /* „nach" ist mit v2.28 entfallen — Dehnen nach der Runde laeuft ueber
+       „Post Round Stretch". */
+    ["kurz","standard","turnier"].forEach(id=>
       ok("Variante "+id+" vorhanden", !!plans[id]));
     Object.values(plans).forEach(p=>{
       const summe=p.bloecke.reduce((a,b)=>a+b.min,0);
@@ -1076,8 +1078,13 @@ group("Aufwärmen — rückwärts von der Abschlagzeit");
       ok(id+": Putten in den letzten beiden Blöcken", iPutt>=b.length-2,
          "Position "+(iPutt+1)+" von "+b.length);
     });
-    ok("statisches Dehnen nur NACH der Runde",
-       plans.nach.nachRunde===true &&
+    /* Seit v2.28 gibt es KEINEN Nachbereitungs-Plan mehr in WARMUP_PLANS —
+       das Dehnen nach der Runde läuft über „Post Round Stretch" mit
+       `POST_ROUND`. Die Aufwärmpläne dürfen deshalb weder statische
+       Halteübungen noch einen Nachrunden-Eintrag enthalten. */
+    ok("kein Nachbereitungs-Plan mehr in den Aufwärmplänen",
+       !Object.keys(plans).some(id=>plans[id].nachRunde));
+    ok("kein statisches Dehnen in den Aufwärmplänen",
        !["kurz","standard","turnier"].some(id=>
          plans[id].bloecke.some(b=>/statisch/i.test(b.titel)||/halten/i.test(b.inhalt))));
     ok("Standard hält die Ballzahl bei ~22",
@@ -1091,9 +1098,14 @@ group("Aufwärmen — rückwärts von der Abschlagzeit");
     ok("Plan wird erstellt", !!s1);
     if(s1){
       eq("Abschlagzeit übernommen", s1.tee, "09:40");
-      eq("Gesamtdauer inkl. Weg", s1.gesamt, 25+2);
-      eq("Startzeit rückwärts gerechnet", s1.start, "09:13");
-      eq("erster Block beginnt am Start", s1.bloecke[0].von, "09:13");
+      /* Seit v2.27 enthalten die Aufwärmpläne KEINEN Körperblock mehr — die
+         körperliche Vorbereitung läuft über „Pre Round Stretch". Der
+         Standardplan ist dadurch von 25 auf 21 Minuten geschrumpft. Die
+         Erwartungen werden aus dem Plan abgeleitet statt fest verdrahtet,
+         damit sie beim nächsten Umbau nicht erneut nachgezogen werden müssen. */
+      eq("Gesamtdauer inkl. Weg", s1.gesamt, plans.standard.min+2);
+      eq("Startzeit rückwärts gerechnet", s1.start, "09:17");
+      eq("erster Block beginnt am Start", s1.bloecke[0].von, s1.start);
       const letzter=s1.bloecke[s1.bloecke.length-1];
       eq("letzter Block endet 2 min vor dem Abschlag", letzter.bis, "09:38");
       ok("Blöcke lückenlos aneinander",
@@ -2684,6 +2696,220 @@ group("Beobachtungen, die als solche gekennzeichnet sind");
     ok("ohne Gameplans keine Rückschau", sr().reicht===false);
     DB.strat=alt;
   }
+}
+
+/* ============ 24ar. Aufgerufene Namen müssen existieren ============ */
+group("Ereignis-Attribute und Formatierer — nichts Undefiniertes aufrufen");
+{
+  const src=fs.readFileSync(FILE,"utf8");
+  /* WAS PASSIERT IST: `openRoundCard` rief `fmtD(r.date)` auf — die Funktion
+     heißt `fmtDate`. Der Fehler lag in einem TEMPLATE-STRING und fiel deshalb
+     weder beim Laden noch bei einer Syntaxprüfung auf, sondern erst beim
+     Antippen der Scorekarte: „ReferenceError: fmtD is not defined".
+     Genau diese Klasse prüft dieser Abschnitt. */
+  const namen=new Set();
+  for(const m of src.matchAll(/on(?:click|change|input|submit)=\\?"\s*([A-Za-z_$][\w$]*)\s*\(/g))
+    namen.add(m[1]);
+  const RESERVIERT=new Set(["if","for","while","switch","return","typeof","new","function"]);
+  const fehlt=[...namen].filter(n=>!RESERVIERT.has(n) && typeof G(n)!=="function");
+  ok("alle Namen in Ereignis-Attributen sind definiert", fehlt.length===0,
+     fehlt.slice(0,8).join(", "));
+  ok("und es sind überhaupt welche gefunden worden", namen.size>50, "n="+namen.size);
+
+  /* Die Formatierer-Familie ist besonders anfällig, weil sich die Namen
+     ähneln: fmtN, fmtDate, fmtDT, fmtDur, fmtBytes. `fmtD` gibt es NICHT. */
+  const nurCode = [...src.matchAll(/<script([^>]*)>([\s\S]*?)<\/script>/g)]
+    .filter(m=>!/\bsrc=|application\/json|text\/markdown|devdocs/.test(m[1]))
+    .map(m=>m[2]).join("\n").replace(/\/\*[\s\S]*?\*\//g,"");
+  ok("kein Aufruf von fmtD (heißt fmtDate)",
+     !/(?<![\w.])fmtD\s*\(/.test(nurCode));
+  ["fmtN","fmtDate","fmtDT","fmtDur"].forEach(f=>{
+    if(new RegExp("(?<![\\w.])"+f+"\\s*\\(").test(nurCode))
+      ok(f+" ist definiert", typeof G(f)==="function");
+  });
+}
+
+/* ============ 24as. Pre Round Stretch ============ */
+group("Aufwärmen oben, volles Malaska-Programm als eigener Ablauf");
+{
+  const src=fs.readFileSync(FILE,"utf8");
+  const st=G("stretchToggle"), DONE=G("STRETCH_DONE"), DYN=G("MALASKA_DYN"), STAT=G("MALASKA_STAT");
+  /* Die Aufwärm-Knöpfe standen unter „Schnell erfassen" — man fand sie erst
+     nach dem Scrollen, obwohl Aufwärmen das Erste ist, was auf dem Platz
+     passiert. Jetzt ganz oben, VOR dem Spielmodus. */
+  const heute=src.slice(src.indexOf("function renderHeute"),
+                        src.indexOf("function renderHeute")+3000);
+  const iStretch=heute.indexOf('id="qhStretch"');
+  const iWarm=heute.indexOf('id="qhWarm"');
+  const iPlay=heute.indexOf('id="qhPlay"');
+  ok("Stretch-Knopf vorhanden", iStretch>=0);
+  ok("Aufwärm-Knopf vorhanden", iWarm>=0);
+  ok("Stretch steht ÜBER Aufwärmen", iStretch>=0 && iWarm>iStretch,
+     `stretch@${iStretch} warm@${iWarm}`);
+  ok("beide stehen über dem Spielmodus", iPlay>iWarm, `play@${iPlay}`);
+
+  if (DYN && STAT) {
+    /* Das VOLLE Programm, nicht die Kurzfassung: Die Aufwärmpläne nutzen
+       `MALASKA_DYN.slice(0,6)`, der Pre Round Stretch alle Übungen. */
+    ok("dynamisches Programm hat mehr als 6 Übungen", DYN.length>6, "n="+DYN.length);
+    const sheet=src.slice(src.indexOf("function openStretchSheet"),
+                          src.indexOf("function openStretchSheet")+2600);
+    ok("Stretch nutzt ALLE dynamischen Übungen",
+       /MALASKA_DYN\.forEach/.test(sheet) && !/MALASKA_DYN\.slice/.test(sheet));
+    /* Statisches Dehnen gehört NACH die Runde — davor senkt es kurzzeitig die
+       Kraftentfaltung. Es darf im Pre-Round-Ablauf nicht auftauchen. */
+    ok("statische Dehnungen NICHT im Pre-Round-Ablauf",
+       sheet.indexOf("MALASKA_STAT")<0);
+    ok("und der Grund steht dabei", /Kraftentfaltung/.test(src));
+  }
+  if (typeof st === "function" && DONE && DYN) {
+    Object.keys(DONE).forEach(k=>delete DONE[k]);
+    st(0); st(3);
+    eq("zwei Übungen abgehakt",
+       Object.keys(DONE).filter(k=>DONE[k]).length, 2);
+    st(0);
+    eq("erneutes Tippen nimmt zurück",
+       Object.keys(DONE).filter(k=>DONE[k]).length, 1);
+    Object.keys(DONE).forEach(k=>delete DONE[k]);
+  }
+}
+
+/* ============ 24at. Übungsskizzen und aufgeräumtes Dashboard ============ */
+group("Skizzen offline-tauglich, Aufwärmen nur noch auf Heute");
+{
+  const src=fs.readFileSync(FILE,"utf8");
+  const SVG=G("MALASKA_SVG"), bild=G("malaskaBild"), DYN=G("MALASKA_DYN");
+  if (SVG && DYN) {
+    eq("für jede Übung eine Skizze", SVG.length, DYN.length);
+    let offen=0, ohneFarbe=0, extern=0;
+    SVG.forEach(d=>{
+      const auf=(String(d).match(/</g)||[]).length;
+      const zu=(String(d).match(/\/>|<\/\w+>/g)||[]).length;
+      if(auf!==zu) offen++;
+      if(!/currentColor/.test(d)) ohneFarbe++;
+      /* OFFLINE-TAUGLICH: keine externen Verweise. Die App muss auf dem Platz
+         im Funkloch vollständig funktionieren — ein Bild, das erst geladen
+         werden muss, ist dort wertlos. */
+      if(/https?:|<image|url\(/.test(d)) extern++;
+    });
+    eq("alle Elemente geschlossen", offen, 0);
+    eq("alle an das Farbschema gebunden", ohneFarbe, 0);
+    eq("keine externen Verweise", extern, 0);
+    ok("zusammen unter 20 kB", SVG.join("").length < 20000,
+       SVG.join("").length+" Zeichen");
+  }
+  if (typeof bild === "function") {
+    ok("liefert ein SVG-Element", /^<svg /.test(bild(0,44)));
+    ok("Größe wird übernommen", /width="44"/.test(bild(0,44)));
+    eq("unbekannter Index bleibt leer", bild(999,44), "");
+  }
+  /* SCHLÄGERWAHL im Aufwärmen (v2.29). Chips laufen über das EISEN 9 — so
+     steht es auch in der Wissensdatenbank („Bester Chip-Schläger für mich ist
+     das Eisen 9, SW ist Fallback"). Eingespielt wird mit Eisen 7 und 5, nicht
+     8 und 6. Diese Prüfung hält die Pläne mit der tatsächlichen Bag in
+     Übereinstimmung — sonst übt man beim Aufwärmen mit Schlägern, die man auf
+     der Runde gar nicht in dieser Rolle verwendet. */
+  {
+    const P=G("WARMUP_PLANS");
+    if (P) {
+      const text=Object.keys(P).map(k=>(P[k].bloecke||[])
+        .map(b=>b.inhalt||"").join(" ")).join(" ");
+      ok("Chips mit Eisen 9", /Chips mit SW oder Eisen 9/.test(text));
+      ok("kein Eisen 8 bei den Chips", !/Chips mit SW oder Eisen 8/.test(text));
+      ok("Einspielen mit Eisen 7", /Bälle Eisen 7/.test(text));
+      ok("Einspielen mit Eisen 5", /Bälle Eisen 5/.test(text));
+      ok("weder Eisen 8 noch Eisen 6 im Einspielen",
+         !/Bälle Eisen 8|Bälle Eisen 6/.test(text));
+    }
+  }
+
+  /* QUELLE AM ENDE des Pre-Round-Blatts: Wer die Übungen kennt, arbeitet die
+     Liste ab; wer eine Ausführung nachschlagen will, findet das Video dort,
+     wo er ohnehin ankommt. Oben würde es die erste Übung nach unten drücken.
+     Es MUSS derselbe Link sein wie in der Wissensdatenbank — zwei Quellen
+     laufen früher oder später auseinander. */
+  {
+    const sheet=src.slice(src.indexOf("function openStretchSheet"),
+                          src.indexOf("function openStretchSheet")+4200);
+    ok("Video im Pre-Round-Blatt eingebunden", /malaskaVideo\(\)/.test(sheet));
+    ok("Abspielfläche steht NACH der Übungsliste",
+       sheet.indexOf("malaskaVideo") > sheet.indexOf("MALASKA_DYN.forEach"));
+    /* ERST AUF TIPP LADEN: Ein iframe im Blatt würde bei JEDEM Öffnen YouTube
+       kontaktieren — auch wenn man nur die Liste abhaken will. Das kostet
+       Ladezeit, Daten und setzt ohne Not einen Fremdanbieter in die Seite. */
+    ok("kein iframe im Blatt selbst", sheet.indexOf("<iframe")<0);
+    const vid=src.slice(src.indexOf("function malaskaVideo"),
+                        src.indexOf("function malaskaVideo")+1400);
+    ok("iframe entsteht erst in malaskaVideo", /<iframe/.test(vid));
+    ok("nutzt youtube-nocookie", /youtube-nocookie\.com\/embed/.test(vid));
+    ok("ohne Netz wird abgefangen", /navigator\.onLine===false/.test(vid));
+    ok("Ausweichweg in die YouTube-App",
+       /target="_blank"[\s\S]{0,60}rel="noopener"/.test(vid));
+    /* Ehrlich bleiben: Das Video ist NICHT offline verfügbar. Die App ist
+       sonst vollständig offline-tauglich — dieser eine Punkt muss dabeistehen,
+       sonst sucht man auf dem Platz vergeblich. */
+    ok("Hinweis auf fehlende Offline-Verfügbarkeit", /braucht Netz/i.test(sheet));
+    /* Dieselbe Video-ID wie in der Wissensdatenbank. */
+    const gp=src.slice(src.indexOf('id="gplib"'), src.indexOf('id="gplib"')+400000);
+    ok("gleiche Quelle wie die Wissensdatenbank", /SHP70Xv14kY/.test(gp));
+  }
+
+  /* NACH DER RUNDE: eigenes Programm, statisch. Sechs Übungen aus dem
+     Malaska-Programm (Wissensdatenbank), sechs ergänzt — Hüftbeuger,
+     Latissimus, Brustöffner, Gesäß, Waden, Nacken. Sie decken ab, was vier
+     Stunden Gehen und Rotation belasten. Die Herkunft MUSS erkennbar bleiben,
+     damit man weiß, was aus der Quelle stammt und was nicht. */
+  const POST=G("POST_ROUND"), PSVG=G("POST_SVG"), pb=G("postBild"), pt=G("postToggle"), PD=G("POST_DONE");
+  if (POST && PSVG) {
+    ok("Programm hat genug Umfang für 15 Minuten", POST.length>=10, "n="+POST.length);
+    eq("für jede Übung eine Skizze", PSVG.length, POST.length);
+    const ergaenzt=POST.filter(x=>x.q==="ergänzt").length;
+    ok("Herkunft ist je Übung vermerkt",
+       POST.every(x=>x.q==="Malaska"||x.q==="ergänzt"));
+    ok("beide Quellen kommen vor", ergaenzt>0 && ergaenzt<POST.length,
+       ergaenzt+" ergänzt von "+POST.length);
+    ok("Hüftbeuger ist dabei", POST.some(x=>/Hüftbeuger/.test(x.t)));
+    let extern=0;
+    PSVG.forEach(d=>{ if(/https?:|<image|url\(/.test(d)) extern++; });
+    eq("Skizzen ohne externe Verweise", extern, 0);
+  }
+  if (typeof pb === "function") {
+    ok("liefert ein SVG", /^<svg /.test(pb(0,44)));
+    eq("unbekannter Index bleibt leer", pb(999,44), "");
+  }
+  if (typeof pt === "function" && PD) {
+    Object.keys(PD).forEach(k=>delete PD[k]);
+    pt(2); eq("abgehakt", Object.keys(PD).filter(k=>PD[k]).length, 1);
+    pt(2); eq("wieder abgewählt", Object.keys(PD).filter(k=>PD[k]).length, 0);
+  }
+  /* Die Aufwärmpläne dürfen KEINE Körperübungen mehr enthalten — die laufen
+     über „Pre Round Stretch". Sonst macht man sie doppelt. */
+  {
+    const P=G("WARMUP_PLANS");
+    if (P) {
+      const mitKoerper=Object.keys(P).filter(k=>
+        (P[k].bloecke||[]).some(b=>/Körper/.test(b.titel)));
+      eq("kein Körperblock mehr in den Aufwärmplänen", mitKoerper.length, 0);
+      /* Und die angegebene Dauer muss zur Summe der Blöcke passen — sonst
+         rechnet der Zeitplan rückwärts an der Wirklichkeit vorbei. */
+      const schief=Object.keys(P).filter(k=>
+        (P[k].bloecke||[]).reduce((a,b)=>a+b.min,0) !== P[k].min);
+      eq("Plandauer passt zur Summe der Blöcke", schief.length, 0, schief.join(", "));
+    }
+  }
+
+  /* Das Aufwärmen gehört auf die Heute-Seite (vor der Runde), nicht ins
+     Dashboard (Auswertung danach). Zwei Momente, zwei Seiten. */
+  const dash=src.slice(src.indexOf("function renderDash"),
+                       src.indexOf("function renderDash")+9000)
+                .replace(/\/\*[\s\S]*?\*\//g,"").replace(/\/\/[^\n]*/g,"");
+  ok("kein Aufwärm-Knopf mehr im Dashboard", dash.indexOf("openWarmupSheet")<0);
+  ok("keine Aufwärmroutine mehr im Dashboard", dash.indexOf("Aufwärmroutine")<0);
+  /* Auf der Heute-Seite müssen beide weiterhin stehen. */
+  const heute=src.slice(src.indexOf("function renderHeute"),
+                        src.indexOf("function renderHeute")+3000);
+  ok("Heute hat beide Knöpfe",
+     heute.indexOf('id="qhStretch"')>=0 && heute.indexOf('id="qhWarm"')>=0);
 }
 
 /* ================= 25. Gepflegt vs. gemessen ================= */

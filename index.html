@@ -660,6 +660,11 @@
   .pf-caddy.open .play-dist>div{padding:6px 8px!important}
   .pf-caddy .pc-head,.pf-caddy b{color:#fff}
   .pf-caddy .pc-why,.pf-caddy .r-s,.pf-caddy .pc-plan{color:rgba(255,255,255,.85)}
+  /* Abgehakte Dehnuebung: blass und durchgestrichen, aber weiter lesbar —
+     man will beim Zurueckblaettern sehen, was schon erledigt war. */
+  .stretch-row{cursor:pointer}
+  .stretch-row.done{opacity:.45}
+  .stretch-row.done .r-t{text-decoration:line-through}
   #pfCtrls{position:absolute;top:58px;right:10px;z-index:7}
   /* Deaktiviert, solange die Automatik ohnehin laeuft — ein Knopf, der nichts
      bewirken KANN, soll auch nicht bedienbar aussehen. */
@@ -2179,6 +2184,48 @@ Befunde an den Anfang der umfangreichsten Seite der App.
 Alle acht Tafeln wurden gegen LEERE Datenlage geprueft — jede muss einen erklaerenden Hinweis
 liefern statt abzustuerzen oder eine Aussage aus drei Werten zu erfinden.
 
+### Aufwaermen: zwei getrennte Ablaeufe (v2.25)
+Auf der Heute-Seite stehen beide Knoepfe GANZ OBEN, vor dem Spielmodus — Aufwaermen ist das
+Erste, was auf dem Platz passiert.
+
+- **`openStretchSheet()`** (🤸 Pre Round Stretch) — das VOLLE Malaska-Programm, alle Eintraege
+  aus `MALASKA_DYN`, einzeln abhakbar (`stretchToggle`, `stretchReset`, Zaehler). Die
+  Aufwaermplaene nutzen davon nur `MALASKA_DYN.slice(0,6)` als Kurzfassung; hier laeuft alles.
+  Das Programm ist immer dasselbe, unabhaengig von der verfuegbaren Zeit — deshalb getrennt.
+- **`openWarmupSheet()`** (🔥 Aufwaermen) — Baelle, Kurzspiel, Putt-Speed, je nach Zeit.
+
+**`MALASKA_STAT` gehoert NICHT in den Pre-Round-Ablauf.** Statisches Dehnen senkt kurzzeitig die
+Kraftentfaltung — genau das Gegenteil dessen, was am ersten Tee gebraucht wird. Die statischen
+Uebungen bleiben beim Cool-down nach der Runde; eine Pruefung sichert das ab.
+
+**`malaskaVideo()`** bettet das Quellvideo ERST AUF TIPP ein. Fest eingebettet wuerde das iframe
+bei jedem Oeffnen des Blatts YouTube kontaktieren — auch wenn man nur die Liste abhakt.
+`youtube-nocookie.com` statt `youtube.com`, Netzabbruch wird abgefangen. Es ist der EINZIGE
+Teil der App, der Netz braucht; der Hinweis darauf steht im Blatt.
+
+**`uebText(d)`** wandelt die Auszeichnung in den Uebungsbeschreibungen um: `**fett**` wird
+hervorgehoben. Nur diese eine Regel — die Texte sollen lesbar bleiben, nicht formatiert werden.
+
+**`MALASKA_SVG` / `malaskaBild(i, groesse)`** liefern zu jeder Uebung eine schematische
+Strichfigur. Gezeichnet statt fotografiert, weil die App OFFLINE laeuft und Fotos entweder
+fremdes Material oder Megabytes im Cache waeren. Rund 10 kB fuer alle 13, ohne externen Verweis,
+ueber `currentColor` an das Farbschema gebunden. Sie ERINNERN an eine Uebung — sie erklaeren
+sie nicht; dafuer bleibt der Video-Link bei der Aufwaermroutine.
+
+**Nach der Runde:** `openPostStretchSheet()` (🧘 Post Round Stretch) mit `POST_ROUND`,
+`postToggle`, `postReset` und `postBild`/`POST_SVG`. Zwoelf STATISCHE Uebungen — sechs aus dem
+Malaska-Programm (Wissensdatenbank), sechs ergaenzt und je Eintrag als solche gekennzeichnet:
+Hueftbeuger, Latissimus, Brustoeffner, Gesaess, Waden, Nacken. Der Hueftbeuger ist dabei der
+wichtigste: Vier Stunden Gehen verkuerzen ihn, und bleibt er kurz, kippt das Becken und die
+Rotation im Rueckschwung leidet ueber die Saison.
+
+Die AUFWAERMPLAENE enthalten seit v2.27 KEINEN Koerperblock mehr — sonst liefe die Vorbereitung
+doppelt. Sie heissen entsprechend 9 / 21 / 39 Minuten. Eine Pruefung sichert, dass die
+angegebene Dauer zur Summe der Bloecke passt.
+
+`STRETCH_DONE` ist bewusst NICHT persistent: Der Haken gilt fuer diese eine Vorbereitung, nicht
+fuer alle kuenftigen.
+
 ### Putt-Diagnose (v2.22)
 `puttMiss` und `puttRest` je Loch, dazu `puttDiagnose(rounds)` und `puttDiagnoseHtml()` im
 Dashboard. Erfassen allein haette nicht geholfen — die Auswertung muss eine
@@ -2850,6 +2897,101 @@ erkennbar ist, dass es ein Video gab.
 ## Changelog
 > **Regel:** Bei JEDER inhaltlichen Änderung hier oben einen datierten Eintrag ergänzen (neueste
 > zuerst): Datum · was geändert · betroffene Bereiche. Kurz halten.
+
+- **v2.30.1 · 2026-08-11** — **Knopfbeschriftungen gekürzt** auf „🤸 Preround Stretch" und
+  „🧘 Post Round Stretch". Die erklärenden Zusätze („volles Malaska-Programm", „nach der Runde")
+  entfallen — was dahintersteckt, steht im Blatt selbst. Überschriften der Blätter und die drei
+  Querverweise in den Aufwärmplänen mitgezogen, damit Knopf und Ansicht dieselbe Bezeichnung
+  tragen.
+
+- **v2.30.0 · 2026-08-11** — **Malaska-Video direkt in der App abspielbar.** Statt eines Links
+  eine Abspielfläche am Ende des Pre-Round-Blatts. **Das iframe entsteht erst beim Antippen** —
+  fest eingebettet würde es bei JEDEM Öffnen YouTube kontaktieren, auch wenn man nur die Liste
+  abhaken will: Ladezeit, Daten und ein Fremdanbieter in der Seite ohne Not.
+  `youtube-nocookie.com` statt `youtube.com`: dieselbe Wiedergabe, aber ohne Werbe-Cookies,
+  solange nicht abgespielt wird. Ohne Verbindung wird das Antippen abgefangen und gemeldet
+  statt eine leere Fläche zu zeigen; ein Ausweichlink öffnet die YouTube-App. Der Hinweis, dass
+  das Video **als einziger Teil der App nicht offline verfügbar** ist, bleibt stehen.
+  8 Prüfungen, darunter die Gegenprobe, dass im Blatt selbst kein iframe steht.
+
+- **v2.29.0 · 2026-08-11** — **Schlägerwahl im Aufwärmen an die eigene Bag angepasst.**
+  Chips laufen jetzt über das **Eisen 9** statt Eisen 8 — das deckt sich mit der
+  Wissensdatenbank („Bester Chip-Schläger für mich ist das Eisen 9, SW ist Fallback") und mit
+  dem Übungsfokus „Längenkontrolle Chips Eisen 9". Eingespielt wird auf der Range mit
+  **Eisen 7 und Eisen 5** statt 8 und 6. Vier Textstellen in den drei Plänen geändert.
+  Fünf Prüfungen halten das fest — sonst übt man beim Aufwärmen mit Schlägern, die auf der
+  Runde in dieser Rolle gar nicht vorkommen.
+
+- **v2.28.0 · 2026-08-11** — **Übungen wortgetreu zur Wissensdatenbank · Malaska-Video verlinkt.**
+  Die Beschreibungen im Pre- und Post-Round-Programm sind gegen den Artikel „Dehnprogramm &
+  Malaska-Routine" (18 Übungen) abgeglichen und korrigiert; die gefundenen Fehler stehen als
+  Warnung im Code, damit sie nicht zurückkehren — allen voran der **Golfer's Grip**, der
+  fälschlich „beide Hände an den Schläger" lautete. Tatsächlich greifen die Hände **ineinander,
+  ohne Schläger**; da Arm Circles und Shoulder Stretch „mit Golfers Grip" ausgeführt werden,
+  hätte ein Schläger in den Händen eine völlig andere Übung ergeben.
+  Neu am **Ende** des Pre-Round-Blatts der Verweis auf **Mike Malaskas Video „A Better Way To
+  Warm Up"** — die Vorlage des Programms. Bewusst ans Ende: Wer die Übungen kennt, arbeitet die
+  Liste ab; wer eine Ausführung nachschlagen will, kommt dort ohnehin an. Es ist **derselbe
+  Link wie in der Wissensdatenbank** — zwei Quellen liefen früher oder später auseinander. Mit
+  ausdrücklichem Hinweis, dass das Video **Netz braucht** und nicht Teil des Offline-Vorrats ist;
+  die App ist sonst vollständig offline-tauglich. 5 Prüfungen.
+
+- **v2.27.0 · 2026-08-11** — **Aufwärmen ohne Dehnteil · neuer „Post Round Stretch".**
+  Die Körperblöcke sind aus allen Aufwärmplänen entfallen — sie liefen doppelt, seit es „Pre
+  Round Stretch" gibt. Die Pläne heißen jetzt entsprechend **9 / 21 / 39 Minuten** statt
+  12 / 25 / 45 und enthalten nur noch Bälle, Kurzspiel und Putt-Speed. Eine Prüfung stellt
+  sicher, dass die angegebene Dauer zur Summe der Blöcke passt — sonst rechnet der Zeitplan
+  rückwärts an der Wirklichkeit vorbei.
+  **Neu `POST_ROUND` mit 12 Übungen** und eigenem Knopf unter dem Aufwärmen. Grundlage sind die
+  **sechs statischen Übungen aus dem Malaska-Programm** (Wissensdatenbank, „Dehnprogramm &
+  Malaska-Routine"). Der Artikel „Nachbereitung der Golfrunde" verlangt 15 Minuten am Platz —
+  dafür reichen sechs nicht, und drei golfspezifische Belastungen fehlten darin. **Ergänzt und
+  als solche gekennzeichnet:** Hüftbeuger (verkürzt durch vier Stunden Gehen; bleibt er kurz,
+  kippt das Becken und die Rotation im Rückschwung leidet), Latissimus und Brustöffner (leisten
+  die Rotationsarbeit), Gesäß, Waden und Nacken. Die Herkunft steht je Übung dabei, damit
+  erkennbar bleibt, was aus der Quelle stammt und was nicht.
+  Dazu **12 weitere Skizzen** (`POST_SVG`), gleiche Machart: gezeichnet, offline, ohne externen
+  Verweis. 13 Prüfungen.
+
+- **v2.26.0 · 2026-08-11** — **Aufwärmen aus dem Dashboard entfernt · Übungsskizzen ergänzt.**
+  Der geführte Ablauf und die Malaska-Liste standen am Anfang des Dashboards und verdrängten
+  dort die Auswertung. Beides ist seit v2.25 über zwei Knöpfe ganz oben auf der Heute-Seite
+  erreichbar — **zwei Momente, zwei Seiten**: vorbereiten vor der Runde, auswerten danach.
+  Neu **`MALASKA_SVG`** — für jede der 13 Übungen eine schematische Strichfigur neben dem Text.
+  **Was sie sind:** Erinnerungshilfen für Körperhaltung und Bewegungsrichtung. **Was sie nicht
+  sind:** eine Anleitung — wer eine Übung zum ersten Mal macht, braucht das Video, dessen Link
+  weiterhin bei der Aufwärmroutine steht.
+  Gezeichnet statt fotografiert, aus zwei Gründen: Die App läuft **offline** (ein Bild, das erst
+  geladen werden muss, ist im Funkloch wertlos), und Fotos wären entweder fremdes Material oder
+  Megabytes im Cache. Alle 13 Skizzen zusammen: **rund 10 kB**, ohne einen einzigen externen
+  Verweis, über `currentColor` an das Farbschema gebunden. 12 Prüfungen, darunter die Gegenprobe
+  auf externe Verweise und die Größenschranke.
+
+- **v2.25.0 · 2026-08-11** — **Aufwärmen ganz nach oben · neuer „Pre Round Stretch".**
+  Die Aufwärm-Schaltfläche stand unter „Schnell erfassen" — man fand sie erst nach dem Scrollen,
+  obwohl Aufwärmen das Erste ist, was auf dem Platz passiert. Jetzt stehen **zwei** Knöpfe ganz
+  oben auf der Heute-Seite, noch vor dem Spielmodus:
+  **🤸 Pre Round Stretch** — das **volle Malaska-Programm** mit allen 13 dynamischen Übungen,
+  einzeln abhakbar, mit Zähler. Bisher steckten davon nur die ersten sechs als Kurzfassung in
+  den Aufwärmplänen. Das Programm ist immer dasselbe, unabhängig davon, wie viel Zeit für Bälle
+  bleibt — deshalb ein eigener Ablauf.
+  **🔥 Aufwärmen** — unverändert: Bälle, Kurzspiel und Putt-Speed je nach verfügbarer Zeit.
+  **Die statischen Dehnungen bleiben beim Cool-down nach der Runde.** Statisches Dehnen vor dem
+  Spiel senkt kurzzeitig die Kraftentfaltung — genau das Gegenteil dessen, was am ersten Tee
+  gebraucht wird. Eine Prüfung stellt sicher, dass `MALASKA_STAT` nicht in den Pre-Round-Ablauf
+  wandert. 10 Prüfungen, darunter die Reihenfolge der Knöpfe.
+
+- **v2.24.1 · 2026-08-11** — **BUGFIX: „fmtD is not defined" beim Öffnen der Scorekarte.**
+  `openRoundCard` rief `fmtD(r.date)` auf — die Funktion heißt `fmtDate`. Der Aufruf stand in
+  einem **Template-String** und fiel deshalb weder beim Laden noch bei einer Syntaxprüfung auf,
+  sondern erst beim Antippen. Die Formatierer-Familie ist für solche Verwechslungen anfällig,
+  weil sich die Namen ähneln: `fmtN`, `fmtDate`, `fmtDT`, `fmtDur`, `fmtBytes` — `fmtD` gibt es
+  nicht. Neuer Prüfabschnitt **24ar**: Jeder Name, der aus einem `onclick`/`onchange`-Attribut
+  aufgerufen wird, muss definiert sein (131 geprüft), plus eine gezielte Sperre gegen `fmtD`.
+  Mit Gegenprobe verifiziert — der wieder eingebaute Fehler wird gemeldet.
+  **Zum zweiten Eintrag im Protokoll:** „Failed to fetch" in `freshRepoFetch` ist **kein Fehler
+  der App**, sondern ein Netzabbruch (10× zwischen 21:08 und 22:25). Der Abgleich versucht es
+  beim nächsten Takt erneut; die Daten bleiben lokal gesichert.
 
 - **v2.24.0 · 2026-08-10** — **Neun Ergänzungen in Analyse und Training — durchgängig
   Einordnung statt neuer Diagramme.** Die Lücken lagen nicht bei den Daten, sondern bei der
@@ -17876,7 +18018,7 @@ function roundCardHtml(r){
 }
 function openRoundCard(id){
   const r=(DB.rounds||[]).find(x=>x.id===id); if(!r){ toast("Runde nicht gefunden"); return; }
-  openSheet(`<h2>Scorekarte</h2><div class="sub">${esc(r.course||"Runde")} · ${fmtD(r.date)}</div>
+  openSheet(`<h2>Scorekarte</h2><div class="sub">${esc(r.course||"Runde")} · ${fmtDate(r.date)}</div>
     ${roundCardHtml(r)}
     <p class="note">⚠ markiert eine ungewöhnliche Par/Länge-Kombination. Passt die Summe nicht
     zur Papierkarte, liegt es fast immer daran — nicht am Score.</p>
@@ -17986,39 +18128,15 @@ function renderDash(){
   const hcpPts=comps.map((c,i)=>({i,y:typeof c.hcpAfter==="number"?c.hcpAfter:null}));
 
   let h=``;
-  // Aufwärmen: der geführte Ablauf ersetzt die reine Liste — sie bleibt
-  // darunter als Nachschlagewerk (Malaska-Übungen im Wortlaut).
-  h+=`<div class="card pad" style="margin-top:2px">
-    <div style="font-weight:700">🔥 Aufwärmen</div>
-    <p class="note" style="margin-top:4px">Abschlagzeit eingeben — der Ablauf wird rückwärts
-    geplant, Putt-Speed steht zuletzt.</p>
-    <button class="btn gold" type="button" onclick="openWarmupSheet()">Geführten Ablauf öffnen</button>
-  </div>`;
-  // Aufwärmroutine (ausklappbar)
-  if(DB.warmup){
-    const wu=DB.warmup, url=(wu.source||"").match(/https?:\/\/\S+/);
-    h+=`<details class="descbox" style="margin-top:2px">
-      <summary><span>🔥 Aufwärmroutine · vor Training & Runde</span><span class="chev-d">▾</span></summary>
-      <div class="desc-body">`;
-    if(wu.protocol&&wu.protocol.length){
-      h+=`<div style="font-weight:700;color:var(--pine-deep);margin-bottom:6px">Pre-Round-Protokoll</div>`;
-      wu.protocol.forEach(p=>{ h+=`<div style="margin-bottom:9px;padding-bottom:9px;border-bottom:1px solid var(--line-soft)">
-        <div style="font-weight:650">${esc(p.block)} <span class="r-s">· ${esc(p.dauer||"")}</span></div>
-        <div>${esc(p.inhalt||"")}</div>
-        ${p.ziel?`<div class="r-s">🎯 ${esc(p.ziel)}</div>`:""}${p.test&&p.test!=="–"?`<div class="r-s">✔ Mini-Test: ${esc(p.test)}</div>`:""}</div>`;});
-    }
-    if(wu.stretches&&wu.stretches.length){
-      h+=`<div style="font-weight:700;color:var(--pine-deep);margin:10px 0 6px">Dehnprogramm (Malaska)</div>
-        <ol style="margin:0;padding-left:20px">${wu.stretches.map(s=>`<li style="margin-bottom:4px">${esc(s)}</li>`).join("")}</ol>`;
-    }
-    if(url) h+=`<div class="note" style="margin-top:10px">Video: <a href="${esc(url[0])}" target="_blank" style="color:var(--pine)">${esc(url[0])}</a></div>`;
-    h+=`</div></details>`;
-  }
-  /* Aufwaermroutine wird hier ABGETRENNT. Sie gehoert ganz nach oben — man
-     braucht sie VOR der Runde, die Auswertung danach. Vorher wurde die
-     Position ueber h.indexOf("</details>") geraten; das bricht, sobald
-     irgendwo davor ein weiteres <details> steht. */
-  const hWarm = h; h = ``;
+  /* AUFWAERMEN GEHOERT NICHT INS DASHBOARD (v2.26).
+     Hier stand der gefuehrte Ablauf samt der Malaska-Liste als Nachschlagewerk.
+     Beides ist seit v2.25 ueber zwei Knoepfe GANZ OBEN auf der Heute-Seite
+     erreichbar — dort, wo man vor der Runde ohnehin hinschaut. Im Dashboard
+     verdraengte es die Auswertung, die man NACH der Runde braucht: Zwei
+     verschiedene Momente, zwei verschiedene Seiten.
+     `hWarm` bleibt als leere Zeichenkette erhalten, damit die
+     Zusammensetzung unten unveraendert lesbar bleibt. */
+  const hWarm = ""; h = ``;
   h+=`
   <div class="eyebrow">HCP-Verlauf · aus Wettkämpfen</div>
   <div class="card pad">
@@ -21599,7 +21717,19 @@ function renderHeute(){
   const lastR=rounds.length?rounds[rounds.length-1]:null;
   let h=`<div class="eyebrow eyebrow-row"><span>Heute · ${new Date().toLocaleDateString("de-DE",{weekday:"long",day:"numeric",month:"long"})}</span><span class="app-ver" title="App-Version – so erkennst du, ob die neueste Datei geladen ist">v${APP_VERSION}</span></div>
   ${draftBanner()}
-  <button class="btn" id="qhPlay" style="margin-bottom:12px;font-size:15px;padding:14px">▶ Spielmodus – Loch für Loch spielen</button>
+    <!-- AUFWAERMEN GANZ OBEN. Es ist das Erste, was auf dem Platz passiert —
+         also gehoert es auch in der App an den Anfang. Vorher stand es unter
+         „Schnell erfassen", wo man es erst nach dem Scrollen fand.
+         Zwei Knoepfe, weil es zwei verschiedene Dinge sind: das koerperliche
+         Vorbereiten (Malaska, immer gleich) und der Ablauf mit Baellen und
+         Putts (haengt von der verfuegbaren Zeit ab). -->
+    <button class="btn gold" id="qhStretch"
+      style="margin-bottom:8px;font-size:15px;padding:14px">🤸 Preround Stretch</button>
+    <button class="btn gold" id="qhWarm"
+      style="margin-bottom:12px;font-size:15px;padding:14px">🔥 Aufwärmen – Bälle, Kurzspiel, Putts</button>
+    <button class="btn gold" id="qhPost"
+      style="margin-bottom:12px;font-size:15px;padding:14px">🧘 Post Round Stretch</button>
+    <button class="btn" id="qhPlay" style="margin-bottom:12px;font-size:15px;padding:14px">▶ Spielmodus – Loch für Loch spielen</button>
   <div class="card pad" id="wxCard" style="margin-bottom:12px">
     <div style="display:flex;justify-content:space-between;align-items:center">
       <div class="r-t">🌤 Wetter</div>
@@ -21664,7 +21794,7 @@ function renderHeute(){
   <div class="grid2">
     <button class="btn" id="qhRound">⛳ Trainingsrunde</button>
     <button class="btn sec" type="button" onclick="openQuickRound()">⚡ Runde schnell erfassen</button>
-    <button class="btn gold" id="qhWarm">🔥 Aufwärmen</button>
+    
     <button class="btn sec" id="qhComp">🏅 Turnier</button>
     <button class="btn ghost" id="qhFit">🧘 Fitness</button>
   </div>`;
@@ -21677,6 +21807,8 @@ function renderHeute(){
   $("#qhComp").onclick=openAddComp;
   $("#qhFit").onclick=()=>openYogaEditor(-1);
   $("#qhWarm").onclick=openWarmupSheet;
+  { const b=document.getElementById("qhStretch"); if(b) b.onclick=openStretchSheet; }
+  { const b=document.getElementById("qhPost"); if(b) b.onclick=openPostStretchSheet; }
 }
 /* ==========================================================================
    GEFÜHRTES AUFWÄRMEN (v1.62)
@@ -21710,45 +21842,118 @@ function renderHeute(){
    Kriterium, das vor der Runde zaehlt: DYNAMISCH (vorher) vs. STATISCH
    (nachher — laengere Halteuebungen senken unmittelbar davor die Schnellkraft).
    Quelle: Malaska „A Better Way To Warm Up", https://www.youtube.com/watch?v=SHP70Xv14kY */
+/* ==========================================================================
+   MALASKA-PROGRAMM — wortgetreu zur Wissensdatenbank (v2.28)
+   Quelle: Artikel „Dehnprogramm & Malaska-Routine", 18 Uebungen.
+   Video: https://www.youtube.com/watch?v=SHP70Xv14kY
+
+   DREI FEHLER DER ALTEN FASSUNG, hier festgehalten, damit sie nicht
+   zurueckkehren:
+
+   1. „Golfers Grip: beide Hände an den SCHLÄGER" war FALSCH. Der Golfer's
+      Grip ist die Handhaltung wie beim Golfgriff — die Haende greifen
+      INEINANDER, ohne Schlaeger. Das war nicht nur ein Detail: Die Arm
+      Circles und der Shoulder Stretch werden „mit Golfers Grip" ausgefuehrt,
+      und mit einem Schlaeger in den Haenden ist das eine voellig andere
+      Uebung.
+   2. Die Beschreibungen waren zu knapp, um danach zu trainieren — ein
+      Stichwort statt einer Anleitung.
+   3. „Lunge Stretch" stand hier UND als „Hueftbeuger-Dehnung" im
+      Nachher-Programm, ohne dass der Unterschied benannt war. Vorher
+      dynamisch und kurz, nachher statisch und lange — das ist gewollt, muss
+      aber dastehen.
+
+   Struktur: {t: Titel, d: Ausfuehrung, w: Umfang, q: Quelle}.
+   `q:"ergänzt"` kennzeichnet alles, was NICHT aus dem Artikel stammt.
+   ========================================================================== */
 const MALASKA_DYN = [
-  "Golfers Grip: beide Hände an den Schläger, fest zufassen und lösen — 20 Sekunden",
-  "Forearm Stretch: Unterarme in jeder Position 15 Sekunden dehnen",
-  "Arm Circles vorwärts: Golfers Grip, Handflächen nach unten — 20 Stück",
-  "Arm Circles rückwärts: Golfers Grip, Handflächen nach oben — 20 Stück",
-  "Shoulder Stretch: Golfers Grip, Daumen zeigen nach unten — 20 Stück",
-  "Shoulder Stretch: Finger verschränken, Handflächen nach unten, nach oben strecken — 20 Sekunden",
-  "Wrist strengthening: zwei Schläger halten, Arme seitlich am Körper",
-  "Forearm strength (beide Seiten): Ellenbogen an der Seite, mit dem Schläger seitlich rotieren; steigern auf zwei Schläger, kurz gegriffen",
-  "Mid-Back-Stretch: Arme vor der Brust um sich selbst kreuzen",
-  "Upper-Body-Rotation: Schläger auf den Schultern, rotieren",
-  "Upper-Body-Rotation: aus der Hüfte beugen und rotieren — Kopf beim Drehen NICHT mitbewegen",
-  "Lunge Stretch: Ausfallschritt zur Dehnung des Hüftbeugers",
-  "Backswing-Stretch: Rückschwungposition einnehmen und halten — auch während der Runde gut"
+  {t:"Golfers Grip", q:"Malaska", w:"20 Sekunden",
+   d:"Hände wie zum Golfgriff ineinanderlegen — ohne Schläger. Fest zufassen und wieder lösen, im Wechsel. Das weckt Unterarme und Hände und ist die Ausgangshaltung für die Übungen 3 bis 5."},
+  {t:"Forearm Stretch", q:"Malaska", w:"je Position 15 Sekunden",
+   d:"Arm nach vorn strecken, mit der anderen Hand die Finger sanft zu sich ziehen (Handrücken oben), dann nach unten drehen und wiederholen. Jede Position halten, nicht wippen."},
+  {t:"Arm Circles vorwärts", q:"Malaska", w:"20 Stück",
+   d:"Golfers Grip beibehalten, Handflächen zeigen nach unten. Gestreckte Arme vorwärts kreisen — der Kreis geht so weit, wie die Schulter es ohne Ausweichen zulässt."},
+  {t:"Arm Circles rückwärts", q:"Malaska", w:"20 Stück",
+   d:"Golfers Grip, Handflächen zeigen nach oben. Rückwärts kreisen. Die gedrehte Handhaltung öffnet die Schulter anders als vorwärts — deshalb beide Richtungen."},
+  {t:"Shoulder Stretch, Daumen nach unten", q:"Malaska", w:"20 Stück",
+   d:"Golfers Grip, Daumen zeigen nach unten. Arme gestreckt anheben und senken. Zieht die Außenrotation der Schulter auf."},
+  {t:"Shoulder Stretch, Finger verschränkt", q:"Malaska", w:"20 Sekunden",
+   d:"Finger verschränken, Handflächen nach unten drehen, dann die Arme nach oben strecken. Schultern dabei tief lassen, nicht zu den Ohren ziehen."},
+  {t:"Wrist strengthening", q:"Malaska", w:"bis die Unterarme brennen",
+   d:"Zwei Schläger in einer Hand halten, Arme seitlich am Körper hängen lassen. Das Gewicht kräftigt die Handgelenke — bewusst ohne Bewegung."},
+  {t:"Forearm strength", q:"Malaska", w:"beide Seiten",
+   d:"Ellenbogen bleibt an der Seite fixiert. Mit dem Schläger seitlich nach außen und innen rotieren. Steigern auf zwei Schläger, kurz gegriffen, im Original „choked up“."},
+  {t:"Mid-Back-Stretch", q:"Malaska", w:"20 Sekunden",
+   d:"Arme vor der Brust um sich selbst kreuzen und die Schultern nach vorn ziehen, als wolltest du dich selbst umarmen. Öffnet die Muskulatur zwischen den Schulterblättern."},
+  {t:"Upper-Body-Rotation, aufrecht", q:"Malaska", w:"je Seite 10–15 Mal",
+   d:"Schläger quer auf die Schultern legen, aufrecht stehen und aus dem Oberkörper rotieren. Hüfte bleibt weitgehend ruhig — die Drehung kommt aus der Brustwirbelsäule."},
+  {t:"Upper-Body-Rotation, gebeugt", q:"Malaska", w:"je Seite 10–15 Mal",
+   d:"Wie zuvor, aber aus der Hüfte nach vorn gebeugt in Ansprechhaltung. **Der Kopf dreht NICHT mit** — er bleibt zum Boden gerichtet. Das ist die Rotation, die du im Schwung tatsächlich brauchst."},
+  {t:"Lunge Stretch", q:"Malaska", w:"je Seite 20 Sekunden",
+   d:"Ausfallschritt, Becken nach vorn schieben. Vor der Runde bewusst KURZ halten und ein paar Mal federn — die lange statische Version steht im Programm danach."},
+  {t:"Backswing-Stretch", q:"Malaska", w:"3–5 Mal je 5 Sekunden",
+   d:"Rückschwungposition einnehmen und dort halten, dann lösen. Auch **während der Runde** gut — zwischen zwei Löchern, wenn die Rotation nachlässt."}
 ];
+
+/* Die sechs statischen Uebungen des Malaska-Programms (Nummern 7, 8, 11, 12,
+   13, 17 der Quelle). Sie stehen NACH der Runde, weil langes Halten
+   unmittelbar davor die Schnellkraft senkt. */
 const MALASKA_STAT = [
-  "Tricep Stretch (beide Seiten): Hand am Ellenbogen, Ellenbogen nach hinten ziehen",
-  "Side Stretch (beide Seiten): einen Fuß anspitzen, Arme gerade, zur Seite überkippen — Schultern bleiben in Linie",
-  "Hamstring Stretch (beide Seiten): Füße flach, Rücken flach, Schläger zur Balance; vorderen Zeh anheben, um es zu verschärfen — Atem nicht anhalten",
-  "Forward Stretch: Beine auseinander, mit den Händen den Boden berühren, wenn möglich",
-  "Forward Stretch (beide Seiten): zum Bein greifen, der andere Arm hinter dem Rücken",
-  "Seated Rotation (beide Seiten): linken Fuß außerhalb des rechten Knies aufstellen, rechter Arm außerhalb des linken Knies, drehen und über die linke Schulter schauen"
+  "Tricep Stretch", "Side Stretch", "Hamstring Stretch",
+  "Forward Stretch breit", "Forward Stretch einbeinig", "Seated Rotation"
+];
+
+/* ==========================================================================
+   NACH DER RUNDE (v2.28)
+   Grundlage sind die sechs statischen Uebungen aus dem Malaska-Programm.
+   Der Artikel „Nachbereitung der Golfrunde" verlangt 15 Minuten direkt am
+   Platz — dafuer reichen sechs nicht, und drei golfspezifische Belastungen
+   bleiben darin unberuecksichtigt:
+     · HUEFTBEUGER — vier Stunden Gehen und Rotation verkuerzen ihn. Bleibt er
+       kurz, kippt das Becken und die Rotation im Rueckschwung leidet.
+     · LATISSIMUS und Brustwirbelsaeule — sie leisten die Rotationsarbeit.
+     · GESAESS und Waden — vom Gehen, nicht vom Schwung, aber dieselbe Ursache
+       fuer steife Hueften am naechsten Tag.
+   Diese sechs sind ERGAENZT und je Eintrag so gekennzeichnet.
+   ========================================================================== */
+const POST_ROUND = [
+  {t:"Tricep Stretch", q:"Malaska", w:"beide Seiten, je 20 Sekunden",
+   d:"Arm anwinkeln und hinter den Kopf führen, mit der anderen Hand am Ellenbogen fassen und den Ellenbogen nach hinten ziehen. Oberkörper bleibt aufrecht."},
+  {t:"Side Stretch", q:"Malaska", w:"beide Seiten, je 20 Sekunden",
+   d:"Einen Fuß anspitzen, Arme gerade nach oben, zur Seite überkippen. **Die Schultern bleiben in Linie** — nicht nach vorn eindrehen, sonst dehnt es den falschen Bereich."},
+  {t:"Latissimus", q:"ergänzt", w:"beide Seiten, je 30 Sekunden",
+   d:"Am Trolley oder Zaun festhalten, Hüfte nach hinten schieben und die Achsel Richtung Boden sinken lassen. Der Latissimus leistet im Schwung die Rotationsarbeit und ist danach am ehesten verkürzt."},
+  {t:"Brustöffner", q:"ergänzt", w:"beide Seiten, je 30 Sekunden",
+   d:"Unterarm an einen Pfosten oder Baum legen, Ellenbogen etwa auf Schulterhöhe, dann die Brust wegdrehen. Gegen die Rundschulter nach vier Stunden Schlägerhaltung."},
+  {t:"Hamstring Stretch", q:"Malaska", w:"beide Seiten, je 30 Sekunden",
+   d:"Ein Bein vorstellen, Fuß flach, **Rücken flach** aus der Hüfte beugen. Schläger zur Balance. Den vorderen Zeh anheben verschärft die Dehnung. Atem nicht anhalten."},
+  {t:"Forward Stretch, breit", q:"Malaska", w:"30 Sekunden",
+   d:"Beine weit auseinander, aus der Hüfte nach vorn beugen und mit den Händen zum Boden — so weit, wie es ohne Runden des Rückens geht."},
+  {t:"Forward Stretch, einbeinig", q:"Malaska", w:"beide Seiten, je 30 Sekunden",
+   d:"Zum Bein greifen, der andere Arm bleibt hinter dem Rücken. Die verschränkte Armhaltung dreht den Oberkörper leicht mit und erreicht die seitliche Kette."},
+  {t:"Hüftbeuger", q:"ergänzt", w:"beide Seiten, je 40 Sekunden",
+   d:"Ausfallschritt, hinteres Knie am Boden, Becken nach vorn schieben und aufrichten. **Die wichtigste Übung nach der Runde** — hier statisch und lang gehalten, anders als der kurze Lunge vor dem Spiel."},
+  {t:"Gesäß / Piriformis", q:"ergänzt", w:"beide Seiten, je 30 Sekunden",
+   d:"Im Sitzen den Knöchel auf das andere Knie legen und den Oberschenkel zu sich heranziehen. Vom Gehen, nicht vom Schwung."},
+  {t:"Seated Rotation", q:"Malaska", w:"beide Seiten, je 30 Sekunden",
+   d:"Im Sitzen den linken Fuß außerhalb des rechten Knies aufstellen, den rechten Arm außerhalb des linken Knies abstützen, eindrehen und über die linke Schulter schauen. Dann seitenverkehrt."},
+  {t:"Wade", q:"ergänzt", w:"beide Seiten, je 30 Sekunden",
+   d:"Fußspitze an eine Kante oder Stufe, Ferse absenken, Bein gestreckt. Danach mit leicht gebeugtem Knie wiederholen — das erreicht den tieferen Wadenmuskel."},
+  {t:"Nacken", q:"ergänzt", w:"beide Seiten, je 20 Sekunden",
+   d:"Ohr zur Schulter neigen, mit der Hand leicht nachhelfen, die andere Schulter bewusst tief lassen. Zum Schluss, wenn der Rest schon warm ist."}
 ];
 
 const WARMUP_PLANS = {
   kurz: {
-    id:"kurz", name:"12 Minuten", sub:"spät dran oder keine Range", min:12,
-    hinweis:"Kein einziger voller Schwung — das ist Absicht. In 12 Minuten hektisch Bälle zu "
+    id:"kurz", name:"9 Minuten", sub:"spät dran oder keine Range", min:9,
+    hinweis:"Körperliche Vorbereitung läuft getrennt über „Preround Stretch“. Hier geht es nur um Bälle, Kurzspiel und Putt-Speed. Kein einziger voller Schwung — das ist Absicht. In 12 Minuten hektisch Bälle zu "
       +"schlagen bringt weniger als ein sauber geeichter Putt-Speed. Der Score entsteht auf dem Grün.",
     bloecke:[
-      {min:3, titel:"Körper", ort:"beliebig",
-       inhalt:"Kurzfassung aus dem Malaska-Programm — die ersten sechs Übungen reichen, wenn die Zeit knapp ist.",
-       uebungen:MALASKA_DYN.slice(0,6),
-       ziel:"Schulter, Brustwirbelsäule und Hüfte auf Betriebstemperatur"},
       {min:4, titel:"Kurzspiel", ort:"Übungsgrün",
-       inhalt:"10 Chips mit Eisen 9 auf eine Putterlänge, danach — falls vorhanden — 6 Bunkerschläge.",
+       inhalt:"10 Chips mit SW oder Eisen 9 aus unterschiedlichen Lagen, Ziel ist eine Putterlänge ans Loch. Wenn ein Bunker da ist: 4 Schläge daraus.",
        ziel:"Kontakt und Gefühl für die Grasnarbe von heute"},
       {min:4, titel:"Putt-Speed", ort:"Übungsgrün",
-       inhalt:"Lag-Putts 8 m, 12 m, 16 m im Wechsel, bis drei in Folge innerhalb einer Puttlänge stoppen. Zum Schluss drei Putts aus 1,5 m.",
+       inhalt:"Kurzfassung der 6-5-4-3-Routine: 4 Putts aus 1,2–2,1 m, dann 3 aus 3,4–5,2 m, dann 2 lange aus 5,2–9,1 m. Kurz beginnen — der erste gelochte Putt ist mehr wert als der weiteste.",
        ziel:"Grüngeschwindigkeit von heute im Gefühl"},
       {min:1, titel:"Erster Schlag", ort:"Tee 1",
        inhalt:"Ein Probeschwung mit dem Schläger von Loch 1, volle PreShot-Routine, Ziel benennen.",
@@ -21756,51 +21961,43 @@ const WARMUP_PLANS = {
     ]
   },
   standard: {
-    id:"standard", name:"25 Minuten", sub:"normale Runde", min:25,
-    hinweis:"Ballzahl bewusst gedeckelt (~22). Mehr Bälle machen müde, nicht besser — und ein "
+    id:"standard", name:"21 Minuten", sub:"normale Runde", min:21,
+    hinweis:"Körperliche Vorbereitung läuft getrennt über „Preround Stretch“. Hier geht es nur um Bälle, Kurzspiel und Putt-Speed. Ballzahl bewusst gedeckelt (~22). Mehr Bälle machen müde, nicht besser — und ein "
       +"schlecht laufender Eimer wandert mental mit auf die Runde.",
     bloecke:[
-      {min:4, titel:"Körper", ort:"beliebig",
-       inhalt:"Malaska-Programm, dynamischer Teil. KEINE langen Halteübungen — die senken unmittelbar vor der Runde die Schnellkraft und stehen deshalb im Block „danach\".",
-       uebungen:MALASKA_DYN.slice(0,10),
-       ziel:"Beweglichkeit in Rotation und Hüfte"},
       {min:7, titel:"Kontakt", ort:"Range", baelle:12,
-       inhalt:"6× Wedge halbe Schwünge (Ball zuerst, Divot nach dem Ball), dann 6× Eisen 8 auf ein Ziel. Aufsteigend, nie mit dem Driver anfangen.",
+       inhalt:"6 Bälle Wedge mit halbem Schwung — Ball zuerst treffen, das Divot entsteht NACH dem Ball. Dann 6 Bälle Eisen 7 auf ein benanntes Ziel. Aufsteigend von kurz nach lang; mit dem Driver zu beginnen ist der häufigste Aufwärmfehler.",
        ziel:"Treffmoment kalibrieren — nicht Distanz suchen"},
       {min:3, titel:"Tempo", ort:"Range", baelle:3,
        inhalt:"3 lockere Driver mit 80 %, danach 3 bewusst SCHNELLE Schwünge OHNE Ball.",
        ziel:"Schwunggeschwindigkeit wecken, ohne den Rhythmus zu verlieren"},
       {min:3, titel:"Transfer", ort:"Range", baelle:4,
-       inhalt:"4 Bälle mit genau dem Schläger, den du auf Loch 1 spielst. Jeder Ball mit vollständiger PreShot-Routine und benanntem Ziel.",
+       inhalt:"4 Bälle mit genau dem Schläger, den du auf Loch 1 spielst. Vollständige PreShot-Routine wie auf dem Platz: hinter den Ball treten, Ziel wählen, Probeschwung, ansprechen, schlagen. Das ist der Übergang von der Range zum Spiel.",
        ziel:"Der Übergang von der Matte auf die Bahn"},
       {min:4, titel:"Kurzspiel", ort:"Übungsgrün",
-       inhalt:"8 Chips aus unterschiedlichen Lagen, 4 Bunkerschläge.",
+       inhalt:"8 Chips mit SW oder Eisen 9 aus möglichst unterschiedlichen Lagen — Vorgrün, Rough, tiefe Lage. Ziel jeweils eine Putterlänge ans Loch. Danach 4 Bunkerschläge.",
        ziel:"Scrambling-Bereitschaft"},
       {min:4, titel:"Putt-Speed", ort:"Übungsgrün",
-       inhalt:"Lag-Putts 8/12/16 m bis die Länge sitzt, dann 3× 1,5 m zum Einlochen.",
+       inhalt:"6-5-4-3-Routine, verkürzt: 5 Putts aus 1,2–2,1 m · 4 aus 2,4–3,4 m · 3 aus 3,4–5,2 m · 2 aus 5,2–9,1 m. Von kurz nach lang, weil das Gefühl für die Grüngeschwindigkeit auf den langen aufbaut.",
        ziel:"Zuletzt geeicht = auf Grün 1 noch präsent"}
     ]
   },
   turnier: {
-    id:"turnier", name:"45 Minuten", sub:"Wettspiel", min:45,
-    hinweis:"Ballzahl trotz mehr Zeit auf ~35 gedeckelt. Der Zugewinn kommt aus Distanzkontrolle "
+    id:"turnier", name:"39 Minuten", sub:"Wettspiel", min:39,
+    hinweis:"Körperliche Vorbereitung läuft getrennt über „Preround Stretch“. Hier geht es nur um Bälle, Kurzspiel und Putt-Speed. Ballzahl trotz mehr Zeit auf ~35 gedeckelt. Der Zugewinn kommt aus Distanzkontrolle "
       +"und Platzbeobachtung, nicht aus mehr vollen Schwüngen.",
     bloecke:[
-      {min:6, titel:"Körper", ort:"beliebig",
-       inhalt:"Malaska-Programm, dynamischer Teil vollständig.",
-       uebungen:MALASKA_DYN,
-       ziel:"Volle Bewegungsamplitude"},
       {min:8, titel:"Kontakt", ort:"Range", baelle:14,
-       inhalt:"Wedge halbe Schwünge (6), Eisen 8 (4), Eisen 6 (4) — aufsteigend, jeder Ball auf ein benanntes Ziel.",
+       inhalt:"Aufsteigend: 6 Bälle Wedge mit halbem Schwung, 4 Bälle Eisen 7, 4 Bälle Eisen 5. Jeder Ball auf ein benanntes Ziel — nicht ins Blaue schlagen, sonst übt man nur den Bewegungsablauf ohne Aufgabe.",
        ziel:"Treffmoment und Startrichtung"},
       {min:8, titel:"Wedge-Distanzen", ort:"Range", baelle:12,
-       inhalt:"Je 4 Bälle auf 50 m, 70 m, 90 m nach der Wedge-Matrix (A-1/A-2/A-3). Carry beobachten, nicht Gesamtweite.",
+       inhalt:"Je 4 Bälle auf 25 m, 35 m, 45 m und 55 m — die Distanzen aus der Trainingsroutine. Nach der Wedge-Matrix (A-1/A-2/A-3) arbeiten und den CARRY beobachten, nicht die Gesamtweite: Auf dem Platz zählt, wo der Ball aufkommt.",
        ziel:"Die Distanzen, aus denen die meisten Schläge kommen"},
       {min:4, titel:"Tempo", ort:"Range", baelle:4,
-       inhalt:"4 Driver mit 80 %, dazwischen 3 schnelle Schwünge ohne Ball.",
+       inhalt:"4 Driver mit etwa 80 % Krafteinsatz auf ein benanntes Ziel. Gleichmäßiger Ablauf statt Maximalweite — das Tempo, das du auf Loch 1 tatsächlich abrufen willst.",
        ziel:"Speed ohne Rhythmusverlust"},
       {min:3, titel:"Transfer", ort:"Range", baelle:5,
-       inhalt:"5 Bälle mit dem Schläger von Loch 1, volle Routine, wechselnde Ziele.",
+       inhalt:"5 Bälle mit dem Schläger von Loch 1, volle PreShot-Routine, nach jedem Ball ein ANDERES Ziel. Der Wechsel zwingt zur Neuentscheidung — genau wie auf der Runde.",
        ziel:"Wettspielbedingungen simulieren"},
       {min:5, titel:"Platz lesen", ort:"Übungsgrün",
        inhalt:"Windrichtung an den Baumwipfeln prüfen, ein 6-m-Putt für die Grüngeschwindigkeit, Fahnenpositionen der ersten drei Löcher notieren.",
@@ -21812,21 +22009,8 @@ const WARMUP_PLANS = {
        inhalt:"6-5-4-3-Routine: 6 Putts 1,2–2,1 m · 5 Putts 2,4–3,4 m · 4 Putts 3,4–5,2 m · 3 Putts 5,2–9,1 m.",
        ziel:"Statistisch die beste Putt-Aufwärmroutine"}
     ]
-  },
-  nach: {
-    id:"nach", name:"8 Minuten danach", sub:"Nachbereitung", min:8, nachRunde:true,
-    hinweis:"HIER gehören die statischen Halteübungen hin — nach der Belastung, nicht davor. "
-      +"Vor der Runde senken sie die Schnellkraft, danach erhalten sie die Beweglichkeit.",
-    bloecke:[
-      {min:6, titel:"Statisch dehnen", ort:"am Platz",
-       inhalt:"Malaska-Halteübungen, je 20–30 Sekunden halten. HIER richtig — nach der Belastung erhalten sie die Beweglichkeit, davor senken sie die Schnellkraft.",
-       uebungen:MALASKA_STAT,
-       ziel:"Langfristig beweglich bleiben"},
-      {min:2, titel:"Notiz", ort:"am Platz",
-       inhalt:"Was hat funktioniert, was nicht? Direkt in die App, solange es frisch ist.",
-       ziel:"Der Eindruck verblasst innerhalb einer Stunde"}
-    ]
   }
+
 };
 
 /* Persoenliches Korrektiv: ein Aufwaermen, das DEINE Fehlerbilder anspricht,
@@ -21934,6 +22118,238 @@ function warmupBloeckeHtml(plan, sch, aktiv){
   <div class="card pad"><p class="note" style="margin-top:0">Die letzten drei Bälle entscheiden
   nichts. Läuft das Aufwärmen schlecht, gilt für die ersten Löcher der Sicherheitsschlag
   (3/4-Eisen vom Tee) und der Bogey-Plan — Erwartung senken, nicht Anstrengung erhöhen.</p></div>`}`;
+}
+
+/* ==========================================================================
+   PRE ROUND STRETCH — das volle Malaska-Programm (v2.25)
+   Bisher steckten die Uebungen nur als Kurzfassung in den Aufwaermplaenen
+   (`MALASKA_DYN.slice(0,6)`). Vor der Runde soll aber das GANZE Programm
+   laufen — es ist immer dasselbe, unabhaengig davon, wie viel Zeit fuer
+   Baelle bleibt. Deshalb ein eigener Ablauf und ein eigener Knopf:
+     · Pre Round Stretch = Koerper vorbereiten. Immer gleich, ~8 Minuten.
+     · Aufwaermen        = Baelle, Kurzspiel, Putts. Haengt von der Zeit ab.
+   Die statischen Dehnungen (MALASKA_STAT) bleiben, wo sie sind: NACH der
+   Runde. Statisches Dehnen vor dem Spiel senkt kurzzeitig die
+   Kraftentfaltung — genau das Gegenteil dessen, was am ersten Tee gebraucht
+   wird.
+   ========================================================================== */
+/* ==========================================================================
+   UEBUNGSSKIZZEN (v2.26)
+   Was diese Bilder SIND: schematische Strichfiguren, die an eine bekannte
+   Uebung ERINNERN — Koerperhaltung und Bewegungsrichtung, mehr nicht.
+   Was sie NICHT sind: eine Anleitung. Wer eine Uebung zum ersten Mal macht,
+   braucht das Video; der Link dazu steht weiterhin bei der Aufwaermroutine.
+
+   Warum gezeichnet und nicht fotografiert: Die App laeuft offline. Fotos
+   waeren entweder fremdes Material (Urheberrecht) oder Megabytes, die den
+   Cache sprengen. Diese SVGs kosten zusammen wenige Kilobyte, brauchen KEIN
+   Netz und passen sich ueber `currentColor` an das Farbschema an.
+   ========================================================================== */
+/* Skizzen fuer das Programm NACH der Runde — gleiche Machart wie MALASKA_SVG:
+   gezeichnet, offline, ueber currentColor an das Farbschema gebunden. */
+const POST_SVG = [
+  "<circle cx='28' cy='10' r='5.5' stroke='currentColor' stroke-width='2.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/><path d='M28 15.5 V36' stroke='currentColor' stroke-width='2.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/><path d='M21 56 L28 36 L35 56' stroke='currentColor' stroke-width='2.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/><path d='M28 20 L34 10 L26 6' stroke='currentColor' stroke-width='2.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/><path d='M28 22 L20 14' stroke='currentColor' stroke-width='2.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/><path d='M20 10 q-4 -4 -8 0' stroke='var(--gold,#c9a227)' stroke-width='2' fill='none' stroke-linecap='round'/>",
+  "<circle cx='34' cy='10' r='5.5' stroke='currentColor' stroke-width='2.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/><path d='M34 15.5 L26 36' stroke='currentColor' stroke-width='2.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/><path d='M20 56 L26 36 L32 56' stroke='currentColor' stroke-width='2.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/><path d='M34 17 L44 4' stroke='currentColor' stroke-width='2.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/><path d='M34 19 L24 12' stroke='currentColor' stroke-width='2.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/><path d='M46 14 q6 -6 2 -12' stroke='var(--gold,#c9a227)' stroke-width='2' fill='none' stroke-linecap='round'/>",
+  "<circle cx='20' cy='26' r='5.5' stroke='currentColor' stroke-width='2.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/><path d='M25 28 L40 24' stroke='currentColor' stroke-width='2.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/><path d='M40 24 L52 22' stroke='currentColor' stroke-width='2.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/><path d='M40 24 L42 40 M40 24 L34 42' stroke='currentColor' stroke-width='2.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/><path d='M42 40 L42 56 M34 42 L32 56' stroke='currentColor' stroke-width='2.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/><path d='M14 34 q-4 6 2 10' stroke='var(--gold,#c9a227)' stroke-width='2' fill='none' stroke-linecap='round'/>",
+  "<path d='M46 2 V60' stroke='currentColor' stroke-width='2.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/><circle cx='24' cy='12' r='5.5' stroke='currentColor' stroke-width='2.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/><path d='M24 17.5 V36' stroke='currentColor' stroke-width='2.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/><path d='M18 56 L24 36 L30 56' stroke='currentColor' stroke-width='2.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/><path d='M24 22 L40 18 V8' stroke='currentColor' stroke-width='2.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/><path d='M12 20 q-6 4 -2 10' stroke='var(--gold,#c9a227)' stroke-width='2' fill='none' stroke-linecap='round'/>",
+  "<circle cx='20' cy='10' r='5.5' stroke='currentColor' stroke-width='2.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/><path d='M20 15.5 L24 32' stroke='currentColor' stroke-width='2.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/><path d='M24 32 L44 46 L50 42' stroke='currentColor' stroke-width='2.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/><path d='M24 32 L18 50 L14 56' stroke='currentColor' stroke-width='2.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/><path d='M20 20 L36 34' stroke='currentColor' stroke-width='2.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/><path d='M50 50 q6 -4 4 -10' stroke='var(--gold,#c9a227)' stroke-width='2' fill='none' stroke-linecap='round'/>",
+  "<circle cx='28' cy='30' r='5.5' stroke='currentColor' stroke-width='2.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/><path d='M28 35 L28 42' stroke='currentColor' stroke-width='2.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/><path d='M28 42 L12 56 M28 42 L44 56' stroke='currentColor' stroke-width='2.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/><path d='M25 34 L22 50 M31 34 L34 50' stroke='currentColor' stroke-width='2.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/><path d='M28 22 v-6' stroke='var(--gold,#c9a227)' stroke-width='2' fill='none' stroke-linecap='round'/><path d='M24 20 l4 4 l4 -4' stroke='var(--gold,#c9a227)' stroke-width='2' fill='none' stroke-linecap='round'/>",
+  "<circle cx='24' cy='24' r='5.5' stroke='currentColor' stroke-width='2.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/><path d='M24 29 L28 40' stroke='currentColor' stroke-width='2.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/><path d='M28 40 L18 56 M28 40 L40 52' stroke='currentColor' stroke-width='2.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/><path d='M22 28 L16 44' stroke='currentColor' stroke-width='2.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/><path d='M28 26 L38 32' stroke='currentColor' stroke-width='2.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/>",
+  "<circle cx='26' cy='10' r='5.5' stroke='currentColor' stroke-width='2.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/><path d='M26 15.5 V34' stroke='currentColor' stroke-width='2.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/><path d='M26 34 L12 46 L12 56' stroke='currentColor' stroke-width='2.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/><path d='M26 34 L42 46 L52 46' stroke='currentColor' stroke-width='2.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/><path d='M26 22 L18 30 M26 22 L34 30' stroke='currentColor' stroke-width='2.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/><path d='M32 26 q8 2 10 8' stroke='var(--gold,#c9a227)' stroke-width='2' fill='none' stroke-linecap='round'/>",
+  "<circle cx='18' cy='16' r='5.5' stroke='currentColor' stroke-width='2.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/><path d='M18 21 L26 32' stroke='currentColor' stroke-width='2.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/><path d='M26 32 L44 34 L46 50' stroke='currentColor' stroke-width='2.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/><path d='M30 33 L40 20 L30 16' stroke='currentColor' stroke-width='2.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/><path d='M20 24 L34 26' stroke='currentColor' stroke-width='2.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/><path d='M40 12 q-6 -4 -12 0' stroke='var(--gold,#c9a227)' stroke-width='2' fill='none' stroke-linecap='round'/>",
+  "<circle cx='26' cy='12' r='5.5' stroke='currentColor' stroke-width='2.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/><path d='M26 17.5 V32' stroke='currentColor' stroke-width='2.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/><path d='M26 32 L46 34 L48 48' stroke='currentColor' stroke-width='2.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/><path d='M26 32 L38 42 L38 52' stroke='currentColor' stroke-width='2.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/><path d='M26 22 L40 26' stroke='currentColor' stroke-width='2.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/><path d='M12 12 q10 -6 18 0' stroke='var(--gold,#c9a227)' stroke-width='2' fill='none' stroke-linecap='round'/><path d='M27 8 l3 4 l-5 2' stroke='var(--gold,#c9a227)' stroke-width='2' fill='none' stroke-linecap='round'/>",
+  "<path d='M8 50 H30 V56 H8' stroke='currentColor' stroke-width='2.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/><circle cx='38' cy='10' r='5.5' stroke='currentColor' stroke-width='2.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/><path d='M38 15.5 V36' stroke='currentColor' stroke-width='2.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/><path d='M38 36 L30 50 M38 36 L44 56' stroke='currentColor' stroke-width='2.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/><path d='M38 22 L28 26' stroke='currentColor' stroke-width='2.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/><path d='M24 44 q-4 6 0 10' stroke='var(--gold,#c9a227)' stroke-width='2' fill='none' stroke-linecap='round'/>",
+  "<circle cx='24' cy='12' r='6' stroke='currentColor' stroke-width='2.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/><path d='M27 17 L30 34' stroke='currentColor' stroke-width='2.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/><path d='M24 56 L30 34 L38 56' stroke='currentColor' stroke-width='2.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/><path d='M30 22 L22 8' stroke='currentColor' stroke-width='2.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/><path d='M14 6 q-4 6 2 10' stroke='var(--gold,#c9a227)' stroke-width='2' fill='none' stroke-linecap='round'/>"
+];
+
+const MALASKA_SVG = [
+  "<circle cx='28' cy='10' r='5.5' stroke='currentColor' stroke-width='2.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/><path d='M28 15.5 V36' stroke='currentColor' stroke-width='2.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/><path d='M28 36 L21 56 M28 36 L35 56' stroke='currentColor' stroke-width='2.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/><path d='M28 22 L18 30 M28 22 L38 30' stroke='currentColor' stroke-width='2.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/><path d='M14 32 L42 26' stroke='currentColor' stroke-width='2.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/><path d='M12 24 q3 -3 6 0 M44 20 q3 -3 6 0' stroke='var(--gold,#c9a227)' stroke-width='2' fill='none' stroke-linecap='round'/>",
+  "<circle cx='28' cy='10' r='5.5' stroke='currentColor' stroke-width='2.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/><path d='M28 15.5 V36' stroke='currentColor' stroke-width='2.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/><path d='M28 36 L21 56 M28 36 L35 56' stroke='currentColor' stroke-width='2.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/><path d='M28 22 H46' stroke='currentColor' stroke-width='2.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/><path d='M46 22 L50 17' stroke='currentColor' stroke-width='2.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/><path d='M28 24 L42 20' stroke='currentColor' stroke-width='2.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/><path d='M50 26 q4 -4 0 -8' stroke='var(--gold,#c9a227)' stroke-width='2' fill='none' stroke-linecap='round'/>",
+  "<circle cx='28' cy='10' r='5.5' stroke='currentColor' stroke-width='2.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/><path d='M28 15.5 V36' stroke='currentColor' stroke-width='2.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/><path d='M28 36 L21 56 M28 36 L35 56' stroke='currentColor' stroke-width='2.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/><path d='M28 21 L14 27 M28 21 L42 27' stroke='currentColor' stroke-width='2.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/><circle cx='28' cy='26' r='17' stroke='var(--gold,#c9a227)' stroke-width='2' fill='none' stroke-linecap='round' stroke-dasharray='3 4'/><path d='M43 20 l4 5 l-6 1' stroke='var(--gold,#c9a227)' stroke-width='2' fill='none' stroke-linecap='round'/>",
+  "<circle cx='28' cy='10' r='5.5' stroke='currentColor' stroke-width='2.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/><path d='M28 15.5 V36' stroke='currentColor' stroke-width='2.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/><path d='M28 36 L21 56 M28 36 L35 56' stroke='currentColor' stroke-width='2.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/><path d='M28 21 L14 27 M28 21 L42 27' stroke='currentColor' stroke-width='2.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/><circle cx='28' cy='26' r='17' stroke='var(--gold,#c9a227)' stroke-width='2' fill='none' stroke-linecap='round' stroke-dasharray='3 4'/><path d='M13 20 l-4 5 l6 1' stroke='var(--gold,#c9a227)' stroke-width='2' fill='none' stroke-linecap='round'/>",
+  "<circle cx='28' cy='10' r='5.5' stroke='currentColor' stroke-width='2.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/><path d='M28 15.5 V36' stroke='currentColor' stroke-width='2.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/><path d='M28 36 L21 56 M28 36 L35 56' stroke='currentColor' stroke-width='2.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/><path d='M28 21 L11 25 M28 21 L45 25' stroke='currentColor' stroke-width='2.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/><path d='M11 25 v5 M45 25 v5' stroke='currentColor' stroke-width='2.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/><path d='M8 34 v4 M48 34 v4' stroke='var(--gold,#c9a227)' stroke-width='2' fill='none' stroke-linecap='round'/>",
+  "<circle cx='28' cy='14' r='5.5' stroke='currentColor' stroke-width='2.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/><path d='M28 19.5 V36' stroke='currentColor' stroke-width='2.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/><path d='M28 36 L21 56 M28 36 L35 56' stroke='currentColor' stroke-width='2.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/><path d='M28 17 L22 4 M28 17 L34 4' stroke='currentColor' stroke-width='2.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/><path d='M22 4 q6 -3 12 0' stroke='currentColor' stroke-width='2.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/><path d='M28 2 v-0.5 M24 1 l4 -3 l4 3' stroke='var(--gold,#c9a227)' stroke-width='2' fill='none' stroke-linecap='round'/>",
+  "<circle cx='28' cy='10' r='5.5' stroke='currentColor' stroke-width='2.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/><path d='M28 15.5 V36' stroke='currentColor' stroke-width='2.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/><path d='M28 36 L21 56 M28 36 L35 56' stroke='currentColor' stroke-width='2.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/><path d='M28 22 L18 34 M28 22 L38 34' stroke='currentColor' stroke-width='2.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/><path d='M14 34 v16 M18 34 v16 M38 34 v16 M42 34 v16' stroke='currentColor' stroke-width='2.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/>",
+  "<circle cx='28' cy='10' r='5.5' stroke='currentColor' stroke-width='2.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/><path d='M28 15.5 V36' stroke='currentColor' stroke-width='2.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/><path d='M28 36 L21 56 M28 36 L35 56' stroke='currentColor' stroke-width='2.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/><path d='M28 22 L20 30 L34 30' stroke='currentColor' stroke-width='2.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/><path d='M34 30 L48 24' stroke='currentColor' stroke-width='2.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/><path d='M46 34 q6 -6 2 -12' stroke='var(--gold,#c9a227)' stroke-width='2' fill='none' stroke-linecap='round'/><path d='M44 32 l3 3 l3 -4' stroke='var(--gold,#c9a227)' stroke-width='2' fill='none' stroke-linecap='round'/>",
+  "<circle cx='28' cy='10' r='5.5' stroke='currentColor' stroke-width='2.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/><path d='M28 15.5 V36' stroke='currentColor' stroke-width='2.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/><path d='M28 36 L21 56 M28 36 L35 56' stroke='currentColor' stroke-width='2.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/><path d='M28 21 L40 30 M28 21 L16 30' stroke='currentColor' stroke-width='2.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/><path d='M16 30 L38 25 M40 30 L18 25' stroke='currentColor' stroke-width='2.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/><path d='M6 22 q-4 4 0 8 M50 22 q4 4 0 8' stroke='var(--gold,#c9a227)' stroke-width='2' fill='none' stroke-linecap='round'/>",
+  "<circle cx='28' cy='10' r='5.5' stroke='currentColor' stroke-width='2.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/><path d='M28 15.5 V36' stroke='currentColor' stroke-width='2.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/><path d='M28 36 L21 56 M28 36 L35 56' stroke='currentColor' stroke-width='2.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/><path d='M10 19 H46' stroke='currentColor' stroke-width='2.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/><path d='M28 21 L14 19 M28 21 L42 19' stroke='currentColor' stroke-width='2.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/><path d='M8 12 q10 -6 20 0' stroke='var(--gold,#c9a227)' stroke-width='2' fill='none' stroke-linecap='round'/><path d='M25 10 l3 3 l-4 2' stroke='var(--gold,#c9a227)' stroke-width='2' fill='none' stroke-linecap='round'/>",
+  "<circle cx='24' cy='10' r='5.5' stroke='currentColor' stroke-width='2.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/><path d='M28 15.5 L34 30' stroke='currentColor' stroke-width='2.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/><path d='M8 22 H46' stroke='currentColor' stroke-width='2.4' fill='none' stroke-linecap='round' stroke-linejoin='round' transform='rotate(-14 28 22)'/><path d='M34 30 L28 38' stroke='currentColor' stroke-width='2.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/><path d='M22 44 L20 58 M34 40 L38 58' stroke='currentColor' stroke-width='2.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/><path d='M6 14 q10 -5 19 0' stroke='var(--gold,#c9a227)' stroke-width='2' fill='none' stroke-linecap='round'/>",
+  "<circle cx='28' cy='10' r='5.5' stroke='currentColor' stroke-width='2.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/><path d='M28 15.5 V36' stroke='currentColor' stroke-width='2.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/><path d='M28 22 L18 30 M28 22 L38 30' stroke='currentColor' stroke-width='2.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/><path d='M28 36 L14 50 L14 58 M28 36 L42 48 L48 58' stroke='currentColor' stroke-width='2.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/><path d='M8 44 q-3 5 0 10' stroke='var(--gold,#c9a227)' stroke-width='2' fill='none' stroke-linecap='round'/>",
+  "<circle cx='28' cy='10' r='5.5' stroke='currentColor' stroke-width='2.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/><path d='M28 15.5 V38' stroke='currentColor' stroke-width='2.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/><path d='M28 20 L38 12 L30 6' stroke='currentColor' stroke-width='2.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/><path d='M28 20 L36 16' stroke='currentColor' stroke-width='2.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/><path d='M30 6 L12 2' stroke='currentColor' stroke-width='2.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/><path d='M22 40 L18 58 M32 38 L38 58' stroke='currentColor' stroke-width='2.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/><path d='M8 26 q6 -8 16 -10' stroke='var(--gold,#c9a227)' stroke-width='2' fill='none' stroke-linecap='round' stroke-dasharray='3 3'/>"
+];
+
+/* Eine Skizze als fertiges Bild-Element. `null`, wenn es fuer den Index
+   keine gibt — dann bleibt die Zeile einfach ohne Bild. */
+function malaskaBild(i, groesse){
+  const g=groesse||44;
+  const d=MALASKA_SVG[i];
+  if(!d) return "";
+  return `<svg viewBox="0 0 56 64" width="${g}" height="${Math.round(g*64/56)}"
+    aria-hidden="true" style="flex:0 0 auto;color:var(--pine)">${d}</svg>`;
+}
+
+/* Uebungstext: maskiert, aber **fett** wird ausgewertet. Die Hervorhebungen
+   markieren die Stellen, an denen die Uebung ueblicherweise falsch gemacht
+   wird — genau die soll man beim Ueberfliegen sehen. */
+function uebText(t){
+  return esc(String(t||"")).replace(/\*\*([^*]+)\*\*/g, "<b>$1</b>");
+}
+
+let STRETCH_DONE = {};      // nur fuer die Sitzung, absichtlich nicht persistent
+
+function stretchToggle(i){
+  STRETCH_DONE[i] = !STRETCH_DONE[i];
+  const el=document.getElementById("stRow"+i);
+  if(el) el.classList.toggle("done", !!STRETCH_DONE[i]);
+  const hk=document.getElementById("stHak"+i);
+  if(hk) hk.textContent = STRETCH_DONE[i] ? "✓" : "○";
+  const z=document.getElementById("stZaehler");
+  if(z){
+    const n=MALASKA_DYN.filter((_,k)=>STRETCH_DONE[k]).length;
+    z.textContent = n+" von "+MALASKA_DYN.length;
+    if(n===MALASKA_DYN.length) toast("Fertig — jetzt die Bälle 🔥");
+  }
+}
+function stretchReset(){ STRETCH_DONE={}; openStretchSheet(); }
+
+let POST_DONE = {};
+function postToggle(i){
+  POST_DONE[i]=!POST_DONE[i];
+  const el=document.getElementById("poRow"+i);
+  if(el) el.classList.toggle("done", !!POST_DONE[i]);
+  const hk=document.getElementById("poHak"+i);
+  if(hk) hk.textContent = POST_DONE[i] ? "✓" : "○";
+  const z=document.getElementById("poZaehler");
+  if(z){
+    const n=POST_ROUND.filter((_,k)=>POST_DONE[k]).length;
+    z.textContent = n+" von "+POST_ROUND.length;
+    if(n===POST_ROUND.length) toast("Fertig — gut für morgen 👍");
+  }
+}
+function postReset(){ POST_DONE={}; openPostStretchSheet(); }
+
+function openPostStretchSheet(){
+  const n=POST_ROUND.filter((_,k)=>POST_DONE[k]).length;
+  let h=`<h2>🧘 Post Round Stretch</h2>
+    <div class="sub">${POST_ROUND.length} Übungen · etwa 15 Minuten · direkt am Platz</div>
+    <div class="card pad">
+      <p class="note" style="margin-top:0">Jetzt <b>statisch</b> — halten statt bewegen.
+      Nach der Belastung ist das genau richtig, davor wäre es falsch. Die
+      Wissensdatenbank empfiehlt <b>15 Minuten direkt am Platz</b>: zu Hause macht es
+      erfahrungsgemäß niemand mehr.</p>
+      <div class="stat-line"><span>Erledigt</span>
+        <b id="poZaehler">${n} von ${POST_ROUND.length}</b></div>
+    </div>
+    <div class="card">`;
+  POST_ROUND.forEach((u,i)=>{
+    h+=`<div class="row stretch-row${POST_DONE[i]?" done":""}" id="poRow${i}"
+         onclick="postToggle(${i})">
+      <div style="width:22px;font-family:var(--mono);color:var(--ink-faint)">${i+1}</div>
+      ${postBild(i,44)}
+      <div class="grow" style="margin-left:8px">
+        <div class="r-t">${esc(u.t)} <span class="r-s">· ${esc(u.w)}</span>${
+          u.q==="ergänzt"?` <span class="r-s">· ergänzt</span>`:""}</div>
+        <div class="r-s">${uebText(u.d)}</div></div>
+      <div style="width:26px;text-align:right" id="poHak${i}">${POST_DONE[i]?"✓":"○"}</div>
+    </div>`;
+  });
+  h+=`</div>
+    <button class="btn ghost" type="button" onclick="postReset()">↺ Zurücksetzen</button>
+    <p class="note">Sechs Übungen stammen aus dem <b>Malaska-Programm</b> (Wissensdatenbank),
+    sechs sind <b>ergänzt</b> und als solche gekennzeichnet: Hüftbeuger, Latissimus, Brustöffner,
+    Gesäß, Waden und Nacken. Sie decken ab, was vier Stunden Gehen und Rotation belasten —
+    besonders der Hüftbeuger, dessen Verkürzung über eine Saison die Rotation im Rückschwung
+    einschränkt.</p>`;
+  openSheet(h);
+}
+
+/* Skizze zum Nachher-Programm. */
+function postBild(i, groesse){
+  const g=groesse||44, d=POST_SVG[i];
+  if(!d) return "";
+  return `<svg viewBox="0 0 56 64" width="${g}" height="${Math.round(g*64/56)}"
+    aria-hidden="true" style="flex:0 0 auto;color:var(--pine)">${d}</svg>`;
+}
+
+/* Video erst auf Tipp einbetten — siehe Begruendung im Blatt. */
+function malaskaVideo(){
+  const el=document.getElementById("malVid");
+  if(!el) return;
+  if(navigator.onLine===false){
+    toast("Kein Netz — das Video braucht eine Verbindung");
+    return;
+  }
+  el.innerHTML=`<div style="position:relative;width:100%;padding-top:56.25%;
+      border-radius:10px;overflow:hidden;background:#000">
+    <iframe src="https://www.youtube-nocookie.com/embed/SHP70Xv14kY?rel=0"
+      title="Malaska — A Better Way To Warm Up"
+      style="position:absolute;inset:0;width:100%;height:100%;border:0"
+      allow="accelerometer; encrypted-media; gyroscope; picture-in-picture; fullscreen"
+      allowfullscreen loading="lazy" referrerpolicy="strict-origin-when-cross-origin"></iframe>
+  </div>
+  <a class="r-s" href="https://www.youtube.com/watch?v=SHP70Xv14kY" target="_blank"
+     rel="noopener" style="display:block;margin-top:6px;color:var(--pine)">
+     In der YouTube-App öffnen ↗</a>`;
+}
+
+function openStretchSheet(){
+  const n=MALASKA_DYN.filter((_,k)=>STRETCH_DONE[k]).length;
+  let h=`<h2>🤸 Preround Stretch</h2>
+    <div class="sub">Volles Malaska-Programm · ${MALASKA_DYN.length} Übungen · etwa 8 Minuten</div>
+    <div class="card pad">
+      <p class="note" style="margin-top:0">Das gesamte Programm, in dieser Reihenfolge.
+      <b>Dynamisch, nicht statisch:</b> Vor der Runde wird bewegt und mobilisiert —
+      langes Halten senkt kurzzeitig die Kraftentfaltung, also genau das, was du am ersten
+      Tee brauchst. Die statischen Dehnungen stehen deshalb weiterhin beim
+      <b>Cool-down nach der Runde</b>.</p>
+      <div class="stat-line"><span>Erledigt</span>
+        <b id="stZaehler">${n} von ${MALASKA_DYN.length}</b></div>
+    </div>
+    <div class="card">`;
+  MALASKA_DYN.forEach((u,i)=>{
+    h+=`<div class="row stretch-row${STRETCH_DONE[i]?" done":""}" id="stRow${i}"
+         onclick="stretchToggle(${i})">
+      <div style="width:22px;font-family:var(--mono);color:var(--ink-faint)">${i+1}</div>
+      ${malaskaBild(i,44)}
+      <div class="grow" style="margin-left:8px">
+        <div class="r-t">${esc(u.t)} <span class="r-s">· ${esc(u.w)}</span>${
+          u.q==="ergänzt"?` <span class="r-s">· ergänzt</span>`:""}</div>
+        <div class="r-s">${uebText(u.d)}</div></div>
+      <div style="width:26px;text-align:right" id="stHak${i}">${STRETCH_DONE[i]?"✓":"○"}</div>
+    </div>`;
+  });
+  h+=`</div>
+    <button class="btn ghost" type="button" onclick="stretchReset()">↺ Zurücksetzen</button>
+    <!-- QUELLE ANS ENDE. Wer die Uebungen kennt, arbeitet die Liste ab und
+         braucht das Video nicht; wer eine Ausfuehrung nachschlagen will,
+         findet es dort, wo er ohnehin ankommt. Oben wuerde es nur die erste
+         Uebung nach unten druecken.
+         Der Link ist derselbe wie in der Wissensdatenbank („Dehnprogramm &
+         Malaska-Routine") — bewusst EINE Quelle, damit beide nicht
+         auseinanderlaufen. -->
+    <div class="card pad" style="margin-top:2px">
+      <div style="font-weight:700">🎥 Ausführung nachschlagen</div>
+      <p class="note" style="margin-top:4px">Mike Malaska zeigt das komplette Programm im
+      Video <b>„A Better Way To Warm Up"</b> — die Vorlage für diese Liste. Nützlich, wenn
+      eine Übung neu ist oder sich die Ausführung eingeschlichen hat.</p>
+      <!-- ERST AUF TIPP LADEN. Ein iframe im Blatt wuerde bei JEDEM Oeffnen
+           YouTube kontaktieren — auch wenn man nur die Liste abhaken will.
+           Das kostet Ladezeit, Daten und setzt ohne Not einen Fremdanbieter
+           in die Seite. Deshalb zuerst nur eine Flaeche; das iframe entsteht
+           beim Antippen.
+           youtube-nocookie.com statt youtube.com: dieselbe Wiedergabe, aber
+           ohne Werbe-Cookies, solange nicht abgespielt wird. -->
+      <div id="malVid" style="margin-top:6px">
+        <button class="btn ghost" type="button" onclick="malaskaVideo()"
+          style="width:100%;padding:18px;display:block">▶ Video hier abspielen</button>
+      </div>
+      <p class="note" style="margin-bottom:0"><span class="r-s">Das Video liegt bei YouTube und
+      <b>braucht Netz</b> — es ist als einziger Teil der App nicht offline verfügbar.
+      Ohne Verbindung bleibt die Übungsliste oben, die reicht zum Abarbeiten.</span></p>
+    </div>
+    <p class="note">Danach weiter mit <b>🔥 Aufwärmen</b> — Bälle, Kurzspiel und Putt-Speed
+    je nach verfügbarer Zeit.</p>`;
+  openSheet(h);
 }
 
 function openWarmupSheet(behalten){
@@ -25302,7 +25718,7 @@ function openComp(idx){
 /* ================= NAV ================= */
 let current="dash";
 const FAB_ACTION={rounds:startRound,comp:openAddComp,notes:openAddNote,swing:openSwingEdit};
-const APP_VERSION="2.24.0"; // App-Anzeigeversion (NICHT SEED.version! Diese bei jeder Änderung erhöhen)
+const APP_VERSION="2.30.1"; // App-Anzeigeversion (NICHT SEED.version! Diese bei jeder Änderung erhöhen)
 /* ---------- Darstellung: Hell/Dunkel (DB.ui.theme = "auto" | "light" | "dark") ---------- */
 const _darkMQ = (window.matchMedia? window.matchMedia("(prefers-color-scheme: dark)") : null);
 function themeSetting(){ return (DB && DB.ui && DB.ui.theme) || "auto"; }
