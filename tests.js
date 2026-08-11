@@ -152,7 +152,7 @@ try {
                  "caddyClubs","clubNorm","clubRename","bagFreiName","bagMessSpalte",
                  "tombAdd","tombClear","tombDel","MERGE_KEY","_mergeTomb","_tombFor",
                  "playCaddyNow","playTooFar","playAimChain","playMapSlot","playFocusDefault",
-                 "hcpGap","whsPool","courseStats","nassFaktor","errZeit","todayISO","puttDiagnose","sgHole","verlaesslich","testFaellig","stretchToggle","STRETCH_DONE","MALASKA_DYN","MALASKA_STAT","MALASKA_SVG","malaskaBild","POST_ROUND","POST_SVG","malaskaVideo","postBild","postToggle","POST_DONE","WARMUP_PLANS","openPostStretchSheet","openStretchSheet","fmtN","fmtDate","fmtDT","fmtDur","zielPrognose","indexTempo","trainingsEmpfehlung","fitnessWirkung","stratRueckschau","sgHoleShots","sgVerlauf",
+                 "hcpGap","whsPool","courseStats","nassFaktor","errZeit","todayISO","puttDiagnose","sgHole","verlaesslich","testFaellig","stretchToggle","STRETCH_DONE","MALASKA_DYN","MALASKA_STAT","MALASKA_SVG","malaskaBild","POST_ROUND","POST_SVG","malaskaVideo","wxStunden","wxStundenHtml","WEATHER","postBild","postToggle","POST_DONE","WARMUP_PLANS","openPostStretchSheet","openStretchSheet","fmtN","fmtDate","fmtDT","fmtDur","zielPrognose","indexTempo","trainingsEmpfehlung","fitnessWirkung","stratRueckschau","sgHoleShots","sgVerlauf",
                  "holeGir","holeUpDown","holeSandSave","platzAnalyse","taskFortschritt",
                  "warmupSchedule","warmupKorrektiv","WARMUP_PLANS","medianSplit","pearson",
                  "rKrit","gpKey","gpLabel","gpTotalES","pickClub","_aimClub","_aimLerp",
@@ -2910,6 +2910,87 @@ group("Skizzen offline-tauglich, Aufwärmen nur noch auf Heute");
                         src.indexOf("function renderHeute")+3000);
   ok("Heute hat beide Knöpfe",
      heute.indexOf('id="qhStretch"')>=0 && heute.indexOf('id="qhWarm"')>=0);
+}
+
+/* ============ 24au. Wetter-Stundenvorhersage ============ */
+group("wxStunden — die nächsten Stunden, nicht nur der Moment");
+{
+  const parse=G("wxStunden"), html=G("wxStundenHtml"), W=G("WEATHER");
+  if (typeof parse === "function") {
+    /* Bis v2.31 wurde NUR der Momentanwert geholt. Für „hält der Wind die
+       nächsten vier Stunden?" oder „fängt es während der Runde an zu regnen?"
+       war das nutzlos — eine Runde dauert vier bis fünf Stunden, die
+       Entscheidung fällt aber vorher. */
+    eq("ohne Antwort: null", parse(null), null);
+    eq("ohne hourly-Feld: null", parse({}), null);
+    const jetzt=Date.now();
+    const iso=n=>new Date(jetzt+n*3600000).toISOString();
+    const j={hourly:{
+      time:[iso(-5),iso(-1),iso(0),iso(1),iso(2)],
+      temperature_2m:[10,12,14,15,16],
+      wind_speed_10m:[2,3,4,5,6],
+      wind_direction_10m:[180,190,200,210,220],
+      wind_gusts_10m:[4,6,9,12,14],
+      weather_code:[0,1,2,3,61],
+      precipitation:[0,0,0,0.4,1.2],
+      precipitation_probability:[0,10,20,60,80]
+    }};
+    const r=parse(j);
+    ok("liefert Stunden", Array.isArray(r) && r.length>0, r&&r.length);
+    /* Vergangene Stunden gehören nicht dazu. Die Grenze liegt bei einer Stunde
+       zurück, damit die LAUFENDE Stunde noch mitkommt — sonst fehlte sie in
+       der Anzeige, obwohl man gerade in ihr spielt. Von fünf Einträgen
+       (−5 h, −1 h, jetzt, +1 h, +2 h) bleiben damit die letzten drei bis vier;
+       −1 h liegt genau auf der Grenze. */
+    ok("alte Stunden fallen weg", r.length>=3 && r.length<=4, "n="+r.length);
+    ok("nichts älter als eine Stunde", r.every(x=>x.t >= jetzt-3600000-1000));
+    ok("alle Felder übernommen",
+       r[0].temp!=null && r[0].windMs!=null && r[0].pop!=null);
+    ok("aufsteigend nach Zeit", r.every((x,i)=>i===0||x.t>=r[i-1].t));
+    /* Höchstens zwölf: mehr braucht niemand, und der Speicher wandert in den
+       Sync. */
+    const viele={hourly:{time:[], temperature_2m:[], wind_speed_10m:[]}};
+    for(let i=0;i<48;i++){ viele.hourly.time.push(iso(i));
+      viele.hourly.temperature_2m.push(10); viele.hourly.wind_speed_10m.push(3); }
+    ok("auf 12 Stunden gedeckelt", parse(viele).length===12, parse(viele).length);
+  }
+  if (typeof html === "function") {
+    const src=fs.readFileSync(FILE,"utf8");
+    /* SECHS Spalten passen auf ein Handy, ohne zu wischen. */
+    ok("Standard sind 6 Stunden", /wxStundenHtml\(6\)/.test(src));
+    /* Böen NUR bei deutlichem Unterschied — sonst steht dort eine Zahl, die
+       nichts unterscheidet. */
+    ok("Böen erst ab +10 km/h", /windMs\*3\.6\+10/.test(src));
+    ok("ohne Daten leer", html(6)==="" || typeof html(6)==="string");
+  }
+}
+
+/* ============ 24av. Heute-Seite nach Zeitpunkt gegliedert ============ */
+group("Heute — Tagesablauf statt Sammelsurium");
+{
+  const src=fs.readFileSync(FILE,"utf8");
+  const h=src.slice(src.indexOf("function renderHeute"),
+                    src.indexOf("function renderHeute")+7000);
+  /* Das Wetter trägt die erste Entscheidung des Tages und der Caddy rechnet
+     damit — es gehört vor die Handlungsknöpfe. */
+  ok("Wetter steht vor den Knöpfen",
+     h.indexOf('id="wxCard"') < h.indexOf('id="qhStretch"'));
+  /* „Preround" und „Post Round" liegen vier Stunden auseinander. Vorher stand
+     der Post-Round-Knopf VOR dem Spielmodus — also vor dem, wonach man
+     überhaupt erst dehnt. */
+  ok("Abschnitt „Vor der Runde\" vorhanden", h.indexOf(">Vor der Runde<")>=0);
+  ok("Abschnitt „Nach der Runde\" vorhanden", h.indexOf(">Nach der Runde<")>=0);
+  ok("Spielmodus steht VOR dem Post-Round-Stretch",
+     h.indexOf('id="qhPlay"') < h.indexOf('id="qhPost"'));
+  ok("Preround und Aufwärmen vor dem Spielmodus",
+     h.indexOf('id="qhStretch"') < h.indexOf('id="qhWarm"') &&
+     h.indexOf('id="qhWarm"') < h.indexOf('id="qhPlay"'));
+  /* Trainingsplanung gehört nicht auf die Heute-Seite — sie steht seit v2.24
+     im Training bzw. im Dashboard, dort nach Wirkung sortiert. */
+  const ohneKomm=h.replace(/\/\*[\s\S]*?\*\//g,"").replace(/\/\/[^\n]*/g,"");
+  ok("keine fälligen Tests mehr auf Heute", ohneKomm.indexOf("Fällige Tests")<0);
+  ok("kein Trainingsfokus mehr auf Heute", ohneKomm.indexOf("Trainingsfokus")<0);
+  ok("Schnell erfassen bleibt", h.indexOf("Schnell erfassen")>=0);
 }
 
 /* ================= 25. Gepflegt vs. gemessen ================= */

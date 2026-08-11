@@ -2898,6 +2898,26 @@ erkennbar ist, dass es ein Video gab.
 > **Regel:** Bei JEDER inhaltlichen Änderung hier oben einen datierten Eintrag ergänzen (neueste
 > zuerst): Datum · was geändert · betroffene Bereiche. Kurz halten.
 
+- **v2.31.0 · 2026-08-11** — **CSV-Import auf dem Handy · Wetter für 6 Stunden · Heute-Seite
+  nach Tagesablauf.**
+  (1) **BUGFIX CSV-Import:** Die Dateifelder filterten auf `.csv,text/csv`. Android meldet
+  heruntergeladene CSV-Dateien aber je nach Herkunft als `application/octet-stream` oder
+  `application/vnd.ms-excel` — dann sind sie im Dateiwähler **ausgegraut und nicht auswählbar**.
+  Alle drei Felder (Launch-Import, Bag-R10, Streuungs-Import) akzeptieren jetzt die gängigen
+  Varianten.
+  (2) **Wetter:** Bisher wurde nur der Momentanwert geholt. Für „hält der Wind die nächsten vier
+  Stunden?" war das nutzlos — eine Runde dauert vier bis fünf Stunden, die Entscheidung fällt
+  vorher. Neu `wxStunden()` / `wxStundenHtml(6)`: **sechs Stunden** als Spalten mit Temperatur,
+  Wind, Richtung und Regenrisiko. Regenstunden ab 30 % blau hinterlegt, **Böen nur, wenn sie den
+  mittleren Wind um mindestens 10 km/h übersteigen** — sonst steht dort eine Zahl, die nichts
+  unterscheidet.
+  (3) **Heute-Seite nach ZEITPUNKT gegliedert** statt nach Art der Sache. Das Wetter steht
+  zuoberst (es trägt die erste Entscheidung des Tages). Dann **„Vor der Runde"** mit Preround,
+  Aufwärmen und Spielmodus, dann **„Nach der Runde"** mit Post Round Stretch — der stand vorher
+  VOR dem Spielmodus, also vor dem, wonach man überhaupt erst dehnt. **„Fällige Tests" und
+  „Trainingsfokus" entfallen hier** — beides ist Trainingsplanung und steht seit v2.24 im
+  Training bzw. im Dashboard, dort nach Wirkung sortiert. 19 Prüfungen.
+
 - **v2.30.1 · 2026-08-11** — **Knopfbeschriftungen gekürzt** auf „🤸 Preround Stretch" und
   „🧘 Post Round Stretch". Die erklärenden Zusätze („volles Malaska-Programm", „nach der Runde")
   entfallen — was dahintersteckt, steht im Blatt selbst. Überschriften der Blätter und die drei
@@ -14964,13 +14984,16 @@ let WEATHER=null; // {temp, windMs, windDir, gustMs, code, at, lat, lng}
 function weatherFresh(){ return WEATHER && (Date.now()-WEATHER.at < 20*60*1000); }
 async function fetchWeather(lat,lng){
   try{
-    const url=`https://api.open-meteo.com/v1/forecast?latitude=${lat.toFixed(3)}&longitude=${lng.toFixed(3)}&current=temperature_2m,wind_speed_10m,wind_direction_10m,wind_gusts_10m,weather_code,precipitation&wind_speed_unit=ms`;
+    const url=`https://api.open-meteo.com/v1/forecast?latitude=${lat.toFixed(3)}&longitude=${lng.toFixed(3)}&current=temperature_2m,wind_speed_10m,wind_direction_10m,wind_gusts_10m,weather_code,precipitation&hourly=temperature_2m,wind_speed_10m,wind_direction_10m,wind_gusts_10m,weather_code,precipitation,precipitation_probability&forecast_days=2&wind_speed_unit=ms`;
     const r=await fetch(url,{cache:"no-store"}); if(!r.ok) throw new Error("wx "+r.status);
     const j=await r.json(); const c=j.current||{};
     WEATHER={ temp:c.temperature_2m, windMs:c.wind_speed_10m, windDir:c.wind_direction_10m,
       gustMs:c.wind_gusts_10m, code:c.weather_code,
       /* Niederschlag in mm/h — bis v1.98 abgerufen, aber nie verrechnet. */
       precip:(c.precipitation!=null?+c.precipitation:null),
+      /* STUNDENVORHERSAGE (v2.31): Bisher nur der Momentanwert — fuer
+         „haelt der Wind die naechsten vier Stunden?" nutzlos. */
+      stunden: wxStunden(j),
       at:Date.now(), lat, lng };
     return WEATHER;
   }catch(e){ return null; }
@@ -15169,10 +15192,67 @@ function roundWeatherHtml(r){
   }
   return bits.length? `<div class="wx-line" style="margin-top:12px">${bits.join(" · ")}</div>` : "";
 }
+/* Stundenwerte aus der Open-Meteo-Antwort schneiden: ab der laufenden Stunde,
+   hoechstens zwoelf. Faellt das Feld aus, gibt es `null` — die Anzeige faellt
+   dann auf den Momentanwert zurueck statt zu brechen. */
+function wxStunden(j){
+  try{
+    const h=j && j.hourly;
+    if(!h || !Array.isArray(h.time)) return null;
+    const jetzt=Date.now(), out=[];
+    for(let i=0;i<h.time.length;i++){
+      const t=Date.parse(h.time[i]);
+      if(!isFinite(t) || t < jetzt-3600000) continue;
+      out.push({ t,
+        temp:  h.temperature_2m ? h.temperature_2m[i] : null,
+        windMs:h.wind_speed_10m ? h.wind_speed_10m[i] : null,
+        windDir:h.wind_direction_10m ? h.wind_direction_10m[i] : null,
+        gustMs:h.wind_gusts_10m ? h.wind_gusts_10m[i] : null,
+        code:  h.weather_code ? h.weather_code[i] : null,
+        precip:h.precipitation ? h.precipitation[i] : null,
+        pop:   h.precipitation_probability ? h.precipitation_probability[i] : null });
+      if(out.length>=12) break;
+    }
+    return out.length?out:null;
+  }catch(e){ logErr("wxStunden", e, true); return null; }
+}
+
+/* Die naechsten Stunden als schmale Spalten. SECHS passen auf ein Handy, ohne
+   dass man wischen muss — mehr waere auf 360 px unlesbar. Gezeigt wird, was die
+   Entscheidung traegt: Zeit, Temperatur, Wind mit Richtung, Regenrisiko.
+   Boeen NUR, wenn sie den mittleren Wind um mindestens 10 km/h uebersteigen —
+   sonst steht dort eine Zahl, die nichts unterscheidet. */
+function wxStundenHtml(n){
+  const st=(WEATHER && WEATHER.stunden) || null;
+  if(!st || !st.length) return "";
+  const zeigen=st.slice(0, n||6);
+  const boeRelevant=h=>(h.gustMs!=null && h.windMs!=null && h.gustMs*3.6 >= h.windMs*3.6+10);
+  const zelle=h=>{
+    const d=new Date(h.t);
+    const kmh=(h.windMs!=null)?Math.round(h.windMs*3.6):null;
+    const nass=(h.pop!=null && h.pop>=30) || (h.precip!=null && h.precip>=0.2);
+    return `<div style="flex:1;min-width:0;text-align:center;padding:5px 1px;border-radius:7px;${
+        nass?"background:rgba(90,162,224,.15)":""}">
+      <div class="r-s" style="opacity:.75">${String(d.getHours()).padStart(2,"0")}</div>
+      <div style="font-weight:700;font-family:var(--mono);font-size:13px">${
+        h.temp!=null?Math.round(h.temp)+"°":"–"}</div>
+      <div class="r-s" style="font-family:var(--mono)">${kmh!=null?kmh:"–"}</div>
+      <div class="r-s" style="opacity:.8">${h.windDir!=null?windArrowChar(h.windDir):""}</div>
+      ${boeRelevant(h)?`<div class="r-s" style="color:var(--gold)">↑${Math.round(h.gustMs*3.6)}</div>`:""}
+      <div class="r-s" style="${nass?"color:#3d84c6;font-weight:700":"opacity:.55"}">${
+        h.pop!=null?h.pop+"%":"–"}</div>
+    </div>`;
+  };
+  return `<div style="display:flex;gap:2px;margin-top:8px">${zeigen.map(zelle).join("")}</div>
+    <div class="r-s" style="opacity:.6;margin-top:2px">Uhrzeit · °C · km/h · Richtung${
+      zeigen.some(boeRelevant)?" · ↑Böen":""} · Regenrisiko</div>`;
+}
+
 function weatherCardHtml(){
   if(!WEATHER) return "Kein Wetter geladen.";
   const w=WEATHER, age=Math.round((Date.now()-w.at)/60000);
   return `<b>${Math.round(w.temp)}°C</b> · Wind <b>${(w.windMs*3.6).toFixed(0)} km/h</b> (${w.windMs.toFixed(0)} m/s) aus <b>${compass8(w.windDir)}</b> ${windArrowChar(w.windDir)}${w.gustMs?` · Böen ${(w.gustMs*3.6).toFixed(0)} km/h`:""}
+    ${wxStundenHtml(6)}
     <div class="r-s" style="margin-top:3px;opacity:.7">Stand: ${age<1?"gerade eben":age+" min"} · wird je Runde gespeichert</div>`;
 }
 function playBearing(){ // Zielrichtung im Spielmodus: here -> Grün
@@ -21311,7 +21391,7 @@ function renderLaunch(){
   <div class="card pad">
     <p class="note" style="margin-top:0">Importiere deine CSV-Exporte. <b>Jeder Schlag</b> wird gespeichert; Auswertung, Streuung und Verlauf werden daraus berechnet. Spin ist R10-<i>geschätzt</i>.</p>
     <button class="btn" id="lmImport">📥 CSV importieren</button>
-    <input type="file" id="lmFile" accept=".csv,text/csv" multiple style="display:none">
+    <input type="file" id="lmFile" accept=".csv,.txt,text/csv,text/plain,text/comma-separated-values,application/csv,application/vnd.ms-excel,application/octet-stream" multiple style="display:none">
     ${sessions.length?`<div class="note">${sessions.length} Session${sessions.length>1?"s":""} · ${sessions.reduce((a,s)=>a+s.shots.length,0)} Schläge · ${clubs.length} Schläger</div>`:""}
   </div>`;
   if(lmLastFail){
@@ -21717,19 +21797,14 @@ function renderHeute(){
   const lastR=rounds.length?rounds[rounds.length-1]:null;
   let h=`<div class="eyebrow eyebrow-row"><span>Heute · ${new Date().toLocaleDateString("de-DE",{weekday:"long",day:"numeric",month:"long"})}</span><span class="app-ver" title="App-Version – so erkennst du, ob die neueste Datei geladen ist">v${APP_VERSION}</span></div>
   ${draftBanner()}
-    <!-- AUFWAERMEN GANZ OBEN. Es ist das Erste, was auf dem Platz passiert —
-         also gehoert es auch in der App an den Anfang. Vorher stand es unter
-         „Schnell erfassen", wo man es erst nach dem Scrollen fand.
-         Zwei Knoepfe, weil es zwei verschiedene Dinge sind: das koerperliche
-         Vorbereiten (Malaska, immer gleich) und der Ablauf mit Baellen und
-         Putts (haengt von der verfuegbaren Zeit ab). -->
-    <button class="btn gold" id="qhStretch"
-      style="margin-bottom:8px;font-size:15px;padding:14px">🤸 Preround Stretch</button>
-    <button class="btn gold" id="qhWarm"
-      style="margin-bottom:12px;font-size:15px;padding:14px">🔥 Aufwärmen – Bälle, Kurzspiel, Putts</button>
-    <button class="btn gold" id="qhPost"
-      style="margin-bottom:12px;font-size:15px;padding:14px">🧘 Post Round Stretch</button>
-    <button class="btn" id="qhPlay" style="margin-bottom:12px;font-size:15px;padding:14px">▶ Spielmodus – Loch für Loch spielen</button>
+  <!-- GLIEDERUNG NACH ZEITPUNKT (v2.31), nicht nach Art der Sache.
+       Vorher standen alle vier Knoepfe in einem Block. „Preround" und
+       „Post Round" liegen aber vier Stunden auseinander, und der
+       Post-Round-Knopf stand VOR dem Spielmodus — also vor dem, wonach man
+       ueberhaupt erst dehnt.
+       Das WETTER steht zuoberst: Es traegt die erste Entscheidung des Tages
+       (spiele ich, mit welcher Kleidung, welcher Schlaeger vom Tee) und der
+       Caddy rechnet ohnehin damit. -->
   <div class="card pad" id="wxCard" style="margin-bottom:12px">
     <div style="display:flex;justify-content:space-between;align-items:center">
       <div class="r-t">🌤 Wetter</div>
@@ -21737,6 +21812,18 @@ function renderHeute(){
     </div>
     <div id="wxBody" class="r-s" style="margin-top:6px">${WEATHER?weatherCardHtml():"Wird geladen … (Standort erlauben)"}</div>
   </div>
+
+  <div class="eyebrow">Vor der Runde</div>
+    <button class="btn gold" id="qhStretch"
+      style="margin-bottom:8px;font-size:15px;padding:14px">🤸 Preround Stretch</button>
+    <button class="btn gold" id="qhWarm"
+      style="margin-bottom:8px;font-size:15px;padding:14px">🔥 Aufwärmen – Bälle, Kurzspiel, Putts</button>
+    <button class="btn" id="qhPlay"
+      style="margin-bottom:14px;font-size:15px;padding:14px">▶ Spielmodus – Loch für Loch spielen</button>
+
+  <div class="eyebrow">Nach der Runde</div>
+    <button class="btn gold" id="qhPost"
+      style="margin-bottom:14px;font-size:15px;padding:14px">🧘 Post Round Stretch</button>
   <div class="card pad">
     <div style="display:flex;justify-content:space-between;align-items:baseline">
       <div><div class="r-s">Handicap-Index</div><div class="tnum" style="font-family:var(--mono);font-size:38px;font-weight:600;color:var(--pine-deep);letter-spacing:-.02em">${idx!=null?idx.toFixed(1).replace(".",","):"–"}</div></div>
@@ -21756,39 +21843,13 @@ function renderHeute(){
         <div><div style="font-weight:700">${esc(nt.name)}</div><div class="r-s">${fmtDate(nt.date)} · Priorität ${esc(nt.priority||"–")} · ${esc(nt.status||"")}</div></div>
         <div style="text-align:right"><div class="tnum" style="font-size:26px;font-weight:700;color:var(--pine)">${days}</div><div class="r-s">Tage</div></div></div>
       ${nt.prepWindow&&days<=nt.prepWindow?`<div class="note" style="color:var(--pine-deep)">⏱ Vorbereitungsfenster läuft (${nt.prepWindow} Tage) — jetzt gezielt formen.</div>`:""}</div>`; }
-  // due tests
-  const due=dueTests();
-  if(due.length){ h+=`<div class="eyebrow">Fällige Tests · am längsten nicht geprüft</div><div class="card">`;
-    due.forEach(x=>{ h+=`<div class="row" onclick="setView('tests');setTimeout(()=>openTest('${x.def.key}'),60)">
-      <div class="ico" style="background:var(--gold-soft)">🎯</div>
-      <div class="grow"><div class="r-t">${esc(x.def.label)}</div><div class="r-s">${x.last?`zuletzt ${fmtDate(x.last)} · vor ${x.days} Tagen`:"noch nie getestet"}</div></div>
-      <div class="chev">›</div></div>`; });
-    h+=`</div>`; }
-  // top focus from last round
-  /* FOKUS AUS MEHREREN RUNDEN, nicht aus der letzten. Eine einzelne schlechte
-     Runde ist Rauschen — wer ihr hinterhertrainiert, jagt dem Zufall nach.
-     Grundlage ist der SG-Schnitt der letzten 10 Runden; nur wenn dafuer die
-     Daten fehlen, greift die alte Einzelrunden-Logik. */
-  {
-    const sum=sgSummary(sortedRounds().slice(-10));
-    const schwach=sum?sgWeakest(sum.avg):null;
-    if(schwach){
-      h+=`<div class="eyebrow">Trainingsfokus · aus ${sum.runden} Runden</div>
-      <div class="card pad">
-        <div style="font-weight:700;color:var(--pine-deep)">${esc(schwach[1])}
-          <span class="r-s">${sgFmt(sum.avg[schwach[0]])} je Runde</span></div>
-        <div class="note" style="margin-top:2px">${esc(sgDrillHint(schwach[0]))}</div>
-        <button class="btn ghost xs" style="margin-top:8px"
-          onclick="taskAdd('${schwach[0]}', null, 2); renderAll(); toast('Aufgabe angelegt')">
-          ＋ als Trainingsaufgabe</button>
-      </div>`;
-    } else if(lastR){ const e=computeRound(lastR);
-      if(e.lever){ h+=`<div class="eyebrow">Trainingsfokus · aus letzter Runde</div>
-        <div class="card pad"><div style="font-weight:700;color:var(--pine-deep)">${esc(e.lever)}</div>
-        <div class="note" style="margin-top:2px">${esc(COACH[e.lever]||"")}</div>
-        <p class="note">Sobald genug Runden für Strokes Gained vorliegen, kommt der Fokus aus
-        dem Schnitt mehrerer Runden statt aus einer einzelnen.</p></div>`; } }
-  }
+  /* „FÄLLIGE TESTS" und „TRAININGSFOKUS" sind hier ENTFALLEN (v2.31).
+     Beides ist Trainingsplanung, kein Tagesgeschaeft — und beides steht seit
+     v2.24 an der besseren Stelle: die Faelligkeit im Reiter TRAINING (mit
+     Sammelhinweis „3 Tests sind ueber 90 Tage alt"), der Fokus als
+     `trainingsplanHtml()` im DASHBOARD, dort nach Wirkung sortiert statt nur
+     als eine Kategorie. Auf der Heute-Seite verlaengerten sie nur den Weg
+     nach unten zu dem, was man hier wirklich tut. */
   // quick actions
   h+=`<div class="eyebrow">Schnell erfassen</div>
   <div class="grid2">
@@ -22865,7 +22926,7 @@ function renderBag(){
   h+=`</div></div>
   <button class="btn ghost" id="bagAdd" style="margin-top:10px">＋ Schläger hinzufügen</button>
   <button class="btn ghost" id="bagR10" style="margin-top:8px">📥 R10-Session-CSV importieren (Streuung je Schläger)</button>
-  <input type="file" id="bagR10File" accept=".csv,text/csv" style="display:none">`;
+  <input type="file" id="bagR10File" accept=".csv,.txt,text/csv,text/plain,text/comma-separated-values,application/csv,application/vnd.ms-excel,application/octet-stream" style="display:none">`;
   {
     /* NICHT ZUGEORDNETE MESSUNGEN sichtbar machen. Liegen R10- oder
        GPS-Schlaege unter einem Namen vor, zu dem es keinen Schlaeger in der
@@ -25718,7 +25779,7 @@ function openComp(idx){
 /* ================= NAV ================= */
 let current="dash";
 const FAB_ACTION={rounds:startRound,comp:openAddComp,notes:openAddNote,swing:openSwingEdit};
-const APP_VERSION="2.30.1"; // App-Anzeigeversion (NICHT SEED.version! Diese bei jeder Änderung erhöhen)
+const APP_VERSION="2.31.0"; // App-Anzeigeversion (NICHT SEED.version! Diese bei jeder Änderung erhöhen)
 /* ---------- Darstellung: Hell/Dunkel (DB.ui.theme = "auto" | "light" | "dark") ---------- */
 const _darkMQ = (window.matchMedia? window.matchMedia("(prefers-color-scheme: dark)") : null);
 function themeSetting(){ return (DB && DB.ui && DB.ui.theme) || "auto"; }
@@ -25864,7 +25925,7 @@ function renderStrat(){
   h+=`<div style="display:flex;gap:7px;margin-top:10px">
     <button class="btn ghost" style="flex:1" onclick="STRAT.learnFromGps()?(toast('✓ Aus GPS-Schlägen aktualisiert'),renderStrat()):toast('Zu wenig frische GPS-Schläge (min. 20 je Schläger, 60 Tage)')">Aus GPS lernen</button>
     <button class="btn ghost" style="flex:1" onclick="document.getElementById('stR10').click()">📥 R10-CSV</button></div>
-    <input type="file" id="stR10" accept=".csv,text/csv" style="display:none"></div>`;
+    <input type="file" id="stR10" accept=".csv,.txt,text/csv,text/plain,text/comma-separated-values,application/csv,application/vnd.ms-excel,application/octet-stream" style="display:none"></div>`;
   // ---- Commit-Bilanz ----
   const rows=stratCommitTrendRows();
   h+=`<div class="eyebrow" style="margin-top:20px">✅ Plan-Bilanz (alle Runden)</div><div class="card pad">`;
