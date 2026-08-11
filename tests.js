@@ -152,7 +152,7 @@ try {
                  "caddyClubs","clubNorm","clubRename","bagFreiName","bagMessSpalte",
                  "tombAdd","tombClear","tombDel","MERGE_KEY","_mergeTomb","_tombFor",
                  "playCaddyNow","playTooFar","playAimChain","playMapSlot","playFocusDefault",
-                 "hcpGap","whsPool","courseStats","nassFaktor","errZeit","todayISO","puttDiagnose","sgHole","verlaesslich","testFaellig","stretchToggle","STRETCH_DONE","MALASKA_DYN","MALASKA_STAT","MALASKA_SVG","malaskaBild","POST_ROUND","POST_SVG","malaskaVideo","wxStunden","wxStundenHtml","WEATHER","lmAktiveShots","lmToggleAus","lmAlleAn","lmAus","postBild","postToggle","POST_DONE","WARMUP_PLANS","openPostStretchSheet","openStretchSheet","fmtN","fmtDate","fmtDT","fmtDur","zielPrognose","indexTempo","trainingsEmpfehlung","fitnessWirkung","stratRueckschau","sgHoleShots","sgVerlauf",
+                 "hcpGap","whsPool","courseStats","nassFaktor","errZeit","todayISO","puttDiagnose","sgHole","verlaesslich","testFaellig","stretchToggle","STRETCH_DONE","MALASKA_DYN","MALASKA_STAT","MALASKA_SVG","malaskaBild","POST_ROUND","POST_SVG","malaskaVideo","wxStunden","wxStundenHtml","WEATHER","lmAktiveShots","lmToggleAus","computeRound","_computeRoundRoh","playVorgabe","playRueckschlag","PLAY","testEmpfehlung","SG_ZU_TESTKAT","miniStat","sgSummary","sortedRounds","sgWeakest","crCacheClear","_crCache","lmAlleAn","lmAus","postBild","postToggle","POST_DONE","WARMUP_PLANS","openPostStretchSheet","openStretchSheet","fmtN","fmtDate","fmtDT","fmtDur","zielPrognose","indexTempo","trainingsEmpfehlung","fitnessWirkung","stratRueckschau","sgHoleShots","sgVerlauf",
                  "holeGir","holeUpDown","holeSandSave","platzAnalyse","taskFortschritt",
                  "warmupSchedule","warmupKorrektiv","WARMUP_PLANS","medianSplit","pearson",
                  "rKrit","gpKey","gpLabel","gpTotalES","pickClub","_aimClub","_aimLerp",
@@ -2962,6 +2962,187 @@ group("wxStunden — die nächsten Stunden, nicht nur der Moment");
        nichts unterscheidet. */
     ok("Böen erst ab +10 km/h", /windMs\*3\.6\+10/.test(src));
     ok("ohne Daten leer", html(6)==="" || typeof html(6)==="string");
+  }
+}
+
+/* ============ 24ba. Welchen Test als Nächstes? ============ */
+group("testEmpfehlung — Strokes Gained entscheidet, nicht die Vorliebe");
+{
+  const te=G("testEmpfehlung"), MAP=G("SG_ZU_TESTKAT"), DB=G("DB");
+  if (typeof te === "function" && DB) {
+    /* Die Tests-Seite listete Kategorien alphabetisch — man suchte sich selbst
+       etwas aus, meist das, was man ohnehin gern macht. Ein Test lohnt sich
+       aber dort, wo auf der RUNDE Schläge verlorengehen. */
+    const e=te(3);
+    ok("liefert eine Empfehlung", e && Array.isArray(e.liste));
+    ok("höchstens so viele wie angefordert", e.liste.length<=3, "n="+e.liste.length);
+    ok("absteigend nach Punkten sortiert",
+       e.liste.every((x,i)=>i===0 || e.liste[i-1].punkte>=x.punkte),
+       e.liste.map(x=>x.punkte).join(" "));
+    ok("jede Empfehlung nennt einen Grund",
+       e.liste.every(x=>x.gruende.length>0));
+    /* DIE BRÜCKE: SG-Kategorie -> Testkategorie. Beide Seiten hatten die Daten,
+       sie sprachen nur nicht miteinander. */
+    if (MAP) {
+      ["lang","app","kurz","putt"].forEach(k=>
+        ok("SG-Kategorie "+k+" ist zugeordnet",
+           Array.isArray(MAP[k]) && MAP[k].length>0, JSON.stringify(MAP[k])));
+      /* Gegenprobe: Die genannten Testkategorien müssen wirklich existieren —
+         ein Tippfehler würde die Zuordnung still ins Leere laufen lassen. */
+      const echte=new Set((DB.testDefs||[]).map(d=>d.category));
+      const unbekannt=[];
+      Object.values(MAP).forEach(arr=>arr.forEach(c=>{ if(!echte.has(c)) unbekannt.push(c); }));
+      eq("alle zugeordneten Kategorien existieren", unbekannt.length, 0, unbekannt.join(", "));
+    }
+    /* Die schwächste SG-Kategorie muss oben stehen. */
+    const sum=G("sgSummary"), sr=G("sortedRounds"), weak=G("sgWeakest");
+    if (typeof sum === "function" && typeof weak === "function" && e.liste.length) {
+      const avg=(sum(sr().slice(-10))||{}).avg;
+      const w=avg?weak(avg):null;
+      if (w && MAP) {
+        ok("erster Vorschlag kommt aus der teuersten Kategorie",
+           MAP[w[0]].indexOf(e.liste[0].def.category)>=0,
+           `${w[1]} -> ${e.liste[0].def.category}`);
+      }
+    }
+    /* Nie gemessene Tests müssen auftauchen — ohne Ausgangswert gibt es
+       keinen Verlauf, und ohne Verlauf sagt jede Zahl nichts. */
+    const src=fs.readFileSync(FILE,"utf8");
+    ok("nie gemessen wird gewichtet", /noch nie gemessen/.test(src));
+    ok("Überfälligkeit wird gewichtet", /zuletzt vor \$\{f\.tage\} Tagen/.test(src));
+    ok("Zielniveau wird gewichtet", /Ziel ist \$\{HCP_LABELS/.test(src));
+    /* Ohne SG-Daten darf die Empfehlung nicht so tun, als wüsste sie mehr. */
+    ok("weist auf fehlende SG-Daten hin",
+       /Noch keine Strokes-Gained-Auswertung/.test(src));
+  }
+  /* `miniStat(label, wert)` baut die kleinen Kennzahl-Kacheln. Trivial, aber
+     an vielen Stellen benutzt — ein kaputtes Escaping schlüge überall durch. */
+  const ms=G("miniStat");
+  if (typeof ms === "function") {
+    const h=ms("Score","72");
+    ok("liefert Kachel-Markup", /^<div /.test(h) && /Score/.test(h) && /72/.test(h));
+    ok("Wert erscheint im Monospace-Block", /tnum/.test(h));
+  }
+}
+
+/* ============ 24az. Vorgabenstand, Platz zur Fahne, Rückschlag ============ */
+group("Die Zahlen, nach denen auf dem Platz entschieden wird");
+{
+  const vg=G("playVorgabe"), rs=G("playRueckschlag"), P=G("PLAY"), DB=G("DB");
+  const src=fs.readFileSync(FILE,"utf8");
+  if (typeof vg === "function" && P && DB) {
+    /* Auf der Runde stand nur „+3 zu Par". In einem deutschen Turnier zählt
+       aber der Stand gegenüber der SPIELVORGABE — „+7 brutto" ignoriert die
+       eigenen Vorgabeschläge und taugt nicht zur Entscheidung. */
+    const altC=DB.courses, altP=DB.profile;
+    DB.profile={...(DB.profile||{}), hcpIndex:20.0};
+    DB.courses=[{name:"VT", tees:[{name:"Gelb", cr18:71.0, slope18:130, par18:72,
+      holes:Array.from({length:18},(_,i)=>({hole:i+1, par:4, si:i+1}))}]}];
+    P.course="VT"; P.tee="Gelb"; P.idx=0;
+    P.holes=Array.from({length:18},(_,i)=>({hole:i+1, par:4, si:i+1, score:null}));
+    const leer=vg();
+    ok("ohne gespielte Löcher kein Stand", leer && leer.gespielt===0, JSON.stringify(leer));
+    ok("Spielvorgabe berechnet", leer && leer.chcp>0, "CHcp="+(leer&&leer.chcp));
+    /* Par auf einem Loch MIT Vorgabeschlag = 3 Punkte, ohne = 2. */
+    P.holes[0].score=4; P.holes[1].score=4; P.holes[2].score=4;
+    const st=vg();
+    eq("drei Löcher gewertet", st.gespielt, 3);
+    /* Bei Index 20 und Slope 130 ergibt sich eine Spielvorgabe um 22 — also
+       ein Vorgabeschlag auf jedem Loch, auf den schwersten vier sogar zwei.
+       Par 4 mit einem Schlag ist netto Birdie = 3 Punkte. Drei Löcher liegen
+       damit zwischen 9 und 12, nicht bei 6. Erwartung entsprechend
+       gesetzt — und ABGELEITET statt geraten. */
+    ok("Punkte plausibel", st.punkte>=3*2 && st.punkte<=3*4,
+       `Pkt=${st.punkte} bei CHcp ${st.chcp}`);
+    eq("Erwartung ist 2 Punkte je Loch", st.erwartet, 6);
+    eq("Puffer = Punkte minus Erwartung", st.puffer, st.punkte-st.erwartet);
+    /* Hochrechnung erst ab 3 Löchern — darunter wäre es Zufall mit dem
+       Anschein einer Prognose. */
+    ok("Hochrechnung vorhanden", st.hoch!=null && st.hoch>0, "hoch="+st.hoch);
+    P.holes[1].score=null; P.holes[2].score=null;
+    ok("unter 3 Löchern keine Hochrechnung", vg().hoch===null);
+    DB.courses=altC; DB.profile=altP; P.holes=[];
+  }
+  if (typeof rs === "function" && P && DB) {
+    /* Nach einem Doppelbogey ist das nächste Loch statistisch das
+       gefährlichste — man will das Verlorene sofort zurückholen. Der Hinweis
+       muss ABSCHALTBAR sein, sonst wirkt er bevormundend. */
+    DB.ui=DB.ui||{}; delete DB.ui.keinRueckschlagHinweis;
+    P.holes=[{hole:1,par:4,score:4},{hole:2,par:4,score:null}];
+    P.idx=1;
+    ok("nach Par kein Hinweis", rs()===null);
+    P.holes[0].score=6;
+    const r=rs();
+    ok("nach Doppelbogey ein Hinweis", !!r, r&&r.txt.slice(0,40));
+    ok("Text nennt die Mitte des Grüns", r && /Mitte/.test(r.txt));
+    P.holes[0].score=8;
+    ok("nach Triple deutlichere Formulierung", rs().txt!==r.txt);
+    DB.ui.keinRueckschlagHinweis=true;
+    ok("abgeschaltet erscheint er nicht mehr", rs()===null);
+    delete DB.ui.keinRueckschlagHinweis; P.holes=[];
+    ok("Abschalter ist erreichbar", /function rueckschlagAus/.test(src));
+  }
+  /* BENENNUNG: „short-sided" versteht kaum jemand — die Auswahl beschreibt,
+     was man SIEHT. */
+  ok("Feld heißt verständlich", /Platz zwischen Ball und Fahne/.test(src));
+  ok("Auswahl beschreibt die Lage",
+     /Wenig Platz — Fahne nah am Rand/.test(src));
+  /* Der Fachbegriff darf im KOMMENTAR stehen — dort erklärt er die
+     Namenswahl. In der Oberfläche hat er nichts zu suchen. */
+  {
+    const nurCode = [...src.matchAll(/<script([^>]*)>([\s\S]*?)<\/script>/g)]
+      .filter(m=>!/\bsrc=|application\/json|text\/markdown|devdocs/.test(m[1]))
+      .map(m=>m[2]).join("\n").replace(/\/\*[\s\S]*?\*\//g,"");
+    ok("kein Fachbegriff in der Oberfläche", !/short.?sided/i.test(nurCode));
+  }
+}
+
+/* ============ 24ay. Zwischenspeicher für Rundenwerte ============ */
+group("computeRound-Cache — schneller, ohne veraltete Zahlen");
+{
+  const cr=G("computeRound"), roh=G("_computeRoundRoh"), clear=G("crCacheClear"),
+        cache=G("_crCache"), DB=G("DB");
+  if (typeof cr === "function" && typeof roh === "function" && cache && DB) {
+    /* Gemessen: Ein Aufbau des Dashboards rief computeRound 18-mal auf — bei
+       12 Runden. Die Werte einer abgeschlossenen Runde ändern sich aber nicht,
+       solange die Runde selbst unverändert bleibt. */
+    clear();
+    eq("leer nach dem Zurücksetzen", cache.size, 0);
+    const r={id:"CRT1", date:"2026-05-01", course:"Test", tee:"Gelb",
+             holes:[{hole:1,par:4,score:5,putts:2}]};
+    const a=cr(r);
+    eq("ein Eintrag angelegt", cache.size, 1);
+    const b=cr(r);
+    ok("zweiter Aufruf liefert dasselbe Objekt", a===b);
+
+    /* DER KERN: Der Schlüssel hängt am INHALT. Ändert sich die Runde, muss neu
+       gerechnet werden — sonst zeigt die App still falsche Zahlen, und das
+       wäre schlimmer als gar kein Zwischenspeicher. */
+    r.updated=new Date().toISOString();
+    const c=cr(r);
+    ok("nach Änderung wird neu gerechnet", c!==a);
+    /* Zwei verschiedene Runden dürfen sich nicht überschreiben. */
+    const r2={id:"CRT2", date:"2026-05-02", course:"Test", tee:"Gelb",
+              holes:[{hole:1,par:4,score:4,putts:2}]};
+    cr(r2);
+    ok("verschiedene Runden getrennt gespeichert", cache.size>=3, "n="+cache.size);
+    /* Deckel gegen unbegrenztes Wachsen. */
+    const src=fs.readFileSync(FILE,"utf8");
+    ok("Größe gedeckelt", /_crCache\.size>400/.test(src));
+    /* Geleert wird an ZWEI Stellen: persist() und renderAll(). Der zweite ist
+       der wichtige — er folgt auf JEDE der zwölf Stellen, an denen DB ersetzt
+       wird. Sie einzeln nachzuziehen hieße, beim nächsten Einbau eine zu
+       vergessen. */
+    ok("persist leert den Speicher", /function persist\(\)[\s\S]{0,120}crCacheClear\(\)/.test(src));
+    ok("renderAll leert den Speicher", /function renderAll\(\)[\s\S]{0,120}crCacheClear\(\)/.test(src));
+    /* GEGENPROBE zur verworfenen Variante: sortedRounds darf KEINEN
+       Zwischenspeicher haben. Ein erster Versuch hielt die sortierte Liste
+       fest und lieferte veraltete Ergebnisse, sobald DB.rounds direkt geändert
+       wurde — vier Prüfungen schlugen fehl. Ein Cache, dessen Gültigkeit von
+       der Disziplin des Aufrufers abhängt, ist die falsche Sorte Optimierung. */
+    ok("sortedRounds bleibt ohne Zwischenspeicher",
+       !/_srCache/.test(src));
+    clear();
   }
 }
 

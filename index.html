@@ -627,6 +627,9 @@
   .pf-hole span{font-size:11.5px;opacity:.9;line-height:1.2}
   /* Front/Mitte/Back kompakt zwischen Loch und Score. */
   /* Einflusszeile: Hoehe, Wind, Naesse — warum der Schlaeger anders ausfaellt. */
+  /* Vorgabenstand: eine Zeile ueber der Bedingungszeile, ruhiger gefaerbt —
+     sie ist wichtig, aber keine Warnung. */
+  .pf-vg{display:block;font-size:11.5px;font-weight:600;opacity:.9;margin-top:2px;color:#cfe6d6}
   .pf-bed{display:block;font-size:11.5px;font-weight:600;opacity:.92;margin-top:2px;color:#ffd9a0}
   .pf-bed b{font-family:var(--mono)}
   .pf-fmb{display:flex;gap:6px;background:rgba(12,32,20,.72);backdrop-filter:blur(8px);
@@ -2198,6 +2201,26 @@ Erste, was auf dem Platz passiert.
 Kraftentfaltung — genau das Gegenteil dessen, was am ersten Tee gebraucht wird. Die statischen
 Uebungen bleiben beim Cool-down nach der Runde; eine Pruefung sichert das ab.
 
+**Testempfehlung (v2.36).** `testEmpfehlung(max)` und `testEmpfehlungHtml()` beantworten oben
+auf der Tests-Seite die Frage, mit der man sie oeffnet: WAS jetzt messen? Gewichtung: Strokes
+Gained (bis 100) vor Messlage (nie 60 / ueberfaellig bis 40) vor Zielniveau (30). Die Tabelle
+`SG_ZU_TESTKAT` ist die Bruecke zwischen SG-Kategorie und Testkategorie — eine Pruefung gleicht
+ab, dass alle genannten Kategorien wirklich existieren, sonst liefe die Zuordnung still ins Leere.
+
+**Vorgabenstand und Rueckschlag-Hinweis (v2.35).** `playVorgabe()` rechnet Spielvorgabe und
+Stableford-Punkte laufend mit — dieselbe Formel wie `computeRound`, damit beide dasselbe sagen.
+`playRueckschlag()` meldet sich nach einem Doppelbogey; `rueckschlagAus()` schaltet ihn dauerhaft
+ab (`DB.ui.keinRueckschlagHinweis`). Ein Hinweis, den man nicht abstellen kann, wirkt
+bevormundend — deshalb der Abschalter direkt daneben.
+
+**Zwischenspeicher fuer Rundenwerte (v2.34).** `computeRound(rd)` speichert das Ergebnis unter
+einem INHALTSBASIERTEN Schluessel (`_crKey`: id plus Aenderungsstempel, ersatzweise JSON-Laenge);
+die eigentliche Rechnung steht in `_computeRoundRoh`. `crCacheClear()` leert in `persist()` und
+`renderAll()` — der zweite ist der wichtige, weil er auf jede der zwoelf Stellen folgt, an denen
+`DB` ersetzt wird. **`sortedRounds` bekam bewusst KEINEN Speicher:** Ein Versuch lieferte
+veraltete Listen bei direkter Aenderung von `DB.rounds`. Ein Cache, dessen Gueltigkeit von der
+Disziplin des Aufrufers abhaengt, zeigt STILL falsche Zahlen.
+
 **Launch-Auswertung ueber mehrere Sitzungen (v2.33).** `lmAktiveShots(club)` liefert die Schlaege
 ALLER Sitzungen ausser den abgewaehlten — EINE Stelle, damit Auswertung, Streuung und Verlauf
 nicht auseinanderlaufen. `lmAus` haelt die ausgeblendeten IDs (meist leer), `lmToggleAus(id)`
@@ -2903,6 +2926,55 @@ erkennbar ist, dass es ein Video gab.
 ## Changelog
 > **Regel:** Bei JEDER inhaltlichen Änderung hier oben einen datierten Eintrag ergänzen (neueste
 > zuerst): Datum · was geändert · betroffene Bereiche. Kurz halten.
+
+- **v2.36.0 · 2026-08-11** — **„Was jetzt messen?" ganz oben auf der Tests-Seite.** Die Seite
+  listete Kategorien alphabetisch — man suchte sich selbst etwas aus, meist das, was man ohnehin
+  gern macht. Ein Test lohnt sich aber dort, wo auf der **Runde** Schläge verlorengehen.
+  Neu `testEmpfehlung()` mit drei gewichteten Kriterien: **Strokes Gained** (bis 100 Punkte, die
+  teuerste Kategorie bekommt das volle Gewicht), **Messlage** (nie gemessen 60, überfällig bis
+  40), **Zielniveau** (30, wenn der letzte Wert die Zielstufe verfehlt). Jede Empfehlung nennt
+  ihre Gründe im Klartext.
+  Kern ist die Tabelle **`SG_ZU_TESTKAT`** — die Brücke zwischen Strokes Gained und den
+  Testkategorien. Beide Seiten hatten die Daten, sie sprachen nur nicht miteinander. Eine Prüfung
+  gleicht ab, dass alle zugeordneten Kategorien wirklich existieren; ein Tippfehler ließe die
+  Zuordnung sonst still ins Leere laufen.
+  An deinen Daten: Putten kostet −4,92 je Runde, entsprechend stehen 3m-Putts, Lag Putting und
+  Kurzputt-Präzision auf den ersten drei Plätzen. Ohne SG-Auswertung sagt die Tafel das
+  ausdrücklich, statt Genauigkeit vorzutäuschen. 15 Prüfungen.
+
+- **v2.35.0 · 2026-08-11** — **Vorgabenstand · Platz zur Fahne · Hinweis nach großem Loch ·
+  beschriftete Wetterzeilen.**
+  (1) **`playVorgabe()`** zeigt im Spielmodus den Stand gegenüber der Spielvorgabe:
+  „14 Pkt · Puffer +2 · hochgerechnet 34 · hier 1 Vorgabeschlag". Das ist die Zahl, nach der in
+  einem deutschen Turnier entschieden wird — „+7 brutto" ignoriert die eigenen Vorgabeschläge.
+  Gerechnet wie in `computeRound`, damit beide dasselbe sagen; bei 9 Löchern werden die SI der
+  gespielten Seite neu gerankt. Hochrechnung erst ab 3 Löchern.
+  (2) **Neues Feld „Platz zwischen Ball und Fahne"** (`kurzseitig`). Der größte einzelne
+  Score-Verlust bei mittleren Handicaps ist nicht das verfehlte Grün, sondern die falsche Seite
+  davon. **Bewusst ohne Fachbegriff:** „short-sided" oder „kurzseitig" versteht kaum jemand —
+  die Auswahl beschreibt, was man sieht („Wenig Platz — Fahne nah am Rand").
+  (3) **`playRueckschlag()`**: Nach einem Doppelbogey ist das nächste Loch statistisch das
+  gefährlichste. Eine Zeile, keine Warnfarbe, **abschaltbar** — ein Hinweis, den man nicht
+  abstellen kann, wirkt bevormundend.
+  (4) **Wetterzeilen beschriftet:** „Uhr · Temp · Wind · aus · Böen · Regen" jeweils am
+  Zeilenanfang statt einer Legende darunter. Eine Legende zwingt zum Hin- und Herspringen — man
+  sieht „21" und muss unten nachsehen, ob km/h oder Prozent gemeint sind.
+  Auf der Uhr ebenfalls: neues Feld, und **Score und Putts stehen jetzt ganz unten** auf Seite 2,
+  weil sie in der Reihenfolge des Spiels zuletzt entstehen. 22 Prüfungen.
+
+- **v2.34.0 · 2026-08-11** — **Zwischenspeicher für abgeleitete Rundenwerte.** Gemessen: Ein
+  Aufbau des Dashboards rief `computeRound` **18-mal** auf — bei 12 Runden. Die Werte einer
+  abgeschlossenen Runde ändern sich aber nicht, solange die Runde unverändert bleibt. Neu ein
+  Speicher mit **inhaltsbasiertem Schlüssel** (id plus Änderungsstempel, ersatzweise die
+  JSON-Länge): 12 echte Berechnungen beim ersten Aufbau, **0 beim zweiten**, und nach einer
+  Änderung an einer Runde genau **eine** Neuberechnung. Geleert wird in `persist()` und
+  `renderAll()` — der zweite ist der wichtige, weil er auf jede der zwölf Stellen folgt, an denen
+  `DB` ersetzt wird.
+  **Ein erster Versuch, auch `sortedRounds` zu speichern, wurde verworfen:** Er lieferte veraltete
+  Listen, sobald `DB.rounds` direkt geändert wurde — vier Prüfungen schlugen fehl. Ein
+  Zwischenspeicher, dessen Gültigkeit von der Disziplin des Aufrufers abhängt, zeigt **still
+  falsche Zahlen** und ist damit schlimmer als gar keiner. Die Sortierung kostet ohnehin fast
+  nichts. Eine Prüfung hält fest, dass sie ohne Speicher bleibt. 10 Prüfungen.
 
 - **v2.33.0 · 2026-08-11** — **Launch: mehrere Sitzungen zusammen auswerten.** Bisher ließ sich
   genau EINE Sitzung wählen. Für „wie schlage ich das Eisen 7 zurzeit?" ist das zu wenig — eine
@@ -12630,6 +12702,11 @@ const SEED = {
    ]
   }
  },
+ "kurzseitig": [
+  "Grün getroffen",
+  "Viel Platz zur Fahne",
+  "Wenig Platz — Fahne nah am Rand"
+ ],
  "puttMiss": [
   "Gelocht",
   "Kurz",
@@ -13544,7 +13621,7 @@ function load(){
   }}catch(e){ logErr("catch", e, true); }
   return JSON.parse(JSON.stringify(SEED));
 }
-function persist(){ _persistPending=false; if(_persistTimer){ clearTimeout(_persistTimer); _persistTimer=null; }
+function persist(){ _persistPending=false; crCacheClear(); if(_persistTimer){ clearTimeout(_persistTimer); _persistTimer=null; }
   const okLS=saveLocal();
   if(!okLS){ try{ if(!persist._warned){ persist._warned=true; toast("Großer Datenstand – sicher in IndexedDB gespeichert."); } }catch(_){ /* Toast optional */ } }
   markDirty(); snapshot("Auto"); scheduleCloudSync(); }
@@ -15257,25 +15334,36 @@ function wxStundenHtml(n){
   if(!st || !st.length) return "";
   const zeigen=st.slice(0, n||6);
   const boeRelevant=h=>(h.gustMs!=null && h.windMs!=null && h.gustMs*3.6 >= h.windMs*3.6+10);
-  const zelle=h=>{
-    const d=new Date(h.t);
-    const kmh=(h.windMs!=null)?Math.round(h.windMs*3.6):null;
-    const nass=(h.pop!=null && h.pop>=30) || (h.precip!=null && h.precip>=0.2);
-    return `<div style="flex:1;min-width:0;text-align:center;padding:5px 1px;border-radius:7px;${
-        nass?"background:rgba(90,162,224,.15)":""}">
-      <div class="r-s" style="opacity:.75">${String(d.getHours()).padStart(2,"0")}</div>
-      <div style="font-weight:700;font-family:var(--mono);font-size:13px">${
-        h.temp!=null?Math.round(h.temp)+"°":"–"}</div>
-      <div class="r-s" style="font-family:var(--mono)">${kmh!=null?kmh:"–"}</div>
-      <div class="r-s" style="opacity:.8">${h.windDir!=null?windArrowChar(h.windDir):""}</div>
-      ${boeRelevant(h)?`<div class="r-s" style="color:var(--gold)">↑${Math.round(h.gustMs*3.6)}</div>`:""}
-      <div class="r-s" style="${nass?"color:#3d84c6;font-weight:700":"opacity:.55"}">${
-        h.pop!=null?h.pop+"%":"–"}</div>
-    </div>`;
-  };
-  return `<div style="display:flex;gap:2px;margin-top:8px">${zeigen.map(zelle).join("")}</div>
-    <div class="r-s" style="opacity:.6;margin-top:2px">Uhrzeit · °C · km/h · Richtung${
-      zeigen.some(boeRelevant)?" · ↑Böen":""} · Regenrisiko</div>`;
+  const nassP=h=>(h.pop!=null && h.pop>=30) || (h.precip!=null && h.precip>=0.2);
+;
+  /* BESCHRIFTUNG JE ZEILE statt einer Legende darunter. Eine Legende zwingt
+     zum Hin- und Herspringen: Man sieht „21" und muss unten nachsehen, ob das
+     km/h oder Prozent sind. Die Beschriftung links am Zeilenanfang beantwortet
+     das an Ort und Stelle — und kostet nur eine schmale Spalte. */
+  const boeZeile=zeigen.some(boeRelevant);
+  const lab=t=>`<div style="flex:0 0 46px;font-size:10px;opacity:.65;text-align:right;padding-right:5px">${t}</div>`;
+  const spalte=(f)=>zeigen.map(f).join("");
+  const zeile=(text, inhalt, stil)=>`<div style="display:flex;align-items:center;${stil||""}">
+    ${lab(text)}<div style="flex:1;display:flex;gap:2px">${inhalt}</div></div>`;
+  const feld=(inner,h)=>`<div style="flex:1;min-width:0;text-align:center;padding:2px 1px;border-radius:5px;${
+      nassP(h)?"background:rgba(90,162,224,.15)":""}">${inner}</div>`;
+  return `<div style="margin-top:8px">
+    ${zeile("Uhr", spalte(h=>feld(`<span class="r-s">${String(new Date(h.t).getHours()).padStart(2,"0")}</span>`,h)))}
+    ${zeile("Temp", spalte(h=>feld(`<b style="font-family:var(--mono);font-size:13px">${
+        h.temp!=null?Math.round(h.temp)+"°":"–"}</b>`,h)))}
+    ${zeile("Wind", spalte(h=>feld(`<span class="r-s" style="font-family:var(--mono)">${
+        h.windMs!=null?Math.round(h.windMs*3.6):"–"}</span>`,h)))}
+    ${zeile("aus", spalte(h=>feld(`<span class="r-s">${h.windDir!=null?windArrowChar(h.windDir):""}</span>`,h)))}
+    ${boeZeile?zeile("Böen", spalte(h=>feld(boeRelevant(h)
+        ?`<span class="r-s" style="color:var(--gold)">${Math.round(h.gustMs*3.6)}</span>`
+        :`<span class="r-s" style="opacity:.3">–</span>`,h))):""}
+    ${zeile("Regen", spalte(h=>feld(`<span class="r-s" style="${
+        nassP(h)?"color:#3d84c6;font-weight:700":"opacity:.55"}">${
+        h.pop!=null?h.pop+"%":"–"}</span>`,h)))}
+    <div class="r-s" style="opacity:.55;margin-top:3px;padding-left:46px">
+      Temperatur in °C · Wind und Böen in km/h · „aus" = Windrichtung ·
+      Regen = Wahrscheinlichkeit</div>
+  </div>`;
 }
 
 function weatherCardHtml(){
@@ -16568,7 +16656,51 @@ function courseSVG(geo, opt){
   return { svg:`<svg viewBox="0 0 ${M.W} ${M.H}" width="100%" style="display:block;border-radius:12px;background:#eef3e6" xmlns="http://www.w3.org/2000/svg">${full}</svg>`, body:full, satBody:satBody, bodyNoSat:body, vbW:M.W, vbH:M.H, H:M.H, M:{W:M.W,H:M.H,s:M.s,minX:M.minX,maxY:M.maxY,pad:M.pad,center:M.center,map:M.map,rot:M.rot||0} };
 }
 
+/* ==========================================================================
+   ZWISCHENSPEICHER FUER ABGELEITETE RUNDENWERTE (v2.34)
+   Gemessen: Ein Aufbau des Dashboards rief `computeRound` 18-mal und
+   `sortedRounds` 9-mal auf — bei 12 Runden. Die Werte einer abgeschlossenen
+   Runde aendern sich aber nicht, solange die Runde selbst unveraendert bleibt.
+
+   Schluessel ist die Identitaet der Runde PLUS ihr Aenderungsstempel. Fehlt
+   der Stempel (Altdaten), dient die JSON-Laenge als grobe Ersatzsignatur —
+   sie aendert sich bei jeder Bearbeitung. Lieber eine grobe Signatur als gar
+   keine: Ein veralteter Wert waere schlimmer als ein unnoetiger Neuaufbau.
+
+   Geleert wird bei `persist()`, also bei jeder Aenderung am Datenstand.
+   ========================================================================== */
+const _crCache = new Map();
+function _crKey(rd){
+  return (rd && (rd.id || (rd.date||"")+"|"+(rd.course||"")))
+       + "|" + (rd && (rd.updated || rd.editedAt || JSON.stringify(rd).length));
+}
+function crCacheClear(){ _crCache.clear(); }
+
+/* WO GELEERT WIRD — bewusst an ZWEI Stellen, nicht an zwölf:
+     · `persist()` — jede Aenderung durch den Nutzer.
+     · `renderAll()` — jeder vollstaendige Neuaufbau, und der folgt auf JEDE
+       der zwoelf Stellen, an denen `DB` ersetzt wird (Sync, Merge, Import,
+       Wiederherstellung, Zuruecksetzen).
+   Der zweite Punkt ist der wichtige: Ihn an allen zwoelf Stellen einzeln
+   nachzuziehen hiesse, beim naechsten Einbau eine zu vergessen — und ein
+   veralteter Zwischenwert ist schlimmer als gar keiner, weil er still
+   falsche Zahlen zeigt. */
+
 function computeRound(rd){
+  if(!rd) return _computeRoundRoh(rd);
+  const k=_crKey(rd);
+  const hit=_crCache.get(k);
+  if(hit) return hit;
+  const v=_computeRoundRoh(rd);
+  /* Deckel: Mehr als 400 Eintraege braucht niemand — bei einer Runde je Tag
+     sind das ueber ein Jahr. Bei Ueberlauf komplett leeren statt einzeln
+     auszusortieren; das ist einfacher und passiert praktisch nie. */
+  if(_crCache.size>400) _crCache.clear();
+  _crCache.set(k, v);
+  return v;
+}
+
+function _computeRoundRoh(rd){
   const t=courseTee(rd.course,rd.tee);
   const W=DB.costWeights;
   const side=rd.side, is9=(side==="Front 9"||side==="Back 9");
@@ -16656,6 +16788,15 @@ function roundKPIs(r){
   return {girPct:e.girPct, threePutts:e.threePutts, threePct:e.counted?e.threePutts/e.counted*100:null,
     toPar:e.toPar, puttsPer:e.puttsPer, score:e.gross, holesCounted:e.counted, engine:e};
 }
+/* BEWUSST OHNE ZWISCHENSPEICHER. Ein erster Versuch hielt das sortierte
+   Ergebnis fest — und lieferte veraltete Listen, sobald `DB.rounds` direkt
+   geaendert wurde, ohne dass `persist()` oder `renderAll()` dazwischenlagen.
+   Genau das ist im Pruefstand aufgeflogen (vier Fehlschlaege).
+   Ein Zwischenspeicher, dessen Gueltigkeit von der Disziplin des Aufrufers
+   abhaengt, ist die falsche Sorte Optimierung: Er zeigt STILL falsche Zahlen.
+   Die Sortierung selbst kostet bei ein paar hundert Runden nichts —
+   der teure Teil ist `computeRound`, und der hat einen inhaltsbasierten
+   Schluessel und kann deshalb nicht veralten. */
 function sortedRounds(){ return DB.rounds.slice().sort((a,b)=>(a.date||"").localeCompare(b.date||"")); }
 function sortedComps(){ return DB.competitions.filter(c=>c.date).slice().sort((a,b)=>a.date.localeCompare(b.date)); }
 
@@ -17311,6 +17452,82 @@ function trainingsEmpfehlung(){
    90 Tage als Regel: kuerzer misst man Tagesform, laenger verliert man den
    Anschluss an die Saison.
    ========================================================================== */
+/* ==========================================================================
+   WELCHEN TEST ALS NAECHSTES? (v2.36)
+   Die Tests-Seite listete Kategorien alphabetisch — man suchte sich also
+   selbst etwas aus, meist das, was man ohnehin gern macht. Das ist die
+   falsche Auswahl: Ein Test lohnt sich dort, wo auf der RUNDE Schlaege
+   verlorengehen, und dort, wo lange nicht gemessen wurde.
+
+   Drei Kriterien, absichtlich in dieser Gewichtung:
+     1. STROKES GAINED (bis 100 Punkte). Was auf dem Platz kostet, hat Vorrang
+        vor allem anderen — ein Test ist Mittel zum Zweck, nicht Selbstzweck.
+     2. NIE GEMESSEN (60) bzw. UEBERFAELLIG (bis 40). Ohne Ausgangswert kann
+        man keinen Fortschritt sehen; ein 200 Tage alter Wert beschreibt einen
+        anderen Spieler.
+     3. UNTER ZIELNIVEAU (30). Wo der letzte Wert die Zielstufe verfehlt, ist
+        etwas zu holen.
+
+   Die Zuordnung SG-Kategorie -> Testkategorie ist die Bruecke, die bisher
+   fehlte: Beide Seiten hatten die Daten, sie sprachen nur nicht miteinander.
+   ========================================================================== */
+const SG_ZU_TESTKAT = {
+  putt: ["Putting"],
+  kurz: ["Short Game & Pelz"],
+  app:  ["Wedge & Approach"],
+  lang: ["Driver & Longgame"]
+};
+const SG_LABEL = { lang:"Langes Spiel", app:"Annäherung", kurz:"Kurzes Spiel", putt:"Putten" };
+
+function testEmpfehlung(max){
+  try{
+    const sum=(typeof sgSummary==="function") ? sgSummary(sortedRounds().slice(-10)) : null;
+    const avg=sum?sum.avg:null;
+    /* Verluste je Kategorie in eine 0..100-Punktzahl uebersetzen: Die
+       schlechteste Kategorie bekommt 100, eine ausgeglichene 0. Relativ statt
+       absolut, weil ein SG von −0,8 bei einem Spieler viel und bei einem
+       anderen wenig ist. */
+    const verlust={};
+    let schlimmst=0;
+    Object.keys(SG_ZU_TESTKAT).forEach(k=>{
+      const v=(avg && avg[k]!=null) ? Math.max(0, -avg[k]) : 0;
+      verlust[k]=v; if(v>schlimmst) schlimmst=v;
+    });
+    const zielHcp=DB.profile && (DB.profile.targetHcp!=null?DB.profile.targetHcp:DB.profile.zielHcp);
+    const zielIdx=(zielHcp==null)?2 : (zielHcp<=0?4 : zielHcp<=3?3 : zielHcp<=8?2 : zielHcp<=15?1 : 0);
+
+    const out=[];
+    (DB.testDefs||[]).forEach(d=>{
+      const f=testFaellig(d.key);
+      let p=0; const gruende=[];
+
+      /* 1. Strokes Gained */
+      const sgKat=Object.keys(SG_ZU_TESTKAT).find(k=>SG_ZU_TESTKAT[k].indexOf(d.category)>=0);
+      if(sgKat && schlimmst>0){
+        const anteil=verlust[sgKat]/schlimmst;
+        p += Math.round(anteil*100);
+        if(anteil>=0.75) gruende.push(`${SG_LABEL[sgKat]} kostet dich zurzeit am meisten (${fmtN(-verlust[sgKat],2)} je Runde)`);
+      }
+      /* 2. Messlage */
+      if(f.nie){ p+=60; gruende.push("noch nie gemessen — ohne Ausgangswert kein Verlauf"); }
+      else if(f.faellig){ p+=Math.min(40, Math.round(f.tage/6));
+        gruende.push(`zuletzt vor ${f.tage} Tagen`); }
+      else if(f.bald){ p+=12; gruende.push(`zuletzt vor ${f.tage} Tagen`); }
+      /* 3. Zielniveau */
+      if(!f.nie && d.benchmark && d.benchmark.levels && typeof tierIndex==="function"){
+        const idx=tierIndex(benchValue(d.key, f.letzt.total), d.benchmark.levels, d.benchmark.higherIsBetter);
+        if(idx!=null && idx<zielIdx){
+          p+=30;
+          gruende.push(`Stand ${lvlLabel(idx)} — Ziel ist ${HCP_LABELS[zielIdx]}`);
+        }
+      }
+      if(p>0) out.push({def:d, punkte:p, gruende, faellig:f, sgKat});
+    });
+    out.sort((a,b)=>b.punkte-a.punkte);
+    return {liste:out.slice(0, max||3), hatSG:!!avg, runden:sum?sum.runden:0};
+  }catch(e){ logErr("testEmpfehlung", e, true); return {liste:[], hatSG:false}; }
+}
+
 function testFaellig(key){
   const hist=(typeof testsFor==="function")?testsFor(key):[];
   if(!hist.length) return {nie:true};
@@ -18349,10 +18566,43 @@ function miniStat(l,v){return `<div style="background:var(--surface2);border-rad
   <div class="tnum" style="font-family:var(--mono);font-size:20px;font-weight:600;margin-top:3px">${v}</div></div>`;}
 
 /* ================= RENDER: TESTS ================= */
+/* Die Empfehlung als Tafel — ganz oben, weil sie die Frage beantwortet, mit
+   der man die Seite oeffnet. */
+function testEmpfehlungHtml(){
+  const e=testEmpfehlung(3);
+  if(!e.liste.length) return "";
+  const rang=["1.","2.","3."];
+  return `<div class="eyebrow">Was jetzt messen?</div>
+    <div class="card pad">
+      ${e.hatSG?"":`<p class="note" style="margin-top:0">Noch keine Strokes-Gained-Auswertung —
+        die Reihenfolge richtet sich vorerst nur danach, was lange nicht gemessen wurde.
+        Sobald einige Runden mit den ⭐-Feldern vorliegen, entscheidet zuerst, was auf dem
+        Platz Schläge kostet.</p>`}
+      ${e.liste.map((x,i)=>`<div style="padding:8px 0;border-top:${i?"1px solid var(--line-soft)":"none"}">
+        <div class="row" style="padding:0" onclick="openTest('${esc(x.def.key)}')">
+          <div style="width:26px;font-weight:700;color:var(--ink-faint)">${rang[i]}</div>
+          <div class="grow">
+            <div class="r-t">${esc(x.def.label)}</div>
+            <div class="r-s">${esc(x.def.category)}${
+              x.faellig.nie?" · noch nie":` · zuletzt vor ${x.faellig.tage} T.`}</div>
+          </div>
+          <div class="chev">›</div>
+        </div>
+        ${x.gruende.length?`<div class="r-s" style="margin-left:26px;opacity:.85">
+          ${x.gruende.map(g=>"· "+esc(g)).join("<br>")}</div>`:""}
+      </div>`).join("")}
+      <p class="note" style="margin-bottom:0">Sortiert nach <b>Wirkung</b>: zuerst die Kategorie,
+      die auf der Runde am meisten kostet (Strokes Gained aus den letzten
+      ${e.runden||10} Runden), dann was lange nicht gemessen wurde, zuletzt was unter deinem
+      Zielniveau liegt. <span class="r-s">Ein Test ist Mittel zum Zweck — er lohnt sich dort,
+      wo Schläge liegen, nicht dort, wo er Spaß macht.</span></p>
+    </div>`;
+}
+
 function renderTests(){
   const cats={};
   DB.testDefs.forEach(d=>{(cats[d.category]=cats[d.category]||[]).push(d);});
-  let h=`<div class="eyebrow">Tests erfassen & verfolgen</div>`;
+  let h=testEmpfehlungHtml()+`<div class="eyebrow">Tests erfassen & verfolgen</div>`;
   {
     /* Fällige Tests zusammenfassen — sonst muss man alle Kategorien
        durchblättern, um zu sehen, was ansteht. */
@@ -19732,6 +19982,99 @@ function pfRestoreView(){
    Dieselben Funktionen, die auch die Zielkette benutzt — nur mit dem eigenen
    Standort als Startpunkt statt dem Tee.
    ========================================================================== */
+/* ==========================================================================
+   LAUFENDER VORGABENSTAND (v2.35)
+   Auf der Runde stand nur „+3 zu Par". In einem deutschen Turnier zaehlt aber
+   eine andere Zahl: Wie stehst du gegenueber deiner SPIELVORGABE? „Noch 4
+   Netto-Schlaege Puffer" ist eine Entscheidungsgrundlage — „+7 brutto" ist
+   keine, weil sie die eigenen Vorgabeschlaege ignoriert.
+
+   Gerechnet wird wie in `computeRound`, damit beide dasselbe sagen:
+     Spielvorgabe = HI x Slope/113 + (CR − Par)
+     Schlaege je Loch nach Stableford-Index (SI)
+   Bei 9 Loechern werden die SI der gespielten Seite neu gerankt — sonst
+   bekaeme man auf der Back 9 systematisch zu wenige Schlaege.
+   ========================================================================== */
+/* ==========================================================================
+   NACH EINEM GROSSEN LOCH (v2.35)
+   Statistisch ist das Loch NACH einem Doppelbogey das gefaehrlichste der
+   Runde: Man will das Verlorene sofort zurueckholen und greift Ziele an, die
+   man sonst nicht angreifen wuerde. Der zweite Fehler kostet dann mehr als
+   der erste.
+
+   Der Hinweis ist bewusst zurueckhaltend: EINE Zeile, keine Warnfarbe, kein
+   Bestaetigen. Und ABSCHALTBAR — wer ihn nicht will, empfindet ihn sonst als
+   Bevormundung, und das waere schlimmer als kein Hinweis.
+   ========================================================================== */
+function rueckschlagAus(){
+  DB.ui=DB.ui||{}; DB.ui.keinRueckschlagHinweis=true;
+  persist(); pfRender(); toast("Hinweis abgeschaltet — wieder einschaltbar unter Daten");
+}
+function playRueckschlag(){
+  try{
+    if(DB.ui && DB.ui.keinRueckschlagHinweis) return null;
+    const hs=PLAY.holes||[];
+    const vor=hs[PLAY.idx-1];
+    if(!vor || vor.score==null || vor.par==null) return null;
+    const ueber=vor.score-vor.par;
+    if(ueber<2) return null;
+    return {loch:vor.hole, ueber,
+      txt: ueber>=3
+        ? "Das letzte Loch hat gekostet. Der häufigste Folgefehler ist, es sofort zurückholen zu wollen — spiel dieses Loch bewusst auf die Mitte."
+        : "Nach einem Doppelbogey ist das nächste Loch statistisch das gefährlichste. Nichts erzwingen: Mitte des Grüns reicht."};
+  }catch(e){ return null; }
+}
+
+function playVorgabe(){
+  try{
+    const t=courseTee(PLAY.course, PLAY.tee);
+    if(!t) return null;
+    const holes=PLAY.holes||[];
+    const is9 = holes.length<=9;
+    const S=t.sides||{};
+    let CR=null,SL=null,PAR=null;
+    if(is9){ const sd=(holes[0] && holes[0].hole>=10)?"Back 9":"Front 9";
+      CR=S[sd]?.cr; SL=S[sd]?.slope; PAR=S[sd]?.par; }
+    if(CR==null){ CR=t.cr18; SL=t.slope18; PAR=t.par18; }
+    const HI=(DB.profile.hcpIndex!=null?DB.profile.hcpIndex:DB.profile.currentHcp);
+    if(HI==null || SL==null || CR==null || PAR==null) return null;
+    const CHcp=Math.round(HI*SL/113+(CR-PAR));
+
+    /* Vorgabeschlaege je Loch — bei 9 Loechern die SI neu ranken. */
+    let rank={};
+    if(is9){
+      const sis=holes.map(h=>h.si).filter(x=>x!=null).sort((a,b)=>a-b);
+      sis.forEach((x,i)=>rank[x]=i+1);
+    }
+    const vgFor=h=>{
+      if(h.si==null) return 0;
+      if(is9){ const bl=rank[h.si];
+        return bl?Math.max(0,Math.floor(CHcp/9)+(bl<=(CHcp%9)?1:0)):0; }
+      return Math.max(0,Math.floor(CHcp/18)+(h.si<=(CHcp%18)?1:0));
+    };
+
+    let punkte=0, erwartet=0, gespielt=0, netto=0;
+    holes.forEach(h=>{
+      const vg=vgFor(h);
+      if(h.score==null || h.par==null) return;
+      gespielt++;
+      erwartet += 2;                                   // Par netto = 2 Punkte
+      punkte   += Math.max(0, 2 + h.par + vg - h.score);
+      netto    += (h.score - vg) - h.par;
+    });
+    if(!gespielt) return {chcp:CHcp, gespielt:0, vgNaechstes:vgFor(holes[PLAY.idx]||{})};
+    return {
+      chcp:CHcp, gespielt, punkte, erwartet, netto,
+      puffer: punkte - erwartet,                       // + = ueber Vorgabe
+      vgNaechstes: vgFor(holes[PLAY.idx]||{}),
+      /* Hochrechnung auf die volle Runde: nur ab 3 Loechern, darunter ist es
+         Zufall mit dem Anschein einer Prognose. */
+      hoch: gespielt>=3 ? Math.round(punkte/gespielt*holes.length) : null,
+      soll: holes.length*2
+    };
+  }catch(e){ logErr("playVorgabe", e, true); return null; }
+}
+
 function playCaddyNow(){
   try{
     const geo=playGeo(), h=PLAY.holes&&PLAY.holes[PLAY.idx];
@@ -19837,13 +20180,22 @@ function pfCaddyKurz(){
   /* EINFLUSS DER BEDINGUNGEN AUSWEISEN. Ohne diese Zeile wundert man sich,
      warum bei 150 m ein 165-m-Eisen empfohlen wird — die Hoehe steckt seit
      v2.18 in der Schlaegerwahl, nicht mehr nur in der Anzeige. */
+  /* VORGABENSTAND — die Zahl, nach der auf dem Platz entschieden wird.
+     „Puffer +2" heisst: zwei Stableford-Punkte ueber dem, was die eigene
+     Vorgabe verlangt. Angezeigt erst ab dem ersten gewerteten Loch. */
+  const vg=playVorgabe();
+  const vgTxt = (vg && vg.gespielt)
+    ? `<span class="pf-vg">${vg.punkte} Pkt · Puffer ${vg.puffer>=0?"+":""}${vg.puffer}${
+        vg.hoch!=null?` · hochgerechnet ${vg.hoch}`:""}${
+        vg.vgNaechstes?` · hier ${vg.vgNaechstes} Vorgabeschlag${vg.vgNaechstes>1?"e":""}`:""}</span>`
+    : (vg && vg.vgNaechstes ? `<span class="pf-vg">hier ${vg.vgNaechstes} Vorgabeschlag${vg.vgNaechstes>1?"e":""}</span>` : "");
   const bed = (now && now.spieltWie)
     ? `<span class="pf-bed">spielt wie <b>${now.spieltWie} m</b>${
         (now.cond && now.cond.teile.length) ? " · "+esc(now.cond.teile.join(" · ")) : ""}</span>`
     : "";
   return `<button type="button" class="pf-cad-line" onclick="pfInfoToggle()">
     <b>${rest!=null?rest+" m":"–"}</b>${esc(empf)}${esc(wind)}
-    ${bed}${fmbTxt}<span class="pf-cad-more">▾</span></button>`;
+    ${vgTxt}${bed}${fmbTxt}<span class="pf-cad-more">▾</span></button>`;
 }
 function pfInfoToggle(){ PLAY.pfInfoOpen=!PLAY.pfInfoOpen; pfRender(); }
 
@@ -19906,6 +20258,12 @@ function pfRender(){
     cad.innerHTML = PLAY.pfInfoOpen
       ? `<button type="button" class="pf-cad-x" onclick="pfInfoToggle()">▲ weniger</button>`
         + playInfoHtml()
+        + (function(){
+            const r=playRueckschlag();
+            return r ? `<div class="pc-plan" style="margin-top:8px">🧭 ${esc(r.txt)}
+              <button type="button" class="btn ghost" style="width:auto;padding:2px 8px;font-size:11px;margin-left:6px"
+                onclick="rueckschlagAus()">nicht mehr zeigen</button></div>` : "";
+          })()
         + `<p class="note" style="margin-bottom:0">Spielweise <b>${
             {safe:"sicher",bal:"normal",aggr:"offensiv"}[caddyMode()]||caddyMode()}</b>:
           gewichtet Straf-, Sand- und Rough-Anteil unterschiedlich. Bleibt die Empfehlung beim
@@ -20015,6 +20373,7 @@ function renderPlay(){
     <div class="play-quick2">
       ${playSel('appr','Approach-Distanz ⭐',DB.approachBuckets||[])}
       ${playSel('firstPutt','Länge des 1. Putts ⭐',DB.firstPuttDist||[])}
+      ${playSel('kurzseitig','Platz zwischen Ball und Fahne',DB.kurzseitig||[])}
       ${playSel('puttMiss','1. Putt ging …',DB.puttMiss||[])}
       ${playSel('puttRest','Rest nach 1. Putt',DB.puttRest||[])}
       <p class="note" style="grid-column:1/-1;margin:2px 0 0">
@@ -24577,7 +24936,7 @@ function openAddRound(existing, draftRound){
     const teeOpts=DB.teeResults.map(t=>`<option value="${t}">${t}</option>`).join("");
     const opt=(arr)=>`<option value="">–</option>`+arr.map(x=>`<option value="${esc(x)}">${esc(x)}</option>`).join("");
     const fpOpts=opt(DB.firstPuttDist||[]), clubOpts=opt(DB.teeClubs||[]),
-      pmOpts=opt(DB.puttMiss||[]), prOpts=opt(DB.puttRest||[]),
+      pmOpts=opt(DB.puttMiss||[]), prOpts=opt(DB.puttRest||[]), ksOpts=opt(DB.kurzseitig||[]),
       lieOpts=opt(DB.approachLies||[]), amOpts=opt(DB.approachMiss||[]),
     acOpts=opt((DB.clubDistances||[]).map(c=>c.club).filter(Boolean)), btOpts=opt(DB.bunkerTypes||[]), ptOpts=opt(DB.penaltyTypes||[]), jn=opt(["Ja","Nein"]);
     const fS="margin:0";
@@ -24602,6 +24961,7 @@ function openAddRound(existing, draftRound){
         <div class="in-grid" style="grid-template-columns:1fr 1fr;margin-top:8px">
           <div class="field" style="${fS}"><label>Approach-Distanz ⭐</label><select class="hin" data-f="appr"><option value="">–</option>${apprOpts}</select></div>
           <div class="field" style="${fS}"><label>Länge des 1. Putts ⭐</label><select class="hin" data-f="firstPutt">${fpOpts}</select></div>
+      <div class="field" style="${fS}"><label>Platz zwischen Ball und Fahne</label><select class="hin" data-f="kurzseitig">${ksOpts}</select></div>
       <div class="field" style="${fS}"><label>1. Putt ging …</label><select class="hin" data-f="puttMiss">${pmOpts}</select></div>
       <div class="field" style="${fS}"><label>Rest nach 1. Putt</label><select class="hin" data-f="puttRest">${prOpts}</select></div>
         </div>
@@ -25887,7 +26247,7 @@ function openComp(idx){
 /* ================= NAV ================= */
 let current="dash";
 const FAB_ACTION={rounds:startRound,comp:openAddComp,notes:openAddNote,swing:openSwingEdit};
-const APP_VERSION="2.33.0"; // App-Anzeigeversion (NICHT SEED.version! Diese bei jeder Änderung erhöhen)
+const APP_VERSION="2.36.0"; // App-Anzeigeversion (NICHT SEED.version! Diese bei jeder Änderung erhöhen)
 /* ---------- Darstellung: Hell/Dunkel (DB.ui.theme = "auto" | "light" | "dark") ---------- */
 const _darkMQ = (window.matchMedia? window.matchMedia("(prefers-color-scheme: dark)") : null);
 function themeSetting(){ return (DB && DB.ui && DB.ui.theme) || "auto"; }
@@ -26098,6 +26458,7 @@ function renderView(v){
 function renderViewIfDirty(v){ if (viewDirty.has(v)) renderView(v); }
 
 function renderAll(){
+  crCacheClear();   // siehe Begruendung bei crCacheClear
   try{
     ensureDefaults();
     if(typeof applyTheme==="function") applyTheme();
@@ -26538,6 +26899,17 @@ function ensureDefaults(){
   if(!Array.isArray(DB.puttMiss) || !DB.puttMiss.length)
     DB.puttMiss=["Gelocht","Kurz","Lang","Links","Rechts",
                  "Kurz links","Kurz rechts","Lang links","Lang rechts"];
+  /* KURZSEITIG (v2.35). Der groesste einzelne Score-Verlust bei mittleren
+     Handicaps ist nicht das verfehlte Gruen, sondern die FALSCHE SEITE davon:
+     Liegt der Ball dort, wo zwischen ihm und der Fahne kaum Gruen ist, muss
+     der Chip punktgenau sein — das gelingt selten. Mit Platz dahinter darf er
+     dagegen durchlaufen.
+     BENENNUNG: „short-sided" versteht ausserhalb der Fachwelt niemand, und
+     „kurzseitig" auch nicht. Deshalb beschreibt die Auswahl, was man SIEHT:
+     wie viel Gruen zwischen Ball und Fahne liegt. */
+  if(!Array.isArray(DB.kurzseitig) || !DB.kurzseitig.length)
+    DB.kurzseitig=["Grün getroffen","Viel Platz zur Fahne",
+                   "Wenig Platz — Fahne nah am Rand"];
   if(!Array.isArray(DB.puttRest) || !DB.puttRest.length)
     DB.puttRest=["Gelocht","Gimme","<0,5m","1m","1,5m","2m","3m",">3m"];
 
