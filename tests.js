@@ -152,7 +152,7 @@ try {
                  "caddyClubs","clubNorm","clubRename","bagFreiName","bagMessSpalte",
                  "tombAdd","tombClear","tombDel","MERGE_KEY","_mergeTomb","_tombFor",
                  "playCaddyNow","playTooFar","playAimChain","playMapSlot","playFocusDefault",
-                 "hcpGap","whsPool","courseStats","nassFaktor","errZeit","todayISO","puttDiagnose","sgHole","verlaesslich","testFaellig","stretchToggle","STRETCH_DONE","MALASKA_DYN","MALASKA_STAT","MALASKA_SVG","malaskaBild","POST_ROUND","POST_SVG","malaskaVideo","wxStunden","wxStundenHtml","WEATHER","lmAktiveShots","lmToggleAus","computeRound","_computeRoundRoh","playVorgabe","playRueckschlag","PLAY","testEmpfehlung","SG_ZU_TESTKAT","miniStat","sgSummary","sortedRounds","sgWeakest","crCacheClear","_crCache","lmAlleAn","lmAus","postBild","postToggle","POST_DONE","WARMUP_PLANS","openPostStretchSheet","openStretchSheet","fmtN","fmtDate","fmtDT","fmtDur","zielPrognose","indexTempo","trainingsEmpfehlung","fitnessWirkung","stratRueckschau","sgHoleShots","sgVerlauf",
+                 "hcpGap","whsPool","courseStats","nassFaktor","errZeit","todayISO","puttDiagnose","sgHole","verlaesslich","testFaellig","stretchToggle","STRETCH_DONE","MALASKA_DYN","MALASKA_STAT","MALASKA_SVG","malaskaBild","POST_ROUND","POST_SVG","malaskaVideo","wxStunden","wxStundenHtml","WEATHER","lmAktiveShots","lmToggleAus","computeRound","_computeRoundRoh","playVorgabe","playRueckschlag","PLAY","testEmpfehlung","SG_ZU_TESTKAT","miniStat","smashAusLM","clubNorm","defFor","uebText","prepLog","prepHeute","prepQuote","todayISO","sgSummary","sortedRounds","sgWeakest","crCacheClear","_crCache","lmAlleAn","lmAus","postBild","postToggle","POST_DONE","WARMUP_PLANS","openPostStretchSheet","openStretchSheet","fmtN","fmtDate","fmtDT","fmtDur","zielPrognose","indexTempo","trainingsEmpfehlung","fitnessWirkung","stratRueckschau","sgHoleShots","sgVerlauf",
                  "holeGir","holeUpDown","holeSandSave","platzAnalyse","taskFortschritt",
                  "warmupSchedule","warmupKorrektiv","WARMUP_PLANS","medianSplit","pearson",
                  "rKrit","gpKey","gpLabel","gpTotalES","pickClub","_aimClub","_aimLerp",
@@ -2965,6 +2965,144 @@ group("wxStunden — die nächsten Stunden, nicht nur der Moment");
   }
 }
 
+/* ============ 24bc. Vorbereitung nachhalten ============ */
+group("prepLog / prepQuote — automatisch statt Erledigt-Knopf");
+{
+  const log=G("prepLog"), heute=G("prepHeute"), quote=G("prepQuote"),
+        tog=G("stretchToggle"), DONE=G("STRETCH_DONE"), DYN=G("MALASKA_DYN"),
+        heuteISO=G("todayISO"), DB=G("DB");
+  if (typeof log === "function" && DB) {
+    DB.prep={};
+    ok("vorher nichts vermerkt", heute("pre")===false);
+    log("pre");
+    ok("nach dem Vermerk erkannt", heute("pre")===true);
+    const stand=JSON.stringify(DB.prep);
+    log("pre");
+    eq("zweimaliges Vermerken ändert nichts", JSON.stringify(DB.prep), stand);
+    ok("andere Art bleibt unberührt", heute("post")===false);
+
+    /* AUTOMATISCH ab der HÄLFTE: Ein zusätzlicher Erledigt-Knopf wäre ein
+       weiterer Tipp, den man auf Loch 1 vergisst — und dann fehlt der Eintrag,
+       obwohl man gedehnt hat. Auf vollständiges Abhaken zu warten hieße, die
+       Erfassung an einer Formalie scheitern zu lassen. */
+    if (typeof tog === "function" && DONE && DYN) {
+      DB.prep={};
+      Object.keys(DONE).forEach(k=>delete DONE[k]);
+      const noetig=Math.ceil(DYN.length/2);
+      for(let i=0;i<noetig-1;i++) tog(i);
+      ok("unter der Hälfte noch nicht vermerkt", heute("pre")===false,
+         `${noetig-1} von ${DYN.length}`);
+      tog(noetig-1);
+      ok("ab der Hälfte vermerkt", heute("pre")===true,
+         `${noetig} von ${DYN.length}`);
+      Object.keys(DONE).forEach(k=>delete DONE[k]);
+    }
+
+    /* QUOTE JE RUNDE, nicht je Kalendertag: An Tagen ohne Golf muss niemand
+       dehnen — eine Tagesquote wäre systematisch niedrig und damit
+       entmutigend ohne Aussage. */
+    const altR=DB.rounds;
+    const tag=n=>new Date(Date.now()-n*86400000).toISOString().slice(0,10);
+    DB.prep={}; DB.rounds=[];
+    ok("unter 3 Runden keine Quote", quote(10).reicht===false);
+    [0,7,14,21,28].forEach((d,i)=>{
+      DB.prep[tag(d)]={pre:"x"};
+      if(i<4) DB.prep[tag(d)].warm="x";
+      if(i<2) DB.prep[tag(d)].post="x";
+      DB.rounds.push({id:"PR"+i, date:tag(d), course:"T", holes:[]});
+    });
+    const q=quote(10);
+    ok("ab 3 Runden eine Quote", q.reicht===true);
+    eq("Runden gezählt", q.n, 5);
+    eq("Preround", q.pre, 5);
+    eq("Aufwärmen", q.warm, 4);
+    eq("Post Round", q.post, 2);
+    /* Das Dehnen nach der Runde faellt oft auf den Folgetag (spaete Runde,
+       Dehnen zu Hause) — das muss zählen. */
+    DB.prep={}; DB.rounds=[{id:"PX", date:tag(3), course:"T", holes:[]},
+                           {id:"PY", date:tag(5), course:"T", holes:[]},
+                           {id:"PZ", date:tag(9), course:"T", holes:[]}];
+    DB.prep[tag(2)]={post:"x"};        // Folgetag der Runde von tag(3)
+    eq("Post am Folgetag zählt", quote(10).post, 1);
+    DB.rounds=altR; DB.prep={};
+    /* Bewusst NICHT gebaut: Serienzähler und Score-Vergleich. */
+    const src=fs.readFileSync(FILE,"utf8");
+    /* Der Prüfbereich muss auf die VORBEREITUNG eingegrenzt sein. Eine Suche
+       über die ganze Datei schlägt auf `birdieStreak` an — die längste
+       Birdie-Serie einer Runde, ein seit Langem bestehendes Feature und mit
+       dem Tracking nicht verwandt. Eine Prüfung, die nie grün werden kann,
+       ist keine Prüfung. */
+    const prepTeil = src.slice(src.indexOf("function prepLog"),
+                               src.indexOf("function prepQuoteHtml")+2600)
+                        .replace(/\/\*[\s\S]*?\*\//g,"");
+    ok("kein Serienzähler im Tracking",
+       !/streak|in Folge/i.test(prepTeil));
+    ok("Begründung dokumentiert", /bricht beim ersten verpassten Tag zusammen/.test(src));
+    /* `uebText(d)` hebt **fett** in den Übungsbeschreibungen hervor — nur
+       diese eine Regel, damit die Texte lesbar bleiben statt formatiert. */
+    const ut=G("uebText");
+    if (typeof ut === "function") {
+      ok("fett wird umgesetzt", /<b>Ball<\/b>/.test(ut("Den **Ball** treffen")));
+      ok("Text ohne Auszeichnung bleibt unverändert", ut("Nur Text")==="Nur Text");
+    }
+  }
+}
+
+/* ============ 24bb. Smash Factor aus dem Launch Monitor ============ */
+group("smashAusLM — elf Werte nicht abtippen müssen");
+{
+  const sl=G("smashAusLM"), DB=G("DB"), norm=G("clubNorm"), df=G("defFor");
+  if (typeof sl === "function" && DB) {
+    /* Der Test hat elf Schlägerfelder — und genau diese Werte liegen nach
+       jedem R10-Import bereits vor. Elf Zahlen abzutippen ist Fleißarbeit mit
+       Fehlerrisiko: Ein Vertipper erzeugt im Verlauf einen Sprung, den es nie
+       gab. */
+    const altS=DB.lmSessions;
+    const mk=(club,sm,n)=>Array.from({length:n},(_,i)=>({club, smash:sm+((i%3)-1)*0.02}));
+    DB.lmSessions=[{id:"SL1", date:"2026-08-01", shots:[
+      ...mk("Driver",1.44,12), ...mk("3 Wood",1.42,9), ...mk("7 Iron",1.36,11),
+      ...mk("Pitching Wedge",1.24,7), ...mk("4 Iron",1.37,3)]}];
+    const r=sl();
+    ok("liefert Werte", !!r && Object.keys(r.werte).length>0);
+    /* NAMENSZUORDNUNG über clubNorm: Der R10 schreibt „7 Iron", das Testfeld
+       heißt „7-Eisen". Ohne Vereinheitlichung fände sich nichts. */
+    ok("englische R10-Namen werden zugeordnet", r.werte["7-Eisen"]!=null,
+       JSON.stringify(r.werte));
+    ok("Wedge zugeordnet", r.werte["PW"]!=null);
+    ok("Werte plausibel", r.werte["Driver"]>1.3 && r.werte["Driver"]<1.55,
+       "Driver="+r.werte["Driver"]);
+    /* MINDESTZAHL: Aus drei Schlägen einen Testwert zu bilden hieße,
+       Tagesform als Messung auszugeben. */
+    ok("unter 5 Schlägen kein Wert", r.werte["4-Eisen"]===undefined,
+       "4-Eisen="+r.werte["4-Eisen"]);
+    ok("Herkunft wird ausgewiesen",
+       Array.isArray(r.herkunft) && r.herkunft.every(x=>x.n>=5));
+    /* Getrimmtes Mittel ab 8 Messungen — ein Fersentreffer soll den Schnitt
+       nicht bestimmen. */
+    const d12=r.herkunft.find(x=>x.n>=8), d7=r.herkunft.find(x=>x.n<8);
+    if(d12) ok("ab 8 Messungen getrimmt", d12.getrimmt===true, JSON.stringify(d12));
+    if(d7)  ok("darunter einfacher Mittelwert", d7.getrimmt===false, JSON.stringify(d7));
+    /* Ohne Launch-Daten darf nichts vorgegaukelt werden. */
+    DB.lmSessions=[];
+    eq("ohne Sitzungen kein Ergebnis", sl(), null);
+    /* Mehrfachfelder wie „5W/7W" müssen beide Varianten prüfen. */
+    if (df) {
+      const feld=df("smashfactor").inputs.find(i=>i.key.indexOf("/")>=0);
+      ok("Testdefinition enthält ein Mehrfachfeld", !!feld, feld&&feld.key);
+      const src=fs.readFileSync(FILE,"utf8");
+      ok("Mehrfachfelder werden aufgeteilt", /split\("\/"\)/.test(src));
+    }
+    /* BEWUSST NICHT AUTOMATISCH: Der Test wird vorgeschlagen, nicht
+       gespeichert — ob eine Sitzung einen Eintrag wert ist, entscheidet der
+       Spieler. */
+    const src=fs.readFileSync(FILE,"utf8");
+    ok("füllt nur die Felder, speichert nicht",
+       /function smashUebernehmen[\s\S]{0,600}prüfen und speichern/.test(src));
+    ok("Knopf nur beim Smash-Factor-Test", /key==="smashfactor"/.test(src));
+    DB.lmSessions=altS;
+  }
+}
+
 /* ============ 24ba. Welchen Test als Nächstes? ============ */
 group("testEmpfehlung — Strokes Gained entscheidet, nicht die Vorliebe");
 {
@@ -3082,19 +3220,17 @@ group("Die Zahlen, nach denen auf dem Platz entschieden wird");
     delete DB.ui.keinRueckschlagHinweis; P.holes=[];
     ok("Abschalter ist erreichbar", /function rueckschlagAus/.test(src));
   }
-  /* BENENNUNG: „short-sided" versteht kaum jemand — die Auswahl beschreibt,
-     was man SIEHT. */
-  ok("Feld heißt verständlich", /Platz zwischen Ball und Fahne/.test(src));
-  ok("Auswahl beschreibt die Lage",
+  /* BENENNUNG: Das Feld heißt auf ausdrücklichen Wunsch „Shortsided" — der
+     Fachbegriff also, nicht die Umschreibung. Das ist vertretbar, WEIL die
+     Auswahlwerte selbst beschreiben, was gemeint ist: Wer „Shortsided" nicht
+     kennt, versteht spätestens beim Aufklappen, worum es geht. Genau darauf
+     kommt es an — der Feldname darf kurz sein, solange die Auswahl eindeutig
+     ist. */
+  ok("Feld heißt Shortsided", /Shortsided/.test(src));
+  ok("Auswahl beschreibt die Lage im Klartext",
      /Wenig Platz — Fahne nah am Rand/.test(src));
-  /* Der Fachbegriff darf im KOMMENTAR stehen — dort erklärt er die
-     Namenswahl. In der Oberfläche hat er nichts zu suchen. */
-  {
-    const nurCode = [...src.matchAll(/<script([^>]*)>([\s\S]*?)<\/script>/g)]
-      .filter(m=>!/\bsrc=|application\/json|text\/markdown|devdocs/.test(m[1]))
-      .map(m=>m[2]).join("\n").replace(/\/\*[\s\S]*?\*\//g,"");
-    ok("kein Fachbegriff in der Oberfläche", !/short.?sided/i.test(nurCode));
-  }
+  ok("und nennt den unproblematischen Fall",
+     /Viel Platz zur Fahne/.test(src));
 }
 
 /* ============ 24ay. Zwischenspeicher für Rundenwerte ============ */

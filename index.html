@@ -2201,6 +2201,20 @@ Erste, was auf dem Platz passiert.
 Kraftentfaltung — genau das Gegenteil dessen, was am ersten Tee gebraucht wird. Die statischen
 Uebungen bleiben beim Cool-down nach der Runde; eine Pruefung sichert das ab.
 
+**Vorbereitung nachhalten (v2.38).** `prepLog(art)` vermerkt AUTOMATISCH (kein Erledigt-Knopf —
+den vergisst man auf Loch 1): ab der HAELFTE der abgehakten Uebungen im Stretch-Blatt, beim
+Aufwaermen beim Festlegen des Ablaufs. `prepHeute(art)` setzt das ✓ auf den Knoepfen,
+`prepQuote(n)`/`prepQuoteHtml()` zeigen die Quote im Fitness-Reiter.
+Gezaehlt werden nur RUNDENTAGE; Post-Round zaehlt auch am FOLGETAG (spaete Runde, Dehnen zu
+Hause). KEIN Serienzaehler (bricht beim ersten verpassten Tag zusammen) und KEIN Score-Vergleich
+(bei 2–3 Runden im Monat statistisch wertlos).
+
+**Smash Factor aus dem Launch Monitor (v2.37).** `smashAusLM()` bildet die elf Testfelder aus den
+R10-Sitzungen, `smashUebernehmen()` traegt sie in die offene Maske ein. Zuordnung ueber
+`clubNorm` („7 Iron" -> „7-Eisen"), Mehrfachfelder wie „5W/7W" pruefen beide Varianten.
+GRENZEN: mindestens 5 Schlaege je Schlaeger, ab 8 getrimmtes Mittel, und NUR eintragen statt
+speichern — ob eine Sitzung einen Testeintrag wert ist, entscheidet der Spieler.
+
 **Testempfehlung (v2.36).** `testEmpfehlung(max)` und `testEmpfehlungHtml()` beantworten oben
 auf der Tests-Seite die Frage, mit der man sie oeffnet: WAS jetzt messen? Gewichtung: Strokes
 Gained (bis 100) vor Messlage (nie 60 / ueberfaellig bis 40) vor Zielniveau (30). Die Tabelle
@@ -2926,6 +2940,41 @@ erkennbar ist, dass es ein Video gab.
 ## Changelog
 > **Regel:** Bei JEDER inhaltlichen Änderung hier oben einen datierten Eintrag ergänzen (neueste
 > zuerst): Datum · was geändert · betroffene Bereiche. Kurz halten.
+
+- **v2.36.1 · 2026-08-11** — **Erklärtext zur 1.-Putt-Länge entfernt** (er stand dauerhaft in
+  der Eingabemaske und kostete dort Platz; die Bedeutung ist inzwischen bekannt).
+  **Feld „Platz zwischen Ball und Fahne" umbenannt in „Shortsided"** — in PWA und Uhr. Der
+  Fachbegriff ist hier vertretbar, weil die **Auswahlwerte** beschreiben, was gemeint ist
+  („Viel Platz zur Fahne" / „Wenig Platz — Fahne nah am Rand"): Wer den Begriff nicht kennt,
+  versteht ihn beim Aufklappen. Der Feldname darf kurz sein, solange die Auswahl eindeutig ist.
+
+- **v2.38.0 · 2026-08-11** — **Vorbereitung wird nachgehalten.** Preround-Stretch, Aufwärmen und
+  Post-Round-Stretch werden **automatisch** vermerkt — kein zusätzlicher „Erledigt"-Knopf, denn
+  genau den vergisst man auf Loch 1. Wer im Stretch-Blatt **mindestens die Hälfte** der Übungen
+  abhakt, hat es gemacht; beim Aufwärmen zählt das Festlegen des Ablaufs, weil es dort keine
+  Haken gibt. Auf den drei Knöpfen erscheint ein ✓, wenn heute schon erledigt.
+  Im Reiter **Fitness** die Quote über die letzten Rundentage: „7 von 10 · 70 %".
+  **Vier bewusste Entscheidungen:** (1) An den **Tag** gebunden, nicht an die Runde — die drei
+  Dinge passieren Stunden auseinander. (2) Nur **Rundentage** werden gezählt; an spielfreien
+  Tagen ist „nicht gedehnt" keine Information. (3) **Dehnen nach einer späten Runde zählt auch
+  am Folgetag** — sonst wäre die Quote systematisch zu niedrig und bestrafte genau das, was man
+  fördern will. (4) **Kein Serienzähler und keine Verknüpfung mit dem Score:** Eine Kette bricht
+  beim ersten verpassten Tag zusammen, und ein Score-Vergleich wäre bei zwei bis drei Runden im
+  Monat statistisch wertlos. Unter 3 Rundentagen wird gar keine Quote gezeigt.
+
+- **v2.37.0 · 2026-08-11** — **Smash Factor aus dem Launch Monitor übernehmen.** Der Test hat
+  elf Schlägerfelder — und genau diese Werte liegen nach jedem R10-Import bereits vor. Elf Zahlen
+  abzutippen ist Fleißarbeit mit Fehlerrisiko: Ein Vertipper erzeugt im Verlauf einen Sprung, den
+  es nie gab.
+  Neu `smashAusLM()` und ein Knopf **„Aus dem Launch Monitor übernehmen"** in der Testmaske. Die
+  Zuordnung läuft über `clubNorm` — der R10 schreibt „7 Iron", das Testfeld heißt „7-Eisen".
+  Mehrfachfelder wie „5W/7W" prüfen beide Varianten und nehmen die mit mehr Messungen.
+  **Drei bewusste Grenzen:** Mindestens **5 Schläge** je Schläger, sonst gibt es keinen Wert —
+  aus drei Schlägen einen Testwert zu bilden hieße, Tagesform als Messung auszugeben. Ab **8
+  Messungen getrimmtes Mittel**, damit ein Fersentreffer den Schnitt nicht bestimmt. Und die
+  Werte werden nur **eingetragen, nicht gespeichert**: Ob eine Sitzung einen Testeintrag wert
+  ist, entscheidet der Spieler. Abgewählte Sitzungen aus dem Launch-Reiter bleiben außen vor.
+  Der Knopf erscheint nur, wenn Daten vorliegen. 13 Prüfungen.
 
 - **v2.36.0 · 2026-08-11** — **„Was jetzt messen?" ganz oben auf der Tests-Seite.** Die Seite
   listete Kategorien alphabetisch — man suchte sich selbst etwas aus, meist das, was man ohnehin
@@ -17479,6 +17528,78 @@ const SG_ZU_TESTKAT = {
 };
 const SG_LABEL = { lang:"Langes Spiel", app:"Annäherung", kurz:"Kurzes Spiel", putt:"Putten" };
 
+/* ==========================================================================
+   SMASH FACTOR AUS DEM LAUNCH MONITOR (v2.37)
+   Der Smash-Factor-Test hat elf Schlaegerfelder — und genau diese Werte
+   liegen nach jedem R10-Import bereits vor. Sie von Hand abzutippen ist
+   Fleissarbeit mit Fehlerrisiko: Wer elf Zahlen ueberträgt, vertippt sich
+   irgendwann, und der Verlauf zeigt dann einen Sprung, den es nie gab.
+
+   Die Zuordnung laeuft ueber `clubNorm` — der R10 schreibt „7 Iron", das
+   Testfeld heisst „7-Eisen". Ohne Vereinheitlichung fande sich nichts.
+
+   BEWUSST NICHT AUTOMATISCH: Der Test wird VORGESCHLAGEN, nicht gespeichert.
+   Eine Sitzung mit fuenf Schlaegen je Schlaeger ist kein Test, und ob die
+   Werte einen Eintrag wert sind, entscheidet der Spieler. Der Knopf fuellt
+   die Felder, das Speichern bleibt ein eigener Schritt.
+   ========================================================================== */
+function smashAusLM(minSchlaege){
+  const min=minSchlaege||5;
+  const d=(typeof defFor==="function")?defFor("smashfactor"):null;
+  if(!d) return null;
+  /* Alle aktiven Sitzungen zusammen — eine einzelne hat oft zu wenige
+     Schlaege je Schlaeger. Abgewaehlte Sitzungen (lmAus) bleiben aussen vor,
+     damit die Auswahl im Launch-Reiter auch hier gilt. */
+  const proKlasse={};
+  (lmSessionsSorted()||[]).forEach(se=>{
+    if(typeof lmAus!=="undefined" && lmAus.has(se.id)) return;
+    (se.shots||[]).forEach(sh=>{
+      if(!sh || !sh.club || !isFinite(sh.smash)) return;
+      const k=(typeof clubNorm==="function")?clubNorm(sh.club):String(sh.club).toLowerCase();
+      (proKlasse[k]=proKlasse[k]||[]).push(+sh.smash);
+    });
+  });
+  if(!Object.keys(proKlasse).length) return null;
+
+  const werte={}, herkunft=[];
+  d.inputs.forEach(inp=>{
+    /* Ein Testfeld kann mehrere Schlaeger meinen („5W/7W"). Jede Variante
+       pruefen und die mit den meisten Messungen nehmen. */
+    const teile=String(inp.key).split("/").map(x=>x.trim()).filter(Boolean);
+    let best=null;
+    teile.forEach(t=>{
+      const k=(typeof clubNorm==="function")?clubNorm(t):t.toLowerCase();
+      const arr=proKlasse[k];
+      if(arr && arr.length>=min && (!best || arr.length>best.arr.length))
+        best={k, arr, quelle:t};
+    });
+    if(!best) return;
+    /* Getrimmtes Mittel: Ein Schlag von der Fersen kann den Schnitt spuerbar
+       druecken, und der Test soll abbilden, was der Schlaeger normalerweise
+       leistet. */
+    const t=(typeof STRAT!=="undefined" && STRAT._trimmedSd && best.arr.length>=8)
+      ? STRAT._trimmedSd(best.arr) : null;
+    const mittel = t ? t.mean : best.arr.reduce((a,b)=>a+b,0)/best.arr.length;
+    werte[inp.key]=Math.round(mittel*100)/100;
+    herkunft.push({feld:inp.label, n:best.arr.length, getrimmt:!!t});
+  });
+  if(!Object.keys(werte).length) return null;
+  return {werte, herkunft, min};
+}
+
+/* Fuellt die Eingabefelder des offenen Tests — ohne zu speichern. */
+function smashUebernehmen(){
+  const r=smashAusLM();
+  if(!r){ toast("Keine Launch-Daten mit genug Schlägen je Schläger"); return; }
+  let n=0;
+  document.querySelectorAll(".t-in").forEach(el=>{
+    const k=el.dataset.k;
+    if(r.werte[k]!=null){ el.value=String(r.werte[k]).replace(".",","); n++; }
+  });
+  if(typeof recalcLive==="function") recalcLive();
+  toast(n+" Werte übernommen — prüfen und speichern");
+}
+
 function testEmpfehlung(max){
   try{
     const sum=(typeof sgSummary==="function") ? sgSummary(sortedRounds().slice(-10)) : null;
@@ -17830,6 +17951,36 @@ function tempoHtml(){
 }
 
 /* Trainingsempfehlung — die Bruecke von der Messung zur Uebung. */
+/* Vorbereitungsquote — gehoert ins Training, nicht auf die Heute-Seite: Dort
+   will man handeln, hier zurueckblicken. */
+function prepQuoteHtml(){
+  const q=prepQuote(10);
+  if(!q.reicht) return `<div class="eyebrow">Vorbereitung</div>
+    <div class="card pad"><p class="note" style="margin:0">Ab 3 erfassten Runden erscheint
+    hier, wie regelmäßig du dich vorbereitest. Bisher ${q.n}.
+    <span class="r-s">Erfasst wird automatisch: Wer im Preround- oder Post-Round-Blatt
+    mindestens die Hälfte der Übungen abhakt oder im Aufwärmen einen Plan festlegt, hat es
+    gemacht — kein zusätzlicher Tipp nötig.</span></p></div>`;
+  const zeile=(lab,v)=>{
+    const p=Math.round(v/q.n*100);
+    const farbe = p>=80?"up" : p>=50?"" : "down";
+    return `<div class="stat-line"><span>${lab}</span>
+      <b class="${farbe}">${v} von ${q.n} <span class="r-s">${p} %</span></b></div>`;
+  };
+  return `<div class="eyebrow">Vorbereitung · letzte ${q.n} Runden</div>
+    <div class="card pad">
+      ${zeile("🤸 Preround Stretch", q.pre)}
+      ${zeile("🔥 Aufwärmen", q.warm)}
+      ${zeile("🧘 Post Round Stretch", q.post)}
+      <p class="note" style="margin-bottom:0">Gezählt werden nur <b>Rundentage</b> — an Tagen
+      ohne Golf ist „nicht gedehnt" keine Information.
+      Dehnen nach einer späten Runde zählt auch am Folgetag.
+      <span class="r-s">Bewusst als Quote und nicht als Kette — eine Quote verzeiht Lücken.
+      Eine Verknüpfung mit dem Score gibt es absichtlich nicht: bei zwei bis drei Runden im
+      Monat wäre sie statistisch wertlos.</span></p>
+    </div>`;
+}
+
 function trainingsplanHtml(){
   const e=trainingsEmpfehlung();
   if(!e.length) return `<div class="eyebrow">Woran jetzt arbeiten?</div>
@@ -20373,14 +20524,9 @@ function renderPlay(){
     <div class="play-quick2">
       ${playSel('appr','Approach-Distanz ⭐',DB.approachBuckets||[])}
       ${playSel('firstPutt','Länge des 1. Putts ⭐',DB.firstPuttDist||[])}
-      ${playSel('kurzseitig','Platz zwischen Ball und Fahne',DB.kurzseitig||[])}
+      ${playSel('kurzseitig','Shortsided',DB.kurzseitig||[])}
       ${playSel('puttMiss','1. Putt ging …',DB.puttMiss||[])}
       ${playSel('puttRest','Rest nach 1. Putt',DB.puttRest||[])}
-      <p class="note" style="grid-column:1/-1;margin:2px 0 0">
-        <b>Länge des 1. Putts</b> = Abstand zum Loch, wenn du das Grün betrittst — nicht das,
-        was nach dem Putt übrig bleibt. Aus dieser Zahl berechnet sich das Strokes Gained beim
-        Putten: Wer aus 8 m zwei Putts braucht, hat nichts verloren; wer aus 1 m zwei braucht,
-        einen ganzen Schlag.</p>
       ${teeField}
       ${playNum('distToPin','Rest zur Fahne nach Approach (m)')}
     </div>
@@ -22126,7 +22272,8 @@ function renderFitness(){
   const feelings=yoga.map(s=>s.feeling).filter(x=>x!=null);
   const last=all[all.length-1];
   const l30=all.filter(s=>daysSince(s.date)!=null&&daysSince(s.date)<=30).length;
-  let h=`<div class="eyebrow">Bringt das Training etwas?</div>`+fitnessWirkungHtml()
+  let h=prepQuoteHtml()
+    +`<div class="eyebrow">Bringt das Training etwas?</div>`+fitnessWirkungHtml()
     +`<div class="eyebrow">Fitness · Überblick</div>
   <div class="grid2">
     <div class="card kpi"><div class="lab">Einheiten gesamt</div><div class="val tnum">${all.length}</div><div class="sub">letzte 30 Tage: ${l30}</div></div>
@@ -22282,15 +22429,15 @@ function renderHeute(){
 
   <div class="eyebrow">Vor der Runde</div>
     <button class="btn gold" id="qhStretch"
-      style="margin-bottom:8px;font-size:15px;padding:14px">🤸 Preround Stretch</button>
+      style="margin-bottom:8px;font-size:15px;padding:14px">🤸 Preround Stretch${prepHeute("pre")?" ✓":""}</button>
     <button class="btn gold" id="qhWarm"
-      style="margin-bottom:8px;font-size:15px;padding:14px">🔥 Aufwärmen – Bälle, Kurzspiel, Putts</button>
+      style="margin-bottom:8px;font-size:15px;padding:14px">🔥 Aufwärmen – Bälle, Kurzspiel, Putts${prepHeute("warm")?" ✓":""}</button>
     <button class="btn" id="qhPlay"
       style="margin-bottom:14px;font-size:15px;padding:14px">▶ Spielmodus – Loch für Loch spielen</button>
 
   <div class="eyebrow">Nach der Runde</div>
     <button class="btn gold" id="qhPost"
-      style="margin-bottom:14px;font-size:15px;padding:14px">🧘 Post Round Stretch</button>
+      style="margin-bottom:14px;font-size:15px;padding:14px">🧘 Post Round Stretch${prepHeute("post")?" ✓":""}</button>
   <div class="card pad">
     <div style="display:flex;justify-content:space-between;align-items:baseline">
       <div><div class="r-s">Handicap-Index</div><div class="tnum" style="font-family:var(--mono);font-size:38px;font-weight:600;color:var(--pine-deep);letter-spacing:-.02em">${idx!=null?idx.toFixed(1).replace(".",","):"–"}</div></div>
@@ -22587,8 +22734,18 @@ function warmupTeeVorschlag(){
   const d=new Date(Date.now()+45*60000); d.setMinutes(d.getMinutes()>30?60:30,0,0);
   return String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0");
 }
-function warmupSetPlan(id){ WU.plan=id; openWarmupSheet(true); }
-function warmupSetTee(v){ WU.tee=v; warmupRefresh(); }
+function warmupSetPlan(id){
+  /* Beim Aufwaermen gibt es keine Haken zum Abzaehlen. Gewertet wird deshalb
+     das FESTLEGEN des Ablaufs (Plan oder Abschlagzeit) — nicht das blosse
+     Oeffnen: Wer nur nachsieht, welcher Plan hinterlegt ist, hat sich nicht
+     aufgewaermt. */
+  prepLog("warm"); WU.plan=id; openWarmupSheet(true); }
+function warmupSetTee(v){
+  /* Beim Aufwaermen gibt es keine Haken zum Abzaehlen. Gewertet wird deshalb
+     das FESTLEGEN des Ablaufs (Plan oder Abschlagzeit) — nicht das blosse
+     Oeffnen: Wer nur nachsieht, welcher Plan hinterlegt ist, hat sich nicht
+     aufgewaermt. */
+  prepLog("warm"); WU.tee=v; warmupRefresh(); }
 
 /* Laufende Anzeige: welcher Block ist JETZT dran, wie viel Zeit bleibt.
    Genau das war der Grund fuer den gefuehrten Ablauf — ohne Zeitanker
@@ -22723,10 +22880,92 @@ function uebText(t){
   return esc(String(t||"")).replace(/\*\*([^*]+)\*\*/g, "<b>$1</b>");
 }
 
+/* ==========================================================================
+   VORBEREITUNG NACHHALTEN (v2.38)
+   Getrackt wird, ob Preround-Stretch, Aufwaermen und Post-Round-Stretch
+   stattgefunden haben. Vier Entscheidungen dahinter:
+
+   1. AUTOMATISCH statt „Erledigt"-Knopf. Ein zusaetzlicher Tipp waere genau
+      der, den man auf Loch 1 vergisst. Wer ein Blatt oeffnet und mindestens
+      die HAELFTE der Uebungen abhakt, hat es gemacht — ein ehrlicher
+      Naeherungswert, der nichts kostet.
+   2. AN DEN TAG gebunden, nicht an die Runde. Der Preround-Stretch passiert
+      vor dem Losfahren, die Runde beginnt spaeter, der Post-Round-Stretch
+      danach — eine Zuordnung zur Runde ginge in der Praxis oft daneben.
+   3. KEINE STREAK. „12 Tage in Folge" erzeugt Druck und bricht beim ersten
+      verpassten Tag zusammen; dann laesst man es ganz. Eine Quote ueber die
+      letzten Rundentage verzeiht Luecken und sagt dasselbe.
+   4. KEINE VERKNUEPFUNG MIT DEM SCORE. Die Versuchung ist gross („Runden mit
+      Aufwaermen 2,3 Schlaege besser"), aber bei zwei bis drei Runden im Monat
+      waere das statistisch wertlos — man wuerde einer Zahl folgen, die nichts
+      bedeutet.
+   ========================================================================== */
+function prepLog(art){
+  try{
+    DB.prep = DB.prep || {};
+    const t = todayISO();
+    DB.prep[t] = DB.prep[t] || {};
+    if(DB.prep[t][art]) return;                    // heute schon vermerkt
+    DB.prep[t][art] = new Date().toISOString();
+    /* Aelter als gut ein Jahr braucht niemand — die Quote laeuft ueber die
+       letzten zehn Rundentage, und der Datenstand wandert in den Sync. */
+    const grenze = new Date(Date.now()-400*86400000).toISOString().slice(0,10);
+    Object.keys(DB.prep).forEach(k=>{ if(k<grenze) delete DB.prep[k]; });
+    persist();
+  }catch(e){ logErr("prepLog", e, true); }
+}
+
+function prepHeute(art){
+  try{ return !!(DB.prep && DB.prep[todayISO()] && DB.prep[todayISO()][art]); }
+  catch(e){ return false; }
+}
+
+/* Quote ueber die letzten N RUNDENTAGE — nicht ueber Kalendertage. An Tagen
+   ohne Golf ist „nicht gedehnt" keine Information, und eine Quote, die alle
+   spielfreien Tage mitzaehlt, waere dauerhaft niederschmetternd und falsch.
+
+   SONDERFALL POST-ROUND: Nach einer spaeten Runde dehnt man oft erst zu
+   Hause, und dann ist es schon nach Mitternacht. Deshalb zaehlt der
+   Post-Round-Eintrag auch am FOLGETAG der Runde. Ohne diese Regel waere die
+   Quote systematisch zu niedrig und wuerde genau das bestrafen, was man
+   foerdern will.
+
+   BEWUSST NICHT GEBAUT: ein Serienzaehler. Eine Kette „12 in Folge" erzeugt
+   Druck und bricht beim ersten verpassten Tag zusammen — dann laesst man es
+   ganz. Ebenso wenig ein Score-Vergleich: Bei zwei bis drei Runden im Monat
+   waere er statistisch wertlos. */
+function prepQuote(n){
+  const tage=[...new Set((sortedRounds()||[]).map(r=>r.date).filter(Boolean))]
+    .sort().slice(-(n||10));
+  const log=DB.prep||{};
+  const naechsterTag=d=>{
+    const t=new Date(d+"T12:00:00");
+    t.setDate(t.getDate()+1);
+    const p=x=>String(x).padStart(2,"0");
+    return `${t.getFullYear()}-${p(t.getMonth()+1)}-${p(t.getDate())}`;
+  };
+  const z={pre:0, warm:0, post:0};
+  tage.forEach(t=>{
+    const e=log[t]||{};
+    if(e.pre) z.pre++;
+    if(e.warm) z.warm++;
+    const f=log[naechsterTag(t)]||{};
+    if(e.post || f.post) z.post++;
+  });
+  /* Unter 3 Rundentagen keine Quote: „1 von 1" klingt nach 100 Prozent und
+     ist doch nur ein einzelner Tag. */
+  return {n:tage.length, reicht:tage.length>=3, ...z};
+}
+
 let STRETCH_DONE = {};      // nur fuer die Sitzung, absichtlich nicht persistent
 
 function stretchToggle(i){
   STRETCH_DONE[i] = !STRETCH_DONE[i];
+  /* Ab der HAELFTE gilt es als gemacht. Nicht schon beim ersten Haken — wer
+     hineinschaut, hat nichts getan. Aber auch nicht erst bei allen: Eine
+     Huerde, die man knapp verfehlt, entwertet die ganze Erfassung. */
+  if(MALASKA_DYN.filter((_,k)=>STRETCH_DONE[k]).length >= Math.ceil(MALASKA_DYN.length/2))
+    prepLog("pre");
   const el=document.getElementById("stRow"+i);
   if(el) el.classList.toggle("done", !!STRETCH_DONE[i]);
   const hk=document.getElementById("stHak"+i);
@@ -22743,6 +22982,8 @@ function stretchReset(){ STRETCH_DONE={}; openStretchSheet(); }
 let POST_DONE = {};
 function postToggle(i){
   POST_DONE[i]=!POST_DONE[i];
+  if(POST_ROUND.filter((_,k)=>POST_DONE[k]).length >= Math.ceil(POST_ROUND.length/2))
+    prepLog("post");
   const el=document.getElementById("poRow"+i);
   if(el) el.classList.toggle("done", !!POST_DONE[i]);
   const hk=document.getElementById("poHak"+i);
@@ -24816,6 +25057,25 @@ function openTest(key){
     </details>`;
   }
   h+=`<div style="margin:18px 0 10px" class="eyebrow" >Neuer Eintrag</div>`;
+  /* ÜBERNAHME AUS DEM LAUNCH MONITOR — nur beim Smash-Factor-Test, und nur
+     wenn genug Messungen vorliegen. Erscheint der Knopf ohne Daten, tippt man
+     darauf und bekommt eine Fehlermeldung; besser, er ist dann gar nicht da. */
+  if(key==="smashfactor"){
+    const lm=(typeof smashAusLM==="function")?smashAusLM():null;
+    if(lm){
+      const gesamt=lm.herkunft.reduce((a,x)=>a+x.n,0);
+      h+=`<div class="card pad" style="margin-bottom:10px">
+        <div style="font-weight:700">📡 Aus dem Launch Monitor übernehmen</div>
+        <p class="note" style="margin:4px 0 8px">Für <b>${lm.herkunft.length} Schläger</b>
+        liegen Messungen vor (${gesamt} Schläge, mindestens ${lm.min} je Schläger):
+        ${lm.herkunft.map(x=>esc(x.feld)+` <span class="r-s">${x.n}</span>`).join(" · ")}.
+        <br><span class="r-s">Getrimmtes Mittel ab 8 Messungen — ein Fersentreffer soll den
+        Schnitt nicht bestimmen. Die Werte werden nur <b>eingetragen</b>, nicht gespeichert:
+        Ob eine Sitzung einen Testeintrag wert ist, entscheidest du.</span></p>
+        <button class="btn ghost" type="button" onclick="smashUebernehmen()"
+          style="width:100%">Werte eintragen</button></div>`;
+    }
+  }
   h+=`<div class="field"><label>Datum</label><input type="date" id="f_date" value="${todayISO()}"></div>`;
   h+=`<div class="in-grid">`;
   d.inputs.forEach((inp,i)=>{
@@ -24961,7 +25221,7 @@ function openAddRound(existing, draftRound){
         <div class="in-grid" style="grid-template-columns:1fr 1fr;margin-top:8px">
           <div class="field" style="${fS}"><label>Approach-Distanz ⭐</label><select class="hin" data-f="appr"><option value="">–</option>${apprOpts}</select></div>
           <div class="field" style="${fS}"><label>Länge des 1. Putts ⭐</label><select class="hin" data-f="firstPutt">${fpOpts}</select></div>
-      <div class="field" style="${fS}"><label>Platz zwischen Ball und Fahne</label><select class="hin" data-f="kurzseitig">${ksOpts}</select></div>
+      <div class="field" style="${fS}"><label>Shortsided</label><select class="hin" data-f="kurzseitig">${ksOpts}</select></div>
       <div class="field" style="${fS}"><label>1. Putt ging …</label><select class="hin" data-f="puttMiss">${pmOpts}</select></div>
       <div class="field" style="${fS}"><label>Rest nach 1. Putt</label><select class="hin" data-f="puttRest">${prOpts}</select></div>
         </div>
@@ -26247,7 +26507,7 @@ function openComp(idx){
 /* ================= NAV ================= */
 let current="dash";
 const FAB_ACTION={rounds:startRound,comp:openAddComp,notes:openAddNote,swing:openSwingEdit};
-const APP_VERSION="2.36.0"; // App-Anzeigeversion (NICHT SEED.version! Diese bei jeder Änderung erhöhen)
+const APP_VERSION="2.38.0"; // App-Anzeigeversion (NICHT SEED.version! Diese bei jeder Änderung erhöhen)
 /* ---------- Darstellung: Hell/Dunkel (DB.ui.theme = "auto" | "light" | "dark") ---------- */
 const _darkMQ = (window.matchMedia? window.matchMedia("(prefers-color-scheme: dark)") : null);
 function themeSetting(){ return (DB && DB.ui && DB.ui.theme) || "auto"; }
@@ -26904,9 +27164,11 @@ function ensureDefaults(){
      Liegt der Ball dort, wo zwischen ihm und der Fahne kaum Gruen ist, muss
      der Chip punktgenau sein — das gelingt selten. Mit Platz dahinter darf er
      dagegen durchlaufen.
-     BENENNUNG: „short-sided" versteht ausserhalb der Fachwelt niemand, und
-     „kurzseitig" auch nicht. Deshalb beschreibt die Auswahl, was man SIEHT:
-     wie viel Gruen zwischen Ball und Fahne liegt. */
+     BENENNUNG: Das Feld heisst „Shortsided" — der Fachbegriff. Das ist
+     vertretbar, WEIL die Auswahlwerte selbst beschreiben, was gemeint ist
+     („Viel Platz zur Fahne" / „Wenig Platz — Fahne nah am Rand"). Wer den
+     Begriff nicht kennt, versteht ihn spaetestens beim Aufklappen. Der
+     Feldname darf kurz sein, solange die Auswahl eindeutig ist. */
   if(!Array.isArray(DB.kurzseitig) || !DB.kurzseitig.length)
     DB.kurzseitig=["Grün getroffen","Viel Platz zur Fahne",
                    "Wenig Platz — Fahne nah am Rand"];
