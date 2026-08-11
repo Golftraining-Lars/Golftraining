@@ -152,7 +152,7 @@ try {
                  "caddyClubs","clubNorm","clubRename","bagFreiName","bagMessSpalte",
                  "tombAdd","tombClear","tombDel","MERGE_KEY","_mergeTomb","_tombFor",
                  "playCaddyNow","playTooFar","playAimChain","playMapSlot","playFocusDefault",
-                 "hcpGap","whsPool","courseStats","nassFaktor","errZeit","todayISO","puttDiagnose","sgHole","verlaesslich","testFaellig","stretchToggle","STRETCH_DONE","MALASKA_DYN","MALASKA_STAT","MALASKA_SVG","malaskaBild","POST_ROUND","POST_SVG","malaskaVideo","wxStunden","wxStundenHtml","WEATHER","postBild","postToggle","POST_DONE","WARMUP_PLANS","openPostStretchSheet","openStretchSheet","fmtN","fmtDate","fmtDT","fmtDur","zielPrognose","indexTempo","trainingsEmpfehlung","fitnessWirkung","stratRueckschau","sgHoleShots","sgVerlauf",
+                 "hcpGap","whsPool","courseStats","nassFaktor","errZeit","todayISO","puttDiagnose","sgHole","verlaesslich","testFaellig","stretchToggle","STRETCH_DONE","MALASKA_DYN","MALASKA_STAT","MALASKA_SVG","malaskaBild","POST_ROUND","POST_SVG","malaskaVideo","wxStunden","wxStundenHtml","WEATHER","lmAktiveShots","lmToggleAus","lmAlleAn","lmAus","postBild","postToggle","POST_DONE","WARMUP_PLANS","openPostStretchSheet","openStretchSheet","fmtN","fmtDate","fmtDT","fmtDur","zielPrognose","indexTempo","trainingsEmpfehlung","fitnessWirkung","stratRueckschau","sgHoleShots","sgVerlauf",
                  "holeGir","holeUpDown","holeSandSave","platzAnalyse","taskFortschritt",
                  "warmupSchedule","warmupKorrektiv","WARMUP_PLANS","medianSplit","pearson",
                  "rKrit","gpKey","gpLabel","gpTotalES","pickClub","_aimClub","_aimLerp",
@@ -2963,6 +2963,82 @@ group("wxStunden — die nächsten Stunden, nicht nur der Moment");
     ok("Böen erst ab +10 km/h", /windMs\*3\.6\+10/.test(src));
     ok("ohne Daten leer", html(6)==="" || typeof html(6)==="string");
   }
+}
+
+/* ============ 24ax. Launch: mehrere Sitzungen zusammen ============ */
+group("lmAktiveShots — alle Sitzungen, einzelne abwählbar");
+{
+  const akt=G("lmAktiveShots"), tog=G("lmToggleAus"), alle=G("lmAlleAn"),
+        aus=G("lmAus"), DB=G("DB");
+  if (typeof akt === "function" && DB && aus) {
+    /* Vorher war GENAU EINE Sitzung wählbar. Eine Range-Sitzung hat oft nur
+       10 bis 15 Schläge — daraus einen Streukreis zu bilden heißt, Tagesform
+       für Können zu halten. Umgekehrt will man einen misslungenen Tag auch mal
+       ausblenden. Deshalb: alle als Grundlage, einzelne abwählbar. */
+    const altS=DB.lmSessions;
+    const sh=(c,carry)=>({club:c,carry,total:carry+8,smash:1.35});
+    DB.lmSessions=[
+      {id:"T1",date:"2026-06-10",shots:[sh("7 Iron",138),sh("7 Iron",139),sh("PW",100)]},
+      {id:"T2",date:"2026-07-02",shots:[sh("7 Iron",141),sh("7 Iron",140)]},
+      {id:"T3",date:"2026-07-20",shots:[sh("7 Iron",120)]}
+    ];
+    aus.clear();
+    eq("ohne Abwahl alle Schläge des Schlägers", akt("7 Iron").length, 5);
+    eq("fremde Schläger bleiben draußen", akt("PW").length, 1);
+    if (typeof tog === "function") {
+      tog("T3");
+      eq("abgewählte Sitzung fällt weg", akt("7 Iron").length, 4);
+      ok("die ID steht in der Ausblendliste", aus.has("T3"));
+      tog("T3");
+      eq("erneutes Tippen blendet wieder ein", akt("7 Iron").length, 5);
+      /* Mehrere gleichzeitig — der Normalfall beim Aussortieren. */
+      tog("T1"); tog("T2");
+      eq("zwei abgewählt", akt("7 Iron").length, 1);
+    }
+    if (typeof alle === "function") {
+      alle();
+      eq("alle einblenden setzt zurück", akt("7 Iron").length, 5);
+      eq("Ausblendliste leer", aus.size, 0);
+    }
+    /* Reihenfolge: Die Schläge müssen chronologisch kommen, sonst zeigt der
+       Verlauf Unsinn. */
+    ok("Sitzungen chronologisch zusammengeführt",
+       /lmSessionsSorted\(\)/.test(fs.readFileSync(FILE,"utf8")));
+    DB.lmSessions=altS; aus.clear();
+  }
+  /* Die Überschrift muss den ZEITRAUM nennen, wenn mehrere Sitzungen
+     zusammenlaufen — sonst hält man die Zahlen für die eines Tages. */
+  {
+    const src=fs.readFileSync(FILE,"utf8");
+    ok("Überschrift nennt den Zeitraum", /aktivSess\.length<=1/.test(src));
+    ok("Abwahl ist rückgängig zu machen", /alle einblenden/.test(src));
+  }
+}
+
+/* ============ 24aw. CSV-Import auf Android ============ */
+group("Dateiauswahl — kein MIME-Filter, dafür Inhaltsprüfung");
+{
+  const src=fs.readFileSync(FILE,"utf8");
+  /* WAS PASSIERT IST: Die Dateifelder filterten über `accept`. Android meldet
+     heruntergeladene CSV-Dateien je nach Herkunft als
+     `application/octet-stream`, `application/vnd.ms-excel` oder ganz ohne Typ —
+     dann sind sie im Dateiwähler AUSGEGRAUT und nicht auswählbar. Auch eine
+     breite Typliste half nicht zuverlässig, weil manche Picker Endungen gar
+     nicht auswerten.
+     Filtern ist ohnehin die schwächere Prüfung: Eine Datei kann jeden Typ
+     melden und trotzdem etwas anderes enthalten. Deshalb wird jetzt der
+     INHALT geprüft. */
+  ["lmFile","bagR10File","stR10"].forEach(id=>{
+    const m=new RegExp('<input type="file" id="'+id+'"[^>]*>').exec(src);
+    ok(id+" existiert", !!m);
+    if(m) ok(id+" ohne accept-Filter", m[0].indexOf("accept=")<0, m[0].slice(0,80));
+  });
+  const imp=src.slice(src.indexOf("function lmImport"),
+                      src.indexOf("function lmImport")+1800);
+  ok("prüft die erste Zeile auf Trennzeichen", /\[,;\\t\]/.test(imp));
+  ok("meldet verständlich statt still zu scheitern",
+     /Keine Tabellendatei/.test(imp));
+  ok("nennt den Ausweg (CSV exportieren)", /als CSV/.test(imp));
 }
 
 /* ============ 24av. Heute-Seite nach Zeitpunkt gegliedert ============ */

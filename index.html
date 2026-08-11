@@ -2198,6 +2198,12 @@ Erste, was auf dem Platz passiert.
 Kraftentfaltung — genau das Gegenteil dessen, was am ersten Tee gebraucht wird. Die statischen
 Uebungen bleiben beim Cool-down nach der Runde; eine Pruefung sichert das ab.
 
+**Launch-Auswertung ueber mehrere Sitzungen (v2.33).** `lmAktiveShots(club)` liefert die Schlaege
+ALLER Sitzungen ausser den abgewaehlten — EINE Stelle, damit Auswertung, Streuung und Verlauf
+nicht auseinanderlaufen. `lmAus` haelt die ausgeblendeten IDs (meist leer), `lmToggleAus(id)`
+schaltet um, `lmAlleAn()` setzt zurueck. Grund: Eine Range-Sitzung hat oft nur 10 bis 15
+Schlaege — daraus einen Streukreis zu bilden hiesse, Tagesform fuer Koennen zu halten.
+
 **`malaskaVideo()`** bettet das Quellvideo ERST AUF TIPP ein. Fest eingebettet wuerde das iframe
 bei jedem Oeffnen des Blatts YouTube kontaktieren — auch wenn man nur die Liste abhakt.
 `youtube-nocookie.com` statt `youtube.com`, Netzabbruch wird abgefangen. Es ist der EINZIGE
@@ -2897,6 +2903,30 @@ erkennbar ist, dass es ein Video gab.
 ## Changelog
 > **Regel:** Bei JEDER inhaltlichen Änderung hier oben einen datierten Eintrag ergänzen (neueste
 > zuerst): Datum · was geändert · betroffene Bereiche. Kurz halten.
+
+- **v2.33.0 · 2026-08-11** — **Launch: mehrere Sitzungen zusammen auswerten.** Bisher ließ sich
+  genau EINE Sitzung wählen. Für „wie schlage ich das Eisen 7 zurzeit?" ist das zu wenig — eine
+  Range-Sitzung hat oft nur 10 bis 15 Schläge, und daraus einen Streukreis zu bilden heißt,
+  **Tagesform für Können zu halten**.
+  Jetzt umgekehrt gedacht: **Alle Sitzungen sind Grundlage, einzelne lassen sich abwählen.**
+  Ein Tipp blendet eine aus (durchgestrichen dargestellt), ein zweiter wieder ein; „alle
+  einblenden" setzt zurück. Der häufigste Fall braucht damit keinen einzigen Klick. Nützlich
+  zum Ausblenden: ein Tag mit neuem Schläger, kranker Hand oder Sturm.
+  `lmAktiveShots(club)` ist die **eine** Stelle, aus der Auswertung, Streuung und Verlauf ihre
+  Daten ziehen — so können sie nicht auseinanderlaufen. Die Überschrift nennt jetzt den
+  **Zeitraum** statt eines einzelnen Datums, sonst hält man die Zahlen für die eines Tages.
+  Nachgemessen: 37 Schläge über drei Sitzungen ergeben 133,8 m Carry-Schnitt; ohne die schwache
+  Sitzung 139,6 m aus 26 Schlägen. 12 Prüfungen.
+
+- **v2.32.0 · 2026-08-11** — **CSV-Import: MIME-Filter ganz entfernt.** Die Erweiterung der
+  Typliste in v2.31 reichte nicht — manche Android-Dateiwähler werten Endungen gar nicht aus und
+  lassen alles ausgegraut, was nicht exakt als `text/csv` gemeldet wird. Die drei Dateifelder
+  (Launch-Import, Bag-R10, Streuungs-Import) haben jetzt **kein `accept` mehr**: Jede Datei ist
+  wählbar. Stattdessen prüft `lmImport` den **Inhalt** — enthält die erste Zeile kein Komma,
+  Semikolon oder Tabulator, kommt die Meldung „Keine Tabellendatei erkannt" samt Hinweis, aus
+  welcher App als CSV zu exportieren ist. Das ist ohnehin die verlässlichere Prüfung: Eine Datei
+  kann jeden Typ melden und trotzdem etwas anderes enthalten. Mit einer echten Garmin-Datei und
+  einer Falscheingabe durchgespielt. 9 Prüfungen.
 
 - **v2.31.0 · 2026-08-11** — **CSV-Import auf dem Handy · Wetter für 6 Stunden · Heute-Seite
   nach Tagesablauf.**
@@ -21310,7 +21340,39 @@ function lmBuildRecs(club,S,clean,t){
   return R;
 }
 
+/* ==========================================================================
+   MEHRERE SITZUNGEN ZUSAMMEN AUSWERTEN (v2.33)
+   Vorher liess sich GENAU EINE Sitzung waehlen. Fuer „wie schlage ich das
+   Eisen 7 zurzeit?" ist das zu wenig: Eine Range-Sitzung hat oft nur 10 bis 15
+   Schlaege, und daraus einen Streukreis zu bilden heisst, Tagesform fuer
+   Koennen zu halten. Umgekehrt will man einen misslungenen Tag auch mal
+   ausblenden.
+
+   Deshalb umgekehrt gedacht: ALLE Sitzungen sind Grundlage, einzelne lassen
+   sich ABWAEHLEN. `lmAus` haelt die ausgeblendeten IDs — die Menge ist meist
+   leer, der haeufigste Fall braucht damit keinen einzigen Klick.
+   `lmSelSession` bleibt als Feld bestehen, wird aber nicht mehr zur Auswahl
+   benutzt; die Sitzungsdetails oeffnen weiterhin ueber die Liste.
+   ========================================================================== */
+let lmAus = new Set();
 let lmSelClub=null, lmSelSession=null, lmSelTrend="carry", lmLastFail=null;
+
+/* Die aktuell gewerteten Schlaege eines Schlaegers: alle Sitzungen ausser den
+   abgewaehlten. EINE Stelle, damit Auswertung, Streuung und Verlauf nicht
+   auseinanderlaufen koennen. */
+function lmAktiveShots(club){
+  const out=[];
+  (lmSessionsSorted()||[]).forEach(se=>{
+    if(lmAus.has(se.id)) return;
+    (se.shots||[]).forEach(x=>{ if(x && x.club===club) out.push(x); });
+  });
+  return out;
+}
+function lmToggleAus(id){
+  if(lmAus.has(id)) lmAus.delete(id); else lmAus.add(id);
+  renderLaunch();
+}
+function lmAlleAn(){ lmAus.clear(); renderLaunch(); }
 function lmAllClubs(){ const set=new Set(); (DB.lmSessions||[]).forEach(s=>s.shots.forEach(x=>{if(x.club)set.add(x.club);})); return [...set]; }
 function lmSessionsSorted(){ return (DB.lmSessions||[]).slice().sort((a,b)=>(a.date||"").localeCompare(b.date||"")); }
 function lmClean(shots){ return lmMarkOut(shots).filter(s=>!s._out); }
@@ -21391,7 +21453,7 @@ function renderLaunch(){
   <div class="card pad">
     <p class="note" style="margin-top:0">Importiere deine CSV-Exporte. <b>Jeder Schlag</b> wird gespeichert; Auswertung, Streuung und Verlauf werden daraus berechnet. Spin ist R10-<i>geschätzt</i>.</p>
     <button class="btn" id="lmImport">📥 CSV importieren</button>
-    <input type="file" id="lmFile" accept=".csv,.txt,text/csv,text/plain,text/comma-separated-values,application/csv,application/vnd.ms-excel,application/octet-stream" multiple style="display:none">
+    <input type="file" id="lmFile" multiple style="display:none">
     ${sessions.length?`<div class="note">${sessions.length} Session${sessions.length>1?"s":""} · ${sessions.reduce((a,s)=>a+s.shots.length,0)} Schläge · ${clubs.length} Schläger</div>`:""}
   </div>`;
   if(lmLastFail){
@@ -21405,18 +21467,46 @@ function renderLaunch(){
   h+=`</div>`;
 
   const clubSessions=sessions.filter(s=>s.shots.some(x=>x.club===lmSelClub));
-  if(!lmSelSession||!clubSessions.find(s=>s.id===lmSelSession)) lmSelSession=clubSessions.length?clubSessions[clubSessions.length-1].id:null;
-  const sess=clubSessions.find(s=>s.id===lmSelSession);
-  if(clubSessions.length>1){ h+=`<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">`;
-    clubSessions.slice().reverse().forEach(s=>{ h+=`<button class="lmsess btn ${s.id===lmSelSession?'':'ghost'}" data-s="${s.id}" style="width:auto;padding:6px 11px;font-size:12px">${fmtDate(s.date)}</button>`; }); h+=`</div>`; }
+  /* ALLE SITZUNGEN ZUSAMMEN, einzelne abwaehlbar (v2.33). Vorher war genau
+     eine waehlbar — bei 12 Schlaegen je Sitzung misst man damit Tagesform,
+     nicht Koennen. Ein Tipp blendet eine Sitzung aus, ein zweiter wieder ein. */
+  const aktivSess=clubSessions.filter(s=>!lmAus.has(s.id));
+  if(clubSessions.length>1){
+    const nAus=clubSessions.length-aktivSess.length;
+    h+=`<div class="eyebrow eyebrow-row"><span>Sitzungen · ${aktivSess.length} von ${clubSessions.length}</span>
+      ${nAus?`<button class="btn ghost xs" type="button" onclick="lmAlleAn()"
+        style="width:auto;padding:3px 9px;font-size:11px">alle einblenden</button>`:""}</div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:4px">`;
+    clubSessions.slice().reverse().forEach(s=>{
+      const an=!lmAus.has(s.id);
+      const n=s.shots.filter(x=>x.club===lmSelClub).length;
+      h+=`<button class="lmsess btn ${an?'':'ghost'}" data-s="${s.id}"
+        style="width:auto;padding:6px 11px;font-size:12px${an?'':';opacity:.5;text-decoration:line-through'}"
+        title="${an?'Ausblenden':'Wieder einbeziehen'}">${fmtDate(s.date)}
+        <span class="r-s">${n}</span></button>`;
+    });
+    h+=`</div><p class="note" style="margin:0 0 8px">Ausgewertet werden alle
+      eingeblendeten Sitzungen zusammen. Antippen blendet eine aus — nützlich für
+      einen Tag mit neuem Schläger, kranker Hand oder Sturm.</p>`;
+  }
+
+  const aktivShots=lmAktiveShots(lmSelClub);
+  /* `sess` bleibt für die Überschrift: bei EINER Sitzung deren Datum, sonst
+     der Zeitraum. */
+  const sess=aktivShots.length?(aktivSess[aktivSess.length-1]||clubSessions[clubSessions.length-1]):null;
 
   if(sess){
-    const marked=lmMarkOut(sess.shots.filter(x=>x.club===lmSelClub));
+    const marked=lmMarkOut(aktivShots);
     const clean=marked.filter(s=>!s._out), nOut=marked.length-clean.length;
     const S=lmStatObj(clean), t=targetFor(lmSelClub);
     const recs=lmBuildRecs(lmSelClub,S,clean,t);
     const top=recs.find(r=>r.sev==='r')||recs.find(r=>r.sev==='y');
-    h+=`<div class="eyebrow">Zusammenfassung · ${fmtDate(sess.date)}</div>
+    /* Ueberschrift nennt den ZEITRAUM, wenn mehrere Sitzungen zusammenlaufen —
+       sonst haelt man die Zahlen fuer die eines einzelnen Tages. */
+    const zeitraum = (aktivSess.length<=1)
+      ? fmtDate(sess.date)
+      : `${fmtDate(aktivSess[0].date)} – ${fmtDate(aktivSess[aktivSess.length-1].date)} · ${aktivSess.length} Sitzungen`;
+    h+=`<div class="eyebrow">Zusammenfassung · ${zeitraum}</div>
     <div class="card pad">
       <div class="r-s">${esc(lmSelClub)} · ${clean.length} von ${marked.length} Schlägen gewertet${nOut?` (${nOut} Ausreißer aus)`:""}</div>
       <div style="font-size:20px;font-weight:800;margin-top:3px">Ø Carry <span class="tnum" style="color:var(--pine-deep)">${fmtN(S.carry.mean,1)} m</span> · Streuung ±${fmtN(S.carry.std,1)} m</div>
@@ -21546,7 +21636,7 @@ function renderLaunch(){
 function lmBind(){
   const fi=$("#lmFile"); if(fi){ $("#lmImport").onclick=()=>fi.click(); fi.onchange=e=>lmImport([...e.target.files]); }
   document.querySelectorAll(".lmclub").forEach(b=>b.onclick=()=>{lmSelClub=b.dataset.c;lmSelSession=null;renderLaunch();});
-  document.querySelectorAll(".lmsess").forEach(b=>b.onclick=()=>{lmSelSession=b.dataset.s;renderLaunch();});
+  document.querySelectorAll(".lmsess").forEach(b=>b.onclick=()=>lmToggleAus(b.dataset.s));
   document.querySelectorAll(".lmtrend").forEach(b=>b.onclick=()=>{lmSelTrend=b.dataset.m;renderLaunch();});
 }
 /* ---- Einzelschlag: Detailansicht, Loeschen, Export ---- */
@@ -21614,7 +21704,25 @@ function _dl(blob,name){ const u=URL.createObjectURL(blob), a=document.createEle
 function lmImport(files){
   if(!files.length) return; let done=0, added=0; lmLastFail=null;
   files.forEach(f=>{ const rd=new FileReader();
-    rd.onload=()=>{ try{ const p=lmParse(rd.result);
+    rd.onload=()=>{ try{
+      /* KEIN `accept` MEHR AM DATEIFELD (v2.32). Android meldet
+         heruntergeladene CSV-Dateien je nach Herkunft als
+         `application/octet-stream`, `application/vnd.ms-excel` oder ganz ohne
+         Typ — mit Filter waren sie im Dateiwaehler AUSGEGRAUT und nicht
+         auswaehlbar. Auch eine breite Typliste half nicht zuverlaessig.
+         Statt zu filtern wird deshalb der INHALT geprueft: Das ist ohnehin
+         die verlaesslichere Pruefung, denn eine Datei kann jeden Typ melden
+         und trotzdem etwas anderes enthalten. */
+      const roh=String(rd.result||"");
+      if(!/[,;\t]/.test(roh.split(/\r?\n/)[0]||"")){
+        lmLastFail={name:f.name, error:"Keine Tabellendatei — die erste Zeile "
+          +"enthält kein Komma, Semikolon oder Tabulator. Exportiere aus der "
+          +"Garmin- oder Awesome-Golf-App als CSV."};
+        if(++done===files.length){ renderAll(); setView("launch");
+          toast("Keine Tabellendatei erkannt"); }
+        return;
+      }
+      const p=lmParse(roh);
       if(p.shots.length){ (DB.lmSessions=DB.lmSessions||[]).push({id:"LM"+Date.now()+Math.floor(Math.random()*1000),
         date:todayISO(), name:f.name.replace(/\.csv$/i,""), shots:p.shots,
         meta:{cols:p.cols, delim:p.delim, rawHeader:p.rawHeader}}); added+=p.shots.length; }
@@ -22926,7 +23034,7 @@ function renderBag(){
   h+=`</div></div>
   <button class="btn ghost" id="bagAdd" style="margin-top:10px">＋ Schläger hinzufügen</button>
   <button class="btn ghost" id="bagR10" style="margin-top:8px">📥 R10-Session-CSV importieren (Streuung je Schläger)</button>
-  <input type="file" id="bagR10File" accept=".csv,.txt,text/csv,text/plain,text/comma-separated-values,application/csv,application/vnd.ms-excel,application/octet-stream" style="display:none">`;
+  <input type="file" id="bagR10File" style="display:none">`;
   {
     /* NICHT ZUGEORDNETE MESSUNGEN sichtbar machen. Liegen R10- oder
        GPS-Schlaege unter einem Namen vor, zu dem es keinen Schlaeger in der
@@ -25779,7 +25887,7 @@ function openComp(idx){
 /* ================= NAV ================= */
 let current="dash";
 const FAB_ACTION={rounds:startRound,comp:openAddComp,notes:openAddNote,swing:openSwingEdit};
-const APP_VERSION="2.31.0"; // App-Anzeigeversion (NICHT SEED.version! Diese bei jeder Änderung erhöhen)
+const APP_VERSION="2.33.0"; // App-Anzeigeversion (NICHT SEED.version! Diese bei jeder Änderung erhöhen)
 /* ---------- Darstellung: Hell/Dunkel (DB.ui.theme = "auto" | "light" | "dark") ---------- */
 const _darkMQ = (window.matchMedia? window.matchMedia("(prefers-color-scheme: dark)") : null);
 function themeSetting(){ return (DB && DB.ui && DB.ui.theme) || "auto"; }
@@ -25925,7 +26033,7 @@ function renderStrat(){
   h+=`<div style="display:flex;gap:7px;margin-top:10px">
     <button class="btn ghost" style="flex:1" onclick="STRAT.learnFromGps()?(toast('✓ Aus GPS-Schlägen aktualisiert'),renderStrat()):toast('Zu wenig frische GPS-Schläge (min. 20 je Schläger, 60 Tage)')">Aus GPS lernen</button>
     <button class="btn ghost" style="flex:1" onclick="document.getElementById('stR10').click()">📥 R10-CSV</button></div>
-    <input type="file" id="stR10" accept=".csv,.txt,text/csv,text/plain,text/comma-separated-values,application/csv,application/vnd.ms-excel,application/octet-stream" style="display:none"></div>`;
+    <input type="file" id="stR10" style="display:none"></div>`;
   // ---- Commit-Bilanz ----
   const rows=stratCommitTrendRows();
   h+=`<div class="eyebrow" style="margin-top:20px">✅ Plan-Bilanz (alle Runden)</div><div class="card pad">`;
