@@ -2201,6 +2201,12 @@ Erste, was auf dem Platz passiert.
 Kraftentfaltung — genau das Gegenteil dessen, was am ersten Tee gebraucht wird. Die statischen
 Uebungen bleiben beim Cool-down nach der Runde; eine Pruefung sichert das ab.
 
+**Tests aus dem Launch Monitor (v2.42).** `lmTestsSync()` erzeugt Smash Factor und Swing Speed
+AUTOMATISCH je Sitzungstag — `lmTage()` sammelt die Schlaege (nur sichtbare Sitzungen),
+`lmSmashTag()` und `lmSpeedTag()` bilden die Werte, `lmMittel()` trimmt ab 8 Messungen.
+Swing Speed zaehlt NUR Driver: ueber alle Schlaeger gemittelt saenke der Wert mit jedem Wedge.
+Handeintraege werden NIE ueberschrieben; erzeugte Eintraege tragen `auto:true`.
+
 **Testverlauf (v2.40).** \`testVerlauf(key)\` liefert Kennzahlen (Bestwert, typisch, Veraenderung
 gegen die Vorgaenger, Tempo je Monat ab 4 Eintraegen, HCP-Entwicklung),
 \`testFelderDelta(key)\` zeigt, WELCHE Einzelwerte sich geaendert haben — verglichen gegen den
@@ -2955,6 +2961,22 @@ erkennbar ist, dass es ein Video gab.
   Fachbegriff ist hier vertretbar, weil die **Auswahlwerte** beschreiben, was gemeint ist
   („Viel Platz zur Fahne" / „Wenig Platz — Fahne nah am Rand"): Wer den Begriff nicht kennt,
   versteht ihn beim Aufklappen. Der Feldname darf kurz sein, solange die Auswahl eindeutig ist.
+
+- **v2.42.0 · 2026-08-11** — **Smash Factor und Swing Speed entstehen automatisch · Verlauf
+  detailliert.**
+  Beides sind keine Tests im eigentlichen Sinn: Man führt sie nicht durch, man **misst** sie —
+  und jede R10-Sitzung IST bereits diese Messung. `lmTestsSync()` erzeugt jetzt **je Sitzungstag
+  einen Eintrag**, beim Import, beim Öffnen der Tests-Seite und beim Ab- oder Zuschalten einer
+  Sitzung. Der manuelle Übernahme-Knopf ist entfallen — er bot etwas an, was ohnehin geschieht.
+  **Vier Regeln:** Nur sichtbare Sitzungen (abgewählte verschwinden auch aus dem Testverlauf);
+  mindestens 5 Schläge je Schläger; ab 8 Messungen getrimmtes Mittel; und **von Hand erfasste
+  Einträge werden nie überschrieben** — wer einen Test bewusst eingetragen hat, soll ihn nicht
+  verändert wiederfinden. Erzeugte Einträge sind als „automatisch" markiert. Swing Speed zählt
+  **nur Driver-Schläge**: über alle Schläger gemittelt sänke der Wert mit jedem Wedge.
+  **Der Verlauf** zeigt je Eintrag nicht mehr nur Datum, Werte und Summe, sondern die
+  **Veränderung zur Summe davor** und **jeden Einzelwert mit seiner eigenen Veränderung** — „+3
+  gesamt" sagt nicht, ob es am Driver oder am Wedge lag, und genau danach richtet sich das
+  nächste Training. Automatische Einträge sind grau hinterlegt. 22 Prüfungen.
 
 - **v2.41.0 · 2026-08-11** — **BUGFIX: Bearbeitete Runden wurden vom Sync überschrieben ·
   Dashboard neu geordnet.**
@@ -17669,75 +17691,125 @@ const SG_ZU_TESTKAT = {
 const SG_LABEL = { lang:"Langes Spiel", app:"Annäherung", kurz:"Kurzes Spiel", putt:"Putten" };
 
 /* ==========================================================================
-   SMASH FACTOR AUS DEM LAUNCH MONITOR (v2.37)
-   Der Smash-Factor-Test hat elf Schlaegerfelder — und genau diese Werte
-   liegen nach jedem R10-Import bereits vor. Sie von Hand abzutippen ist
-   Fleissarbeit mit Fehlerrisiko: Wer elf Zahlen ueberträgt, vertippt sich
-   irgendwann, und der Verlauf zeigt dann einen Sprung, den es nie gab.
+   SMASH FACTOR UND SWING SPEED — AUTOMATISCH (v2.42)
+   Beides sind keine Tests im eigentlichen Sinn: Man fuehrt sie nicht durch,
+   man MISST sie — und jede R10-Sitzung IST bereits diese Messung. Die Werte
+   von Hand zu uebertragen war Fleissarbeit mit Fehlerrisiko: Wer elf Zahlen
+   abtippt, vertippt sich irgendwann, und der Verlauf zeigt dann einen Sprung,
+   den es nie gab.
 
-   Die Zuordnung laeuft ueber `clubNorm` — der R10 schreibt „7 Iron", das
-   Testfeld heisst „7-Eisen". Ohne Vereinheitlichung fande sich nichts.
-
-   BEWUSST NICHT AUTOMATISCH: Der Test wird VORGESCHLAGEN, nicht gespeichert.
-   Eine Sitzung mit fuenf Schlaegen je Schlaeger ist kein Test, und ob die
-   Werte einen Eintrag wert sind, entscheidet der Spieler. Der Knopf fuellt
-   die Felder, das Speichern bleibt ein eigener Schritt.
+   Jetzt automatisch, je Sitzungstag ein Eintrag. Vier Regeln:
+     1. Nur SICHTBARE Sitzungen — abgewaehlte (`lmAus`) bleiben aussen vor.
+        Die Auswahl im Launch-Reiter gilt damit durchgaengig.
+     2. Mindestens 5 Schlaege je Schlaeger. Aus drei Schlaegen einen Testwert
+        zu bilden hiesse, Tagesform als Messung auszugeben.
+     3. Ab 8 Messungen getrimmtes Mittel — ein Fersentreffer soll den Schnitt
+        nicht bestimmen.
+     4. Erzeugte Eintraege sind MARKIERT (`auto:true`). Von Hand erfasste
+        Eintraege am selben Tag bleiben unangetastet: Wer einen Test bewusst
+        eingetragen hat, soll ihn nicht veraendert wiederfinden.
    ========================================================================== */
-function smashAusLM(minSchlaege){
-  const min=minSchlaege||5;
-  const d=(typeof defFor==="function")?defFor("smashfactor"):null;
-  if(!d) return null;
-  /* Alle aktiven Sitzungen zusammen — eine einzelne hat oft zu wenige
-     Schlaege je Schlaeger. Abgewaehlte Sitzungen (lmAus) bleiben aussen vor,
-     damit die Auswahl im Launch-Reiter auch hier gilt. */
-  const proKlasse={};
+const LM_AUTO_TESTS = ["smashfactor","swingspeed"];
+
+function lmTage(){
+  const tage={};
   (lmSessionsSorted()||[]).forEach(se=>{
     if(typeof lmAus!=="undefined" && lmAus.has(se.id)) return;
-    (se.shots||[]).forEach(sh=>{
-      if(!sh || !sh.club || !isFinite(sh.smash)) return;
-      const k=(typeof clubNorm==="function")?clubNorm(sh.club):String(sh.club).toLowerCase();
-      (proKlasse[k]=proKlasse[k]||[]).push(+sh.smash);
-    });
+    const t=String(se.date||"").slice(0,10);
+    if(!t) return;
+    (tage[t]=tage[t]||[]).push(...(se.shots||[]));
   });
-  if(!Object.keys(proKlasse).length) return null;
-
-  const werte={}, herkunft=[];
-  d.inputs.forEach(inp=>{
-    /* Ein Testfeld kann mehrere Schlaeger meinen („5W/7W"). Jede Variante
-       pruefen und die mit den meisten Messungen nehmen. */
-    const teile=String(inp.key).split("/").map(x=>x.trim()).filter(Boolean);
-    let best=null;
-    teile.forEach(t=>{
-      const k=(typeof clubNorm==="function")?clubNorm(t):t.toLowerCase();
-      const arr=proKlasse[k];
-      if(arr && arr.length>=min && (!best || arr.length>best.arr.length))
-        best={k, arr, quelle:t};
-    });
-    if(!best) return;
-    /* Getrimmtes Mittel: Ein Schlag von der Fersen kann den Schnitt spuerbar
-       druecken, und der Test soll abbilden, was der Schlaeger normalerweise
-       leistet. */
-    const t=(typeof STRAT!=="undefined" && STRAT._trimmedSd && best.arr.length>=8)
-      ? STRAT._trimmedSd(best.arr) : null;
-    const mittel = t ? t.mean : best.arr.reduce((a,b)=>a+b,0)/best.arr.length;
-    werte[inp.key]=Math.round(mittel*100)/100;
-    herkunft.push({feld:inp.label, n:best.arr.length, getrimmt:!!t});
-  });
-  if(!Object.keys(werte).length) return null;
-  return {werte, herkunft, min};
+  return tage;
 }
 
-/* Fuellt die Eingabefelder des offenen Tests — ohne zu speichern. */
-function smashUebernehmen(){
-  const r=smashAusLM();
-  if(!r){ toast("Keine Launch-Daten mit genug Schlägen je Schläger"); return; }
-  let n=0;
-  document.querySelectorAll(".t-in").forEach(el=>{
-    const k=el.dataset.k;
-    if(r.werte[k]!=null){ el.value=String(r.werte[k]).replace(".",","); n++; }
+function lmMittel(werte, min){
+  const a=(werte||[]).filter(x=>x!=null && isFinite(x));
+  if(a.length < (min||5)) return null;
+  const t=(typeof STRAT!=="undefined" && STRAT._trimmedSd && a.length>=8)
+    ? STRAT._trimmedSd(a) : null;
+  return t ? t.mean : a.reduce((x,y)=>x+y,0)/a.length;
+}
+
+function lmSmashTag(shots){
+  const d=(typeof defFor==="function")?defFor("smashfactor"):null;
+  if(!d) return null;
+  const proKlasse={};
+  (shots||[]).forEach(sh=>{
+    if(!sh || !sh.club || !isFinite(sh.smash)) return;
+    const k=(typeof clubNorm==="function")?clubNorm(sh.club):String(sh.club).toLowerCase();
+    (proKlasse[k]=proKlasse[k]||[]).push(+sh.smash);
   });
-  if(typeof recalcLive==="function") recalcLive();
-  toast(n+" Werte übernommen — prüfen und speichern");
+  const werte={};
+  d.inputs.forEach(inp=>{
+    /* Ein Testfeld kann mehrere Schlaeger meinen („5W/7W") — jede Variante
+       pruefen, die mit den meisten Messungen gewinnt. */
+    let best=null;
+    String(inp.key).split("/").map(x=>x.trim()).filter(Boolean).forEach(t=>{
+      const k=(typeof clubNorm==="function")?clubNorm(t):t.toLowerCase();
+      const arr=proKlasse[k];
+      if(arr && arr.length>=5 && (!best || arr.length>best.length)) best=arr;
+    });
+    const m=lmMittel(best,5);
+    if(m!=null) werte[inp.key]=Math.round(m*100)/100;
+  });
+  return Object.keys(werte).length?werte:null;
+}
+
+/* Swing Speed: NUR DRIVER. Ueber alle Schlaeger gemittelt saenke der Wert mit
+   jedem Wedge — und der Test misst die maximale Schlaegerkopfgeschwindigkeit. */
+function lmSpeedTag(shots){
+  const dr=(shots||[]).filter(sh=>sh && sh.club &&
+    ((typeof clubNorm==="function")?clubNorm(sh.club):"")==="driver");
+  const chs=lmMittel(dr.map(x=>x.clubSpeed),5);
+  if(chs==null) return null;
+  const w={"CHS (mph)":Math.round(chs*10)/10};
+  const sm=lmMittel(dr.map(x=>x.smash),5);
+  if(sm!=null) w["Smash"]=Math.round(sm*100)/100;
+  const carrys=dr.map(x=>x.carry).filter(x=>x!=null && isFinite(x));
+  if(carrys.length>=5){
+    const c=lmMittel(carrys,5);
+    if(c!=null) w["Ø Carry (m)"]=Math.round(c);
+    w["Max Carry (m)"]=Math.round(Math.max(...carrys));
+  }
+  return w;
+}
+
+function lmTestsSync(){
+  try{
+    DB.tests=DB.tests||[];
+    const tage=lmTage();
+    let neu=0, akt=0, weg=0;
+    /* Verwaiste Auto-Eintraege zuerst entfernen: Wer eine Sitzung abwaehlt,
+       will ihren Testeintrag auch nicht mehr im Verlauf sehen. */
+    DB.tests = DB.tests.filter(t=>{
+      if(!t || !t.auto || LM_AUTO_TESTS.indexOf(t.defKey)<0) return true;
+      if(tage[t.date]) return true;
+      weg++; return false;
+    });
+    Object.keys(tage).forEach(tag=>{
+      const shots=tage[tag];
+      [["smashfactor", lmSmashTag(shots)],
+       ["swingspeed",  lmSpeedTag(shots)]].forEach(function(paar){
+        const key=paar[0], werte=paar[1];
+        if(!werte) return;
+        const d=defFor(key); if(!d) return;
+        const vorhanden=DB.tests.filter(t=>t && t.defKey===key && t.date===tag);
+        if(vorhanden.some(t=>!t.auto)) return;      // Handeintrag hat Vorrang
+        const total=(typeof computeTotal==="function")?computeTotal(key,d,werte):null;
+        const alt=vorhanden.find(t=>t.auto);
+        if(alt){
+          if(JSON.stringify(alt.inputs)!==JSON.stringify(werte)){
+            alt.inputs=werte; alt.total=total; stamp(alt); akt++;
+          }
+        }else{
+          DB.tests.push(stamp({defKey:key, date:tag, inputs:werte, total, auto:true}));
+          neu++;
+        }
+      });
+    });
+    if(neu||akt||weg) persist();
+    return {neu, akt, weg};
+  }catch(e){ logErr("lmTestsSync", e, true); return {neu:0,akt:0,weg:0}; }
 }
 
 function testEmpfehlung(max){
@@ -18920,6 +18992,10 @@ function testEmpfehlungHtml(){
 }
 
 function renderTests(){
+  /* Vor dem Aufbau abgleichen: Wer im Launch-Reiter eine Sitzung ab- oder
+     zugeschaltet hat, sieht das hier sofort. Der Aufruf ist billig — er tut
+     nur etwas, wenn sich wirklich etwas geaendert hat. */
+  if(typeof lmTestsSync==="function") lmTestsSync();
   const cats={};
   DB.testDefs.forEach(d=>{(cats[d.category]=cats[d.category]||[]).push(d);});
   let h=testEmpfehlungHtml()+`<div class="eyebrow">Tests erfassen & verfolgen</div>`;
@@ -22053,6 +22129,7 @@ function lmAktiveShots(club){
 }
 function lmToggleAus(id){
   if(lmAus.has(id)) lmAus.delete(id); else lmAus.add(id);
+  if(typeof lmTestsSync==="function") lmTestsSync();   // Testeinträge mitziehen
   renderLaunch();
 }
 function lmAlleAn(){ lmAus.clear(); renderLaunch(); }
@@ -22411,7 +22488,8 @@ function lmImport(files){
         meta:{cols:p.cols, delim:p.delim, rawHeader:p.rawHeader}}); added+=p.shots.length; }
       else { lmLastFail={name:f.name, rawHeader:p.rawHeader, delim:p.delim, cols:p.cols}; }
     }catch(err){ console.error(err); lmLastFail={name:f.name, error:String(err)}; }
-    if(++done===files.length){ persist(); renderAll(); setView("launch"); toast(added?`${added} Schläge importiert`:"Keine Daten erkannt"); }
+    if(++done===files.length){ persist(); lmTestsSync();   // Smash/Speed-Tests aus den neuen Daten ableiten
+        renderAll(); setView("launch"); toast(added?`${added} Schläge importiert`:"Keine Daten erkannt"); }
     };
     rd.readAsText(f);
   });
@@ -25404,25 +25482,10 @@ function openTest(key){
     </details>`;
   }
   h+=`<div style="margin:18px 0 10px" class="eyebrow" >Neuer Eintrag</div>`;
-  /* ÜBERNAHME AUS DEM LAUNCH MONITOR — nur beim Smash-Factor-Test, und nur
-     wenn genug Messungen vorliegen. Erscheint der Knopf ohne Daten, tippt man
-     darauf und bekommt eine Fehlermeldung; besser, er ist dann gar nicht da. */
-  if(key==="smashfactor"){
-    const lm=(typeof smashAusLM==="function")?smashAusLM():null;
-    if(lm){
-      const gesamt=lm.herkunft.reduce((a,x)=>a+x.n,0);
-      h+=`<div class="card pad" style="margin-bottom:10px">
-        <div style="font-weight:700">📡 Aus dem Launch Monitor übernehmen</div>
-        <p class="note" style="margin:4px 0 8px">Für <b>${lm.herkunft.length} Schläger</b>
-        liegen Messungen vor (${gesamt} Schläge, mindestens ${lm.min} je Schläger):
-        ${lm.herkunft.map(x=>esc(x.feld)+` <span class="r-s">${x.n}</span>`).join(" · ")}.
-        <br><span class="r-s">Getrimmtes Mittel ab 8 Messungen — ein Fersentreffer soll den
-        Schnitt nicht bestimmen. Die Werte werden nur <b>eingetragen</b>, nicht gespeichert:
-        Ob eine Sitzung einen Testeintrag wert ist, entscheidest du.</span></p>
-        <button class="btn ghost" type="button" onclick="smashUebernehmen()"
-          style="width:100%">Werte eintragen</button></div>`;
-    }
-  }
+  /* KEIN ÜBERNAHME-KNOPF MEHR (v2.42): Smash Factor und Swing Speed werden
+     AUTOMATISCH je Sitzungstag aus den Launch-Daten gebildet — siehe
+     `lmTestsSync()`. Ein Knopf, der etwas anbietet, was ohnehin geschieht,
+     verwirrt nur. */
   h+=`<div class="field"><label>Datum</label><input type="date" id="f_date" value="${todayISO()}"></div>`;
   h+=`<div class="in-grid">`;
   d.inputs.forEach((inp,i)=>{
@@ -25435,13 +25498,46 @@ function openTest(key){
   h+=`<button class="btn" id="saveTest">Eintrag speichern</button>`;
   h+=testVerlaufHtml(key);
   if(hist.length){
-    h+=`<div class="eyebrow" style="margin-top:14px">Alle Einträge</div><div class="card">`;
+    h+=`<div class="eyebrow" style="margin-top:14px">Alle Einträge · ${hist.length}</div>
+      <p class="note" style="margin:0 0 6px">Je Eintrag alle Einzelwerte und die Veränderung
+      zum vorherigen. <b>Grau markierte</b> Einträge stammen automatisch aus dem
+      Launch Monitor.</p><div class="card">`;
+    /* DETAILLIERTER VERLAUF (v2.42). Vorher: Datum, Werte durch Punkte
+       getrennt, Summe. Man sah weder, ob es besser wurde, noch WELCHER Wert
+       sich bewegt hat — und genau danach richtet sich das naechste Training.
+       Jetzt je Eintrag: Veraenderung zur Summe davor, die Einzelwerte mit
+       ihrer eigenen Veraenderung, und woher der Eintrag stammt. */
+    const vz=x=>(x>0?"+":"")+fmtN(x, Math.abs(x)<10?(Math.abs(x)%1?2:0):0);
+    const hoch=!d.benchmark || d.benchmark.higherIsBetter!==false;
     hist.slice().reverse().forEach((t,i)=>{
       const gi=hist.length-1-i;
-      h+=`<div class="hist-row"><span class="d">${fmtDate(t.date)}</span>
-        <span>${d.inputs.filter(x=>typeof x.max==="number").map(x=>t.inputs[x.key]!=null?t.inputs[x.key]:"–").join(" · ")}</span>
-        <span class="v tnum">${t.total!=null?t.total:"–"}</span>
-        <button class="del" data-i="${gi}">Löschen</button></div>`;
+      const vor=hist[gi-1];
+      const dTot=(vor && t.total!=null && vor.total!=null) ? t.total-vor.total : null;
+      const gut=x=>hoch? x>0 : x<0;
+      const felder=d.inputs.map(inp=>{
+        const a=t.inputs?t.inputs[inp.key]:null;
+        if(a==null) return null;
+        const b=(vor&&vor.inputs)?vor.inputs[inp.key]:null;
+        const df=(b!=null && isFinite(a) && isFinite(b)) ? a-b : null;
+        return {label:inp.label||inp.key, wert:a, max:inp.max, diff:df};
+      }).filter(Boolean);
+      h+=`<div style="padding:9px 16px;border-top:1px solid var(--line-soft)${
+          t.auto?";background:var(--surface2)":""}">
+        <div style="display:flex;align-items:baseline;gap:8px">
+          <span class="d" style="flex:1">${fmtDate(t.date)}${
+            t.auto?` <span class="r-s">· automatisch</span>`:""}</span>
+          <span class="v tnum" style="font-size:16px;font-weight:700">${
+            t.total!=null?t.total:"–"}</span>
+          ${dTot!=null?`<span class="${gut(dTot)?"up":dTot?"down":""}" style="width:52px;text-align:right">${
+            dTot?vz(dTot):"±0"}</span>`:`<span style="width:52px"></span>`}
+          <button class="del" data-i="${gi}" style="margin-left:4px">Löschen</button>
+        </div>
+        ${felder.length?`<div style="display:flex;flex-wrap:wrap;gap:4px 10px;margin-top:4px">
+          ${felder.map(f=>`<span class="r-s">${esc(f.label)}
+            <b class="tnum">${f.wert}${f.max?"/"+f.max:""}</b>${
+            f.diff?` <span class="${gut(f.diff)?"up":"down"}">${vz(f.diff)}</span>`:""}</span>`).join("")}
+        </div>`:""}
+      </div>`;
     });
     h+=`</div>`;
   }
@@ -26856,7 +26952,7 @@ function openComp(idx){
 /* ================= NAV ================= */
 let current="dash";
 const FAB_ACTION={rounds:startRound,comp:openAddComp,notes:openAddNote,swing:openSwingEdit};
-const APP_VERSION="2.41.0"; // App-Anzeigeversion (NICHT SEED.version! Diese bei jeder Änderung erhöhen)
+const APP_VERSION="2.42.0"; // App-Anzeigeversion (NICHT SEED.version! Diese bei jeder Änderung erhöhen)
 /* ---------- Darstellung: Hell/Dunkel (DB.ui.theme = "auto" | "light" | "dark") ---------- */
 const _darkMQ = (window.matchMedia? window.matchMedia("(prefers-color-scheme: dark)") : null);
 function themeSetting(){ return (DB && DB.ui && DB.ui.theme) || "auto"; }

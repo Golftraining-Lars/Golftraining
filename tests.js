@@ -152,7 +152,7 @@ try {
                  "caddyClubs","clubNorm","clubRename","bagFreiName","bagMessSpalte",
                  "tombAdd","tombClear","tombDel","MERGE_KEY","_mergeTomb","_tombFor",
                  "playCaddyNow","playTooFar","playAimChain","playMapSlot","playFocusDefault",
-                 "hcpGap","whsPool","courseStats","nassFaktor","errZeit","todayISO","puttDiagnose","sgHole","verlaesslich","testFaellig","stretchToggle","STRETCH_DONE","MALASKA_DYN","MALASKA_STAT","MALASKA_SVG","malaskaBild","POST_ROUND","POST_SVG","malaskaVideo","wxStunden","wxStundenHtml","WEATHER","lmAktiveShots","lmToggleAus","computeRound","_computeRoundRoh","playVorgabe","playRueckschlag","PLAY","testEmpfehlung","SG_ZU_TESTKAT","miniStat","smashAusLM","clubNorm","defFor","uebText","benchHcp","benchRest","benchValue","testVerlauf","testFelderDelta","testVerlaufHtml","stamp","mergeDB","_mergeTs","tierIndex","lvlLabel","lvlColor","ladderPos","prepLog","prepHeute","prepQuote","todayISO","sgSummary","sortedRounds","sgWeakest","crCacheClear","_crCache","lmAlleAn","lmAus","postBild","postToggle","POST_DONE","WARMUP_PLANS","openPostStretchSheet","openStretchSheet","fmtN","fmtDate","fmtDT","fmtDur","zielPrognose","indexTempo","trainingsEmpfehlung","fitnessWirkung","stratRueckschau","sgHoleShots","sgVerlauf",
+                 "hcpGap","whsPool","courseStats","nassFaktor","errZeit","todayISO","puttDiagnose","sgHole","verlaesslich","testFaellig","stretchToggle","STRETCH_DONE","MALASKA_DYN","MALASKA_STAT","MALASKA_SVG","malaskaBild","POST_ROUND","POST_SVG","malaskaVideo","wxStunden","wxStundenHtml","WEATHER","lmAktiveShots","lmToggleAus","computeRound","_computeRoundRoh","playVorgabe","playRueckschlag","PLAY","testEmpfehlung","SG_ZU_TESTKAT","miniStat","lmTestsSync","lmSmashTag","lmSpeedTag","lmTage","lmMittel","testsFor","lmAus","clubNorm","defFor","uebText","benchHcp","benchRest","benchValue","testVerlauf","testFelderDelta","testVerlaufHtml","stamp","mergeDB","_mergeTs","tierIndex","lvlLabel","lvlColor","ladderPos","prepLog","prepHeute","prepQuote","todayISO","sgSummary","sortedRounds","sgWeakest","crCacheClear","_crCache","lmAlleAn","lmAus","postBild","postToggle","POST_DONE","WARMUP_PLANS","openPostStretchSheet","openStretchSheet","fmtN","fmtDate","fmtDT","fmtDur","zielPrognose","indexTempo","trainingsEmpfehlung","fitnessWirkung","stratRueckschau","sgHoleShots","sgVerlauf",
                  "holeGir","holeUpDown","holeSandSave","platzAnalyse","taskFortschritt",
                  "warmupSchedule","warmupKorrektiv","WARMUP_PLANS","medianSplit","pearson",
                  "rKrit","gpKey","gpLabel","gpTotalES","pickClub","_aimClub","_aimLerp",
@@ -3266,58 +3266,85 @@ group("benchHcp / benchRest — zwischen den Stufen statt fünf Kästchen");
   }
 }
 
-/* ============ 24bb. Smash Factor aus dem Launch Monitor ============ */
-group("smashAusLM — elf Werte nicht abtippen müssen");
+/* ============ 24bb. Tests automatisch aus dem Launch Monitor ============ */
+group("lmTestsSync — Smash Factor und Swing Speed werden gemessen, nicht getippt");
 {
-  const sl=G("smashAusLM"), DB=G("DB"), norm=G("clubNorm"), df=G("defFor");
-  if (typeof sl === "function" && DB) {
-    /* Der Test hat elf Schlägerfelder — und genau diese Werte liegen nach
-       jedem R10-Import bereits vor. Elf Zahlen abzutippen ist Fleißarbeit mit
-       Fehlerrisiko: Ein Vertipper erzeugt im Verlauf einen Sprung, den es nie
-       gab. */
-    const altS=DB.lmSessions;
-    const mk=(club,sm,n)=>Array.from({length:n},(_,i)=>({club, smash:sm+((i%3)-1)*0.02}));
-    DB.lmSessions=[{id:"SL1", date:"2026-08-01", shots:[
-      ...mk("Driver",1.44,12), ...mk("3 Wood",1.42,9), ...mk("7 Iron",1.36,11),
-      ...mk("Pitching Wedge",1.24,7), ...mk("4 Iron",1.37,3)]}];
-    const r=sl();
-    ok("liefert Werte", !!r && Object.keys(r.werte).length>0);
-    /* NAMENSZUORDNUNG über clubNorm: Der R10 schreibt „7 Iron", das Testfeld
-       heißt „7-Eisen". Ohne Vereinheitlichung fände sich nichts. */
-    ok("englische R10-Namen werden zugeordnet", r.werte["7-Eisen"]!=null,
-       JSON.stringify(r.werte));
-    ok("Wedge zugeordnet", r.werte["PW"]!=null);
-    ok("Werte plausibel", r.werte["Driver"]>1.3 && r.werte["Driver"]<1.55,
-       "Driver="+r.werte["Driver"]);
-    /* MINDESTZAHL: Aus drei Schlägen einen Testwert zu bilden hieße,
-       Tagesform als Messung auszugeben. */
-    ok("unter 5 Schlägen kein Wert", r.werte["4-Eisen"]===undefined,
-       "4-Eisen="+r.werte["4-Eisen"]);
-    ok("Herkunft wird ausgewiesen",
-       Array.isArray(r.herkunft) && r.herkunft.every(x=>x.n>=5));
-    /* Getrimmtes Mittel ab 8 Messungen — ein Fersentreffer soll den Schnitt
-       nicht bestimmen. */
-    const d12=r.herkunft.find(x=>x.n>=8), d7=r.herkunft.find(x=>x.n<8);
-    if(d12) ok("ab 8 Messungen getrimmt", d12.getrimmt===true, JSON.stringify(d12));
-    if(d7)  ok("darunter einfacher Mittelwert", d7.getrimmt===false, JSON.stringify(d7));
-    /* Ohne Launch-Daten darf nichts vorgegaukelt werden. */
-    DB.lmSessions=[];
-    eq("ohne Sitzungen kein Ergebnis", sl(), null);
-    /* Mehrfachfelder wie „5W/7W" müssen beide Varianten prüfen. */
-    if (df) {
-      const feld=df("smashfactor").inputs.find(i=>i.key.indexOf("/")>=0);
-      ok("Testdefinition enthält ein Mehrfachfeld", !!feld, feld&&feld.key);
-      const src=fs.readFileSync(FILE,"utf8");
-      ok("Mehrfachfelder werden aufgeteilt", /split\("\/"\)/.test(src));
+  const sync=G("lmTestsSync"), sm=G("lmSmashTag"), sp=G("lmSpeedTag"),
+        mit=G("lmMittel"), DB=G("DB"), tf=G("testsFor"), aus=G("lmAus");
+  if (typeof sync === "function" && DB) {
+    /* Beides sind keine Tests im eigentlichen Sinn: Man führt sie nicht durch,
+       man MISST sie — jede R10-Sitzung IST bereits die Messung. Elf Zahlen
+       abzutippen war Fleißarbeit mit Fehlerrisiko. */
+    const altT=DB.tests, altS=DB.lmSessions;
+    const mk=(club,smash,chs,carry,n)=>Array.from({length:n},(_,i)=>
+      ({club, smash:smash+((i%3)-1)*0.02, clubSpeed:chs+((i%3)-1), carry:carry+((i%3)-1)*3}));
+    DB.tests=[];
+    DB.lmSessions=[
+      {id:"AS1", date:"2026-07-05", shots:[...mk("Driver",1.44,94,215,12), ...mk("7 Iron",1.36,78,140,10)]},
+      {id:"AS2", date:"2026-08-02", shots:[...mk("Driver",1.46,96,221,14), ...mk("4 Iron",1.37,82,160,3)]}];
+    if (aus) aus.clear();
+    const r=sync();
+    eq("vier Einträge erzeugt (2 Tage x 2 Tests)", r.neu, 4);
+    ok("alle sind als automatisch markiert",
+       DB.tests.filter(t=>["smashfactor","swingspeed"].indexOf(t.defKey)>=0)
+               .every(t=>t.auto===true));
+    /* Ein zweiter Lauf darf nichts doppeln — sonst wächst der Verlauf bei
+       jedem Öffnen der Seite. */
+    const r2=sync();
+    eq("zweiter Lauf erzeugt nichts", r2.neu, 0);
+    eq("und ändert nichts", r2.akt, 0);
+    /* MINDESTZAHL: Das 4-Eisen hat nur 3 Schläge — daraus einen Testwert zu
+       bilden hieße, Tagesform als Messung auszugeben. */
+    const s2=tf("smashfactor").find(t=>t.date==="2026-08-02");
+    ok("Schläger unter 5 Schlägen fehlt", s2 && s2.inputs["4-Eisen"]===undefined,
+       JSON.stringify(s2&&s2.inputs));
+    ok("Driver mit 14 Schlägen ist dabei", s2 && s2.inputs["Driver"]>1.4);
+    /* HANDEINTRÄGE HABEN VORRANG: Wer einen Test bewusst eingetragen hat,
+       soll ihn nicht verändert wiederfinden. */
+    DB.tests.push({defKey:"swingspeed", date:"2026-08-02", inputs:{"CHS (mph)":99}, total:99});
+    const r3=sync();
+    eq("Handeintrag wird nicht überschrieben", r3.akt, 0);
+    ok("beide Einträge bleiben nebeneinander",
+       tf("swingspeed").filter(t=>t.date==="2026-08-02").length===2);
+    /* ABGEWÄHLTE SITZUNGEN verschwinden auch aus dem Testverlauf — die
+       Auswahl im Launch-Reiter gilt durchgängig. */
+    if (aus) {
+      aus.add("AS1");
+      const r4=sync();
+      ok("verwaiste Auto-Einträge werden entfernt", r4.weg>=2, "weg="+r4.weg);
+      ok("der Tag ist aus dem Verlauf raus",
+         !tf("smashfactor").some(t=>t.date==="2026-07-05"));
+      aus.clear(); sync();
     }
-    /* BEWUSST NICHT AUTOMATISCH: Der Test wird vorgeschlagen, nicht
-       gespeichert — ob eine Sitzung einen Eintrag wert ist, entscheidet der
-       Spieler. */
+    DB.tests=altT; DB.lmSessions=altS;
+  }
+  if (typeof mit === "function") {
+    /* Ab 8 Werten getrimmtes Mittel — ein Fersentreffer soll den Schnitt nicht
+       bestimmen. Darunter einfacher Durchschnitt. */
+    eq("unter 5 Werten null", mit([1,2,3],5), null);
+    ok("ab 5 ein Mittelwert", mit([1,2,3,4,5],5)===3);
+    const mitAusreisser=mit([100,100,100,100,100,100,100,10],5);
+    ok("Ausreißer wird gedämpft", mitAusreisser>60, String(mitAusreisser));
+  }
+  if (typeof sp === "function") {
+    /* Swing Speed NUR aus Driver-Schlägen — über alle Schläger gemittelt
+       sänke der Wert mit jedem Wedge. */
+    const gemischt=[...Array.from({length:8},()=>({club:"Driver",clubSpeed:95,smash:1.45,carry:215})),
+                    ...Array.from({length:8},()=>({club:"PW",clubSpeed:65,smash:1.22,carry:100}))];
+    const w=sp(gemischt);
+    ok("nur Driver zählt", w && w["CHS (mph)"]>90, JSON.stringify(w));
+    ok("ohne Driver kein Ergebnis", sp([{club:"7 Iron",clubSpeed:80}])===null);
+  }
+  /* Der manuelle Knopf ist entfallen — er bot etwas an, was ohnehin geschieht. */
+  {
     const src=fs.readFileSync(FILE,"utf8");
-    ok("füllt nur die Felder, speichert nicht",
-       /function smashUebernehmen[\s\S]{0,600}prüfen und speichern/.test(src));
-    ok("Knopf nur beim Smash-Factor-Test", /key==="smashfactor"/.test(src));
-    DB.lmSessions=altS;
+    const nurCode = [...src.matchAll(/<script([^>]*)>([\s\S]*?)<\/script>/g)]
+      .filter(m=>!/\bsrc=|application\/json|text\/markdown|devdocs/.test(m[1]))
+      .map(m=>m[2]).join("\n").replace(/\/\*[\s\S]*?\*\//g,"");
+    ok("kein Übernahme-Knopf mehr", nurCode.indexOf("smashUebernehmen")<0);
+    ok("automatisch beim Import", /lmTestsSync\(\)/.test(nurCode));
+    /* Der Verlauf zeigt je Eintrag die Einzelwerte MIT Veränderung. */
+    ok("Verlauf nennt die Herkunft", /· automatisch/.test(nurCode));
   }
 }
 
