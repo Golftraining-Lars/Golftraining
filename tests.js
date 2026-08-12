@@ -175,7 +175,7 @@ try {
                  "holeGir","holeUpDown","holeSandSave","platzAnalyse","taskFortschritt",
                  "warmupSchedule","warmupKorrektiv","WARMUP_PLANS","medianSplit","pearson",
                  "rKrit","gpKey","gpLabel","gpTotalES","pickClub","_aimClub","_aimLerp",
-                 "_nearest","_reaching","pfWizHtml","heuteJetzt","dispOvalFrom","dispChipHtml","dispRingPath","dispHitShare","dispText","dispSchemaSvg","dispSigmaFor","_erf","gpClubFracs","DB"];
+                 "_nearest","_reaching","pfWizHtml","heuteJetzt","dispOvalFrom","dispChipHtml","dispRingPath","pathTopPoint","dispHitShare","dispText","dispSchemaSvg","dispSigmaFor","_erf","gpClubFracs","DB"];
   const epilog = "\n;globalThis.__T={" +
     namen.map(n => `${n}: (typeof ${n}!=="undefined"?${n}:undefined)`).join(",") + "};";
   vm.runInContext(code + epilog, ctx, { timeout: 20000 });
@@ -4219,6 +4219,24 @@ group("Streuungs-Oval — Mittelpunkt, Ausrichtung, Schalter");
     eq("ohne σ kein Pfad", R(M, c, 0, null, 1), "");
     eq("σ 0 ergibt keinen Pfad", R(M, c, 0, { sigL: 0, sigD: 0 }, 1), "");
     ok("kein NaN im Pfad", !/NaN/.test(R(M, c, 0, sg, 1)));
+
+    /* Die Beschriftung hängt am obersten Punkt des Rings — „oben" heißt
+       Bildschirm oben, nicht Schlagrichtung. Bei gedrehter Karte fällt beides
+       auseinander, deshalb wird der Punkt aus dem PFAD gelesen. */
+    const TP = G("pathTopPoint");
+    if (typeof TP === "function") {
+      eq("kleinstes y gewinnt", TP("M10 50L20 12L30 80Z").join(","), "20,12");
+      eq("erster Punkt zählt mit", TP("M5 3L20 40Z").join(","), "5,3");
+      eq("negative Werte werden erkannt", TP("M10 5L20 -7L30 9Z").join(","), "20,-7");
+      /* Bei Gleichstand der erste — Hauptsache stabil, nicht springend. */
+      eq("Gleichstand bleibt beim ersten", TP("M10 4L20 4Z").join(","), "10,4");
+      eq("leerer Pfad ergibt nichts", TP(""), null);
+      eq("kein Pfad ergibt nichts", TP(null), null);
+      eq("halber Punkt ergibt nichts", TP("M12"), null);
+      const t1 = TP(R(M, c, 0, sg, 1));
+      ok("oberster Punkt eines echten Rings liegt oben",
+        t1 && Math.abs(t1[1] + 10) < 0.6, t1 && t1.join(","));
+    }
   }
   if (typeof C === "function" && DBx) {
     const vorher = DBx.ui ? DBx.ui.disp : undefined;
