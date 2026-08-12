@@ -152,7 +152,7 @@ try {
                  "caddyClubs","clubNorm","clubRename","bagFreiName","bagMessSpalte",
                  "tombAdd","tombClear","tombDel","MERGE_KEY","_mergeTomb","_tombFor",
                  "playCaddyNow","playTooFar","playAimChain","playMapSlot","playFocusDefault",
-                 "hcpGap","whsPool","courseStats","nassFaktor","errZeit","todayISO","puttDiagnose","sgHole","verlaesslich","testFaellig","stretchToggle","STRETCH_DONE","MALASKA_DYN","MALASKA_STAT","MALASKA_SVG","malaskaBild","POST_ROUND","POST_SVG","malaskaVideo","wxStunden","wxStundenHtml","WEATHER","lmAktiveShots","lmToggleAus","computeRound","_computeRoundRoh","playVorgabe","playRueckschlag","PLAY","testEmpfehlung","SG_ZU_TESTKAT","miniStat","lmTestsSync","lmSmashTag","lmSpeedTag","lmTage","lmMittel","testsFor","lmAus","clubNorm","defFor","uebText","benchHcp","benchRest","benchValue","testVerlauf","testFelderDelta","testVerlaufHtml","stamp","mergeDB","_mergeTs","tierIndex","lvlLabel","lvlColor","ladderPos","prepLog","prepHeute","prepQuote","todayISO","sgSummary","sortedRounds","sgWeakest","crCacheClear","_crCache","lmAlleAn","lmAus","postBild","postToggle","POST_DONE","WARMUP_PLANS","openPostStretchSheet","openStretchSheet","fmtN","fmtDate","fmtDT","fmtDur","zielPrognose","indexTempo","trainingsEmpfehlung","fitnessWirkung","stratRueckschau","sgHoleShots","sgVerlauf",
+                 "hcpGap","whsPool","courseStats","nassFaktor","errZeit","todayISO","puttDiagnose","sgHole","verlaesslich","testFaellig","stretchToggle","STRETCH_DONE","MALASKA_DYN","MALASKA_STAT","MALASKA_SVG","malaskaBild","POST_ROUND","POST_SVG","malaskaVideo","wxStunden","wxStundenHtml","WEATHER","lmAktiveShots","lmToggleAus","computeRound","_computeRoundRoh","playVorgabe","playRueckschlag","PLAY","testEmpfehlung","SG_ZU_TESTKAT","miniStat","strkMove","lmTestsSync","lmSmashTag","lmSpeedTag","lmTage","lmMittel","testsFor","lmAus","clubNorm","defFor","uebText","benchHcp","benchRest","benchValue","testVerlauf","testFelderDelta","testVerlaufHtml","stamp","mergeDB","_mergeTs","tierIndex","lvlLabel","lvlColor","ladderPos","prepLog","prepHeute","prepQuote","todayISO","sgSummary","sortedRounds","sgWeakest","crCacheClear","_crCache","lmAlleAn","lmAus","postBild","postToggle","POST_DONE","WARMUP_PLANS","openPostStretchSheet","openStretchSheet","fmtN","fmtDate","fmtDT","fmtDur","zielPrognose","indexTempo","trainingsEmpfehlung","fitnessWirkung","stratRueckschau","sgHoleShots","sgVerlauf",
                  "holeGir","holeUpDown","holeSandSave","platzAnalyse","taskFortschritt",
                  "warmupSchedule","warmupKorrektiv","WARMUP_PLANS","medianSplit","pearson",
                  "rKrit","gpKey","gpLabel","gpTotalES","pickClub","_aimClub","_aimLerp",
@@ -3046,6 +3046,38 @@ group("prepLog / prepQuote — automatisch statt Erledigt-Knopf");
       ok("Text ohne Auszeichnung bleibt unverändert", ut("Nur Text")==="Nur Text");
     }
   }
+}
+
+/* ============ 24bg. Karte verschieben beim Nachtragen ============ */
+group("strkDown/Move/Up — ein Finger zieht die Karte");
+{
+  const src=fs.readFileSync(FILE,"utf8");
+  const dn=src.slice(src.indexOf("function strkDown"), src.indexOf("function strkMove"));
+  const mv=src.slice(src.indexOf("function strkMove"), src.indexOf("function strkUp"));
+  const up=src.slice(src.indexOf("function strkUp"), src.indexOf("function strkUp")+700);
+  /* WAS FEHLTE: `strkDown` brach bei `if(!g) return;` ab, wenn man NICHT auf
+     einen Schlagpunkt tippte — ein Zug auf freier Fläche bewirkte nichts.
+     Zwei Finger zoomten, ein Finger tat gar nichts. Beim Nachtragen zoomt man
+     aber heran und muss dann zur nächsten Stelle der Bahn. */
+  ok("Ziehen startet auf leerer Fläche", /STRK\.pan=\{/.test(dn));
+  ok("auf einem Schlagpunkt bleibt es beim Punkt-Verschieben",
+     /STRK\.drag=\{i:\+g\.dataset\.shot/.test(dn));
+  ok("Zeiger wird eingefangen", /setPointerCapture/.test(dn));
+  ok("Verschieben wird ausgeführt", /STRK\.pan && STRK\.ptrs\.size===1/.test(mv));
+  /* Umrechnung in Kartenkoordinaten: Ohne sie liefe die Karte bei starkem
+     Zoom viel zu schnell unter dem Finger weg. */
+  ok("Pixel werden in Kartenkoordinaten umgerechnet",
+     /\/Math\.max\(1,r\.width\)\*p\.view\.w/.test(mv));
+  /* Am Rand klemmen: Wer über die Bahn hinausschiebt, sähe sonst leere Fläche
+     und fände nicht zurück. */
+  ok("an den Rand geklemmt",
+     /Math\.max\(0, Math\.min\(M\.W-p\.view\.w/.test(mv));
+  ok("Ziehen endet beim Loslassen", /STRK\.pan=null; return;/.test(up));
+  /* Beim Aufsetzen des zweiten Fingers muss das Ziehen enden — sonst springt
+     die Karte im Moment des Umschaltens auf Zoom. */
+  ok("zweiter Finger beendet das Ziehen",
+     /STRK\.drag=null; STRK\.pan=null;/.test(dn));
+  ok("Feld ist deklariert", /drag:null, pan:null/.test(src));
 }
 
 /* ============ 24bf. Dashboard: Überblick statt Bericht ============ */

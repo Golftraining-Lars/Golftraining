@@ -2962,6 +2962,17 @@ erkennbar ist, dass es ein Video gab.
   („Viel Platz zur Fahne" / „Wenig Platz — Fahne nah am Rand"): Wer den Begriff nicht kennt,
   versteht ihn beim Aufklappen. Der Feldname darf kurz sein, solange die Auswahl eindeutig ist.
 
+- **v2.43.0 · 2026-08-11** — **BUGFIX: Karte beim Nachtragen ließ sich nicht verschieben.**
+  `strkDown` brach mit `if(!g) return;` ab, sobald man **nicht** auf einen Schlagpunkt tippte —
+  ein Zug auf freier Fläche bewirkte nichts. Zwei Finger zoomten, ein Finger tat gar nichts.
+  Beim Nachtragen zoomt man aber zuerst heran und muss dann zur nächsten Stelle der Bahn; ohne
+  Verschieben blieb nur Herauszoomen und wieder Hineinzoomen.
+  Jetzt zieht **ein Finger auf leerer Fläche die Karte**; auf einem Schlagpunkt bleibt es beim
+  Verschieben **des Punktes** — der häufigere Fall darf nicht schwerer werden. Die Bewegung wird
+  in Kartenkoordinaten umgerechnet (sonst liefe die Karte bei starkem Zoom unter dem Finger weg)
+  und am Rand geklemmt (sonst sähe man leere Fläche und fände nicht zurück). Setzt der zweite
+  Finger auf, endet das Ziehen und der Zoom übernimmt — ohne Sprung. 9 Prüfungen.
+
 - **v2.42.0 · 2026-08-11** — **Smash Factor und Swing Speed entstehen automatisch · Verlauf
   detailliert.**
   Beides sind keine Tests im eigentlichen Sinn: Man führt sie nicht durch, man **misst** sie —
@@ -25780,7 +25791,7 @@ stamp(r);   // ohne Stempel gewinnt beim Sync die aeltere Repo-Fassung
 }
 
 function shotCount(sh){ const n=(sh&&sh.length)?sh.length:0; return Math.max(0,n-1); }
-let STRK={n:null, courseName:null, reopen:null, M:null, view:null, vw:0, vh:0, ptrs:null, pinch:null, lastPinch:0, drag:null};
+let STRK={n:null, courseName:null, reopen:null, M:null, view:null, vw:0, vh:0, ptrs:null, pinch:null, lastPinch:0, drag:null, pan:null};
 function renderShotTrack(n, reopen, courseName){
   STRK.n=n; STRK.courseName=courseName; STRK.reopen=reopen; STRK.ptrs=STRK.ptrs||new Map();
   const c=DB.courses.find(x=>x.name===courseName); const geo=c&&c.geo?c.geo:null;
@@ -25843,10 +25854,24 @@ function strkZoomBtn(f){ const v=STRK.view; if(v) strkZoomAt(f, v.x+v.w/2, v.y+v
 function strkResetView(){ const M=STRK.M; if(M){ STRK.view={x:0,y:0,w:M.W,h:M.H}; strkApplyView(); } }
 function strkDown(e){
   STRK.ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY}); const svg=e.currentTarget;
-  if(STRK.ptrs.size===2){ STRK.drag=null; const [a,b]=[...STRK.ptrs.values()];
+  if(STRK.ptrs.size===2){ STRK.drag=null; STRK.pan=null;   // zweiter Finger: vom Ziehen aufs Zoomen
+    const [a,b]=[...STRK.ptrs.values()];
     STRK.pinch={dist:Math.hypot(a.x-b.x,a.y-b.y)||1, view:{...STRK.view}, mid:strkVB((a.x+b.x)/2,(a.y+b.y)/2,svg)}; STRK.lastPinch=Date.now(); return; }
   if(STRK.pinch) return;
-  const g=e.target.closest && e.target.closest("[data-shot]"); if(!g) return;
+  const g=e.target.closest && e.target.closest("[data-shot]");
+  if(!g){
+    /* KARTE VERSCHIEBEN (v2.43). Bisher endete `strkDown` hier — ein Zug auf
+       freier Flaeche bewirkte NICHTS, man konnte nur mit zwei Fingern zoomen.
+       Beim Nachtragen zoomt man aber heran und muss dann zur naechsten Stelle
+       der Bahn; ohne Verschieben blieb nur Herauszoomen und wieder hinein.
+       Ein Finger auf leerer Flaeche zieht jetzt die Karte. Auf einem
+       Schlagpunkt bleibt es beim Verschieben DES PUNKTES — der haeufigere
+       Fall darf nicht schwerer werden. */
+    STRK.pan={ x0:e.clientX, y0:e.clientY, view:{...STRK.view} };
+    try{ svg.setPointerCapture(e.pointerId); }catch(_){ logErr("catch", _, true); }
+    e.preventDefault();
+    return;
+  }
   const sv=strkVB(e.clientX,e.clientY,svg);
   STRK.drag={i:+g.dataset.shot, el:g, bx:+g.dataset.cx, by:+g.dataset.cy, sx:sv[0], sy:sv[1], moved:false};
   try{ svg.setPointerCapture(e.pointerId); }catch(_){ logErr("catch", _, true); }
@@ -25860,12 +25885,26 @@ function strkMove(e){
     const fx=((a.x+b.x)/2-r.left)/r.width, fy=((a.y+b.y)/2-r.top)/r.height;
     let x=p0.mid[0]-fx*w, y=p0.mid[1]-fy*h; x=Math.max(0,Math.min(M.W-w,x)); y=Math.max(0,Math.min(M.H-h,y));
     STRK.view={x,y,w,h}; STRK.lastPinch=Date.now(); strkApplyView(); return; }
+  if(STRK.pan && STRK.ptrs.size===1){
+    const svg=e.currentTarget, r=svg.getBoundingClientRect(), M=STRK.M, p=STRK.pan;
+    /* Bildschirmpixel in Kartenkoordinaten umrechnen — sonst laeuft die Karte
+       bei starkem Zoom viel zu schnell unter dem Finger weg. */
+    const dx=(e.clientX-p.x0)/Math.max(1,r.width)*p.view.w;
+    const dy=(e.clientY-p.y0)/Math.max(1,r.height)*p.view.h;
+    /* An den Rand geklemmt: Wer ueber die Bahn hinausschiebt, sieht sonst
+       leere Flaeche und findet nicht zurueck. */
+    const x=Math.max(0, Math.min(M.W-p.view.w, p.view.x-dx));
+    const y=Math.max(0, Math.min(M.H-p.view.h, p.view.y-dy));
+    STRK.view={x, y, w:p.view.w, h:p.view.h};
+    strkApplyView(); e.preventDefault(); return;
+  }
   if(!STRK.drag) return; const svg=e.currentTarget; const v=strkVB(e.clientX,e.clientY,svg);
   const dx=v[0]-STRK.drag.sx, dy=v[1]-STRK.drag.sy; if(Math.abs(dx)+Math.abs(dy)>2) STRK.drag.moved=true;
   STRK.drag.el.setAttribute("transform",`translate(${dx.toFixed(1)} ${dy.toFixed(1)})`);
 }
 function strkUp(e){
   STRK.ptrs.delete(e.pointerId);
+  if(STRK.pan){ STRK.pan=null; return; }
   if(STRK.pinch){ if(STRK.ptrs.size<2) STRK.pinch=null; STRK.lastPinch=Date.now(); return; }
   if(!STRK.drag) return; const svg=e.currentTarget;
   if(STRK.drag.moved){ const v=strkVB(e.clientX,e.clientY,svg); const dx=v[0]-STRK.drag.sx, dy=v[1]-STRK.drag.sy;
@@ -26952,7 +26991,7 @@ function openComp(idx){
 /* ================= NAV ================= */
 let current="dash";
 const FAB_ACTION={rounds:startRound,comp:openAddComp,notes:openAddNote,swing:openSwingEdit};
-const APP_VERSION="2.42.0"; // App-Anzeigeversion (NICHT SEED.version! Diese bei jeder Änderung erhöhen)
+const APP_VERSION="2.43.0"; // App-Anzeigeversion (NICHT SEED.version! Diese bei jeder Änderung erhöhen)
 /* ---------- Darstellung: Hell/Dunkel (DB.ui.theme = "auto" | "light" | "dark") ---------- */
 const _darkMQ = (window.matchMedia? window.matchMedia("(prefers-color-scheme: dark)") : null);
 function themeSetting(){ return (DB && DB.ui && DB.ui.theme) || "auto"; }
