@@ -2201,6 +2201,14 @@ Erste, was auf dem Platz passiert.
 Kraftentfaltung — genau das Gegenteil dessen, was am ersten Tee gebraucht wird. Die statischen
 Uebungen bleiben beim Cool-down nach der Runde; eine Pruefung sichert das ab.
 
+**Testverlauf (v2.40).** \`testVerlauf(key)\` liefert Kennzahlen (Bestwert, typisch, Veraenderung
+gegen die Vorgaenger, Tempo je Monat ab 4 Eintraegen, HCP-Entwicklung),
+\`testFelderDelta(key)\` zeigt, WELCHE Einzelwerte sich geaendert haben — verglichen gegen den
+Schnitt der bis zu drei Vorgaenger, damit ein einzelner schwacher Tag nicht jede Veraenderung als
+Fortschritt erscheinen laesst. \`testVerlaufHtml(key)\` baut daraus Kurve, Kennzahlen und die
+Tafel „Was sich veraendert hat". Alles richtungsabhaengig: Bei Tests, wo weniger besser ist, ist
+der Bestwert das Minimum.
+
 **Vorbereitung nachhalten (v2.38).** `prepLog(art)` vermerkt AUTOMATISCH (kein Erledigt-Knopf —
 den vergisst man auf Loch 1): ab der HAELFTE der abgehakten Uebungen im Stretch-Blatt, beim
 Aufwaermen beim Festlegen des Ablaufs. `prepHeute(art)` setzt das ✓ auf den Knoepfen,
@@ -2947,6 +2955,43 @@ erkennbar ist, dass es ein Video gab.
   Fachbegriff ist hier vertretbar, weil die **Auswahlwerte** beschreiben, was gemeint ist
   („Viel Platz zur Fahne" / „Wenig Platz — Fahne nah am Rand"): Wer den Begriff nicht kennt,
   versteht ihn beim Aufklappen. Der Feldname darf kurz sein, solange die Auswahl eindeutig ist.
+
+- **v2.41.0 · 2026-08-11** — **BUGFIX: Bearbeitete Runden wurden vom Sync überschrieben ·
+  Dashboard neu geordnet.**
+  (1) **Der Datenverlust:** `_mergeArr` entscheidet über `_mergeTs` (`updated`/`editedAt`).
+  Notizen, Schläger und Schwunganalysen setzten diesen Stempel — **Runden, Turniere und Tests
+  aber nicht**. Ohne Stempel fällt der Merge auf „der vollständigere Eintrag gewinnt" zurück, und
+  die Repo-Fassung ist nach einer Runde im Spielmodus fast immer umfangreicher (Wetter, Lagen,
+  Puttlängen). Die eigene Korrektur verlor. Neu `stamp(obj)` an **allen** Schreibstellen; eine
+  Prüfung hält fest, dass keine vergessen wird. Mit Gegenprobe belegt: ohne Stempel geht die
+  Korrektur verloren, mit Stempel bleibt sie.
+  (2) **Dashboard:** Aus 13 Blöcken, 10 Karten und 4 Verlaufsdiagrammen — fünf bis sechs
+  Bildschirme — wurden vier sichtbare Abschnitte in der Reihenfolge der Fragen, die man stellt:
+  **wo stehe ich** (Ziel und Tempo), **was war zuletzt** (letzte Runde), **woran arbeiten**
+  (eine Empfehlung statt dreier Blöcke), dann Strokes Gained. Alle Kurven, die Putt-Diagnose und
+  der Top-Fokus wandern in einen Aufklappbereich „📈 Verläufe und Details" — sie beantworteten
+  dieselbe Frage mehrfach und drängten das Wesentliche nach unten. 14 Prüfungen sichern die
+  Reihenfolge ab.
+
+- **v2.40.0 · 2026-08-11** — **Testverlauf mit Substanz statt Zahlenliste.** Der Verlauf zeigte
+  Datum, Einzelwerte, Summe — damit sah man nicht, was die Frage beantwortet, mit der man
+  hinschaut: Werde ich besser, wie schnell, und **wo genau**? Alles drei steckte bereits in den
+  Daten.
+  Neu: **Kurve** mit eingezeichneten Stufenschwellen (erst ab 3 Einträgen — zwei Punkte ergeben
+  immer eine Gerade und suggerieren einen Trend, den es nicht gibt). **Kennzahlen:** aktueller
+  Wert mit Bestwert-Markierung, Veränderung gegenüber den letzten fünf Einträgen, Bestwert und
+  typischer Wert, **Tempo je Monat** aus linearer Regression (ab 4 Einträgen), und die
+  HCP-Entwicklung seit dem ersten Eintrag.
+  **Der wichtigste Teil: „Was sich verändert hat"** — `testFelderDelta()` vergleicht die
+  Einzelwerte und zeigt, wo zugelegt und wo verloren wurde. „Gesamt +3" sagt nicht, ob es an der
+  1,5-m-Distanz lag; genau danach richtet sich aber das nächste Training. Verglichen wird gegen
+  den Schnitt der bis zu drei Vorgänger, nicht gegen den einen davor — ein einzelner schwacher
+  Tag ließe sonst jede Veränderung als Fortschritt erscheinen. Unterschiede unter einem halben
+  Punkt werden weggelassen.
+  Zusätzlich ein Hinweis zur **Streuung**: Liegt sie über der Veränderung eines halben Jahres,
+  steht dort ausdrücklich, dass einzelne Einträge wenig sagen und nur der Trend zählt.
+  Alles richtungsabhängig — bei Tests, wo weniger besser ist, ist der Bestwert das Minimum.
+  17 Prüfungen.
 
 - **v2.39.0 · 2026-08-11** — **Testbewertung fein statt in fünf Kästchen.** Bei der
   Kurzputt-Präzision (Stufen 22/30/38/44/48) ergaben **30 und 37 Punkte dieselbe Stufe**
@@ -13787,6 +13832,26 @@ function dataScore(d){ d=d||DB; return (d.rounds||[]).length*3+(d.competitions||
    verloren — die Aenderung wurde beim naechsten Abgleich stillschweigend
    zurueckgesetzt. Genau dieser Fehler trat auf der Pinnwand auf. */
 function _mergeTs(x){ return (x && (x.updated||x.editedAt)) || ""; }
+
+/* ==========================================================================
+   ZEITSTEMPEL BEIM SPEICHERN (v2.41)
+   BUG: Eine bearbeitete Runde wurde beim naechsten Abgleich von der aelteren
+   Repo-Fassung ueberschrieben — die Aenderung war weg.
+
+   Ursache: `_mergeArr` entscheidet ueber `_mergeTs` (also `updated` bzw.
+   `editedAt`). Notizen, Schlaeger und Schwunganalysen setzten den Stempel,
+   RUNDEN, TURNIERE und TESTS aber nicht. Ohne Stempel faellt der Merge auf
+   „der vollstaendigere Eintrag gewinnt" zurueck — und die Repo-Fassung war
+   oft genauso lang oder laenger. Die eigene Aenderung verlor.
+
+   `stamp(obj)` setzt den Stempel. EINE Stelle, damit es nicht wieder
+   irgendwo vergessen wird; der Pruefstand haelt fest, dass jede Schreibstelle
+   sie benutzt.
+   ========================================================================== */
+function stamp(o){
+  if(o && typeof o==="object") o.updated=new Date().toISOString();
+  return o;
+}
 /* ==========================================================================
    GRABSTEINE — damit Loeschungen den Sync ueberleben (v2.11)
 
@@ -18658,7 +18723,7 @@ function quickRoundSave(){
   const t=tee&&tee.tees?Object.keys(tee.tees)[0]:null;
   const r={id:"R"+Date.now(), date:datum, course:platz, tee:t, side:"18 Loch",
            type:"18 Loch", holes, ts:new Date().toISOString()};
-  DB.rounds=DB.rounds||[]; DB.rounds.push(r);
+  DB.rounds=DB.rounds||[]; DB.rounds.push(stamp(r));
   persist(); closeSheet(); renderAll();
   toast(holes.length+" Löcher gespeichert");
 }
@@ -18689,18 +18754,22 @@ function renderDash(){
      verschiedene Momente, zwei verschiedene Seiten.
      `hWarm` bleibt als leere Zeichenkette erhalten, damit die
      Zusammensetzung unten unveraendert lesbar bleibt. */
+  /* Drei Sammelstellen statt eines durchlaufenden `h`: `hLetzte` (die letzte
+     Runde und die Form), `hVerlauf` (alle Kurven — sie wandern in den
+     Aufklappbereich) und `hFokus` (Top-Fokus). Zusammengesetzt wird ganz
+     unten in der neuen Reihenfolge. */
   const hWarm = ""; h = ``;
-  h+=`
+  let hVerlauf = `
   <div class="eyebrow">HCP-Verlauf · aus Wettkämpfen</div>
   <div class="card pad">
     ${lineChart([{pts:hcpPts,color:"var(--pine)"}],{h:150,fmt:v=>v.toFixed(0),
       labels:comps.length?[fmtDate(comps[0].date),fmtDate(comps[comps.length-1].date)]:[]})}
     <div class="legend"><span><i style="background:var(--pine)"></i>HCP-Index nach Turnier</span></div>
-  </div>
+  </div>`;
 
-  <div class="eyebrow">Letzte Runde</div>`;
+  let hLetzte = `<div class="eyebrow">Letzte Runde</div>`;
   if(lastR&&e){
-    h+=`<div class="card pad" onclick="openRound('${esc(lastR.id)}')" style="cursor:pointer">
+    hLetzte+=`<div class="card pad" onclick="openRound('${esc(lastR.id)}')" style="cursor:pointer">
       <div style="display:flex;justify-content:space-between;align-items:baseline">
         <div><div class="r-t" style="font-size:15px">${esc(lastR.course||"Runde")}</div>
           <div class="r-s">${fmtDate(lastR.date)} · ${e.counted} Löcher${lastR.side&&lastR.side!=="18 Loch"?" · "+esc(lastR.side):""}</div></div>
@@ -18716,9 +18785,9 @@ function renderDash(){
       ${e.lever?`<div style="margin-top:12px;background:var(--gold-soft);border-radius:11px;padding:10px 13px;font-size:12.5px">
         <b style="color:#8a5a00">Haupthebel: ${esc(e.lever)}</b> · Fehlerkosten ${e.totalCost.toFixed(1).replace(".",",")} Schläge</div>`:""}
     </div>`;
-  } else h+=`<div class="card"><div class="empty"><div class="big">⛳</div>Noch keine Runde erfasst.<br>Tippe ＋ auf „Runden".</div></div>`;
+  } else hLetzte+=`<div class="card"><div class="empty"><div class="big">⛳</div>Noch keine Runde erfasst.<br>Tippe ＋ auf „Runden".</div></div>`;
 
-  h+=`<div class="eyebrow">Form · letzte 5 Runden</div>
+  hLetzte+=`<div class="eyebrow">Form · letzte 5 Runden</div>
   <div class="grid2" style="margin-bottom:12px">
     <div class="card kpi"><div class="lab">GIR-Quote Ø</div><div class="val tnum">${girAvg!=null?Math.round(girAvg):"–"}<small>%</small></div>
       <div class="sub">Ziel HCP 15: 30 %</div></div>
@@ -18726,13 +18795,13 @@ function renderDash(){
       <div class="sub">Ziel HCP 15: ≤ 2</div></div>
   </div>`;
   if(costMax>0){
-    h+=`<div class="card pad"><div class="lab" style="font-size:12px;color:var(--ink-soft);font-weight:600;margin-bottom:10px">Fehlerkosten nach Bereich (Summe letzte 5)</div>`;
+    hLetzte+=`<div class="card pad"><div class="lab" style="font-size:12px;color:var(--ink-soft);font-weight:600;margin-bottom:10px">Fehlerkosten nach Bereich (Summe letzte 5)</div>`;
     costRank.forEach(([lab,v])=>{ const pct=costMax?v/costMax*100:0;
-      h+=`<div style="margin-bottom:9px"><div style="display:flex;justify-content:space-between;font-size:12.5px;margin-bottom:3px">
+      hLetzte+=`<div style="margin-bottom:9px"><div style="display:flex;justify-content:space-between;font-size:12.5px;margin-bottom:3px">
         <span>${esc(lab)}</span><b class="tnum">${v.toFixed(1).replace(".",",")}</b></div>
         <div style="height:7px;border-radius:99px;background:var(--surface2)"><div style="width:${pct}%;height:100%;border-radius:99px;background:${lab===costRank[0][0]?'var(--gold)':'var(--pine)'}"></div></div></div>`;
     });
-    h+=`<div class="note" style="margin-top:4px">Größter Hebel: <b>${esc(costRank[0][0])}</b> — ${esc(COACH[costRank[0][0]]||"")}</div></div>`;
+    hLetzte+=`<div class="note" style="margin-top:4px">Größter Hebel: <b>${esc(costRank[0][0])}</b> — ${esc(COACH[costRank[0][0]]||"")}</div></div>`;
   }
 
   // ---- Rundenserie (Verlauf über alle Runden) ----
@@ -18740,25 +18809,25 @@ function renderDash(){
   if(allE.length>=2){
     const parPts=allE.map((x,i)=>({i,y:x.toPar}));
     const labels=[fmtDate(rounds[0].date),fmtDate(rounds[rounds.length-1].date)];
-    h+=`<div class="eyebrow">Rundenserie · Score zu Par</div>
+    hVerlauf+=`<div class="eyebrow">Rundenserie · Score zu Par</div>
       <div class="card pad">${lineChart([{pts:parPts,color:"var(--pine)"}],{h:150,fmt:v=>(v>=0?"+":"")+Math.round(v),labels})}
       <div class="legend"><span><i style="background:var(--pine)"></i>Schläge über Par je Runde (niedriger = besser)</span></div></div>`;
     // cost category trends
-    h+=`<div class="eyebrow">Fehlerkosten-Verlauf je Bereich</div><div class="card"><div style="padding:4px 0">`;
+    hVerlauf+=`<div class="eyebrow">Fehlerkosten-Verlauf je Bereich</div><div class="card"><div style="padding:4px 0">`;
     COST_CATS.forEach(([lab,key])=>{
       const vals=allE.map(x=>x.cost[key]);
       const tr=trendArrow(vals,true); // lower cost better
-      h+=`<div class="focus" style="cursor:default">
+      hVerlauf+=`<div class="focus" style="cursor:default">
         <div class="grow"><div class="f-t" style="font-size:13.5px">${esc(lab)}</div>
           <div class="f-s">Ø letzte 3: ${(vals.slice(-3).reduce((a,b)=>a+b,0)/Math.min(3,vals.length)).toFixed(1).replace(".",",")} Schläge</div></div>
         <div style="width:96px">${sparkline(vals,'var(--pine)')||'<span class="r-s">—</span>'}</div>
         <div class="trend ${tr.cls}" style="width:26px;text-align:right;font-size:15px">${tr.sym}</div></div>`;
     });
-    h+=`</div><div class="note" style="padding:0 16px 12px">Pfeil zeigt Entwicklung der letzten 3 Runden ggü. den 3 davor — <span class="up">grün</span> = Fehlerkosten sinken.</div></div>`;
+    hVerlauf+=`</div><div class="note" style="padding:0 16px 12px">Pfeil zeigt Entwicklung der letzten 3 Runden ggü. den 3 davor — <span class="up">grün</span> = Fehlerkosten sinken.</div></div>`;
     // WHS index trend
     const ws=whsSeries();
     if(ws.length>=2){
-      h+=`<div class="eyebrow">WHS-Index · Verlauf (Best 8 aus 20)</div>
+      hVerlauf+=`<div class="eyebrow">WHS-Index · Verlauf (Best 8 aus 20)</div>
         <div class="card pad">${lineChart([{pts:ws.map((w,i)=>({i,y:w.idx})),color:"var(--gold)"}],{h:140,fmt:v=>v.toFixed(0),labels:[fmtDate(ws[0].date),fmtDate(ws[ws.length-1].date)]})}
         <div class="legend"><span><i style="background:var(--gold)"></i>Berechneter Handicap-Index</span></div></div>`;
     }
@@ -18766,15 +18835,15 @@ function renderDash(){
 
   // focus
   const fl=focusList();
-  h+=`<div class="eyebrow">Top-Fokus · Priorität × Rückstand</div><div class="card">`;
+  let hFokus = `<div class="eyebrow">Top-Fokus · Priorität × Rückstand</div><div class="card">`;
   if(fl.length){ fl.forEach((f,i)=>{
-    h+=`<div class="focus" onclick="openTest('${f.d.key}')">
+    hFokus+=`<div class="focus" onclick="openTest('${f.d.key}')">
       <div class="rank tnum">${i+1}</div>
       <div class="grow"><div class="f-t">${esc(f.d.label)}</div>
         <div class="f-s">Aktuell ${f.val!=null?f.val:"–"} · ${lvlLabel(f.idx)} · Gewicht ${(f.weight*100).toFixed(0)}%</div>
         ${ladder(f.val,f.d)}</div></div>`;
-  }); } else h+=`<div class="empty">Erst Tests erfassen, dann erscheint hier dein Fokus.</div>`;
-  h+=`</div>
+  }); } else hFokus+=`<div class="empty">Erst Tests erfassen, dann erscheint hier dein Fokus.</div>`;
+  hFokus+=`</div>
   <div class="note">Der Fokus gewichtet deinen Rückstand zur HCP-15-Marke mit deinen Prioritätsgewichten aus der Konfiguration.</div>`;
   /* Strokes Gained fuehrt das Dashboard an — nicht die GIR-Quote.
      Zwei Spieler mit gleicher GIR koennen sechs Schlaege trennen; SG sagt,
@@ -18782,9 +18851,34 @@ function renderDash(){
   /* Reihenfolge nach Nutzen: Momentaufnahme (SG) → Entwicklung (Verlauf) →
      Ziel (Abstand zum Wunsch-Handicap) → Handlung (Aufgaben) → Ursachen
      (Katastrophen). Das ist der Kreis von Messen zu Trainieren. */
-  h = hWarm + sgDashHtml(10) + tempoHtml() + trainingsplanHtml()
-      + puttDiagnoseHtml() + sgVerlaufHtml() + hcpGapHtml() + tasksHtml()
-      + h + sgDisasterHtml(10);
+  /* ==========================================================================
+     DASHBOARD NEU GEORDNET (v2.41)
+     Vorher: 13 Bloecke, 10 Karten, 4 Verlaufsdiagramme — fuenf bis sechs
+     Bildschirme auf dem Handy. Bei sechs gleichrangigen Bloecken sieht man
+     keinen. DREI davon beantworteten dieselbe Frage („woran arbeiten?"):
+     Top-Fokus, Trainingsplan und Putt-Diagnose. Und drei der vier Kurven
+     zeigten im Kern dasselbe: Wird es besser?
+
+     Ein Dashboard beantwortet drei Fragen, in dieser Reihenfolge:
+       1. WO STEHE ICH?     Ziel und Tempo, eine Zeile.
+       2. WAS WAR ZULETZT?  Die letzte Runde mit dem groessten Verlust.
+       3. WORAN ARBEITEN?   EINE Empfehlung, nicht drei Bloecke.
+     Alles Weitere ist aufklappbar: Wer es braucht, findet es; wer nicht,
+     sieht es nicht.
+     ========================================================================== */
+  h = hcpGapHtml() + tempoHtml()          // 1. Wo stehe ich
+    + hLetzte                              // 2. Was war zuletzt
+    + trainingsplanHtml()                  // 3. Woran arbeiten
+    + sgDashHtml(10)                       // Strokes Gained als Kern-Auswertung
+    + `<details class="descbox"><summary><span>📈 Verläufe und Details</span>
+        <span class="chev-d">▾</span></summary><div class="desc-body">`
+      + hVerlauf + sgVerlaufHtml() + puttDiagnoseHtml() + hFokus
+    + `</div></details>`
+    + tasksHtml()
+    /* Die Katastrophen-Analyse (Doppelbogey und schlechter) bleibt am Ende —
+       sie erklaert Ursachen und gehoert damit hinter die Handlung, nicht
+       davor. */
+    + sgDisasterHtml(10);
   $("#v-dash").innerHTML=h;
 }
 function miniStat(l,v){return `<div style="background:var(--surface2);border-radius:11px;padding:11px 12px">
@@ -21468,6 +21562,7 @@ function playFinish(){
   if(!r.holes.some(h=>h.score!=null)){ if(!confirm("Keine Scores erfasst – Runde verwerfen?")) return;
     draftFinalize(); PLAY.active=false; PLAY.live=false; liveStop(); pfClose();
     watchAutoOpenedFor=""; persist(); closeSheet(); renderAll(); flushCloudNow(); return; }
+  stamp(r);
   const i=DB.rounds.findIndex(x=>x.id===r.id); if(i>=0) DB.rounds[i]=r; else DB.rounds.push(r);
   draftFinalize(); PLAY.active=false; PLAY.live=false; liveStop();
   try{ STRAT.learnFromGps(); }catch(_){ logErr("catch", _, true); }
@@ -25125,6 +25220,153 @@ backdrop.onclick=closeSheet;
 { const sc=document.getElementById("sheetClose"); if(sc) sc.onclick=closeSheet; }
 
 /* ---- test detail + add ---- */
+/* ==========================================================================
+   TESTVERLAUF MIT SUBSTANZ (v2.40)
+   Der Verlauf war eine Zahlenliste: Datum, Einzelwerte, Summe. Damit sieht
+   man NICHT, was die Frage beantwortet, mit der man hinschaut:
+     · Werde ich besser — und wie schnell?
+     · Ist der letzte Wert ein Ausreisser oder mein neues Niveau?
+     · WO genau habe ich zugelegt und wo verloren?
+   Alles drei steckt in den vorhandenen Daten; es wurde nur nicht gezeigt.
+   ========================================================================== */
+
+/* Kennzahlen ueber die Testhistorie. `null`, wenn zu wenig da ist — eine
+   Trendaussage aus zwei Punkten waere geraten. */
+function testVerlaufHtml(key){
+  const v=testVerlauf(key);
+  if(!v) return "";
+  const d=defFor(key), hist=testsFor(key);
+  const einh=(d.benchmark&&d.benchmark.unit)?d.benchmark.unit.replace(/^\s*|\s*$/g,""):"";
+  const vz=x=>(x>0?"+":"")+fmtN(x, Math.abs(x)<10?1:0);
+  /* „Besser" haengt an der Richtung des Tests — bei Streubreite ist weniger
+     besser, und ein Minus waere dort ein Erfolg. */
+  const gut=x=>v.hoch? x>0 : x<0;
+
+  let h=`<div class="eyebrow" style="margin-top:22px">Verlauf · ${v.n} Einträge</div>`;
+
+  /* --- Kurve: erst ab 3 Punkten. Zwei Punkte ergeben immer eine Gerade und
+         suggerieren einen Trend, den es nicht gibt. --- */
+  if(v.n>=3 && typeof lineChart==="function"){
+    const pts=hist.filter(t=>t.total!=null)
+      .map(t=>({x:Date.parse(t.date||"")||0, y:t.total}))
+      .filter(p=>p.x).sort((a,b)=>a.x-b.x);
+    if(pts.length>=3){
+      const serien=[{name:"Ergebnis", pts, color:"var(--pine)"}];
+      /* Die Stufenschwellen als Orientierung mitzeichnen — sonst sieht man
+         eine Kurve ohne Bezug. */
+      if(d.benchmark && d.benchmark.levels){
+        const lv=d.benchmark.levels;
+        [1,2,3].forEach(i=>serien.push({name:HCP_LABELS[i], dash:true, color:"var(--line)",
+          pts:[{x:pts[0].x,y:lv[i]},{x:pts[pts.length-1].x,y:lv[i]}]}));
+      }
+      try{ h+=`<div class="card pad">${lineChart(serien,{h:150})}</div>`; }
+      catch(e){ logErr("testVerlaufHtml:chart", e, true); }   // ohne Kurve weiter
+    }
+  }
+
+  /* --- Kennzahlen: die drei Fragen, mit denen man hinschaut. --- */
+  h+=`<div class="card pad">
+    <div class="stat-line"><span>Aktuell</span>
+      <b class="tnum">${fmtN(v.letzt,0)} ${esc(einh)}${v.istBest?' <span class="up">Bestwert</span>':""}</b></div>
+    ${v.delta!=null?`<div class="stat-line"><span>gegenüber den letzten ${
+      Math.min(5, v.n-1)} Einträgen</span>
+      <b class="${gut(v.delta)?"up":"down"}">${vz(v.delta)}</b></div>`:""}
+    <div class="stat-line"><span>Bestwert · typisch</span>
+      <b class="tnum">${fmtN(v.best,0)} · ${fmtN(v.med,0)}</b></div>
+    ${v.proMonat!=null?`<div class="stat-line"><span>Tempo</span>
+      <b class="${gut(v.proMonat)?"up":""}">${vz(v.proMonat)} je Monat</b></div>`:""}
+    ${(v.hcpJetzt!=null&&v.hcpErst!=null&&v.n>1)?`<div class="stat-line"><span>Seit dem ersten Eintrag</span>
+      <b class="${v.hcpJetzt<v.hcpErst?"up":v.hcpJetzt>v.hcpErst?"down":""}">HCP ${fmtN(v.hcpErst,1)} → ${fmtN(v.hcpJetzt,1)}</b></div>`:""}
+    ${v.spanne!=null&&v.n>=4?`<p class="note" style="margin-bottom:0">Deine Werte streuen über
+      <b>${fmtN(v.spanne,0)} ${esc(einh)}</b>. ${v.spanne > Math.abs(v.proMonat||0)*6
+        ? "Das ist mehr als die Veränderung eines halben Jahres — einzelne Einträge sagen hier wenig, der Trend schon."
+        : "Die Werte liegen eng beieinander; einzelne Einträge sind damit aussagekräftig."}</p>`:""}
+  </div>`;
+
+  /* --- Wo genau? Die eigentliche Auskunft für das nächste Training. --- */
+  const fd=testFelderDelta(key);
+  if(fd){
+    h+=`<div class="card pad">
+      <div style="font-weight:700;margin-bottom:4px">Was sich verändert hat</div>
+      ${fd.slice(0,6).map(f=>`<div class="stat-line">
+        <span>${esc(f.label)}</span>
+        <b class="${gut(f.diff)?"up":"down"}">${f.jetzt}${f.max?"/"+f.max:""}
+          <span class="r-s">von ${f.vorher} · ${vz(f.diff)}</span></b></div>`).join("")}
+      <p class="note" style="margin-bottom:0">Verglichen mit dem Schnitt der bis zu drei
+      vorherigen Einträge — nicht mit dem einen davor: Ein einzelner schwacher Tag ließe sonst
+      jede Veränderung als Fortschritt erscheinen. Unterschiede unter einem halben Punkt sind
+      weggelassen.</p></div>`;
+  }
+  return h;
+}
+
+function testVerlauf(key){
+  const d=defFor(key), hist=testsFor(key);
+  if(!d || !hist.length) return null;
+  const werte=hist.map(t=>t.total).filter(x=>x!=null && isFinite(x));
+  if(!werte.length) return null;
+  const hoch=!d.benchmark || d.benchmark.higherIsBetter!==false;
+  const letzt=werte[werte.length-1];
+  const best=hoch?Math.max(...werte):Math.min(...werte);
+  const sortiert=werte.slice().sort((a,b)=>a-b);
+  const med=sortiert[Math.floor((sortiert.length-1)/2)];
+  /* Bezugsgroesse: die letzten fuenf OHNE den aktuellen — sonst vergleicht
+     man den Wert mit sich selbst. */
+  const vorher=werte.slice(-6,-1);
+  const schnittVorher=vorher.length?vorher.reduce((a,b)=>a+b,0)/vorher.length:null;
+  /* Steigung je Monat aus linearer Regression — nur ab 4 Eintraegen. */
+  let proMonat=null;
+  const pts=hist.filter(t=>t.total!=null).map(t=>[Date.parse(t.date||""), t.total])
+                .filter(p=>isFinite(p[0]));
+  if(pts.length>=4){
+    const t0=pts[0][0];
+    const xs=pts.map(p=>(p[0]-t0)/(30*86400000)), ys=pts.map(p=>p[1]);
+    const n=xs.length, sx=xs.reduce((a,b)=>a+b,0), sy=ys.reduce((a,b)=>a+b,0);
+    const sxx=xs.reduce((a,x)=>a+x*x,0), sxy=xs.reduce((a,x,i)=>a+x*ys[i],0);
+    const nen=n*sxx-sx*sx;
+    if(Math.abs(nen)>1e-9) proMonat=(n*sxy-sx*sy)/nen;
+  }
+  const bm=d.benchmark;
+  return {
+    n:werte.length, letzt, best, med, hoch,
+    istBest: (hoch? letzt>=best : letzt<=best),
+    schnittVorher,
+    delta: schnittVorher!=null ? letzt-schnittVorher : null,
+    proMonat,
+    hcpJetzt: bm?benchHcp(benchValue(key,letzt), bm):null,
+    hcpErst:  bm?benchHcp(benchValue(key,werte[0]), bm):null,
+    spanne: werte.length>1 ? Math.max(...werte)-Math.min(...werte) : null
+  };
+}
+
+/* Welche EINZELWERTE haben sich veraendert? Das ist die eigentliche Auskunft:
+   „Gesamt +3" sagt nichts darueber, WO man zugelegt hat — und genau danach
+   richtet sich das naechste Training. */
+function testFelderDelta(key){
+  const d=defFor(key), hist=testsFor(key);
+  if(!d || hist.length<2) return null;
+  const jetzt=hist[hist.length-1].inputs||{};
+  /* Gegen den Schnitt der bis zu drei vorherigen Eintraege, nicht gegen den
+     einen davor: Ein einzelner schwacher Tag wuerde sonst jede Veraenderung
+     als Fortschritt erscheinen lassen. */
+  const vor=hist.slice(-4,-1).map(t=>t.inputs||{});
+  if(!vor.length) return null;
+  const out=[];
+  d.inputs.forEach(inp=>{
+    const a=jetzt[inp.key];
+    const alte=vor.map(v=>v[inp.key]).filter(x=>x!=null && isFinite(x));
+    if(a==null || !isFinite(a) || !alte.length) return;
+    const schnitt=alte.reduce((x,y)=>x+y,0)/alte.length;
+    const diff=a-schnitt;
+    if(Math.abs(diff)<0.5) return;                 // Rauschen weglassen
+    out.push({label:inp.label, jetzt:a, vorher:Math.round(schnitt*10)/10,
+              diff:Math.round(diff*10)/10, max:inp.max});
+  });
+  /* Groesste Veraenderung zuerst — in beide Richtungen. */
+  out.sort((a,b)=>Math.abs(b.diff)-Math.abs(a.diff));
+  return out.length?out:null;
+}
+
 function openTest(key){
   const d=defFor(key); const hist=testsFor(key);
   const lt=hist.length?hist[hist.length-1]:null;
@@ -25191,8 +25433,9 @@ function openTest(key){
   h+=`<div class="live"><div><div class="lv-l">Ergebnis</div><div class="lv-n tnum" id="liveTotal">–</div></div>
       <div id="liveChip"></div></div>`;
   h+=`<button class="btn" id="saveTest">Eintrag speichern</button>`;
+  h+=testVerlaufHtml(key);
   if(hist.length){
-    h+=`<div class="eyebrow" style="margin-top:22px">Verlauf</div><div class="card">`;
+    h+=`<div class="eyebrow" style="margin-top:14px">Alle Einträge</div><div class="card">`;
     hist.slice().reverse().forEach((t,i)=>{
       const gi=hist.length-1-i;
       h+=`<div class="hist-row"><span class="d">${fmtDate(t.date)}</span>
@@ -25214,7 +25457,7 @@ function openTest(key){
     const inputs={}; document.querySelectorAll(".t-in").forEach(el=>{const v=num(el.value); if(v!=null) inputs[el.dataset.k]=v;});
     if(!Object.keys(inputs).length){ toast("Bitte Werte eingeben"); return; }
     const tot=computeTotal(key,d,inputs);
-    DB.tests.push({defKey:key,date:$("#f_date").value,inputs,total:tot});
+    DB.tests.push(stamp({defKey:key,date:$("#f_date").value,inputs,total:tot}));
     persist(); closeSheet(); renderAll(); toast("Eintrag gespeichert");
   };
   document.querySelectorAll(".del").forEach(b=>b.onclick=()=>{
@@ -25412,7 +25655,7 @@ function openAddRound(existing, draftRound){
   buildHoles();
   window.__openShotTrack=function(n){
     let reopen; const cn=courseSel.value;
-    if(ed){ const r=collect(); const i=DB.rounds.findIndex(x=>x.id===ed.id);
+    if(ed){ const r=stamp(collect()); const i=DB.rounds.findIndex(x=>x.id===ed.id);
       if(i>=0){ DB.rounds[i]=r; persist(); reopen=()=>{ RTRACK_KEEP=true; openAddRound(DB.rounds[i]); }; }
       else reopen=()=>{ RTRACK_KEEP=true; openAddRound(ed); };
     } else { const d=collect(); if(d.holes.some(h=>h.score!=null)) saveDraft(d);
@@ -25426,6 +25669,7 @@ function openAddRound(existing, draftRound){
     if(!$("#r_end").value && $("#r_start").value){ $("#r_end").value=new Date().toTimeString().slice(0,5); }
     const r=collect();
     if(!r.holes.some(h=>h.score!=null)){ toast("Bitte mindestens einen Score eingeben"); return; }
+stamp(r);   // ohne Stempel gewinnt beim Sync die aeltere Repo-Fassung
     if(ed){ const i=DB.rounds.findIndex(x=>x.id===ed.id); DB.rounds[i]=r; }
     else DB.rounds.push(r);
     clearDraft(); persist(); closeSheet(); renderAll(); flushCloudNow(); toast(ed?"Aktualisiert":"Runde gespeichert");
@@ -26569,7 +26813,7 @@ function openAddComp(existing){
       gbe:gbe,deltaPar:dpar,stbGross:num($("#c_stbg").value),stbNet:num($("#c_stbn").value),
       sd:num($("#c_sd").value),gir:num($("#c_gir").value),fir:num($("#c_fir").value),putts:num($("#c_putts").value)};
     if(!data.date){ toast("Bitte Datum"); return; }
-    if(ed){ Object.assign(ed, data); } else { DB.competitions.push(data); }
+    if(ed){ Object.assign(ed, data); stamp(ed); } else { DB.competitions.push(stamp(data)); }
     if(data.hcpAfter!=null) DB.profile.currentHcp=data.hcpAfter;
     persist(); closeSheet(); renderAll(); toast(ed?"Aktualisiert":"Wettkampf gespeichert");
   };
@@ -26612,7 +26856,7 @@ function openComp(idx){
 /* ================= NAV ================= */
 let current="dash";
 const FAB_ACTION={rounds:startRound,comp:openAddComp,notes:openAddNote,swing:openSwingEdit};
-const APP_VERSION="2.39.0"; // App-Anzeigeversion (NICHT SEED.version! Diese bei jeder Änderung erhöhen)
+const APP_VERSION="2.41.0"; // App-Anzeigeversion (NICHT SEED.version! Diese bei jeder Änderung erhöhen)
 /* ---------- Darstellung: Hell/Dunkel (DB.ui.theme = "auto" | "light" | "dark") ---------- */
 const _darkMQ = (window.matchMedia? window.matchMedia("(prefers-color-scheme: dark)") : null);
 function themeSetting(){ return (DB && DB.ui && DB.ui.theme) || "auto"; }

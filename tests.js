@@ -152,7 +152,7 @@ try {
                  "caddyClubs","clubNorm","clubRename","bagFreiName","bagMessSpalte",
                  "tombAdd","tombClear","tombDel","MERGE_KEY","_mergeTomb","_tombFor",
                  "playCaddyNow","playTooFar","playAimChain","playMapSlot","playFocusDefault",
-                 "hcpGap","whsPool","courseStats","nassFaktor","errZeit","todayISO","puttDiagnose","sgHole","verlaesslich","testFaellig","stretchToggle","STRETCH_DONE","MALASKA_DYN","MALASKA_STAT","MALASKA_SVG","malaskaBild","POST_ROUND","POST_SVG","malaskaVideo","wxStunden","wxStundenHtml","WEATHER","lmAktiveShots","lmToggleAus","computeRound","_computeRoundRoh","playVorgabe","playRueckschlag","PLAY","testEmpfehlung","SG_ZU_TESTKAT","miniStat","smashAusLM","clubNorm","defFor","uebText","benchHcp","benchRest","benchValue","tierIndex","lvlLabel","lvlColor","ladderPos","prepLog","prepHeute","prepQuote","todayISO","sgSummary","sortedRounds","sgWeakest","crCacheClear","_crCache","lmAlleAn","lmAus","postBild","postToggle","POST_DONE","WARMUP_PLANS","openPostStretchSheet","openStretchSheet","fmtN","fmtDate","fmtDT","fmtDur","zielPrognose","indexTempo","trainingsEmpfehlung","fitnessWirkung","stratRueckschau","sgHoleShots","sgVerlauf",
+                 "hcpGap","whsPool","courseStats","nassFaktor","errZeit","todayISO","puttDiagnose","sgHole","verlaesslich","testFaellig","stretchToggle","STRETCH_DONE","MALASKA_DYN","MALASKA_STAT","MALASKA_SVG","malaskaBild","POST_ROUND","POST_SVG","malaskaVideo","wxStunden","wxStundenHtml","WEATHER","lmAktiveShots","lmToggleAus","computeRound","_computeRoundRoh","playVorgabe","playRueckschlag","PLAY","testEmpfehlung","SG_ZU_TESTKAT","miniStat","smashAusLM","clubNorm","defFor","uebText","benchHcp","benchRest","benchValue","testVerlauf","testFelderDelta","testVerlaufHtml","stamp","mergeDB","_mergeTs","tierIndex","lvlLabel","lvlColor","ladderPos","prepLog","prepHeute","prepQuote","todayISO","sgSummary","sortedRounds","sgWeakest","crCacheClear","_crCache","lmAlleAn","lmAus","postBild","postToggle","POST_DONE","WARMUP_PLANS","openPostStretchSheet","openStretchSheet","fmtN","fmtDate","fmtDT","fmtDur","zielPrognose","indexTempo","trainingsEmpfehlung","fitnessWirkung","stratRueckschau","sgHoleShots","sgVerlauf",
                  "holeGir","holeUpDown","holeSandSave","platzAnalyse","taskFortschritt",
                  "warmupSchedule","warmupKorrektiv","WARMUP_PLANS","medianSplit","pearson",
                  "rKrit","gpKey","gpLabel","gpTotalES","pickClub","_aimClub","_aimLerp",
@@ -3045,6 +3045,169 @@ group("prepLog / prepQuote — automatisch statt Erledigt-Knopf");
       ok("fett wird umgesetzt", /<b>Ball<\/b>/.test(ut("Den **Ball** treffen")));
       ok("Text ohne Auszeichnung bleibt unverändert", ut("Nur Text")==="Nur Text");
     }
+  }
+}
+
+/* ============ 24bf. Dashboard: Überblick statt Bericht ============ */
+group("renderDash — drei Fragen, nicht dreizehn Blöcke");
+{
+  const src=fs.readFileSync(FILE,"utf8");
+  /* Der Ausschnitt MUSS die ganze Funktion umfassen. Eine feste Länge schnitt
+     die Zusammensetzung mittendrin ab, und die Prüfung meldete Fehler, wo
+     keine waren — Klammerpaarung statt Zeichenzahl. */
+  const dStart=src.indexOf("function renderDash");
+  const dEnde=src.indexOf("\n}\n", dStart);
+  const d=src.slice(dStart, dEnde);
+  /* VORHER: 13 Blöcke, 10 Karten, 4 Verlaufsdiagramme — fünf bis sechs
+     Bildschirme auf dem Handy. Bei sechs gleichrangigen Blöcken sieht man
+     keinen. Drei beantworteten dieselbe Frage („woran arbeiten?"), und drei
+     der vier Kurven zeigten im Kern dasselbe: Wird es besser? */
+  const zusammen=d.slice(d.indexOf("h = hcpGapHtml()"));
+  ok("Zusammensetzung gefunden", zusammen.length>0);
+  /* Die Reihenfolge IST die Aussage: wo stehe ich, was war zuletzt, woran
+     arbeiten. */
+  const pos=t=>zusammen.indexOf(t);
+  ok("Ziel und Tempo zuerst",
+     pos("hcpGapHtml()")>=0 && pos("hcpGapHtml()")<pos("hLetzte"));
+  ok("dann die letzte Runde", pos("hLetzte")<pos("trainingsplanHtml()"));
+  ok("dann EINE Empfehlung", pos("trainingsplanHtml()")>=0);
+  /* Die Kurven wandern in den Aufklappbereich — sie beantworten dieselbe
+     Frage mehrfach und drängten das Wesentliche nach unten. */
+  ok("Aufklappbereich vorhanden", /<details class="descbox">/.test(zusammen));
+  const auf=zusammen.slice(zusammen.indexOf("<details"));
+  ["hVerlauf","sgVerlaufHtml()","puttDiagnoseHtml()","hFokus"].forEach(t=>
+    ok(t+" ist aufklappbar", auf.indexOf(t)>=0, t));
+  /* Gegenprobe: Diese Blöcke dürfen NICHT mehr oben stehen. */
+  const oben=zusammen.slice(0, zusammen.indexOf("<details"));
+  ok("keine Kurven im sichtbaren Teil", oben.indexOf("hVerlauf")<0);
+  ok("kein Top-Fokus im sichtbaren Teil", oben.indexOf("hFokus")<0);
+  /* Die drei Sammelstellen müssen befüllt werden, sonst bleibt der
+     Aufklappbereich leer. */
+  ["hLetzte","hVerlauf","hFokus"].forEach(v=>
+    ok(v+" wird befüllt", new RegExp(v+"\\+=").test(d), v));
+}
+
+/* ============ 24be. Bearbeitungen dürfen der Sync nicht fressen ============ */
+group("stamp() — ohne Zeitstempel gewinnt die ältere Repo-Fassung");
+{
+  const merge=G("mergeDB"), st=G("stamp"), ts=G("_mergeTs");
+  if (typeof merge === "function" && typeof st === "function") {
+    /* DER BUG: Eine bearbeitete Runde wurde beim nächsten Abgleich von der
+       älteren Repo-Fassung überschrieben — die Korrektur war weg.
+       Ursache: `_mergeArr` entscheidet über `_mergeTs` (`updated`/`editedAt`).
+       Notizen, Schläger und Schwunganalysen setzten den Stempel, RUNDEN,
+       TURNIERE und TESTS aber nicht. Ohne Stempel fällt der Merge auf „der
+       vollständigere Eintrag gewinnt" zurück — und die Repo-Fassung ist nach
+       einer Runde im Spielmodus fast immer umfangreicher (Wetter, Lagen,
+       Puttlängen). Die eigene Korrektur verlor. */
+    const repo={rounds:[{id:"RT1", date:"2026-08-01", course:"Nord", tee:"Gelb",
+      conditions:{temp:18,windMs:4,windDir:220}, notes:"windig",
+      holes:[{hole:1,par:4,score:5,putts:2,appr:"100-120m",lie:"Fairway",firstPutt:"2m"},
+             {hole:2,par:4,score:4,putts:2}]}]};
+    const lokal=()=>({id:"RT1", date:"2026-08-01", course:"Nord", tee:"Gelb",
+      holes:[{hole:1,par:4,score:4,putts:2},{hole:2,par:4,score:4,putts:2}]});
+
+    /* Gegenprobe: OHNE Stempel muss die Korrektur verlorengehen — sonst
+       prüft dieser Abschnitt nichts. */
+    const ohne=merge({rounds:[lokal()]}, repo);
+    eq("ohne Stempel gewinnt das Repo (der Bug)", ohne.rounds[0].holes[0].score, 5);
+    /* MIT Stempel bleibt die Bearbeitung. */
+    const mit=merge({rounds:[st(lokal())]}, repo);
+    eq("mit Stempel bleibt die Korrektur", mit.rounds[0].holes[0].score, 4);
+
+    ok("stamp setzt updated", !!st({}).updated);
+    ok("und _mergeTs liest ihn",
+       typeof ts === "function" ? ts(st({}))!=="" : true);
+    ok("stamp verträgt null", st(null)===null);
+    ok("stamp gibt das Objekt zurück", (()=>{const o={a:1}; return st(o)===o;})());
+
+    /* JEDE Schreibstelle an einer gemergten Liste muss stampen. Diese Prüfung
+       ist der eigentliche Schutz: Der Fehler entstand, weil eine einzelne
+       Stelle es nicht tat. */
+    const src=fs.readFileSync(FILE,"utf8");
+    const nurCode = [...src.matchAll(/<script([^>]*)>([\s\S]*?)<\/script>/g)]
+      .filter(m=>!/\bsrc=|application\/json|text\/markdown|devdocs/.test(m[1]))
+      .map(m=>m[2]).join("\n").replace(/\/\*[\s\S]*?\*\//g,"");
+    const offen=[];
+    const re=/DB\.(rounds|tests|competitions)\.push\(([^)]{0,40})/g;
+    let m2;
+    while((m2=re.exec(nurCode))){
+      /* Der Stempel kann IM Aufruf stehen (`push(stamp(x))`) oder in einer
+         der Zeilen davor (`stamp(r); … push(r)`). Beides ist richtig — nur
+         die Zeile selbst anzusehen erzeugt Fehlalarme, und eine Prüfung, die
+         Falsches meldet, gewöhnt einem das Hinsehen ab. */
+      const umfeld = nurCode.slice(Math.max(0, m2.index-300), m2.index+60);
+      if(!/stamp\(/.test(umfeld)) offen.push(m2[0].slice(0,50));
+    }
+    eq("jede push-Stelle stampt", offen.length, 0, offen.join(" | "));
+    ok("Runden-Editor stampt", /stamp\(collect\(\)\)|stamp\(r\)/.test(nurCode));
+  }
+}
+
+/* ============ 24bd. Testverlauf mit Substanz ============ */
+group("testVerlauf / testFelderDelta — nicht nur eine Zahlenliste");
+{
+  const tv=G("testVerlauf"), fd=G("testFelderDelta"), DB=G("DB");
+  if (typeof tv === "function" && DB) {
+    /* Der Verlauf war Datum, Einzelwerte, Summe. Damit sah man NICHT, was die
+       Frage beantwortet, mit der man hinschaut: Werde ich besser, wie schnell,
+       und WO genau? Alles drei steckte in den Daten. */
+    const altT=DB.tests;
+    const tag=n=>{const d=new Date(Date.now()-n*86400000);const p=x=>String(x).padStart(2,"0");
+      return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`;};
+    DB.tests=[
+      {defKey:"kurzputt", date:tag(150), inputs:{"1,0m":8,"1,5m":6,"2,0m":5}, total:26},
+      {defKey:"kurzputt", date:tag(110), inputs:{"1,0m":9,"1,5m":6,"2,0m":5}, total:28},
+      {defKey:"kurzputt", date:tag(70),  inputs:{"1,0m":9,"1,5m":7,"2,0m":6}, total:29},
+      {defKey:"kurzputt", date:tag(35),  inputs:{"1,0m":10,"1,5m":7,"2,0m":6}, total:32},
+      {defKey:"kurzputt", date:tag(5),   inputs:{"1,0m":10,"1,5m":9,"2,0m":7}, total:35}];
+    const v=tv("kurzputt");
+    ok("liefert Kennzahlen", !!v);
+    eq("Anzahl stimmt", v.n, 5);
+    eq("aktueller Wert", v.letzt, 35);
+    ok("Bestwert erkannt", v.istBest===true);
+    /* Der Vergleich läuft gegen die VORHERIGEN, nicht gegen sich selbst. */
+    ok("Veränderung gegen die Vorgänger", v.delta>0, "delta="+v.delta);
+    ok("Vergleichsschnitt schließt den aktuellen aus", v.schnittVorher<v.letzt,
+       `${v.schnittVorher} < ${v.letzt}`);
+    /* Tempo erst ab 4 Einträgen — zwei Punkte ergeben immer eine Gerade. */
+    ok("Tempo berechnet", v.proMonat!=null && v.proMonat>0, "proMonat="+v.proMonat);
+    DB.tests=DB.tests.slice(-3);
+    ok("unter 4 Einträgen kein Tempo", tv("kurzputt").proMonat===null);
+    DB.tests=[];
+    eq("ohne Einträge null", tv("kurzputt"), null);
+
+    /* RICHTUNGSABHÄNGIGKEIT: Bei einem Test, wo weniger besser ist, muss der
+       Bestwert das MINIMUM sein — sonst zeigt die App einen Rückschritt als
+       Bestwert an. */
+    DB.tests=[{defKey:"eisenstreu", date:tag(60), inputs:{}, total:30},
+              {defKey:"eisenstreu", date:tag(20), inputs:{}, total:22}];
+    const vi=tv("eisenstreu");
+    if(vi){
+      ok("weniger-ist-besser: Bestwert ist das Minimum", vi.best===22, "best="+vi.best);
+      ok("und der letzte Wert ist der Bestwert", vi.istBest===true);
+    }
+
+    /* FELDVERGLEICH: „Gesamt +3" sagt nicht, WO man zugelegt hat — und danach
+       richtet sich das nächste Training. */
+    DB.tests=[
+      {defKey:"kurzputt", date:tag(70), inputs:{"1,0m":9,"1,5m":7,"2,0m":6}, total:29},
+      {defKey:"kurzputt", date:tag(35), inputs:{"1,0m":10,"1,5m":7,"2,0m":6}, total:32},
+      {defKey:"kurzputt", date:tag(5),  inputs:{"1,0m":10,"1,5m":9,"2,0m":7}, total:35}];
+    const f=fd("kurzputt");
+    ok("Feldvergleich liefert Ergebnisse", Array.isArray(f) && f.length>0);
+    ok("größte Veränderung steht oben",
+       f.every((x,i)=>i===0 || Math.abs(f[i-1].diff)>=Math.abs(x.diff)),
+       f.map(x=>x.diff).join(" "));
+    ok("die 1,5m-Distanz ist der größte Zugewinn", /1,5/.test(f[0].label), f[0].label);
+    /* Rauschen unter einem halben Punkt wird weggelassen — sonst steht dort
+       eine Liste ohne Aussage. */
+    const src=fs.readFileSync(FILE,"utf8");
+    ok("Kleinstunterschiede gefiltert", /Math\.abs\(diff\)<0\.5/.test(src));
+    ok("Vergleich gegen mehrere Vorgänger", /slice\(-4,-1\)/.test(src));
+    DB.tests=[{defKey:"kurzputt", date:tag(5), inputs:{"1,0m":10}, total:35}];
+    eq("mit einem Eintrag kein Vergleich", fd("kurzputt"), null);
+    DB.tests=altT;
   }
 }
 
