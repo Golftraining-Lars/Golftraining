@@ -3048,6 +3048,46 @@ group("prepLog / prepQuote — automatisch statt Erledigt-Knopf");
   }
 }
 
+/* ============ 24bm. Ziellinie: swap und Moduswechsel ============ */
+group("STRAT.tee — vertauschte Tee/Grün-Punkte und Modus-Reaktion");
+{
+  const src=fs.readFileSync(FILE,"utf8");
+  /* DER BUG: `geo.holes[n].tee` ist der ROHE Punkt. Bei Löchern mit
+     `swap:true` sind Tee und Grün darin VERTAUSCHT — `holeRef()` dreht sie
+     zurück, `STRAT.tee` las aber direkt aus `geo`. Folge: Die Schlagfolge
+     startete am GRÜN und rechnete Richtung Tee. Der Zielpunkt lag 179 m vom
+     falschen Ende, also 95 m vom echten Tee — und die Anzeige zeigte
+     „7 Wood · 95 m" statt „7 Wood · 179 m".
+     Der Fehler war nur auf Löchern mit `swap` sichtbar. Deshalb betraf er
+     Loch 1 des Nordplatzes und sonst nichts, und deshalb war er so schwer zu
+     finden. */
+  const teeFn=src.slice(src.indexOf("  tee(geo,courseName,holeNo,mode,hcp){"),
+                        src.indexOf("  tee(geo,courseName,holeNo,mode,hcp){")+1400);
+  ok("STRAT.tee nutzt holeRef", /holeRef\(geo,holeNo\)/.test(teeFn));
+  ok("und bevorzugt dessen Tee-Punkt", /\(hr&&hr\.tee\)/.test(teeFn));
+  ok("Begründung dokumentiert", /swap/.test(teeFn));
+
+  /* MODUSWECHSEL: Die Bedingung lautete `PLAY.mapFocus` — Ziellinie und
+     „Plan vom Abschlag" wurden also nur im VOLLBILD neu gerechnet. Im
+     normalen Spielmodus blieb der alte Plan stehen, während der Caddy
+     darunter schon anders rechnete: zwei Empfehlungen, die sich
+     widersprachen. */
+  const sm=src.slice(src.indexOf("function setCaddyMode"),
+                     src.indexOf("function setCaddyMode")+1600);
+  ok("Kette wird unabhängig vom Vollbild verworfen",
+     /PLAY\.active\)\{[\s\S]{0,200}aimChainKey=null/.test(sm));
+  ok("auch das Kettenobjekt selbst", /PLAY\.aimChain=null/.test(sm));
+  ok("eingebettete Karte wird neu gezeichnet", /playMapRedraw/.test(sm));
+  ok("nicht mehr an mapFocus gebunden",
+     !/if\(typeof PLAY!=="undefined" && PLAY\.active && PLAY\.mapFocus\)/.test(sm));
+  /* Der Cache-Schlüssel MUSS den Modus enthalten, sonst hilft das Verwerfen
+     nichts — die Bewertung käme aus dem Speicher zurück. */
+  ok("Bewertungs-Cache schlüsselt über den Modus",
+     /_aimTeeEv[\s\S]{0,200}caddyMode\(\)/.test(src));
+  ok("Kettenschlüssel ebenso",
+     /_aimChainKey[\s\S]{0,300}caddyMode\(\)/.test(src));
+}
+
 /* ============ 24bl. Caddy-Plan: Einheiten und Plausibilität ============ */
 group("caddyPlan — kein Wedge vom Abschlag, Einheiten beschriftet");
 {
