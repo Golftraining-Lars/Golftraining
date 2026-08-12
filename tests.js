@@ -175,7 +175,7 @@ try {
                  "holeGir","holeUpDown","holeSandSave","platzAnalyse","taskFortschritt",
                  "warmupSchedule","warmupKorrektiv","WARMUP_PLANS","medianSplit","pearson",
                  "rKrit","gpKey","gpLabel","gpTotalES","pickClub","_aimClub","_aimLerp",
-                 "_nearest","_reaching","pfWizHtml","heuteJetzt"];
+                 "_nearest","_reaching","pfWizHtml","heuteJetzt","dispOvalFrom","dispChipHtml","DB"];
   const epilog = "\n;globalThis.__T={" +
     namen.map(n => `${n}: (typeof ${n}!=="undefined"?${n}:undefined)`).join(",") + "};";
   vm.runInContext(code + epilog, ctx, { timeout: 20000 });
@@ -4135,6 +4135,71 @@ group("pfWizHtml — zwei Zahlen, ohne die Ansicht zu wechseln");
        Runde zweimal, weil man nicht sieht, dass es schon steht. */
     ok("gesetzter Score ist markiert", /class="[^"]*\bon\b[^"]*"[^>]*aria-label="Score 6/.test(W(1, 4, 6, null)));
     ok("gesetzte Puttzahl ist markiert", /class="[^"]*\bon\b[^"]*"[^>]*aria-label="3 Putts"/.test(W(2, 4, 5, 3)));
+  }
+}
+
+/* ============ 24ay. Streuung auf der Karte ============ */
+group("Streuungs-Oval — Mittelpunkt, Ausrichtung, Schalter");
+{
+  const O = G("dispOvalFrom"), C = G("dispChipHtml"), DBx = G("DB");
+  if (typeof O === "function") {
+    const here = [54.0, 10.75];
+    const sg = { sigL: 18, sigD: 9, biasL: 2 };
+    const mLat = 110540, mLng = 111320 * Math.cos(here[0] * Math.PI / 180);
+    const dist = (a, b) => {
+      const dy = (b[0] - a[0]) * mLat, dx = (b[1] - a[1]) * mLng;
+      return Math.sqrt(dy * dy + dx * dx);
+    };
+
+    /* Der Mittelpunkt ist der ERWARTETE Ruhepunkt, nicht die eigene Position —
+       sonst läge die Streuung um die Füße statt um das Ziel. */
+    near("Mittelpunkt liegt in Schlagweite", dist(here, O(here, 0, 150, sg).center), 150, 0.7);
+    near("auch bei schräger Richtung", dist(here, O(here, 237, 150, sg).center), 150, 0.7);
+
+    /* Richtung: 0° = Norden (Breitengrad wächst), 90° = Osten (Längengrad). */
+    const n = O(here, 0, 100, sg).center, o = O(here, 90, 100, sg).center;
+    ok("0° zeigt nach Norden", n[0] > here[0] && Math.abs(n[1] - here[1]) < 1e-6);
+    ok("90° zeigt nach Osten", o[1] > here[1] && Math.abs(o[0] - here[0]) < 1e-6);
+
+    /* σ und Seitenversatz werden unverändert durchgereicht — das Zeichnen in
+       courseSVG rechnet damit weiter, ein stiller Verlust wäre unsichtbar. */
+    const ov = O(here, 45, 120, sg);
+    eq("σ quer übernommen", ov.sigL, 18);
+    eq("σ längs übernommen", ov.sigD, 9);
+    eq("Seitenversatz übernommen", ov.biasL, 2);
+    eq("Richtung übernommen", ov.brg, 45);
+
+    /* Unvollständige Eingaben dürfen kein halbes Oval liefern: courseSVG malt
+       sonst um [undefined,undefined] und die ganze Karte bleibt leer. */
+    eq("ohne Position kein Oval", O(null, 0, 150, sg), null);
+    eq("ohne Richtung kein Oval", O(here, NaN, 150, sg), null);
+    eq("ohne Weite kein Oval", O(here, 0, 0, sg), null);
+    eq("ohne σ kein Oval", O(here, 0, 150, null), null);
+    /* biasL darf fehlen (Heuristik ohne erkannte Fehlerseite) — dann 0, nicht undefined. */
+    eq("fehlender Versatz wird 0", O(here, 0, 150, { sigL: 12, sigD: 8 }).biasL, 0);
+  }
+  if (typeof C === "function" && DBx) {
+    const vorher = DBx.ui ? DBx.ui.disp : undefined;
+    DBx.ui = DBx.ui || {};
+
+    DBx.ui.disp = true;
+    const an = C({ sigL: 17.4, sigD: 9.2 });
+    ok("Chip nennt die Querstreuung in Metern", /±17 m quer/.test(an), an);
+    ok("Chip nennt die Längsstreuung", /±9 m lang/.test(an), an);
+    ok("eingeschaltet ist der Chip markiert", /class="pc-chip on"/.test(an), an);
+    ok("Vorlesehilfe beschreibt die Wirkung des Tippens",
+      /aria-label="[^"]*ausblenden/.test(an), an);
+
+    DBx.ui.disp = false;
+    const aus = C({ sigL: 17.4, sigD: 9.2 });
+    ok("ausgeschaltet ohne Markierung", !/\bpc-chip on\b/.test(aus), aus);
+    ok("Vorlesehilfe kehrt sich um", /aria-label="[^"]*einblenden/.test(aus), aus);
+
+    /* Ohne belastbares σ kein Knopf — ein Schalter, der ein leeres Oval
+       einschaltet, verspricht eine Information, die es nicht gibt. */
+    eq("ohne σ kein Chip", C(null), "");
+    eq("σ 0 ergibt keinen Chip", C({ sigL: 0, sigD: 0 }), "");
+    DBx.ui.disp = vorher;
   }
 }
 
