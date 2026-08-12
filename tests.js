@@ -152,7 +152,7 @@ try {
                  "caddyClubs","clubNorm","clubRename","bagFreiName","bagMessSpalte",
                  "tombAdd","tombClear","tombDel","MERGE_KEY","_mergeTomb","_tombFor",
                  "playCaddyNow","playTooFar","playAimChain","playMapSlot","playFocusDefault",
-                 "hcpGap","whsPool","courseStats","nassFaktor","errZeit","todayISO","puttDiagnose","sgHole","verlaesslich","testFaellig","stretchToggle","STRETCH_DONE","MALASKA_DYN","MALASKA_STAT","MALASKA_SVG","malaskaBild","POST_ROUND","POST_SVG","malaskaVideo","wxStunden","wxStundenHtml","WEATHER","lmAktiveShots","lmToggleAus","computeRound","_computeRoundRoh","playVorgabe","playRueckschlag","PLAY","testEmpfehlung","SG_ZU_TESTKAT","miniStat","strkMove","lmTestsSync","lmSmashTag","lmSpeedTag","lmTage","lmMittel","testsFor","lmAus","clubNorm","defFor","uebText","benchHcp","benchRest","benchValue","testVerlauf","testFelderDelta","testVerlaufHtml","stamp","mergeDB","_mergeTs","tierIndex","lvlLabel","lvlColor","ladderPos","prepLog","prepHeute","prepQuote","todayISO","sgSummary","sortedRounds","sgWeakest","crCacheClear","_crCache","lmAlleAn","lmAus","postBild","postToggle","POST_DONE","WARMUP_PLANS","openPostStretchSheet","openStretchSheet","fmtN","fmtDate","fmtDT","fmtDur","zielPrognose","indexTempo","trainingsEmpfehlung","fitnessWirkung","stratRueckschau","sgHoleShots","sgVerlauf",
+                 "hcpGap","whsPool","courseStats","nassFaktor","errZeit","todayISO","puttDiagnose","sgHole","verlaesslich","testFaellig","stretchToggle","STRETCH_DONE","MALASKA_DYN","MALASKA_STAT","MALASKA_SVG","malaskaBild","POST_ROUND","POST_SVG","malaskaVideo","wxStunden","wxStundenHtml","WEATHER","lmAktiveShots","lmToggleAus","computeRound","_computeRoundRoh","playVorgabe","playRueckschlag","PLAY","testEmpfehlung","SG_ZU_TESTKAT","miniStat","LOGO512","LOGO192","LOGO64","logoSetzen","strkMove","gpsPush","gpsBest","gpsGewicht","GPS_BUF","GPS_MAX_ACC","accClass","lmTestsSync","lmSmashTag","lmSpeedTag","lmTage","lmMittel","testsFor","lmAus","clubNorm","defFor","uebText","benchHcp","benchRest","benchValue","testVerlauf","testFelderDelta","testVerlaufHtml","stamp","mergeDB","_mergeTs","tierIndex","lvlLabel","lvlColor","ladderPos","prepLog","prepHeute","prepQuote","todayISO","sgSummary","sortedRounds","sgWeakest","crCacheClear","_crCache","lmAlleAn","lmAus","postBild","postToggle","POST_DONE","WARMUP_PLANS","openPostStretchSheet","openStretchSheet","fmtN","fmtDate","fmtDT","fmtDur","zielPrognose","indexTempo","trainingsEmpfehlung","fitnessWirkung","stratRueckschau","sgHoleShots","sgVerlauf",
                  "holeGir","holeUpDown","holeSandSave","platzAnalyse","taskFortschritt",
                  "warmupSchedule","warmupKorrektiv","WARMUP_PLANS","medianSplit","pearson",
                  "rKrit","gpKey","gpLabel","gpTotalES","pickClub","_aimClub","_aimLerp",
@@ -3045,6 +3045,112 @@ group("prepLog / prepQuote — automatisch statt Erledigt-Knopf");
       ok("fett wird umgesetzt", /<b>Ball<\/b>/.test(ut("Den **Ball** treffen")));
       ok("Text ohne Auszeichnung bleibt unverändert", ut("Nur Text")==="Nur Text");
     }
+  }
+}
+
+/* ============ 24bi. App-Logo ============ */
+group("Logo — eingebettet, offline, in der richtigen Größe");
+{
+  const src=fs.readFileSync(FILE,"utf8");
+  const L512=G("LOGO512"), L192=G("LOGO192"), L64=G("LOGO64");
+  [["LOGO512",L512],["LOGO192",L192],["LOGO64",L64]].forEach(([n,v])=>{
+    ok(n+" vorhanden", typeof v==="string" && v.length>1000, n);
+    ok(n+" ist eine Daten-URL", /^data:image\/webp;base64,/.test(v||""));
+  });
+  /* WEBP STATT PNG: dieselbe Darstellung bei einem Fünftel der Größe (512 px
+     als PNG wären 418 kB base64, als WebP 81 kB). Die App muss OFFLINE
+     vollständig funktionieren — jedes Kilobyte liegt dauerhaft im Cache. */
+  ok("alle drei zusammen unter 150 kB",
+     (L512.length+L192.length+L64.length)/1024 < 150,
+     Math.round((L512.length+L192.length+L64.length)/1024)+" kB");
+  /* Drei Größen, weil ein 512-px-Bild in der 28-px-Kopfzeile nur Rechenzeit
+     kostet. */
+  ok("Kopfzeilen-Logo ist das kleinste", L64.length < L192.length &&
+     L192.length < L512.length);
+  ok("Kopfzeile nutzt die kleine Fassung", /el\.src=LOGO64/.test(src));
+  /* OFFLINE: kein externer Verweis — ein Logo, das erst geladen werden muss,
+     fehlt genau dann, wenn man auf dem Platz steht. */
+  ok("keine externe Bildquelle im Kopfbereich",
+     !/<img[^>]*src="https?:/.test(src));
+  /* Manifest und iOS-Symbol: iOS nutzt das Manifest NICHT fürs Startsymbol. */
+  ok("Manifest enthält das Logo", /manifest\+json[\s\S]{0,4000}image%2Fwebp|image\/webp/.test(src));
+  ok("apple-touch-icon gesetzt", /rel="apple-touch-icon" href="data:image\/webp/.test(src));
+  ok("Begründung für iOS dokumentiert", /iOS nutzt das Manifest NICHT/.test(src));
+}
+
+/* ============ 24bh. GPS-Genauigkeit ============ */
+group("gpsBest / gpsGewicht — schlechte Messungen nicht wie gute behandeln");
+{
+  const push=G("gpsPush"), best=G("gpsBest"), gew=G("gpsGewicht"),
+        BUF=G("GPS_BUF"), MAX=G("GPS_MAX_ACC"), acl=G("accClass");
+  /* Bisher wurde JEDE Position verwendet — auch eine mit 25 m Ungenauigkeit.
+     Für die Distanz zum Grün verschmerzbar, für die SCHLAGMESSUNG nicht: Zwei
+     Punkte mit je 5 m Fehler ergeben bei 150 m bis zu 10 m Abweichung, und
+     die Zahl geht in die gelernte Schlägerlänge ein — also in jede
+     Caddy-Empfehlung. */
+  if (typeof gew === "function") {
+    eq("gutes Signal zählt voll", gew(4,5), 1);
+    ok("mittleres Signal zählt abgeschwächt", gew(12,14)<1 && gew(12,14)>0.5,
+       String(gew(12,14)));
+    eq("sehr schlechtes Signal zählt gar nicht", gew(35,35), 0);
+    ok("der SCHLECHTERE Punkt bestimmt", gew(3,20)===gew(20,20),
+       `${gew(3,20)} vs ${gew(20,20)}`);
+    ok("fehlende Angabe gilt als Grenzfall", gew(null,null)>0 && gew(null,null)<1);
+    /* Kein Sprung: Sonst hinge die gelernte Länge an einem Meter Unterschied. */
+    ok("stetig, ohne Sprung", Math.abs(gew(14,14)-gew(15,15))<0.1,
+       `${gew(14,14)} / ${gew(15,15)}`);
+  }
+  if (typeof push === "function" && typeof best === "function" && BUF) {
+    BUF.length=0;
+    eq("leerer Puffer liefert null", best(4000), null);
+    const jetzt=Date.now();
+    /* STILLSTAND: Alle Punkte eng beieinander — dann mitteln, denn die
+       Streuung ist zufällig und der Mittelwert liegt näher an der Wahrheit. */
+    for(let n=0;n<6;n++) push({lat:54.0+(n%2?1:-1)*0.00002, lng:10.0+(n%2?1:-1)*0.00002,
+                               acc:6, ts:jetzt-n*400});
+    const b=best(4000);
+    ok("mehrere Messungen werden gemittelt", b.gemittelt>=3, "n="+b.gemittelt);
+    ok("Genauigkeit verbessert sich", b.acc<6, "acc="+b.acc);
+    ok("aber nicht unter 2 m — das Gerät kann nicht besser", b.acc>=2);
+    /* BEWEGUNG: Weit auseinanderliegende Punkte dürfen NICHT gemittelt
+       werden — wer geht, bekäme sonst eine Position von vor Sekunden. */
+    BUF.length=0;
+    for(let n=0;n<6;n++) push({lat:54.0+n*0.0005, lng:10.0, acc:6, ts:jetzt-n*400});
+    const bw=best(4000);
+    ok("bei Bewegung wird nicht gemittelt", !bw.gemittelt, JSON.stringify(bw.gemittelt));
+    /* Der BESTE Punkt gewinnt, nicht der letzte. */
+    BUF.length=0;
+    push({lat:54.0, lng:10.0, acc:18, ts:jetzt-2000});
+    push({lat:54.1, lng:10.1, acc:4,  ts:jetzt-1500});
+    push({lat:54.2, lng:10.2, acc:22, ts:jetzt-500});
+    eq("bester Punkt gewinnt", best(4000).acc, 4);
+    /* Alte Messungen fallen heraus. */
+    BUF.length=0;
+    push({lat:54.0, lng:10.0, acc:3, ts:jetzt-20000});
+    eq("über 12 s alte Messungen zählen nicht", best(4000), null);
+    BUF.length=0;
+  }
+  {
+    const src=fs.readFileSync(FILE,"utf8");
+    /* Beim SETZEN wird abgewiesen statt still zu speichern — eine Messung mit
+       25 m ist wertlos, und der Nutzer soll es erfahren. */
+    ok("Anfangspunkt weist schlechtes Signal ab",
+       /function gpsAnchor[\s\S]{0,400}Signal zu ungenau/.test(src));
+    ok("Endpunkt ebenso",
+       /function gpsArrive[\s\S]{0,400}Signal zu ungenau/.test(src));
+    ok("Grenze bei 15 m", MAX===15, String(MAX));
+    /* Die Gewichtung muss beim Lernen der Schlägerlänge ankommen. */
+    ok("clubMeasured wertet die Genauigkeit aus",
+       /gpsGewicht\(x\.accA, x\.accB\)/.test(src));
+    /* BEWUSST NICHT: Glättung über die Zeit. Beim Golf steht man, geht, steht
+       wieder — eine Glättung hinkt beim Losgehen hinterher. */
+    ok("Begründung gegen Glättung dokumentiert", /Kalman/.test(src));
+  }
+  if (typeof acl === "function") {
+    eq("gut bis 8 m", acl(8), "good");
+    eq("mittel bis 15 m", acl(15), "mid");
+    eq("darüber schlecht", acl(16), "bad");
+    eq("ohne Wert schlecht", acl(null), "bad");
   }
 }
 
