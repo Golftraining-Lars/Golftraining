@@ -175,7 +175,7 @@ try {
                  "holeGir","holeUpDown","holeSandSave","platzAnalyse","taskFortschritt",
                  "warmupSchedule","warmupKorrektiv","WARMUP_PLANS","medianSplit","pearson",
                  "rKrit","gpKey","gpLabel","gpTotalES","pickClub","_aimClub","_aimLerp",
-                 "_nearest","_reaching","pfWizHtml","heuteJetzt","dispOvalFrom","dispChipHtml","dispRingPath","pathTopPoint","dispHitShare","dispText","dispSchemaSvg","dispSigmaFor","_erf","gpClubFracs","DB","STRAT"];
+                 "_nearest","_reaching","pfWizHtml","heuteJetzt","dispOvalFrom","dispChipHtml","dispRingPath","pathTopPoint","dispHitShare","dispText","dispSchemaSvg","dispSigmaFor","_erf","gpClubFracs","measureOrigin","DB","STRAT"];
   const epilog = "\n;globalThis.__T={" +
     namen.map(n => `${n}: (typeof ${n}!=="undefined"?${n}:undefined)`).join(",") + "};";
   vm.runInContext(code + epilog, ctx, { timeout: 20000 });
@@ -4260,6 +4260,38 @@ group("Streuungs-Oval — Mittelpunkt, Ausrichtung, Schalter");
     eq("ohne σ kein Chip", C(null), "");
     eq("σ 0 ergibt keinen Chip", C({ sigL: 0, sigD: 0 }), "");
     DBx.ui.disp = vorher;
+  }
+}
+
+/* ============ 24bb. Messen ab Tee, wenn die Position unplausibel ist ============ */
+group("Messpunkt — Bezug ist Position oder Tee");
+{
+  const O = G("measureOrigin");
+  if (typeof O === "function") {
+    const hier = [54.0, 10.75], tee = [54.01, 10.76];
+
+    /* Auf der Bahn bleibt alles wie bisher: gemessen wird ab Standort. */
+    eq("nah dran: ab Position", O(hier, tee, false).ab, "Position");
+    eq("und zwar wirklich der Standort", O(hier, tee, false).p, hier);
+
+    /* Zu weit weg — Planen am Schreibtisch: die gefragte Zahl ist „wie weit
+       ist der Bunker vom ABSCHLAG", nicht „von meinem Sofa". */
+    eq("zu weit: ab Tee", O(hier, tee, true).ab, "Tee");
+    eq("und zwar der Abschlag", O(hier, tee, true).p, tee);
+
+    /* Ohne Tee-Punkt gibt es keinen besseren Bezug als den Standort —
+       lieber eine unplausible Zahl als gar keine Messung. */
+    eq("zu weit ohne Tee: doch ab Position", O(hier, null, true).ab, "Position");
+    /* Ohne GPS (noch kein Fix) ist das Tee der richtige Bezug. */
+    eq("ohne Position: ab Tee", O(null, tee, false).ab, "Tee");
+    eq("weder noch: keine Messung", O(null, null, true), null);
+
+    /* Die Beschriftung MUSS mitlaufen: eine Zahl ab Tee, die aussieht wie eine
+       ab Standort, ist schlimmer als keine. */
+    const src = fs.readFileSync(FILE, "utf8");
+    ok("Karte beschriftet die Tee-Messung", /measureLab\?" "\+esc\(opt\.measureLab\)/.test(src));
+    ok("Meldung beschriftet sie auch", /ab Tee":"bis dorthin"/.test(src));
+    ok("Karte und Meldung teilen den Ursprung", /function _measOrig\(\)/.test(src));
   }
 }
 
