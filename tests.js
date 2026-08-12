@@ -152,7 +152,7 @@ try {
                  "caddyClubs","clubNorm","clubRename","bagFreiName","bagMessSpalte",
                  "tombAdd","tombClear","tombDel","MERGE_KEY","_mergeTomb","_tombFor",
                  "playCaddyNow","playTooFar","playAimChain","playMapSlot","playFocusDefault",
-                 "hcpGap","whsPool","courseStats","nassFaktor","errZeit","todayISO","puttDiagnose","sgHole","verlaesslich","testFaellig","stretchToggle","STRETCH_DONE","MALASKA_DYN","MALASKA_STAT","MALASKA_SVG","malaskaBild","POST_ROUND","POST_SVG","malaskaVideo","wxStunden","wxStundenHtml","WEATHER","lmAktiveShots","lmToggleAus","computeRound","_computeRoundRoh","playVorgabe","playRueckschlag","PLAY","testEmpfehlung","SG_ZU_TESTKAT","miniStat","caddyPlan","caddyClubs","warmToggle","warmReset","WARM_DONE","WARMUP_PLANS","WU","prepHeute","LOGO512","LOGO192","LOGO64","clubNorm","_clubNormRoh","shotsProKlasse","crCacheClear","sgVerlauf","logoSetzen","strkMove","gpsPush","gpsBest","gpsGewicht","GPS_BUF","GPS_MAX_ACC","accClass","lmTestsSync","lmSmashTag","lmSpeedTag","lmTage","lmMittel","testsFor","lmAus","clubNorm","defFor","uebText","benchHcp","benchRest","benchValue","testVerlauf","testFelderDelta","testVerlaufHtml","stamp","mergeDB","_mergeTs","tierIndex","lvlLabel","lvlColor","ladderPos","prepLog","prepHeute","prepQuote","todayISO","sgSummary","sortedRounds","sgWeakest","crCacheClear","_crCache","lmAlleAn","lmAus","postBild","postToggle","POST_DONE","WARMUP_PLANS","openPostStretchSheet","openStretchSheet","fmtN","fmtDate","fmtDT","fmtDur","zielPrognose","indexTempo","trainingsEmpfehlung","fitnessWirkung","stratRueckschau","sgHoleShots","sgVerlauf",
+                 "hcpGap","whsPool","courseStats","nassFaktor","errZeit","todayISO","puttDiagnose","sgHole","verlaesslich","testFaellig","stretchToggle","STRETCH_DONE","MALASKA_DYN","MALASKA_STAT","MALASKA_SVG","malaskaBild","POST_ROUND","POST_SVG","malaskaVideo","wxStunden","wxStundenHtml","WEATHER","lmAktiveShots","lmToggleAus","computeRound","_computeRoundRoh","playVorgabe","playRueckschlag","PLAY","testEmpfehlung","SG_ZU_TESTKAT","miniStat","caddyPlan","caddyClubs","SPIELWEISE","spielweise","inWedgeZone","WEDGE_ZONE","warmToggle","warmReset","WARM_DONE","WARMUP_PLANS","WU","prepHeute","LOGO512","LOGO192","LOGO64","clubNorm","_clubNormRoh","shotsProKlasse","crCacheClear","sgVerlauf","logoSetzen","strkMove","gpsPush","gpsBest","gpsGewicht","GPS_BUF","GPS_MAX_ACC","accClass","lmTestsSync","lmSmashTag","lmSpeedTag","lmTage","lmMittel","testsFor","lmAus","clubNorm","defFor","uebText","benchHcp","benchRest","benchValue","testVerlauf","testFelderDelta","testVerlaufHtml","stamp","mergeDB","_mergeTs","tierIndex","lvlLabel","lvlColor","ladderPos","prepLog","prepHeute","prepQuote","todayISO","sgSummary","sortedRounds","sgWeakest","crCacheClear","_crCache","lmAlleAn","lmAus","postBild","postToggle","POST_DONE","WARMUP_PLANS","openPostStretchSheet","openStretchSheet","fmtN","fmtDate","fmtDT","fmtDur","zielPrognose","indexTempo","trainingsEmpfehlung","fitnessWirkung","stratRueckschau","sgHoleShots","sgVerlauf",
                  "holeGir","holeUpDown","holeSandSave","platzAnalyse","taskFortschritt",
                  "warmupSchedule","warmupKorrektiv","WARMUP_PLANS","medianSplit","pearson",
                  "rKrit","gpKey","gpLabel","gpTotalES","pickClub","_aimClub","_aimLerp",
@@ -1911,8 +1911,16 @@ group("Caddy-Modus — safe/bal/aggr müssen sich unterscheiden");
          `${ev.bal.best.score.toFixed(3)} > ${ev.aggr.best.score.toFixed(3)}`);
       /* Offensiv darf Strafgebiete NICHT ganz ignorieren — das wäre nicht
          mutig, sondern falsch. */
+      /* Seit v2.50 steht der Wert in der GEMEINSAMEN Tabelle `SPIELWEISE`.
+         Die Prüfung liest jetzt die Tabelle statt einen Wortlaut im Quelltext —
+         das ist ohnehin die richtige Ebene: Sie prüft die Aussage, nicht die
+         Schreibweise. */
+      const SW=G("SPIELWEISE");
       ok("offensiv straft Strafgebiete weiterhin",
-         /mode==="aggr" \? \{pen:0\.25/.test(fs.readFileSync(FILE,"utf8")));
+         SW && SW.aggr.lie.pen>0, SW && String(SW.aggr.lie.pen));
+      ok("und sicher strenger als offensiv",
+         SW && SW.safe.lie.pen > SW.bal.lie.pen && SW.bal.lie.pen > SW.aggr.lie.pen,
+         SW && [SW.safe.lie.pen,SW.bal.lie.pen,SW.aggr.lie.pen].join(" > "));
       /* Der Erwartungswert bleibt in allen Modi derselbe — nur die
          Risikogewichtung verschiebt sich. */
       ok("Erwartungswert selbst ist modusunabhängig",
@@ -3046,6 +3054,92 @@ group("prepLog / prepQuote — automatisch statt Erledigt-Knopf");
       ok("Text ohne Auszeichnung bleibt unverändert", ut("Nur Text")==="Nur Text");
     }
   }
+}
+
+/* ============ 24bn. Eine Bewertung für Caddy und Gameplan ============ */
+group("SPIELWEISE — Caddy und Ziellinie können nicht mehr auseinanderlaufen");
+{
+  const SW=G("SPIELWEISE"), sw=G("spielweise"), inWZ=G("inWedgeZone"), WZ=G("WEDGE_ZONE");
+  const src=fs.readFileSync(FILE,"utf8");
+  if (SW && typeof sw === "function") {
+    /* VORHER gab es DREI getrennte Bewertungen: `caddyPlan` mit fünf
+       Gewichten, `STRAT.tee` mit dreien, `STRAT.nextShot` mit EINEM — und das
+       eine wirkte nur bei Wasser. Auf einem Loch ohne Strafgebiet waren
+       „sicher", „normal" und „offensiv" damit rechnerisch IDENTISCH, und der
+       Gameplan änderte sich beim Umschalten nicht. */
+    ["safe","bal","aggr"].forEach(m=>{
+      const p=SW[m];
+      ok(m+": Lage-Gewichte vollständig",
+         p && p.lie && p.lie.pen!=null && p.lie.sand!=null && p.lie.rough!=null);
+      ok(m+": Wedge-Bonus und Vorrück-Strafe gesetzt",
+         p.wedgeES>0 && p.advES>0, `${p.wedgeES} / ${p.advES}`);
+      ok(m+": Caddy-Gewichte vorhanden",
+         p.caddy && p.caddy.risk!=null && p.caddy.wedgeBonus!=null);
+    });
+    /* Die Modi müssen sich in JEDER Dimension unterscheiden — sonst fällt
+       einer wieder auf „wirkt nur bei Wasser" zurück. */
+    ok("Sand-Gewicht sinkt zum Offensiven",
+       SW.safe.lie.sand > SW.bal.lie.sand && SW.bal.lie.sand > SW.aggr.lie.sand);
+    ok("Rough-Gewicht ebenso",
+       SW.safe.lie.rough >= SW.bal.lie.rough && SW.bal.lie.rough >= SW.aggr.lie.rough);
+    ok("Layup-Schwelle steigt zum Offensiven",
+       SW.safe.layP5 < SW.bal.layP5 && SW.bal.layP5 < SW.aggr.layP5);
+    eq("unbekannter Modus fällt auf normal zurück", sw("quatsch"), SW.bal);
+
+    /* WEDGE-BONUS HERGELEITET: Die Erwartungstabelle gibt einem 71-m-Rest
+       rund 0,075 Schläge Vorsprung vor 98 m — sie nimmt an, näher sei immer
+       besser. Ein voller Wedge-Schlag ist aber kontrollierbarer als ein
+       Teilschlag. Der Bonus MUSS über 0,075 liegen, sonst wirkt er gar
+       nicht — genau daran scheiterte die erste Fassung. */
+    ["safe","bal","aggr"].forEach(m=>
+      ok(m+": Bonus überwindet die Tabellenverzerrung", SW[m].wedgeES>0.075,
+         String(SW[m].wedgeES)));
+  }
+  if (typeof inWZ === "function" && WZ) {
+    ok("volle Wedge-Zone erkannt", inWZ(100)===true && inWZ(85)===true && inWZ(125)===true);
+    ok("außerhalb nicht", inWZ(70)===false && inWZ(140)===false);
+    ok("Zone deckt die üblichen Wedge-Längen ab", WZ.von<=90 && WZ.bis>=120);
+  }
+  /* ALLE DREI Bewertungen müssen aus der Tabelle lesen — das ist der Kern:
+     Wer eine Zeile ändert, ändert Caddy UND Gameplan zugleich. */
+  ok("caddyPlan liest die Tabelle", /const _sw=spielweise\(mode\)/.test(src));
+  ok("STRAT.tee liest die Tabelle", /const w = spielweise\(mode\)\.lie/.test(src));
+  ok("STRAT.nextShot liest die Tabelle",
+     /const SW=spielweise\(mode\), w=SW\.lie/.test(src));
+  /* Gegenprobe: keine eigenen Kopien mehr im Quelltext. */
+  ok("keine zweite Gewichtstabelle",
+     !/mode==="safe" \? \{pen:1\.5, sand:0\.40/.test(src));
+  /* DIE REGEL MUSS IN DER DOKU STEHEN — sonst wiederholt sich der Fehler.
+     `STRAT.nextShot` blieb 45 Versionen lang bei einem einzigen Gewicht, weil
+     die Korrektur aus v2.05 nur in `caddyPlan` landete. Eine Regel, die nur
+     im Kopf des letzten Bearbeiters steht, ist keine Regel. */
+  {
+    const doc=(src.match(/<script[^>]*id="devdocs"[^>]*>([\s\S]*?)<\/script>/)||[])[1]||"";
+    ok("Doku vorhanden", doc.length>1000);
+    ok("Regel steht bei den unverhandelbaren Regeln",
+       /CADDY UND GAMEPLAN SIND EINE EINHEIT/.test(doc));
+    ok("beide Wege sind benannt",
+       /caddyPlan\(\)/.test(doc) && /STRAT\.nextShot\(\)/.test(doc));
+    ok("das Verbot eigener Gewichte steht dabei",
+       /Verboten:[\s\S]{0,200}eigene Gewichte/.test(doc));
+    ok("die Tabelle ist genannt", doc.indexOf("SPIELWEISE")>=0);
+    /* Auch der Grund muss dastehen — eine Regel ohne Begründung wird beim
+       ersten Widerspruch weggeräumt. */
+    ok("Begründung dokumentiert", /WARUM DIESE REGEL EXISTIERT/.test(doc));
+    ok("der Moduswechsel-Hinweis fehlt nicht",
+       /setCaddyMode\(\)[\s\S]{0,200}aimChain/.test(doc));
+  }
+
+  /* nextShot muss Sand, Rough UND den Wedge-Bonus verrechnen. */
+  const ns=src.slice(src.indexOf("nextShot(geo,courseName,holeNo,from,mode,hcp)"),
+                     src.indexOf("nextShot(geo,courseName,holeNo,from,mode,hcp)")+4200);
+  ok("nextShot verrechnet Sand", /w\.sand\*sandQ/.test(ns));
+  ok("nextShot verrechnet Rough", /w\.rough\*roughQ/.test(ns));
+  ok("nextShot belohnt die Wedge-Zone", /inWedgeZone\(restNach\)/.test(ns));
+  ok("nextShot straft weite Reste", /restNach>175/.test(ns));
+  /* Vorzeichen: `score` wird hier MINIMIERT — der Bonus muss ABGEZOGEN
+     werden. Ein Vorzeichenfehler würde krumme Reste belohnen. */
+  ok("Bonus wird abgezogen, nicht addiert", /\+ advance - wedgeBonus/.test(ns));
 }
 
 /* ============ 24bm. Ziellinie: swap und Moduswechsel ============ */
