@@ -152,7 +152,7 @@ try {
                  "caddyClubs","clubNorm","clubRename","bagFreiName","bagMessSpalte",
                  "tombAdd","tombClear","tombDel","MERGE_KEY","_mergeTomb","_tombFor",
                  "playCaddyNow","playTooFar","playAimChain","playMapSlot","playFocusDefault",
-                 "hcpGap","whsPool","courseStats","nassFaktor","errZeit","todayISO","puttDiagnose","sgHole","verlaesslich","testFaellig","stretchToggle","STRETCH_DONE","MALASKA_DYN","MALASKA_STAT","MALASKA_SVG","malaskaBild","POST_ROUND","POST_SVG","malaskaVideo","wxStunden","wxStundenHtml","WEATHER","lmAktiveShots","lmToggleAus","computeRound","_computeRoundRoh","playVorgabe","playRueckschlag","PLAY","testEmpfehlung","SG_ZU_TESTKAT","miniStat","LOGO512","LOGO192","LOGO64","logoSetzen","strkMove","gpsPush","gpsBest","gpsGewicht","GPS_BUF","GPS_MAX_ACC","accClass","lmTestsSync","lmSmashTag","lmSpeedTag","lmTage","lmMittel","testsFor","lmAus","clubNorm","defFor","uebText","benchHcp","benchRest","benchValue","testVerlauf","testFelderDelta","testVerlaufHtml","stamp","mergeDB","_mergeTs","tierIndex","lvlLabel","lvlColor","ladderPos","prepLog","prepHeute","prepQuote","todayISO","sgSummary","sortedRounds","sgWeakest","crCacheClear","_crCache","lmAlleAn","lmAus","postBild","postToggle","POST_DONE","WARMUP_PLANS","openPostStretchSheet","openStretchSheet","fmtN","fmtDate","fmtDT","fmtDur","zielPrognose","indexTempo","trainingsEmpfehlung","fitnessWirkung","stratRueckschau","sgHoleShots","sgVerlauf",
+                 "hcpGap","whsPool","courseStats","nassFaktor","errZeit","todayISO","puttDiagnose","sgHole","verlaesslich","testFaellig","stretchToggle","STRETCH_DONE","MALASKA_DYN","MALASKA_STAT","MALASKA_SVG","malaskaBild","POST_ROUND","POST_SVG","malaskaVideo","wxStunden","wxStundenHtml","WEATHER","lmAktiveShots","lmToggleAus","computeRound","_computeRoundRoh","playVorgabe","playRueckschlag","PLAY","testEmpfehlung","SG_ZU_TESTKAT","miniStat","caddyPlan","caddyClubs","warmToggle","warmReset","WARM_DONE","WARMUP_PLANS","WU","prepHeute","LOGO512","LOGO192","LOGO64","clubNorm","_clubNormRoh","shotsProKlasse","crCacheClear","sgVerlauf","logoSetzen","strkMove","gpsPush","gpsBest","gpsGewicht","GPS_BUF","GPS_MAX_ACC","accClass","lmTestsSync","lmSmashTag","lmSpeedTag","lmTage","lmMittel","testsFor","lmAus","clubNorm","defFor","uebText","benchHcp","benchRest","benchValue","testVerlauf","testFelderDelta","testVerlaufHtml","stamp","mergeDB","_mergeTs","tierIndex","lvlLabel","lvlColor","ladderPos","prepLog","prepHeute","prepQuote","todayISO","sgSummary","sortedRounds","sgWeakest","crCacheClear","_crCache","lmAlleAn","lmAus","postBild","postToggle","POST_DONE","WARMUP_PLANS","openPostStretchSheet","openStretchSheet","fmtN","fmtDate","fmtDT","fmtDur","zielPrognose","indexTempo","trainingsEmpfehlung","fitnessWirkung","stratRueckschau","sgHoleShots","sgVerlauf",
                  "holeGir","holeUpDown","holeSandSave","platzAnalyse","taskFortschritt",
                  "warmupSchedule","warmupKorrektiv","WARMUP_PLANS","medianSplit","pearson",
                  "rKrit","gpKey","gpLabel","gpTotalES","pickClub","_aimClub","_aimLerp",
@@ -3045,6 +3045,160 @@ group("prepLog / prepQuote — automatisch statt Erledigt-Knopf");
       ok("fett wird umgesetzt", /<b>Ball<\/b>/.test(ut("Den **Ball** treffen")));
       ok("Text ohne Auszeichnung bleibt unverändert", ut("Nur Text")==="Nur Text");
     }
+  }
+}
+
+/* ============ 24bl. Caddy-Plan: Einheiten und Plausibilität ============ */
+group("caddyPlan — kein Wedge vom Abschlag, Einheiten beschriftet");
+{
+  const plan=G("caddyPlan"), cc=G("caddyClubs");
+  if (typeof plan === "function") {
+    /* WAS PASSIERT IST: Der Plan zeigte „7 Wood · 95 m" und „GW · 179 m".
+       Schritt 1 nennt die SCHLAGWEITE, Schritt 2 die RESTDISTANZ — beide nur
+       als nackte Meterzahl. Wer das nicht weiß, liest die zweite Zahl als
+       Schlägerlänge und hält den Plan für kaputt. */
+    const bag=[{name:"Driver",dist:221,carry:211,sigma:20},
+               {name:"5 Iron",dist:170,carry:164,sigma:12},
+               {name:"PW",dist:113,carry:113,sigma:8},
+               {name:"GW",dist:90,carry:90,sigma:7}];
+    const p=plan(279, 4, {}, "normal", {clubs:bag, miss:{dir:null}}, null);
+    ok("Plan entsteht", !!p && Array.isArray(p.shots) && p.shots.length>=2);
+    ok("Abschlag nennt die Weite", /m weit/.test(p.shots[0].dist), p.shots[0].dist);
+    ok("Folgeschlag nennt den Rest", /m Rest/.test(p.shots[1].dist), p.shots[1].dist);
+    /* Die Summe muss aufgehen — sonst stimmt eine der beiden Zahlen nicht. */
+    const weit=parseInt(p.shots[0].dist), rest=parseInt(p.shots[1].dist);
+    ok("Weite + Rest ergibt die Lochlänge", Math.abs(weit+rest-279)<=2,
+       `${weit} + ${rest} = ${weit+rest}`);
+
+    /* PLAUSIBILITÄT: Ein Wedge vom Abschlag eines Par 4 ist Unsinn. Vorher
+       konnte der Rückfall `clubs[0]` genau das liefern, wenn die Liste nicht
+       absteigend sortiert ankam. */
+    const nurKurz=[{name:"LW",dist:69,carry:69,sigma:5},
+                   {name:"SW",dist:80,carry:80,sigma:5},
+                   {name:"PW",dist:113,carry:113,sigma:6}];
+    const p2=plan(279, 4, {}, "normal", {clubs:nurKurz, miss:{dir:null}}, null);
+    ok("auch mit kurzer Bag ein Plan", !!p2 && p2.shots.length>0);
+    ok("der LÄNGSTE wird gewählt, nicht der erste",
+       /PW/.test(p2.shots[0].club), p2.shots[0].club);
+    /* Gegenprobe: Bei einer normal sortierten Bag darf sich nichts ändern. */
+    const p3=plan(279, 4, {}, "normal", {clubs:bag, miss:{dir:null}}, null);
+    ok("normale Bag unverändert", /Driver|5 Iron/.test(p3.shots[0].club),
+       p3.shots[0].club);
+    /* Und die verdrehte Liste darf keinen Wedge nach vorn bringen. */
+    const verdreht=[{name:"GW",dist:90,carry:90,sigma:7},
+                    {name:"Driver",dist:221,carry:211,sigma:20},
+                    {name:"5 Iron",dist:170,carry:164,sigma:12}];
+    const p4=plan(279, 4, {}, "normal", {clubs:verdreht, miss:{dir:null}}, null);
+    ok("unsortierte Liste wählt trotzdem sinnvoll",
+       !/^GW/.test(p4.shots[0].club), p4.shots[0].club);
+  }
+}
+
+/* ============ 24bk. Aufwärmen abhaken ============ */
+group("warmToggle — dieselbe Regel wie bei den Stretch-Blättern");
+{
+  const wt=G("warmToggle"), wr=G("warmReset"), WD=G("WARM_DONE"),
+        PL=G("WARMUP_PLANS"), WU=G("WU"), heute=G("prepHeute"), DB=G("DB");
+  if (typeof wt === "function" && WD && PL && WU && DB) {
+    /* WAS FEHLTE: Die Aufwärmblöcke waren reine Anzeige — man konnte nichts
+       abhaken. Erfasst wurde stattdessen das FESTLEGEN von Plan oder
+       Abschlagzeit, und das hat die Quote geschönigt: Man legt die Zeit fest
+       und fährt trotzdem ohne einen Ball zum ersten Tee. */
+    DB.prep={};
+    Object.keys(WD).forEach(k=>delete WD[k]);
+    const n=PL[WU.plan].bloecke.length;
+    ok("Plan hat Blöcke", n>=3, "n="+n);
+    const haelfte=Math.ceil(n/2);
+    for(let i=0;i<haelfte-1;i++) wt(i);
+    ok("unter der Hälfte noch nicht erfasst", heute("warm")===false,
+       `${haelfte-1} von ${n}`);
+    wt(haelfte-1);
+    ok("ab der Hälfte erfasst", heute("warm")===true, `${haelfte} von ${n}`);
+    /* Erneutes Tippen nimmt zurück — wie bei den Stretch-Blättern. */
+    const vorher=Object.keys(WD).filter(k=>WD[k]).length;
+    wt(0);
+    eq("erneutes Tippen nimmt zurück",
+       Object.keys(WD).filter(k=>WD[k]).length, vorher-1);
+    DB.prep={};
+  }
+  {
+    const src=fs.readFileSync(FILE,"utf8");
+    const nurCode = [...src.matchAll(/<script([^>]*)>([\s\S]*?)<\/script>/g)]
+      .filter(m=>!/\bsrc=|application\/json|text\/markdown|devdocs/.test(m[1]))
+      .map(m=>m[2]).join("\n").replace(/\/\*[\s\S]*?\*\//g,"");
+    /* Das Festlegen der Zeit darf NICHT mehr als aufgewärmt zählen. */
+    ok("warmupSetTee protokolliert nicht mehr",
+       !/function warmupSetTee[\s\S]{0,300}prepLog/.test(nurCode));
+    ok("warmupSetPlan protokolliert nicht mehr",
+       !/function warmupSetPlan[\s\S]{0,300}prepLog/.test(nurCode));
+    ok("stattdessen protokolliert warmToggle",
+       /function warmToggle[\s\S]{0,400}prepLog\("warm"\)/.test(nurCode));
+    /* Blöcke müssen antippbar sein. */
+    ok("Blöcke sind antippbar", /onclick="warmToggle\(/.test(nurCode));
+    ok("Haken werden dargestellt", /ab\?"✓":"○"/.test(nurCode));
+    /* Veralteter Verweis auf einen Plan, den es seit v2.27 nicht mehr gibt. */
+    ok("kein Verweis mehr auf „8 Minuten danach\"",
+       nurCode.indexOf("8 Minuten danach")<0);
+    /* Die Quote steht im Fitness-Reiter — der Nutzer muss sie finden. */
+    ok("Quote wird angezeigt", /h=prepQuoteHtml\(\)/.test(nurCode));
+    ok("Blatt nennt den Fundort", /Training · Fitness/.test(src));
+  }
+}
+
+/* ============ 24bj. Geschwindigkeit ============ */
+group("Zwischenspeicher — gemessen, nicht geraten");
+{
+  const cn=G("clubNorm"), roh=G("_clubNormRoh"), grp=G("shotsProKlasse"),
+        clear=G("crCacheClear"), DB=G("DB");
+  if (typeof cn === "function" && typeof roh === "function") {
+    /* GEMESSEN: `renderBag` löste 126.969 clubNorm-Aufrufe aus — für rund 40
+       verschiedene Schlägernamen. Die Zuordnung Name -> Klasse ist FEST,
+       derselbe Name ergibt immer dasselbe. Der seltene Fall, in dem ein
+       Zwischenspeicher nicht veralten KANN. */
+    ok("gemerkte Fassung gleicht der Rechnung",
+       cn("7 Iron")===roh("7 Iron") && cn("Pitching Wedge")===roh("Pitching Wedge"));
+    eq("englisch und deutsch treffen sich", cn("7 Iron"), cn("7-Eisen"));
+    ok("zweiter Aufruf liefert dasselbe", cn("Driver")===cn("Driver"));
+    const src=fs.readFileSync(FILE,"utf8");
+    ok("Größe gedeckelt", /_cnCache\.size>500/.test(src));
+  }
+  if (typeof grp === "function" && DB) {
+    /* GEMESSEN: `clubMeasured` lief 46-mal über ALLE 1200 GPS-Schläge und alle
+       LM-Sitzungen — 55.000 Durchläufe für 46 Ergebnisse. Jetzt einmal
+       gruppieren. */
+    const altG=DB.gpsShots, altL=DB.lmSessions;
+    DB.gpsShots=[{id:"P1", ts:new Date().toISOString(), club:"7 Iron", dist:140, swing:"Voll"},
+                 {id:"P2", ts:new Date().toISOString(), club:"7-Eisen", dist:142, swing:"Voll"},
+                 {id:"P3", ts:new Date().toISOString(), club:"Driver", dist:215, swing:"Voll"}];
+    DB.lmSessions=[{id:"PL1", date:"2026-08-01", shots:[{club:"7 Iron", carry:141}]}];
+    if(clear) clear();
+    const g=grp();
+    eq("englische und deutsche Namen landen zusammen", (g.gps["eisen7"]||[]).length, 2);
+    eq("Driver getrennt", (g.gps["driver"]||[]).length, 1);
+    eq("LM getrennt gehalten", (g.lm["eisen7"]||[]).length, 1);
+    /* Der Speicher muss die Änderung bemerken — sonst zeigt die Bag alte
+       Werte, und das wäre schlimmer als eine langsame Ansicht. */
+    DB.gpsShots.push({id:"P4", ts:new Date().toISOString(), club:"7 Iron", dist:139, swing:"Voll"});
+    eq("neue Schläge werden bemerkt", (grp().gps["eisen7"]||[]).length, 3);
+    DB.gpsShots=altG; DB.lmSessions=altL;
+    if(clear) clear();
+  }
+  {
+    /* Alle Zwischenspeicher hängen an EINER Leerfunktion — sonst vergisst man
+       beim nächsten Einbau einen, und die App zeigt still veraltete Zahlen. */
+    const src=fs.readFileSync(FILE,"utf8");
+    const cc=src.slice(src.indexOf("function crCacheClear"),
+                       src.indexOf("function crCacheClear")+220);
+    ["_crCache","_sgvCache","_grpCache"].forEach(c=>
+      ok(c+" wird mitgeleert", cc.indexOf(c)>=0, cc.slice(0,90)));
+  }
+  /* sgVerlauf war der teuerste Einzelposten: 74 von 84 ms, weil sgSummary für
+     JEDE Runde über ein Fenster von fünf lief. */
+  {
+    const src=fs.readFileSync(FILE,"utf8");
+    ok("jede Runde wird nur einmal ausgewertet",
+       /const einzeln=rs\.map\(r=>/.test(src));
+    ok("Verlauf wird gemerkt", /_sgvCache && _sgvKey===key/.test(src));
   }
 }
 
