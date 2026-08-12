@@ -4263,6 +4263,54 @@ group("Streuungs-Oval — Mittelpunkt, Ausrichtung, Schalter");
   }
 }
 
+/* ============ 24bd. Vollbild beim Öffnen der Karte ============ */
+group("Vollbild — Automatik, aber nicht gegen den Nutzer");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+  const po = src.slice(src.indexOf("function pfOpen()"),
+                       src.indexOf("function pfOpen()") + 1400);
+  /* DIE zentrale Bedingung: Die Fullscreen-API verlangt eine Nutzergeste.
+     Steht der Aufruf hinter einem setTimeout, ist die Geste vorbei und die
+     Anfrage scheitert still — der Fehler wäre auf dem Platz nicht erklärbar. */
+  ok("Vollbild wird in pfOpen angefragt", /pfFullscreenAuto\(\)/.test(po));
+  ok("und zwar VOR dem verzögerten Kartenaufbau",
+    po.indexOf("pfFullscreenAuto()") < po.indexOf("setTimeout"));
+
+  const fa = src.slice(src.indexOf("function pfFullscreenAuto()"),
+                       src.indexOf("function pfFullscreenAuto()") + 900);
+  ok("Abschaltung wird respektiert", /!fsAutoOn\(\)/.test(fa));
+  ok("selbst geschlossenes Vollbild bleibt zu", /PLAY\.fsOff/.test(fa));
+  ok("in der installierten App passiert nichts", /display-mode: standalone/.test(fa));
+  ok("doppelte Anfrage vermieden", /document\.fullscreenElement/.test(fa));
+  /* Eine abgelehnte AUTOMATISCHE Anfrage ist kein Ereignis, über das man beim
+     Abschlag lesen will — anders als die angeforderte über ⛶. */
+  ok("Fehlschlag bleibt still", !/toast\(/.test(fa));
+
+  const pf = src.slice(src.indexOf("function pfFullscreen()"),
+                       src.indexOf("function pfFullscreen()") + 900);
+  ok("manuelles Schließen merkt sich der Wunsch", /PLAY\.fsOff=true/.test(pf));
+  ok("manuelles Öffnen hebt ihn auf", /PLAY\.fsOff=false/.test(pf));
+  ok("Rundenstart setzt den Merker zurück", /PLAY\.fsOff=false;/.test(src.slice(0, src.indexOf("function pfFullscreen()"))));
+}
+
+/* ============ 24bc. Kein Browser-Menü beim Ziehen der Landezone ============ */
+group("Karte — Langdruck darf kein Bildmenü öffnen");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+  /* Alle drei Riegel müssen stehen: einer allein greift nicht überall.
+     `-webkit-touch-callout` kennt nur WebKit, das Kontextmenü kommt auf dem
+     Desktop über die rechte Maustaste, und die Kacheln sind <image> — solange
+     sie Zeiger annehmen, sind sie das Ziel des Langdrucks. */
+  ok("Kacheln nehmen keine Zeiger an", /#playSatG, #playSatG image\{pointer-events:none\}/.test(src));
+  ok("Aufklapp-Menü unterdrückt (WebKit)", /-webkit-touch-callout:none/.test(src));
+  ok("Kontextmenü abgefangen", /addEventListener\("contextmenu", e=>e\.preventDefault\(\)\)/.test(src));
+  ok("Bild-Ziehen abgefangen", /addEventListener\("dragstart", e=>e\.preventDefault\(\)\)/.test(src));
+  /* Die Zeiger-Ereignisse selbst müssen weiter auf dem SVG liegen — wer die
+     Kacheln stumm schaltet und dabei das SVG mit erwischt, hat die Karte
+     unbedienbar gemacht. */
+  ok("SVG bleibt bedienbar", !/#pfMap svg\{[^}]*pointer-events:none/.test(src));
+}
+
 /* ============ 24bb. Messen ab Tee, wenn die Position unplausibel ist ============ */
 group("Messpunkt — Bezug ist Position oder Tee");
 {
