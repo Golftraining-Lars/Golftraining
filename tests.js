@@ -17,6 +17,18 @@
    Sandbox mit DOM-Attrappen ausgewertet. Getestet wird ausschliesslich Logik
    ohne Seiteneffekte — kein DOM, kein Netz, kein Speicher.
    selfCheck() (Struktur) läuft am Ende zusätzlich mit.
+
+   ABDECKUNG (Abschnitt 16, korrigiert 2026-08-12)
+   Die Sperrklinke erkannte reine Funktionen an einem 1500-Zeichen-Fenster ab
+   Funktionsbeginn — unabhaengig davon, wo die Funktion endet. Bei kurzen
+   Funktionen ragte das Fenster in die FOLGENDEN hinein und ein `render…` dort
+   liess die reine Funktion als unrein durchfallen: 269 statt 343 Kandidaten,
+   74 reine Funktionen also unbeaufsichtigt. Genau das, was dieser Abschnitt
+   verhindern soll. `pureBody()` klammert jetzt bis zur eigenen schliessenden
+   Klammer; drei Gegenproben sichern den Klassifizierer selbst ab.
+   Die Sperrklinke wurde entsprechend neu gesetzt: 12 Namen entfernt (openX-
+   und render-Funktionen, die jetzt korrekt schon am eigenen Koerper
+   ausscheiden), 59 neu sichtbare als Altbestand ergaenzt.
    ============================================================================= */
 "use strict";
 const fs = require("fs");
@@ -32,27 +44,33 @@ const FILE = path.join(__dirname, "index.html");
    schlaegt Abschnitt 16 fehl. Wer Altbestand testet, streicht ihn hier.
    --------------------------------------------------------------------------- */
 const COVERAGE_BASELINE_FUNCS = (
-    "_aimApproachEv _aimBuild _aimNextEv _aimTeeEv _centroid _distToLine _fitProject _flagSvg" +" "+
-    "_linePath _merLat _merLng _merX _merY _mkHoles _mkTee _phoneLive _projPerp _ringPath" +" "+
-    "_satTiles _teeSC _tileLat applyGeoOverrides approachStrength bandT bindPanZoom blockFind" +" "+
-    "buildHoleGeo caddyBlockHtml caddyPlan caddyPositionPlan clubFamily clubPlan compass8" +" "+
-    "computeRound computeTotal courseReportHtml courseSVG deleteNote distToRing featBbox" +" "+
-    "featPoints finalizeGeo fitFind fmtDur geoBBox geoEdDown geoEdHoleFixHtml geoEdMove geoLL" +" "+
-    "goalFind golfLinkify greenRingFor holeHistory holeSpine holeTrouble idbGet idbImgDel" +" "+
-    "idbImgGet idbImgSet idbSatDel idbSet idbVidDel idbVidGet idbVidSet isVideoUrl ladder" +" "+
-    "lateralHazards lineChart lineLenM linkHref liveStart lmBuildRecs lmCarryStrip" +" "+
-    "lmDiagScatter lmDispersion lmGet lmPct lmPearson lmStatObj lvlChip manualTipHtml mapLL" +" "+
-    "mkLink nearestHole normalizeClub openAddComp openAddNote openAddRound openBlockEditor" +" "+
-    "openCourseEditor openFitnessDetail openGoalEditor openKraftEditor openRound openTest" +" "+
-    "openYogaEditor parseGeoJSONCourse parseOverpassCourse playCaddyHtml playField" +" "+
-    "playMapBind playMapClamp playNum playSel playTooFarHtml qaExpand qaFold qaSearch" +" "+
-    "qaSections qaStem rateAbs rateR rateSmash rateStd refreshRepoSection renderGeoImport" +" "+
-    "roundCardHtml roundKPIs roundLL roundWeatherHtml satCourseSrc satCourseTiles satLayer" +" "+
-    "satSrcFor satTileKey satTilePx satTileRes selOpts sgCoverageHtml sgDashHtml" +" "+
-    "sgDisasterHtml sgLeerHtml sparkline strkDown strkZoomAt strkZoomBtn swDaysSince" +" "+
-    "swNormTag targetFor teeNames thinRing turnierPrepHtml warmupBloeckeHtml weatherByGeo" +" "+
+    "_aimApproachEv _aimBuild _aimNextEv _aimTeeEv _aimToView _centroid _crKey _distPtSeg" +" "+
+    "_distToLine _fitProject _flagSvg _hrCP _linePath _merLat _merLng _merX _merY _mkHoles" +" "+
+    "_mkTee _phoneLive _projPerp _ringPath _satTiles _teeSC _tileLat applyGeoOverrides" +" "+
+    "approachStrength bandT benchRow bindAllPanZoom bindPanZoom blockFind buildHoleGeo" +" "+
+    "caddyBlockHtml caddyPlan caddyPositionPlan clubFamily clubPlan clubPlanText compass8" +" "+
+    "computeRound computeTotal countrySelect courseReportHtml courseSVG daysSince" +" "+
+    "deleteNote distToRing draftHoles est1RM featBbox featPoints finalizeGeo fitFind fmtDur" +" "+
+    "geoBBox geoEdDown geoEdHoleFixHtml geoEdLL geoEdMove geoEdVB geoEdZoomAt geoEdZoomBtn" +" "+
+    "geoLL goalCurrent goalFind golfLinkify gpPlan greenFMB greenRingFor haversine" +" "+
+    "holeHistory holeSpine holeTrouble idbGet idbImgDel idbImgGet idbImgSet idbSatDel" +" "+
+    "idbSatGet idbSatSet idbSet idbVidDel idbVidGet idbVidSet isoWeek isVideoUrl" +" "+
+    "kraftVolume ladder lateralHazards latest lieAt lineChart lineLenM linkHref linkifyText" +" "+
+    "liveStart llFromVB lmBuildRecs lmCarryStrip lmDiagScatter lmDispersion lmGet lmPct" +" "+
+    "lmPearson lmStatObj lvlChip macroFind manualTipHtml mapLL mdToHtml mdToHtmlWiki mkLink" +" "+
+    "nearestHole normalizeClub noteCat noteDaysLeft noteDropVideos noteTouch" +" "+
+    "openFitnessDetail parseGeoJSONCourse parseOverpassCourse pill placeSub playAimHit" +" "+
+    "playAimMoveTo playCaddyHtml playField playGoHole playMapBind playMapClamp playMapZoom" +" "+
+    "playNum playSel playTooFarHtml qaExpand qaFold qaSearch qaSections qaStem rateAbs" +" "+
+    "rateR rateSmash rateStd refreshRepoSection roundCardHtml roundKPIs roundLL" +" "+
+    "roundShareText roundWeatherHtml satCourseDelete satCoursePlan satCourseSrc" +" "+
+    "satCourseStatus satCourseTiles satHost satHydrate satLayer satPrefetchCourse satSrcFor" +" "+
+    "satTileKey satTilePx satTileRes selOpts setGroup sgCoverageHtml sgDisasterHtml" +" "+
+    "sgLeerHtml shotCount sparkline stratCommitGet strkDown strkLL strkVB strkZoomAt" +" "+
+    "strkZoomBtn swDaysSince swNormTag swViewLabel targetFor teeNames thinRing tournFind" +" "+
+    "trendArrow turnierPrepHtml warmupBloeckeHtml watchLiveDismissedFor weatherByGeo" +" "+
     "weatherEffectHtml wikiCountCat wikiCountGrp wikiEsc wikiGroupIcon wikiGroupOf" +" "+
-    "wikiNormTag wikiSuggest wikiTagsOf windArrowChar"
+    "wikiHydrateMedia wikiNormTag wikiPlayYt wikiSuggest wikiTagsOf windArrowChar ytIdFrom"
 ).split(" ");
 
 const COVERAGE_BASELINE_STRAT = (
@@ -4124,14 +4142,48 @@ group("Abdeckung — verhindert, dass der Prüfstand veraltet");
 {
   const selbst = fs.readFileSync(__filename, "utf8");
   const codeOnly = code;
+  /* WARUM NICHT MEHR `slice(start, start+1500)`  (Fix 2026-08-12)
+     Das Fenster war 1500 Zeichen lang, unabhaengig davon, wo die Funktion
+     endet — bei kurzen Funktionen reichte es also weit in die FOLGENDEN
+     hinein. Stand dort ein `render…`/`document.`, wurde die kurze, voellig
+     reine Funktion als unrein einsortiert und fiel aus der Sperrklinke.
+     Sichtbar wurde es an `roundKPIs`: drei Zeilen ohne jeden Seiteneffekt,
+     vom Pruefstand aber als „nicht mehr vorhanden" gemeldet, weil der
+     nachfolgende Kommentar von `sortedRounds` ins Fenster ragte — eine
+     Aufraeumhilfe, die zum Loeschen einer noch existierenden Zeile geraten
+     haette. Gemessen: 269 statt 343 Kandidaten, 74 reine Funktionen also
+     unbeaufsichtigt. Genau die Luecke, die dieser Abschnitt schliessen soll.
+     `pureBody` klammert jetzt bis zur zugehoerigen schliessenden Klammer und
+     hoert in JEDEM Fall an der naechsten Deklaration auf Spaltenanfang auf —
+     Letzteres als Fangnetz fuer Klammern in Zeichenketten und regulaeren
+     Ausdruecken (`selfCheck` lief sonst ueber 865 000 Zeichen weiter). */
+  const pureBody = (src, i0) => {
+    const n = src.indexOf("\nfunction ", i0), grenze = n < 0 ? src.length : n;
+    let d = 0;
+    for (let j = i0; j < grenze; j++) {
+      const c = src[j];
+      if (c === "{") d++;
+      else if (c === "}") { d--; if (d === 0) return src.slice(i0, j + 1); }
+    }
+    return src.slice(i0, grenze);
+  };
+  const unrein = (t) =>
+    /document\.|innerHTML|fetch\(|localStorage|toast\(|render|openSheet|persist\(/.test(t);
   const kandidaten = [];
   const reF = /^function\s+(\w+)\s*\(([^)]*)\)\s*\{/gm;
   let m;
   while ((m = reF.exec(codeOnly))) {
-    const body = codeOnly.slice(m.index + m[0].length, m.index + m[0].length + 1500);
-    if (!/document\.|innerHTML|fetch\(|localStorage|toast\(|render|openSheet|persist\(/.test(body)
-        && m[2].trim()) kandidaten.push(m[1]);
+    const body = pureBody(codeOnly, m.index + m[0].length - 1);
+    if (!unrein(body) && m[2].trim()) kandidaten.push(m[1]);
   }
+  /* Gegenproben zum Klassifizierer selbst — ohne sie faellt eine Regression
+     hier nicht auf, sondern nur die Abdeckung still zurueck. */
+  ok("Koerper endet an der eigenen Klammer (roundKPIs bleibt rein)",
+    kandidaten.indexOf("roundKPIs") >= 0);
+  ok("Funktion mit Seiteneffekt im EIGENEN Koerper zaehlt nicht",
+    kandidaten.indexOf("openAddRound") < 0);
+  ok("Klammer in Zeichenkette laesst den Koerper nicht davonlaufen",
+    pureBody('function f(a){ const s="}"; return a; }\nfunction g(){}', 13).length < 60);
   const si = codeOnly.indexOf("const STRAT=");
   const stratNamen = si < 0 ? [] :
     [...codeOnly.slice(si, si + 60000).matchAll(/^  (\w+)\(/gm)].map(x => x[1]);
