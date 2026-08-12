@@ -59,7 +59,8 @@ const COVERAGE_BASELINE_FUNCS = (
     "liveStart llFromVB lmBuildRecs lmCarryStrip lmDiagScatter lmDispersion lmGet lmPct" +" "+
     "lmPearson lmStatObj lvlChip macroFind manualTipHtml mapLL mdToHtml mdToHtmlWiki mkLink" +" "+
     "nearestHole normalizeClub noteCat noteDaysLeft noteDropVideos noteTouch" +" "+
-    "openFitnessDetail parseGeoJSONCourse parseOverpassCourse pill placeSub playAimHit" +" "+
+    "openFitnessDetail parseGeoJSONCourse parseOverpassCourse pfWizScore pfWizStep pill" +" "+
+    "placeSub playAimHit" +" "+
     "playAimMoveTo playCaddyHtml playField playGoHole playMapBind playMapClamp playMapZoom" +" "+
     "playNum playSel playTooFarHtml qaExpand qaFold qaSearch qaSections qaStem rateAbs" +" "+
     "rateR rateSmash rateStd refreshRepoSection roundCardHtml roundKPIs roundLL" +" "+
@@ -174,7 +175,7 @@ try {
                  "holeGir","holeUpDown","holeSandSave","platzAnalyse","taskFortschritt",
                  "warmupSchedule","warmupKorrektiv","WARMUP_PLANS","medianSplit","pearson",
                  "rKrit","gpKey","gpLabel","gpTotalES","pickClub","_aimClub","_aimLerp",
-                 "_nearest","_reaching"];
+                 "_nearest","_reaching","pfWizHtml","heuteJetzt"];
   const epilog = "\n;globalThis.__T={" +
     namen.map(n => `${n}: (typeof ${n}!=="undefined"?${n}:undefined)`).join(",") + "};";
   vm.runInContext(code + epilog, ctx, { timeout: 20000 });
@@ -4091,6 +4092,127 @@ group("clubMeasured — gepflegte gegen gemessene Schlägerlängen");
     ok("unbekannter Schläger → keine Werte", leer.carry === null && leer.total === null);
     DB.gpsShots = []; DB.lmSessions = [];
     ok("unter 8 Messungen → keine Werte", cm("7-Eisen").carry === null);
+  }
+}
+
+/* ============ 15a. Loch-Abschluss auf der Karte (v2.53) ============ */
+group("pfWizHtml — zwei Zahlen, ohne die Ansicht zu wechseln");
+{
+  const W = G("pfWizHtml");
+  if (typeof W === "function") {
+    const s1 = W(1, 4, null, null);
+    /* Sechs Felder von Par-2 bis Par+3: darunter liegt kein realistischer
+       Score, darueber traegt der Stepper in der Eingabemaske. */
+    eq("Schritt 1 zeigt sechs Score-Felder", (s1.match(/pfWizScore\(/g) || []).length, 6);
+    ok("beginnt bei Par-2", /pfWizScore\(2\)/.test(s1));
+    ok("endet bei Par+3", /pfWizScore\(7\)/.test(s1));
+    ok("Par ist hervorgehoben", /class="par"[^>]*aria-label="Score 4/.test(s1));
+    ok("Bogey ist benannt", /<i>Bogey<\/i>/.test(s1));
+    ok("Abkürzer für das häufigste Loch", /pfWizKurz\(\)/.test(s1));
+    ok("jedes Feld hat eine Beschriftung für Screenreader",
+      (s1.match(/aria-label="Score /g) || []).length === 6);
+
+    /* Par 3: Par-2 waere 1 — moeglich (Hole-in-One), also bleibt 1 stehen. */
+    ok("Par 3 beginnt bei 1", /pfWizScore\(1\)/.test(W(1, 3, null, null)));
+    const p5 = W(1, 5, null, null);
+    ok("Par 5: von 3 bis 8", /pfWizScore\(3\)/.test(p5) && /pfWizScore\(8\)/.test(p5));
+
+    /* OHNE Par (Platz ohne Lochdaten) darf nichts NaN werden und nichts als
+       „Par" hervorgehoben sein — sonst waere die Hervorhebung geraten. */
+    const ohne = W(1, null, null, null);
+    ok("ohne Par keine NaN-Werte", !/NaN/.test(ohne));
+    ok("ohne Par keine Hervorhebung", !/class="par"/.test(ohne));
+    ok("ohne Par kein Abkürzer", !/pfWizKurz\(\)/.test(ohne));
+
+    const s2 = W(2, 4, 5, null);
+    eq("Schritt 2 zeigt fünf Putt-Felder", (s2.match(/pfWizPutts\(/g) || []).length, 5);
+    ok("zwei Putts vorgehoben", /class="par"[^>]*aria-label="2 Putts"/.test(s2));
+    ok("der gesetzte Score steht dabei", /Score 5 eingetragen/.test(s2));
+    ok("Rückweg zum Score vorhanden", /pfWizStep\(1\)/.test(s2));
+    ok("Schritt 2 zeigt keine Score-Felder", !/pfWizScore\(/.test(s2));
+
+    /* Die gewaehlte Zahl muss sichtbar bleiben — sonst tippt man auf der
+       Runde zweimal, weil man nicht sieht, dass es schon steht. */
+    ok("gesetzter Score ist markiert", /class="[^"]*\bon\b[^"]*"[^>]*aria-label="Score 6/.test(W(1, 4, 6, null)));
+    ok("gesetzte Puttzahl ist markiert", /class="[^"]*\bon\b[^"]*"[^>]*aria-label="3 Putts"/.test(W(2, 4, 5, 3)));
+  }
+}
+
+/* ============ 24ax. „Jetzt dran" — eine Antwort, nicht sieben Karten ============ */
+group("heuteJetzt — die Karte trifft die Entscheidung");
+{
+  const J = G("heuteJetzt");
+  if (typeof J === "function") {
+    const basis = { min: 9*60, tee: null, warmMin: 30, prePre: false, preWarm: false,
+      prePost: false, draftHoles: 0, heutegespielt: false, ntDays: null, ntPrep: null,
+      letzteRundeTage: 2 };
+    const c = (o) => J(Object.assign({}, basis, o));
+
+    /* Regel 1 gewinnt gegen ALLES — eine unterbrochene Runde ist der einzige
+       Zustand, in dem Datenverlust droht. */
+    eq("unterbrochene Runde schlägt Abschlagzeit",
+      c({ draftHoles: 5, tee: 10*60, min: 9*60 }).titel, "Unterbrochene Runde");
+    eq("unterbrochene Runde schlägt Turniervorbereitung",
+      c({ draftHoles: 1, ntDays: 2, ntPrep: 7 }).titel, "Unterbrochene Runde");
+
+    /* Die Abschlagzeit taktet den Tag RÜCKWÄRTS — das ist der eigentliche
+       Zweck der Karte. 10:00 minus 30 min Aufwärmen = Start 09:30. */
+    const vor = c({ tee: 10*60, min: 9*60, warmMin: 30 });
+    eq("vor dem Fenster: Abschlagzeit im Titel", vor.titel, "Abschlag 10:00");
+    ok("Startzeit rückwärts gerechnet", /09:30/.test(vor.text), vor.text);
+    ok("Restzeit bis zum Start genannt", /60 min/.test(vor.text), vor.text);
+
+    /* Im Fenster entscheidet, was noch NICHT abgehakt ist — und in der
+       fachlich richtigen Folge: dynamisch dehnen vor Bällen. */
+    eq("im Fenster ohne Stretch → Stretch",
+      c({ tee: 10*60, min: 9*60+40, warmMin: 30 }).titel, "Preround Stretch");
+    eq("Stretch erledigt → Aufwärmen",
+      c({ tee: 10*60, min: 9*60+40, warmMin: 30, prePre: true }).titel, "Aufwärmen");
+    eq("beides erledigt → auf den Platz",
+      c({ tee: 10*60, min: 9*60+40, warmMin: 30, prePre: true, preWarm: true }).titel,
+      "Auf den Platz");
+    eq("nach dem Abschlag → Runde läuft",
+      c({ tee: 10*60, min: 11*60 }).titel, "Runde läuft");
+    /* Genau ZUR Abschlagzeit ist die Runde noch nicht gelaufen — die Grenze
+       gehört ins Vorbereitungsfenster, sonst kippt die Karte eine Minute zu
+       früh auf „Runde läuft". */
+    eq("Grenzfall min == tee zählt zur Vorbereitung",
+      c({ tee: 10*60, min: 10*60, prePre: true, preWarm: true }).titel, "Auf den Platz");
+
+    /* Ohne Abschlagzeit greifen die Folgeregeln in ihrer Rangfolge. */
+    eq("heute gespielt, nicht nachgedehnt → Post Round",
+      c({ heutegespielt: true, letzteRundeTage: 0 }).titel, "Post Round Stretch");
+    ok("nachgedehnt → nicht mehr Post Round",
+      c({ heutegespielt: true, prePost: true, letzteRundeTage: 0 }).titel !== "Post Round Stretch");
+    eq("Turnier im Vorbereitungsfenster",
+      c({ ntDays: 3, ntPrep: 7 }).titel, "Turnier in 3 Tagen");
+    ok("Turnier außerhalb des Fensters zählt nicht",
+      c({ ntDays: 30, ntPrep: 7 }).titel !== "Turnier in 30 Tagen");
+    eq("Einzahl bei einem Tag", c({ ntDays: 1, ntPrep: 7 }).titel, "Turnier in 1 Tag");
+    eq("noch keine Runde erfasst",
+      c({ letzteRundeTage: null }).titel, "Noch keine Runde erfasst");
+    eq("lange keine Runde", c({ letzteRundeTage: 9 }).titel, "Letzte Runde vor 9 Tagen");
+    eq("sonst: Weg zum Spielmodus", c({}).titel, "Kein Termin für heute");
+
+    /* JEDER Zweig muss ein Ziel haben, und der Aufruf im Knopf muss es
+       wirklich geben — ein Tippfehler dort tötet den Knopf lautlos
+       (dieselbe Fehlerklasse wie Prüfabschnitt 24ar). */
+    const src = fs.readFileSync(FILE, "utf8");
+    const faelle = [
+      { draftHoles: 3 }, { tee: 10*60, min: 8*60 }, { tee: 10*60, min: 9*60+40 },
+      { tee: 10*60, min: 9*60+40, prePre: true }, { tee: 10*60, min: 9*60+40, prePre: true, preWarm: true },
+      { tee: 10*60, min: 12*60 }, { heutegespielt: true, letzteRundeTage: 0 },
+      { ntDays: 2, ntPrep: 7 }, { letzteRundeTage: null }, { letzteRundeTage: 9 }, {},
+    ];
+    let ohneZiel = 0, unbekannt = [];
+    faelle.forEach(f => {
+      const r = c(f);
+      if (!r || !r.titel || !r.text || !r.lab || !r.aktion || !r.aktion.lab || !r.aktion.fn) { ohneZiel++; return; }
+      const name = String(r.aktion.fn).replace(/\(.*$/, "");
+      if (src.indexOf("function " + name + "(") < 0) unbekannt.push(name);
+    });
+    eq("jeder Zweig ist vollständig beschriftet", ohneZiel, 0);
+    eq("jeder Knopf ruft eine existierende Funktion", unbekannt.join(", "), "");
   }
 }
 
