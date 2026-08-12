@@ -175,7 +175,7 @@ try {
                  "holeGir","holeUpDown","holeSandSave","platzAnalyse","taskFortschritt",
                  "warmupSchedule","warmupKorrektiv","WARMUP_PLANS","medianSplit","pearson",
                  "rKrit","gpKey","gpLabel","gpTotalES","pickClub","_aimClub","_aimLerp",
-                 "_nearest","_reaching","pfWizHtml","heuteJetzt","dispOvalFrom","dispChipHtml","DB"];
+                 "_nearest","_reaching","pfWizHtml","heuteJetzt","dispOvalFrom","dispChipHtml","dispRingPath","dispHitShare","dispText","dispSchemaSvg","dispSigmaFor","_erf","gpClubFracs","DB"];
   const epilog = "\n;globalThis.__T={" +
     namen.map(n => `${n}: (typeof ${n}!=="undefined"?${n}:undefined)`).join(",") + "};";
   vm.runInContext(code + epilog, ctx, { timeout: 20000 });
@@ -4178,6 +4178,48 @@ group("Streuungs-Oval — Mittelpunkt, Ausrichtung, Schalter");
     /* biasL darf fehlen (Heuristik ohne erkannte Fehlerseite) — dann 0, nicht undefined. */
     eq("fehlender Versatz wird 0", O(here, 0, 150, { sigL: 12, sigD: 8 }).biasL, 0);
   }
+  const R = G("dispRingPath");
+  if (typeof R === "function") {
+    /* Projektion wie auf der Karte: 1 m = 1 Einheit, y nach unten. */
+    const c = [54.0, 10.75], mLat = 110540, mLng = 111320 * Math.cos(c[0] * Math.PI / 180);
+    const M = { map: (la, lo) => [(lo - c[1]) * mLng, -(la - c[0]) * mLat] };
+    const pts = (d) => (d.match(/-?\d+(?:\.\d+)?/g) || []).map(Number);
+    const sg = { sigL: 20, sigD: 10, biasL: 0 };
+
+    const d1 = R(M, c, 0, sg, 1);
+    ok("Pfad beginnt mit M und ist geschlossen", /^M/.test(d1) && /Z$/.test(d1), d1.slice(0, 24));
+    eq("37 Punkte (36 Segmente + Schluss)", pts(d1).length / 2, 37);
+
+    /* Die Streuung ist QUER breiter als längs — genau deshalb ist ein Oval
+       aussagekräftiger als ein Kreis. Bei Richtung 0 (Norden) liegt „quer"
+       auf der x-Achse, „längs" auf der y-Achse. */
+    const xs = pts(d1).filter((_, i) => i % 2 === 0), ys = pts(d1).filter((_, i) => i % 2 === 1);
+    near("Halbachse quer = σ quer", (Math.max(...xs) - Math.min(...xs)) / 2, 20, 0.4);
+    near("Halbachse längs = σ längs", (Math.max(...ys) - Math.min(...ys)) / 2, 10, 0.4);
+
+    /* 2σ ist doppelt so weit — sonst stimmt die Aussage „95 %" nicht. */
+    const xs2 = pts(R(M, c, 0, sg, 2)).filter((_, i) => i % 2 === 0);
+    near("2σ ist doppelt so breit", (Math.max(...xs2) - Math.min(...xs2)) / 2, 40, 0.8);
+
+    /* Gedrehte Richtung: bei 90° tauschen quer und längs die Achsen. */
+    const p90 = pts(R(M, c, 90, sg, 1));
+    const x90 = p90.filter((_, i) => i % 2 === 0), y90 = p90.filter((_, i) => i % 2 === 1);
+    near("bei 90° liegt σ längs auf x", (Math.max(...x90) - Math.min(...x90)) / 2, 10, 0.4);
+    near("bei 90° liegt σ quer auf y", (Math.max(...y90) - Math.min(...y90)) / 2, 20, 0.4);
+
+    /* Seitenversatz verschiebt das Oval, ohne es zu verformen. */
+    const mitte = (a) => (Math.max(...a) + Math.min(...a)) / 2;
+    near("biasL verschiebt quer", mitte(pts(R(M, c, 0, { sigL: 20, sigD: 10, biasL: 8 }, 1))
+      .filter((_, i) => i % 2 === 0)), 8, 0.5);
+
+    /* Unvollständige Eingaben liefern einen LEEREN Pfad statt "MNaN NaN…" —
+       ein NaN im d-Attribut lässt den Browser den ganzen Pfad verwerfen. */
+    eq("ohne Projektion kein Pfad", R(null, c, 0, sg, 1), "");
+    eq("ohne Mittelpunkt kein Pfad", R(M, null, 0, sg, 1), "");
+    eq("ohne σ kein Pfad", R(M, c, 0, null, 1), "");
+    eq("σ 0 ergibt keinen Pfad", R(M, c, 0, { sigL: 0, sigD: 0 }, 1), "");
+    ok("kein NaN im Pfad", !/NaN/.test(R(M, c, 0, sg, 1)));
+  }
   if (typeof C === "function" && DBx) {
     const vorher = DBx.ui ? DBx.ui.disp : undefined;
     DBx.ui = DBx.ui || {};
@@ -4200,6 +4242,117 @@ group("Streuungs-Oval — Mittelpunkt, Ausrichtung, Schalter");
     eq("ohne σ kein Chip", C(null), "");
     eq("σ 0 ergibt keinen Chip", C({ sigL: 0, sigD: 0 }), "");
     DBx.ui.disp = vorher;
+  }
+}
+
+/* ============ 24az. Streuung ohne Karte (Gameplan, Schlägerliste) ============ */
+group("Streuung ohne GPS — Trefferquote, Text, Schema");
+{
+  const S = G("dispHitShare"), T2 = G("dispText"), SV = G("dispSchemaSvg"), E = G("_erf");
+
+  if (typeof E === "function") {
+    near("erf(0) = 0", E(0), 0, 1e-9);
+    near("erf(1) ≈ 0,8427", E(1), 0.8427008, 2e-6);
+    near("erf ist ungerade", E(-0.7), -E(0.7), 1e-9);
+    near("erf(3) ≈ 1", E(3), 0.9999779, 2e-6);
+  }
+
+  if (typeof S === "function") {
+    /* Lehrbuchwerte: ±1σ ≈ 68,3 %, ±2σ ≈ 95,4 %. Ein Korridor der Breite 2σ
+       ist genau ±1σ um die Mitte. */
+    near("Korridor = 2σ trifft 68 %", S({ sigL: 10, sigD: 8, biasL: 0 }, 20), 0.6827, 0.002);
+    near("Korridor = 4σ trifft 95 %", S({ sigL: 10, sigD: 8, biasL: 0 }, 40), 0.9545, 0.002);
+
+    /* Der eigentliche Zweck: enger streuen heißt öfter treffen. */
+    const eng = S({ sigL: 8, sigD: 8, biasL: 0 }, 30), breit = S({ sigL: 20, sigD: 8, biasL: 0 }, 30);
+    ok("enger Schläger trifft öfter", eng > breit, eng.toFixed(2) + " vs " + breit.toFixed(2));
+    near("σ 8 m im 30-m-Korridor", eng, 0.9401, 0.003);
+
+    /* Die eigene Fehlerseite kostet Trefferquote — ohne biasL wäre die
+       Empfehlung „gleiche Ziellinie für alle" und damit falsch. */
+    const mittig = S({ sigL: 12, sigD: 8, biasL: 0 }, 30);
+    const schief = S({ sigL: 12, sigD: 8, biasL: 8 }, 30);
+    ok("Tendenz zur Seite senkt die Quote", schief < mittig, schief.toFixed(2));
+    near("Tendenz wirkt symmetrisch",
+      S({ sigL: 12, sigD: 8, biasL: -8 }, 30), schief, 1e-9);
+
+    /* Nur die QUERachse zählt — ein Korridor ist längs offen. */
+    eq("σ längs ändert die Quote nicht",
+      S({ sigL: 12, sigD: 4, biasL: 0 }, 30), S({ sigL: 12, sigD: 40, biasL: 0 }, 30));
+
+    eq("ohne σ keine Quote", S(null, 30), null);
+    eq("ohne Korridor keine Quote", S({ sigL: 12, sigD: 8 }, 0), null);
+    ok("Quote bleibt zwischen 0 und 1", (() => {
+      const v = S({ sigL: 3, sigD: 3, biasL: 0 }, 400); return v >= 0 && v <= 1;
+    })());
+  }
+
+  if (typeof T2 === "function") {
+    const t1 = T2({ sigL: 14.6, sigD: 9.2, biasL: 0 });
+    ok("Text nennt quer", /±15 m quer/.test(t1), t1);
+    ok("Text nennt längs", /±9 m lang/.test(t1), t1);
+    ok("ohne Tendenz keine Tendenz im Text", !/Tendenz/.test(t1), t1);
+    ok("Tendenz rechts wird benannt",
+      /Tendenz rechts 6 m/.test(T2({ sigL: 14, sigD: 9, biasL: 6 })));
+    ok("Tendenz links wird benannt",
+      /Tendenz links 6 m/.test(T2({ sigL: 14, sigD: 9, biasL: -6 })));
+    /* Unter 1 m ist die Tendenz Rauschen und würde als „Tendenz rechts 0 m"
+       erscheinen — sinnlos und irreführend. */
+    ok("Mini-Tendenz wird verschwiegen", !/Tendenz/.test(T2({ sigL: 14, sigD: 9, biasL: 0.4 })));
+    eq("ohne σ ein Strich", T2(null), "–");
+  }
+
+  if (typeof SV === "function") {
+    const svg = SV({ sigL: 15, sigD: 9, biasL: 0 }, { korridor: 30, label: "Fairway" });
+    ok("liefert ein SVG", /^<svg/.test(svg));
+    ok("kein NaN im Schema", !/NaN/.test(svg));
+    ok("beide Ovale gezeichnet", (svg.match(/<ellipse/g) || []).length === 2);
+    ok("Korridor beschriftet", /Fairway 30 m/.test(svg));
+
+    /* EIN Maßstab für beide Achsen: quer/längs im Bild muss sich verhalten wie
+       σ quer/längs. Zwei Skalen würden die Form verfälschen — und die Form ist
+       hier die Aussage. */
+    const m = svg.match(/rx="([\d.]+)"\s+ry="([\d.]+)"/);
+    ok("Seitenverhältnis entspricht σ",
+      m && Math.abs((+m[1] / +m[2]) - (15 / 9)) < 0.02, m && (m[1] + "/" + m[2]));
+
+    eq("ohne σ kein Schema", SV(null, {}), "");
+    eq("σ 0 ergibt kein Schema", SV({ sigL: 0, sigD: 0 }, {}), "");
+    ok("Schema geht auch ohne Korridor", /^<svg/.test(SV({ sigL: 12, sigD: 8 }, {})));
+  }
+
+  /* ---- Die lochgenaue Quote aus dem Platzraster schlägt das Ersatzmaß ---- */
+  const F = G("gpClubFracs");
+  if (typeof F === "function") {
+    const plan = { holes: [
+      { hole: 1, club: "Driver", fracs: { fw: 60, sand: 5, pen: 2 } },
+      { hole: 3, club: "Driver", fracs: { fw: 70, sand: 0, pen: 0 } },
+      { hole: 5, club: "3 Wood", fracs: { fw: 80, sand: 0, pen: 0 } },
+      { hole: 7, club: "7 Iron", fracs: { green: 44, sand: 8, pen: 0 } },
+      { hole: 9, club: "Driver", approx: true, fracs: { fw: 50, sand: 0, pen: 0 } },
+      { hole: 11, club: "Driver" },                       // Loch ohne Bewertung
+      { hole: 13, note: "keine Geo-Daten" },
+    ] };
+
+    const d = F(plan, "Driver");
+    eq("alle Löcher des Schlägers gefunden", d.holes.join(","), "1,3,9,11");
+    eq("Mittel nur über bewertete Löcher", d.fw, 60);   // (60+70+50)/3
+    ok("Loch ohne Bewertung zählt nicht ins Mittel", d.fw === 60);
+    ok("Näherung wird durchgereicht", d.approx === true);
+
+    const w = F(plan, "3 Wood");
+    eq("einzelnes Loch", w.n, 1);
+    eq("ohne Näherung bleibt es falsch", w.approx, false);
+
+    /* Par 3: dort zählt Grün getroffen, nicht Fairway — die beiden dürfen
+       nicht in einen Topf, sonst mittelt man Äpfel mit Birnen. */
+    const e = F(plan, "7 Iron");
+    eq("Grünquote getrennt geführt", e.green, 44);
+    eq("keine Fairwayquote auf Par 3", e.fw, null);
+
+    eq("unbenutzter Schläger liefert nichts", F(plan, "Putter"), null);
+    eq("ohne Plan nichts", F(null, "Driver"), null);
+    eq("ohne Schläger nichts", F(plan, null), null);
   }
 }
 
@@ -4371,9 +4524,41 @@ group("Abdeckung — verhindert, dass der Prüfstand veraltet");
     kandidaten.indexOf("openAddRound") < 0);
   ok("Klammer in Zeichenkette laesst den Koerper nicht davonlaufen",
     pureBody('function f(a){ const s="}"; return a; }\nfunction g(){}', 13).length < 60);
+  /* DASSELBE PROBLEM WIE BEIM 1500-ZEICHEN-FENSTER, nur zwei Ebenen höher
+     (Fund 2026-08-12): Die STRAT-Methoden wurden aus einem FESTEN Fenster von
+     60 000 Zeichen ab `const STRAT=` gelesen. Wächst das Objekt darüber hinaus
+     — und sei es nur um ein paar Kommentarzeilen —, fallen die letzten
+     Methoden aus der Liste. Sie stehen dann in KEINER der beiden Mengen:
+     nicht in `neuS` (also keine Meldung) und nicht in `alleS` (also keine
+     Aufräumhilfe). Die Sperrklinke hört still auf, sie zu bewachen. Gemessen:
+     58 statt 60 nach einem Kommentar in `planCourse`.
+     Jetzt bis zur zugehörigen schließenden Klammer, mit derselben Notbremse
+     wie `pureBody` — der nächsten Deklaration auf Spaltenanfang. */
   const si = codeOnly.indexOf("const STRAT=");
-  const stratNamen = si < 0 ? [] :
-    [...codeOnly.slice(si, si + 60000).matchAll(/^  (\w+)\(/gm)].map(x => x[1]);
+  const stratBody = si < 0 ? "" : (function(){
+    const b = codeOnly.indexOf("{", si);
+    if (b < 0) return "";
+    const n = codeOnly.indexOf("\nfunction ", b), grenze = n < 0 ? codeOnly.length : n;
+    let d = 0;
+    for (let j = b; j < grenze; j++) {
+      const c = codeOnly[j];
+      if (c === "{") d++;
+      else if (c === "}") { d--; if (d === 0) return codeOnly.slice(b, j + 1); }
+    }
+    return codeOnly.slice(b, grenze);
+  })();
+  const stratNamen = [...stratBody.matchAll(/^  (\w+)\(/gm)].map(x => x[1]);
+  /* Gegenproben: Das Fenster war nicht nur zu KLEIN, es war auch zu GROSS —
+     60 000 Zeichen reichten 17 000 Zeichen ÜBER das Objekt hinaus, und alles,
+     was dort zufällig `^  name(` schrieb, zählte als STRAT-Methode. Die
+     gemeldeten „60 Methoden" waren zur Hälfte Fremdcode. Beide Fehler prüfen
+     wir hier: vollständig (die letzten Methoden sind dabei) und nicht mehr
+     (nichts von außerhalb). */
+  ["sigmaFor", "tee", "approach", "planCourse", "lieCode", "shotEV"].forEach(n =>
+    ok("STRAT-Methode " + n + " erfasst", stratNamen.indexOf(n) >= 0));
+  ok("nichts von hinter dem Objekt eingesammelt",
+    stratNamen.indexOf("planHole") >= 0 && stratNamen.indexOf("stratOn") < 0,
+    stratNamen.length + " Methoden");
 
   const baseF = new Set(COVERAGE_BASELINE_FUNCS), baseS = new Set(COVERAGE_BASELINE_STRAT);
   const neuF = [...new Set(kandidaten)].filter(n => !baseF.has(n) && selbst.indexOf(n) < 0).sort();
