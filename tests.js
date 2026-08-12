@@ -175,7 +175,7 @@ try {
                  "holeGir","holeUpDown","holeSandSave","platzAnalyse","taskFortschritt",
                  "warmupSchedule","warmupKorrektiv","WARMUP_PLANS","medianSplit","pearson",
                  "rKrit","gpKey","gpLabel","gpTotalES","pickClub","_aimClub","_aimLerp",
-                 "_nearest","_reaching","pfWizHtml","heuteJetzt","dispOvalFrom","dispChipHtml","dispRingPath","pathTopPoint","dispHitShare","dispText","dispSchemaSvg","dispSigmaFor","_erf","gpClubFracs","DB"];
+                 "_nearest","_reaching","pfWizHtml","heuteJetzt","dispOvalFrom","dispChipHtml","dispRingPath","pathTopPoint","dispHitShare","dispText","dispSchemaSvg","dispSigmaFor","_erf","gpClubFracs","DB","STRAT"];
   const epilog = "\n;globalThis.__T={" +
     namen.map(n => `${n}: (typeof ${n}!=="undefined"?${n}:undefined)`).join(",") + "};";
   vm.runInContext(code + epilog, ctx, { timeout: 20000 });
@@ -4260,6 +4260,75 @@ group("Streuungs-Oval — Mittelpunkt, Ausrichtung, Schalter");
     eq("ohne σ kein Chip", C(null), "");
     eq("σ 0 ergibt keinen Chip", C({ sigL: 0, sigD: 0 }), "");
     DBx.ui.disp = vorher;
+  }
+}
+
+/* ============ 24ba. Zweiter Zug, Spielweise im Approach, σ-Deckel ============ */
+group("Caddy — zweiter Zug und die Gewichte, die ihn tragen");
+{
+  const S = G("STRAT");
+  if (S) {
+    /* --- (a) Der Approach benutzt jetzt DIESELBE Gewichtstabelle wie der
+       Abschlag. Vorher stand dort eine zweite Formel, in der Sand gar nicht
+       vorkam — „sicher" ließ den Bunker am Grün also unbeeindruckt. --- */
+    const src = fs.readFileSync(FILE, "utf8");
+    const ap = src.slice(src.indexOf("  approach(geo,courseName,holeNo"),
+                         src.indexOf("  approach(geo,courseName,holeNo") + 2600);
+    ok("Approach nimmt die Spielweise-Tabelle", /spielweise\(mode\)\.lie/.test(ap));
+    ok("Sand geht in die Approach-Wertung ein", /w\.sand\s*\*\s*ev\.sand/.test(ap));
+    ok("keine zweite Modus-Formel mehr", !/mode===\"safe\"\?\s*ev\.es\+1\.5/.test(ap));
+
+    /* --- (b) Zweiter Zug --- */
+    ok("_ply2 existiert", typeof S._ply2 === "function");
+    const te = src.slice(src.indexOf("  tee(geo,courseName,holeNo,mode,hcp)"),
+                         src.indexOf("  tee(geo,courseName,holeNo,mode,hcp)") + 6000);
+    ok("zweite Ebene nur für die Spitze", /Math\.min\(5,cands\.length\)/.test(te));
+    ok("Korrektur gedämpft (Mittelpunkt statt Verteilung)", /0\.7\s*\*\s*c\.ply2/.test(te));
+    ok("Korrektur ist Gelände minus Tabelle", /p2\.sc\s*-\s*generisch/.test(te));
+    ok("eine Vorlege-Option unter 140 m ist zugelassen", /c\.dist<140/.test(te));
+    /* Der zweite Zug darf die erste Ebene nicht ersetzen: ohne Bewertung
+       bleibt der Einzug-Wert stehen, sonst fiele ein Kandidat komplett aus. */
+    ok("ohne zweite Ebene bleibt der Einzug-Wert", /c\.score2=c\.score;/.test(te));
+
+    /* --- (c) σ-Deckel: gelernte Werte werden an die Schlaglänge gebunden --- */
+    const merk = DB => DB;
+    const D = G("DB");
+    if (D) {
+      D.strat = D.strat || {}; D.strat.dispersion = D.strat.dispersion || {};
+      const vorher = D.strat.dispersion["__test7w__"];
+      /* 26 m Seitenstreuung auf einen 174-m-Schläger: das ist der Wert, den
+         learnLateralFromRounds aus einer 50-%-Fairwayquote zurückrechnet. */
+      D.strat.dispersion["__test7w__"] = { sigL: 26, sigD: 20, biasL: 0, n: 40 };
+      const g1 = S.sigmaFor({ name: "__test7w__", carry: 174, dist: 186 });
+      ok("überhöhtes σ quer wird gedeckelt", g1.sigL <= 174 * 0.13 + 0.01, String(g1.sigL));
+      ok("überhöhtes σ längs wird gedeckelt", g1.sigD <= 174 * 0.11 + 0.01, String(g1.sigD));
+      ok("die Deckelung steht in der Quelle", /gedeckelt/.test(g1.src), g1.src);
+
+      /* Plausible Werte bleiben unangetastet — der Deckel darf nicht die
+         eigentliche Messung ersetzen. */
+      D.strat.dispersion["__test7w__"] = { sigL: 12, sigD: 9, biasL: 2, n: 40 };
+      const g2 = S.sigmaFor({ name: "__test7w__", carry: 174, dist: 186 });
+      eq("gemessenes σ quer bleibt", g2.sigL, 12);
+      eq("gemessenes σ längs bleibt", g2.sigD, 9);
+      eq("Seitentendenz bleibt", g2.biasL, 2);
+      ok("ohne Deckelung kein Zusatz", !/gedeckelt/.test(g2.src), g2.src);
+
+      /* Wedges: der Deckel muss auch bei kurzen Schlägern greifen, aber nie
+         unter eine sinnvolle Untergrenze fallen. */
+      D.strat.dispersion["__testgw__"] = { sigL: 30, sigD: 25, biasL: 0, n: 30 };
+      const g3 = S.sigmaFor({ name: "__testgw__", carry: 100, dist: 105 });
+      ok("Wedge-σ gedeckelt", g3.sigL <= 13.01, String(g3.sigL));
+      ok("Untergrenze bleibt brauchbar", g3.sigL >= 8, String(g3.sigL));
+      delete D.strat.dispersion["__test7w__"]; delete D.strat.dispersion["__testgw__"];
+      if (vorher) D.strat.dispersion["__test7w__"] = vorher;
+    }
+
+    /* --- (c) Grünzellen: „Grün 0 %" muss von „kein Grün im Raster" trennbar sein --- */
+    const gr = src.slice(src.indexOf("  grid(geo,courseName,holeNo)"),
+                         src.indexOf("  grid(geo,courseName,holeNo)") + 5200);
+    ok("Raster zählt Grünzellen", /greenCells:gz/.test(gr));
+    ok("approach meldet fehlendes Grün", /noGreen:!g\.greenCells/.test(src));
+    ok("die Karte schreibt es hin statt 0 %", /kein Grün-Polygon/.test(src));
   }
 }
 
