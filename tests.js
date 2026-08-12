@@ -152,7 +152,7 @@ try {
                  "caddyClubs","clubNorm","clubRename","bagFreiName","bagMessSpalte",
                  "tombAdd","tombClear","tombDel","MERGE_KEY","_mergeTomb","_tombFor",
                  "playCaddyNow","playTooFar","playAimChain","playMapSlot","playFocusDefault",
-                 "hcpGap","whsPool","courseStats","nassFaktor","errZeit","todayISO","puttDiagnose","sgHole","verlaesslich","testFaellig","stretchToggle","STRETCH_DONE","MALASKA_DYN","MALASKA_STAT","MALASKA_SVG","malaskaBild","POST_ROUND","POST_SVG","malaskaVideo","wxStunden","wxStundenHtml","WEATHER","lmAktiveShots","lmToggleAus","computeRound","_computeRoundRoh","playVorgabe","playRueckschlag","PLAY","testEmpfehlung","SG_ZU_TESTKAT","miniStat","smashAusLM","clubNorm","defFor","uebText","prepLog","prepHeute","prepQuote","todayISO","sgSummary","sortedRounds","sgWeakest","crCacheClear","_crCache","lmAlleAn","lmAus","postBild","postToggle","POST_DONE","WARMUP_PLANS","openPostStretchSheet","openStretchSheet","fmtN","fmtDate","fmtDT","fmtDur","zielPrognose","indexTempo","trainingsEmpfehlung","fitnessWirkung","stratRueckschau","sgHoleShots","sgVerlauf",
+                 "hcpGap","whsPool","courseStats","nassFaktor","errZeit","todayISO","puttDiagnose","sgHole","verlaesslich","testFaellig","stretchToggle","STRETCH_DONE","MALASKA_DYN","MALASKA_STAT","MALASKA_SVG","malaskaBild","POST_ROUND","POST_SVG","malaskaVideo","wxStunden","wxStundenHtml","WEATHER","lmAktiveShots","lmToggleAus","computeRound","_computeRoundRoh","playVorgabe","playRueckschlag","PLAY","testEmpfehlung","SG_ZU_TESTKAT","miniStat","smashAusLM","clubNorm","defFor","uebText","benchHcp","benchRest","benchValue","tierIndex","lvlLabel","lvlColor","ladderPos","prepLog","prepHeute","prepQuote","todayISO","sgSummary","sortedRounds","sgWeakest","crCacheClear","_crCache","lmAlleAn","lmAus","postBild","postToggle","POST_DONE","WARMUP_PLANS","openPostStretchSheet","openStretchSheet","fmtN","fmtDate","fmtDT","fmtDur","zielPrognose","indexTempo","trainingsEmpfehlung","fitnessWirkung","stratRueckschau","sgHoleShots","sgVerlauf",
                  "holeGir","holeUpDown","holeSandSave","platzAnalyse","taskFortschritt",
                  "warmupSchedule","warmupKorrektiv","WARMUP_PLANS","medianSplit","pearson",
                  "rKrit","gpKey","gpLabel","gpTotalES","pickClub","_aimClub","_aimLerp",
@@ -3045,6 +3045,61 @@ group("prepLog / prepQuote — automatisch statt Erledigt-Knopf");
       ok("fett wird umgesetzt", /<b>Ball<\/b>/.test(ut("Den **Ball** treffen")));
       ok("Text ohne Auszeichnung bleibt unverändert", ut("Nur Text")==="Nur Text");
     }
+  }
+}
+
+/* ============ 24bc. Feine Testbewertung ============ */
+group("benchHcp / benchRest — zwischen den Stufen statt fünf Kästchen");
+{
+  const bh=G("benchHcp"), br=G("benchRest");
+  if (typeof bh === "function") {
+    /* WAS ZU GROB WAR: Bei der Kurzputt-Präzision (Stufen 22/30/38/44/48)
+       ergaben 30 UND 37 Punkte dieselbe Stufe „HCP 15" — sieben Punkte
+       Unterschied, gleiche Anzeige. Gleichzeitig sprang 29 auf 30 eine ganze
+       Kategorie. */
+    const bm={levels:[22,30,38,44,48], unit:"Pkt /50", higherIsBetter:true};
+    eq("Stufengrenze trifft den Stufenwert", bh(30,bm), 15);
+    eq("nächste Grenze ebenso", bh(38,bm), 8);
+    /* Der Kern: dazwischen muss sich etwas bewegen. */
+    const a=bh(31,bm), b=bh(34,bm), c=bh(37,bm);
+    ok("31 / 34 / 37 ergeben VERSCHIEDENE Werte",
+       a!==b && b!==c && a>b && b>c, `${a} / ${b} / ${c}`);
+    ok("und alle liegen zwischen 15 und 8", a<15 && c>8);
+    /* Scratch ist die Obergrenze — darüber hinaus gibt es keine Stützstelle,
+       „HCP −2" wäre frei erfunden. */
+    eq("Scratch bei Höchstwert", bh(48,bm), 0);
+    eq("darüber wird gedeckelt", bh(50,bm), 0);
+    /* Unterhalb der ersten Stufe linear weiter, aber gedeckelt. */
+    ok("unter der Skala über 20", bh(18,bm)>20, String(bh(18,bm)));
+    ok("nach unten gedeckelt", bh(-500,bm)<=36, String(bh(-500,bm)));
+    /* UMGEKEHRTE RICHTUNG: Bei Streubreite ist kleiner besser. */
+    const inv={levels:[40,32,24,18,14], unit:"m", higherIsBetter:false};
+    eq("invertiert: Stufengrenze", bh(32,inv), 15);
+    ok("invertiert: dazwischen fein", bh(28,inv)<15 && bh(28,inv)>8, String(bh(28,inv)));
+    eq("invertiert: Bestwert ist Scratch", bh(14,inv), 0);
+    ok("invertiert: besser als Bestwert bleibt Scratch", bh(11,inv)===0);
+    /* Grenzfälle dürfen nicht zu erfundenen Zahlen führen. */
+    eq("ohne Wert null", bh(null,bm), null);
+    eq("ohne Benchmark null", bh(30,null), null);
+    eq("mit zu wenigen Stufen null", bh(30,{levels:[1,2]}), null);
+    /* EINE Nachkommastelle: Die Schwellen sind Erfahrungswerte, keine
+       Messungen — zwei Stellen täuschten Genauigkeit vor. */
+    const src=fs.readFileSync(FILE,"utf8");
+    ok("auf eine Nachkommastelle gerundet", /Math\.round\(h\*10\)\/10/.test(src));
+    ok("Hinweis auf die Unschärfe steht in der Anzeige",
+       /Erfahrungswerte, keine Messungen/.test(src));
+  }
+  if (typeof br === "function") {
+    const bm={levels:[22,30,38,44,48], unit:"Pkt /50", higherIsBetter:true};
+    /* Der Restweg ist die handlungsleitende Angabe: „noch 4 Punkte bis HCP 8"
+       sagt, was zu tun ist — „HCP 11,5" sagt nur, wo man steht. */
+    const r=br(34,bm);
+    ok("nennt Rest und Ziel", r && r.rest===4 && r.ziel==="HCP 8", JSON.stringify(r));
+    ok("Einheit wird mitgegeben", r.einheit.length>0, r.einheit);
+    ok("bei Höchstwert erreicht-Meldung", br(48,bm).erreicht===true);
+    const inv={levels:[40,32,24,18,14], unit:"m", higherIsBetter:false};
+    const ri=br(28,inv);
+    ok("invertiert: Rest positiv", ri && ri.rest===4, JSON.stringify(ri));
   }
 }
 
