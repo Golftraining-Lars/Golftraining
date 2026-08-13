@@ -4276,15 +4276,37 @@ group("Vollbild — Automatik, aber nicht gegen den Nutzer");
   ok("und zwar VOR dem verzögerten Kartenaufbau",
     po.indexOf("pfFullscreenAuto()") < po.indexOf("setTimeout"));
 
-  const fa = src.slice(src.indexOf("function pfFullscreenAuto()"),
-                       src.indexOf("function pfFullscreenAuto()") + 900);
+  const fa = src.slice(src.indexOf("function pfFullscreenAuto("),
+                       src.indexOf("function pfFullscreenAuto(") + 1500);
   ok("Abschaltung wird respektiert", /!fsAutoOn\(\)/.test(fa));
   ok("selbst geschlossenes Vollbild bleibt zu", /PLAY\.fsOff/.test(fa));
-  ok("in der installierten App passiert nichts", /display-mode: standalone/.test(fa));
+  /* Der Standalone-Riegel ist mit v2.61.1 GEFALLEN: Vollbild blendet auch in
+     der installierten App die Statuszeile aus, und `display-mode` meldet nicht
+     jeder Browser zuverlässig — der Riegel hat womöglich auch im Tab
+     zugeschlagen. Die Prüfung steht andersherum, damit er nicht zurückkehrt. */
+  ok("kein Standalone-Riegel mehr", !/display-mode: standalone/.test(fa));
+  /* Der Nachrüst-Weg ist die eigentliche Absicherung: Schlägt die Anfrage aus
+     pfOpen fehl (verbrauchte Geste oder abgelehntes Promise), wird sie beim
+     nächsten Fingertipp wiederholt — dann garantiert mit frischer Geste. */
+  ok("Ablehnung stellt scharf statt aufzugeben", /_fsArm = fsAutoOn\(\) && !PLAY\.fsOff/.test(fa));
+  ok("pfOpen stellt scharf", /pfFullscreenArm\(\)/.test(po));
+  ok("scharf VOR dem direkten Versuch",
+    po.indexOf("pfFullscreenArm()") < po.indexOf("pfFullscreenAuto()"));
+  ok("ein Fingertipp löst die Nachrüstung aus",
+    /addEventListener\("pointerdown", \(\)=>\{[\s\S]*?_fsArm[\s\S]*?pfFullscreenAuto\(true\)/.test(src));
+  ok("Nachrüstung feuert nur einmal", /_fsArm=false;\s*\n\s*pfFullscreenAuto\(true\);/.test(src));
+  /* Und sie zündet nicht ihrerseits nach — sonst hinge an jedem Tipp eine
+     neue Anfrage, die der Browser aus demselben Grund wieder ablehnt. */
+  ok("der zweite Versuch stellt nicht erneut scharf", /if\(!zweiterVersuch\) _fsArm/.test(fa));
+  /* Scheitert AUCH er, liegt es nicht mehr an der Geste. Dann genau EINMAL
+     sagen, was hilft — ein stiller Fehlschlag lässt einen ratlos zurück. */
+  ok("zweite Ablehnung wird gemeldet", /_fsGemeldet/.test(fa));
+  ok("und zwar nur einmal je Runde", /_fsGemeldet=false;/.test(src));
+  ok("manuelles Schließen entschärft sie auch", /PLAY\.fsOff=true; _fsArm=false;/.test(src));
   ok("doppelte Anfrage vermieden", /document\.fullscreenElement/.test(fa));
   /* Eine abgelehnte AUTOMATISCHE Anfrage ist kein Ereignis, über das man beim
      Abschlag lesen will — anders als die angeforderte über ⛶. */
-  ok("Fehlschlag bleibt still", !/toast\(/.test(fa));
+  ok("die ERSTE Ablehnung bleibt still", /if\(zweiterVersuch\)\{/.test(fa));
 
   const pf = src.slice(src.indexOf("function pfFullscreen()"),
                        src.indexOf("function pfFullscreen()") + 900);
