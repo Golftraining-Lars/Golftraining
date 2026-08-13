@@ -175,7 +175,7 @@ try {
                  "holeGir","holeUpDown","holeSandSave","platzAnalyse","taskFortschritt",
                  "warmupSchedule","warmupKorrektiv","WARMUP_PLANS","medianSplit","pearson",
                  "rKrit","gpKey","gpLabel","gpTotalES","pickClub","_aimClub","_aimLerp",
-                 "_nearest","_reaching","pfWizHtml","heuteJetzt","dispOvalFrom","dispChipHtml","dispRingPath","pathTopPoint","dispHitShare","dispText","dispSchemaSvg","dispSigmaFor","_erf","gpClubFracs","measureOrigin","geoEdMinW","editMinW","vegMask","maskMorph","maskBlobs","blobRing","ringSimplify","detectVeg","gpFingerprint","gpStale","_hash32","vegOn","DB","STRAT","GEOED"];
+                 "_nearest","_reaching","pfWizHtml","heuteJetzt","dispOvalFrom","dispChipHtml","dispRingPath","pathTopPoint","dispHitShare","dispText","dispSchemaSvg","dispSigmaFor","_erf","gpClubFracs","measureOrigin","geoEdMinW","editMinW","vegMask","maskMorph","maskBlobs","blobRing","ringSimplify","detectVeg","gpFingerprint","gpStale","_hash32","vegOn","viewBoxFor","DB","STRAT","GEOED"];
   const epilog = "\n;globalThis.__T={" +
     namen.map(n => `${n}: (typeof ${n}!=="undefined"?${n}:undefined)`).join(",") + "};";
   vm.runInContext(code + epilog, ctx, { timeout: 20000 });
@@ -4357,6 +4357,137 @@ group("Wald & Bäume erkennen — Farbe, Form, Fläche");
     ok("Wald bekommt einen Ring mit Ecken",
       !r2.woods.length || r2.woods[0].ring.length>=4);
   }
+}
+
+/* ============ 24bk. Karteneditor: Aufbau ============ */
+group("Karteneditor — die Karte steht oben");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+  /* Ab dem Fund suchen — `openSheet(h); bindAllPanZoom(...)` kommt im Dokument
+     auch vorher vor; ohne Startindex läge das Ende VOR dem Anfang und der
+     Ausschnitt wäre leer. Eine leere Zeichenkette besteht keine Prüfung und
+     sieht aus wie ein echter Fehler. */
+  const uiA = src.indexOf('const h=`<h2 style="margin-bottom:2px">✏️ Karte');
+  const ui = src.slice(uiA, src.indexOf('openSheet(h); bindAllPanZoom(sheetBody);', uiA));
+  ok("Editor-Vorlage gefunden", uiA > 0 && ui.length > 1000, String(ui.length));
+
+  /* DIE Bedingung: Die Karte ist die Arbeitsfläche und gehört nach oben.
+     Vorher lagen Werkzeuge, ein Erklärungsabsatz und die komplette
+     Vegetations-Karte davor — über 400 Bildpunkte auf dem Telefon. */
+  ok("Loch-Auswahl vor der Karte", ui.indexOf('class="mchips geoed-head') < ui.indexOf('id="geoedSvg"'));
+  ok("Karte vor den Werkzeugen", ui.indexOf('id="geoedSvg"') < ui.indexOf('class="geoed-bar"'));
+  ok("Werkzeuge kleben unten", /\.geoed-bar\{position:sticky;bottom:0/.test(src));
+
+  /* Seltenes gehört in Klappen, nicht zwischen Karte und Werkzeug. */
+  ok("Vegetation in einer Klappe", /<details class="descbox"[^>]*>\s*<summary><span>🌲 Wald/.test(ui));
+  ok("Loch-Feinheiten in einer Klappe", /<summary><span>⚙️ Loch \$\{hole\} · Feinheiten/.test(ui));
+  ok("Bedienung und Zählwerk in einer Klappe", /<summary><span>ℹ️ Bedienung/.test(ui));
+  ok("kein Erklärungsabsatz mehr vor der Karte",
+    ui.indexOf("geoed-tip") > ui.indexOf('id="geoedSvg"'));
+
+  /* Rückgängig gehört an die Karte, nicht in eine Zeile darüber — dort ist es
+     beim Ziehen sofort erreichbar. */
+  ok("Rückgängig an der Karte", /zoombtns[\s\S]{0,600}geoEdUndo\(\)/.test(ui));
+  ok("und zeigt an, wenn es nichts gibt", /kannUndo\?"":"opacity:\.4"/.test(ui));
+
+  /* Hinweise: eine Zeile im Imperativ. Ein Absatz, den man beim zwanzigsten
+     Mal überliest, kostet nur den Platz, den die Karte braucht. */
+  const tp = src.slice(src.indexOf("const tips={"), src.indexOf("const tips={") + 700);
+  ["add","green","tree","area","line","del"].forEach(k =>
+    ok("Hinweis für " + k + " ist kurz",
+      new RegExp(k + ':"[^"]{10,70}"').test(tp), (tp.match(new RegExp(k + ':"([^"]*)"'))||[])[1]));
+}
+
+/* ============ 24bl. Vegetation dezent darstellen ============ */
+group("Karteneditor — durch den Wald hindurchsehen");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+  const cs = src.slice(src.indexOf("const vegFaint"), src.indexOf("const vegFaint") + 9000);
+
+  /* Nach einer Erkennung liegen hundert gefüllte Kreise über der Bahn — man
+     korrigiert dann blind, weil das Luftbild darunter verschwindet. `vegFaint`
+     zeichnet dieselben Objekte als Umriss. */
+  ok("Flächen ohne Füllung", /if\(vegFaint && istVeg\(k\)\)\{[\s\S]{0,200}?fill="none"/.test(cs));
+  ok("eigene Flächen ebenso", /const leer=\(vegFaint && istVeg\(m\.kind\)\)/.test(cs));
+  ok("Bäume als Ring statt Scheibe", /r="3\.6" fill="none" stroke/.test(cs));
+  ok("auch die aus OSM", /r="3\.2" fill="none" stroke/.test(cs));
+
+  /* DIE Bedingung, an der eine solche Änderung scheitern würde: kleiner
+     GEZEICHNET darf nicht schwerer zu TREFFEN heißen. Die unsichtbare
+     Trefferfläche bleibt bei r=13. */
+  ok("Trefferfläche unverändert groß", /r="13" fill="transparent"/.test(cs));
+
+  /* Drei Stufen, an der Karte umschaltbar — man wechselt sie während der
+     Arbeit mehrfach, das gehört nicht in eine Einstellung. */
+  ok("drei Stufen", /\["voll","Voll"\],\["dezent","Umriss"\],\["aus","Aus"\]/.test(src));
+  ok("Umriss ist der Standard", /GEOED\.vegSicht\|\|"dezent"/.test(src));
+  ok("aus blendet wirklich aus", /veg: vs!=="aus"/.test(src));
+  ok("nur dezent zeichnet Umrisse", /vegFaint: vs==="dezent"/.test(src));
+  /* Arbeitseinstellung der Sitzung, kein synchronisierter Geschmack. */
+  ok("nicht in DB.ui", /function geoEdVegSicht\(v\)\{ GEOED\.vegSicht=v/.test(src));
+}
+
+/* ============ 24bj. Karteneditor: Ansicht, Rückgängig, Bildmenü ============ */
+group("Karteneditor — Ansicht bleibt, Änderungen sind umkehrbar");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+  const V = G("viewBoxFor");
+
+  /* Der Ausschnitt wird GEOGRAFISCH gemerkt (Mittelpunkt + Breite in Metern),
+     nicht in Bildkoordinaten: `courseSVG` legt die Projektion bei jedem Neu-
+     aufbau neu um die Features, ein gespeicherter viewBox zeigte danach eine
+     andere Stelle. */
+  if (typeof V === "function") {
+    const M = { W: 600, H: 400, s: 2 };          // 2 Bildeinheiten je Meter
+    const v = V(300, 200, 100, M, 4);
+    near("Breite aus Metern mal Maßstab", v.w, 200, 0.01);
+    near("Höhe im Seitenverhältnis", v.h, 200 * (400 / 600), 0.01);
+    near("um den Mittelpunkt zentriert", v.x + v.w / 2, 300, 0.01);
+
+    /* An den Rand geklemmt — sonst sähe man leere Fläche neben der Bahn. */
+    const links = V(10, 200, 100, M, 4);
+    eq("nicht über den linken Rand", links.x, 0);
+    const rechts = V(590, 200, 100, M, 4);
+    near("nicht über den rechten Rand", rechts.x + rechts.w, 600, 0.01);
+
+    /* Grenzen: nie enger als die Zoomgrenze, nie weiter als die ganze Bahn. */
+    ok("Mindestbreite greift", V(300, 200, 0.1, M, 4).w >= 4);
+    eq("Höchstbreite ist die Bahn", V(300, 200, 9999, M, 4).w, 600);
+
+    eq("ohne Projektion nichts", V(0, 0, 100, null, 4), null);
+    eq("ohne Maßstab nichts", V(0, 0, 100, { W: 600, H: 400, s: 0 }, 4), null);
+  }
+
+  /* Der Anker wird VOR dem Neuaufbau genommen — danach ist die alte
+     Projektion überschrieben und der Ausschnitt nicht mehr übersetzbar. */
+  const rg = src.slice(src.indexOf("function renderGeoEditor()"),
+                       src.indexOf("function renderGeoEditor()") + 1600);
+  ok("Anker vor courseSVG", rg.indexOf("geoEdViewAnchor()") < rg.indexOf("courseSVG("));
+  ok("Wiederherstellen statt Zurücksetzen", /geoEdViewRestore\(_geoedAnker\)/.test(rg));
+
+  /* Rückgängig sichert `mine` UND `overrides` — eine verschobene Grünmitte
+     landet in `overrides`, alles andere in `mine`; wer nur eines sichert,
+     stellt die Hälfte wieder her. */
+  const sn = src.slice(src.indexOf("function geoEdSnapshot("),
+                       src.indexOf("function geoEdSnapshot(") + 700);
+  ok("beide Töpfe gesichert", /mine: JSON\.stringify/.test(sn) && /ovr: JSON\.stringify/.test(sn));
+  ok("Tiefe begrenzt", /GEOED\.undo\.length>12/.test(sn));
+  const un = src.slice(src.indexOf("function geoEdUndo("),
+                       src.indexOf("function geoEdUndo(") + 700);
+  ok("Overrides werden neu angewandt", /applyGeoOverrides\(geo\)/.test(un));
+  ok("kein Eintrag: freundliche Meldung", /Nichts rückgängig/.test(un));
+
+  /* Jeder Eingriff muss vorher sichern — ein vergessener macht den Knopf
+     unzuverlässig, und das ist schlimmer als kein Knopf. */
+  ["Verschieben","Baum setzen","Punkt setzen","Grünmitte setzen","Löschen",
+   "Fläche zeichnen","Linie zeichnen","Erkennung"].forEach(w =>
+    ok("gesichert vor: " + w, src.indexOf('geoEdSnapshot("' + w + '")') > 0));
+
+  /* Bildmenü beim Langdruck — in den Editoren hält man den Finger noch länger
+     still als auf der Spielkarte. */
+  ok("Karteneditor fängt das Kontextmenü ab",
+    /#geoedSvg, #geoedSvg svg, #strkSvg, #strkSvg svg\{-webkit-touch-callout:none/.test(src));
+  ok("und den Zeiger-Langdruck", (src.match(/addEventListener\("contextmenu", e=>e\.preventDefault\(\)\)/g)||[]).length >= 3);
 }
 
 /* ============ 24bi. Runde verwerfen ============ */
