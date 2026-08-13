@@ -175,7 +175,7 @@ try {
                  "holeGir","holeUpDown","holeSandSave","platzAnalyse","taskFortschritt",
                  "warmupSchedule","warmupKorrektiv","WARMUP_PLANS","medianSplit","pearson",
                  "rKrit","gpKey","gpLabel","gpTotalES","pickClub","_aimClub","_aimLerp",
-                 "_nearest","_reaching","pfWizHtml","heuteJetzt","dispOvalFrom","dispChipHtml","dispRingPath","pathTopPoint","dispHitShare","dispText","dispSchemaSvg","dispSigmaFor","_erf","gpClubFracs","measureOrigin","geoEdMinW","editMinW","vegMask","maskMorph","maskBlobs","blobRing","ringSimplify","detectVeg","gpFingerprint","gpStale","_hash32","vegOn","viewBoxFor","DB","STRAT","GEOED"];
+                 "_nearest","_reaching","pfWizHtml","heuteJetzt","dispOvalFrom","dispChipHtml","dispRingPath","pathTopPoint","dispHitShare","dispText","dispSchemaSvg","dispSigmaFor","_erf","gpClubFracs","measureOrigin","geoEdMinW","editMinW","vegMask","maskMorph","maskBlobs","blobRing","ringSimplify","detectVeg","gpFingerprint","gpStale","_hash32","vegOn","viewBoxFor","troubleFeatures","DB","STRAT","GEOED"];
   const epilog = "\n;globalThis.__T={" +
     namen.map(n => `${n}: (typeof ${n}!=="undefined"?${n}:undefined)`).join(",") + "};";
   vm.runInContext(code + epilog, ctx, { timeout: 20000 });
@@ -4396,6 +4396,187 @@ group("Karteneditor — die Karte steht oben");
   ["add","green","tree","area","line","del"].forEach(k =>
     ok("Hinweis für " + k + " ist kurz",
       new RegExp(k + ':"[^"]{10,70}"').test(tp), (tp.match(new RegExp(k + ':"([^"]*)"'))||[])[1]));
+}
+
+/* ============ 24bo. Die Doku muss wahr bleiben ============ */
+group("Doku — Behauptungen gegen den Quelltext");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+  const doc = (src.match(/<script[^>]*devdocs[^>]*>([\s\S]*?)<\/script>/) || [])[1] || "";
+  ok("Doku-Block gefunden", doc.length > 5000);
+
+  /* WARUM DIESE PRÜFUNG: Die Selbstprüfung fragt nur, ob ein Funktionsname
+     IRGENDWO in der Doku vorkommt. Sie merkt nicht, wenn ein Satz veraltet —
+     und genau das ist über die Versionen mehrfach passiert: Der Editor stand
+     noch als „Pinch-Zoom + Zwei-Finger-Pan" beschrieben, als es längst einen
+     Ein-Finger-Schub gab, und „konkrete Wasser/Bunker werden NICHT doppelt
+     eingetragen" war nach v2.71 schlicht falsch.
+     Mechanisch prüfbar ist davon eine Teilmenge: Namen, die die Doku im
+     Referenzteil als existierend anführt (`name(`), müssen es auch geben. Das
+     fängt Umbenennungen und ersatzlose Streichungen — die häufigste Ursache
+     für Sätze, die nicht mehr stimmen. */
+  const ref = doc.slice(0, doc.indexOf("## Changelog"));
+  ok("Referenzteil abgegrenzt", ref.length > 5000 && ref.length < doc.length);
+
+  /* `code` heisst im Modulkopf schon so — hier ein eigener Name, damit die
+     Prüfung nicht von der Reihenfolge der Abschnitte abhängt. */
+  const js = code;
+  const vorhanden = new Set([
+    ...js.matchAll(/function\s+(\w+)\s*\(/g),
+    ...js.matchAll(/^\s{2}(\w+)\s*\(/gm),
+    ...js.matchAll(/(?:let|const|var)\s+(\w+)/g),
+  ].map(m => m[1]));
+
+  /* Browser- und Sprachbestandteile sind keine App-Funktionen. */
+  const FREMD = new Set(["fetch","isFinite","getBoundingClientRect","showModal","show","calc","var",
+    "parseInt","parseFloat","setTimeout","setInterval","requestAnimationFrame","addEventListener"]);
+  /* GEISTER: Namen, die der Referenzteil bewusst als ENTFALLEN nennt („Ersatzlos
+     entfallen: pfFit, …"). Sie gehören dorthin — die Begründung, warum etwas
+     weg ist, ist so viel wert wie die Beschreibung dessen, was da ist.
+     Wer einen Namen hier einträgt, behauptet: „steht als Historie da, nicht als
+     Gegenwart." */
+  const GEISTER = new Set([
+    /* Die Vollbild-Odyssee v1.70–1.88 und die Messanzeige v2.03: Diese Namen
+       stehen ausschliesslich in den ERZAEHLENDEN Abschnitten („warum es so
+       gelöst ist"). Die Begruendung, warum etwas weg ist, ist so viel wert wie
+       die Beschreibung dessen, was da ist. */
+    "pfApplyHeight","pfDbgRender","pfDbgToggle","pfDiagShow","pfFacts",
+    "pfFit","pfSize","pfVerify","pfViewportH","pinPoint",
+    /* Kein Geist, sondern eine FREMDE Sprache: `optJSONArray` gehoert zur
+       Kotlin-Uhr-App (org.json), nicht in diese Datei. */
+    "optJSONArray"]);
+
+  const genannt = [...new Set([...ref.matchAll(/`(\w+)\(/g)].map(m => m[1]))];
+  const tot = genannt.filter(n => !vorhanden.has(n) && !FREMD.has(n) && !GEISTER.has(n));
+  eq("kein Referenzeintrag zeigt auf eine verschwundene Funktion", tot.join(", "), "");
+  ok("die Prüfung greift überhaupt", genannt.length > 200, String(genannt.length));
+
+  /* Aufräumhilfe in die andere Richtung: Ein Geist, den es wieder gibt, gehört
+     aus der Liste — sonst deckt sie irgendwann echte Fehler zu. */
+  const wieder = [...GEISTER].filter(n => vorhanden.has(n));
+  if (wieder.length) console.log("   Hinweis: existiert wieder, aus GEISTER streichen: " + wieder.join(", "));
+
+  /* Und die Regel selbst muss dastehen — sonst gilt sie nur, solange sich
+     jemand erinnert. */
+  ok("Doku-Pflicht ist als Regel hinterlegt", /DOKU-PFLICHT/.test(doc));
+  ok("sie nennt die Prosa-Abschnitte, nicht nur die Namensliste",
+    /PROSA-ABSCHNITT/.test(doc));
+  ok("und verlangt die Gegenprobe vor dem Abliefern", /Gegenprobe/.test(doc));
+}
+
+/* ============ 24bn. „Hinweise je Loch" wirken in der Rechnung ============ */
+group("Hinweise je Loch — aus Text wird Gelände");
+{
+  const TF = G("troubleFeatures"), src = fs.readFileSync(FILE, "utf8");
+  if (typeof TF === "function") {
+    /* Bahn nach NORDEN: Tee unten, Grün 400 m nördlich. Rechts vom Spieler
+       ist damit Osten (größere Länge). */
+    const tee = [54.0, 10.75];
+    const mLat = 110540, mLng = 111320 * Math.cos(54 * Math.PI / 180);
+    const green = [54.0 + 400 / mLat, 10.75];
+    const mitte = (ring) => ring.slice(0, -1).reduce((a, p, _, arr) =>
+      [a[0] + p[0] / arr.length, a[1] + p[1] / arr.length], [0, 0]);
+    const vor = (p) => (p[0] - tee[0]) * mLat;          // Meter Richtung Grün
+    const quer = (p) => (p[1] - tee[1]) * mLng;         // Meter nach Osten = rechts
+
+    const rechts = TF({ tType: "water", tSide: "R", tAt: 190 }, tee, green);
+    eq("eine Zone", rechts.length, 1);
+    eq("Art übernommen", rechts[0].kind, "water");
+    ok("als synthetisch markiert", rechts[0].synth === true);
+    near("liegt bei der angegebenen Entfernung", vor(mitte(rechts[0].ring)), 190, 2);
+    ok("und rechts der Linie", quer(mitte(rechts[0].ring)) > 15, String(quer(mitte(rechts[0].ring))));
+
+    const links = TF({ tType: "bunker", tSide: "L", tAt: 190 }, tee, green);
+    ok("links ist die Gegenseite", quer(mitte(links[0].ring)) < -15);
+    eq("OB wird zu OB", TF({ tType: "ob", tSide: "R", tAt: 200 }, tee, green)[0].kind, "ob");
+
+    /* Ohne Entfernungsangabe wüsste niemand, WO die Zone liegt — und eine Zone
+       an der falschen Stelle ist schlimmer als keine. */
+    eq("ohne ab-m keine Zone", TF({ tType: "water", tSide: "R" }, tee, green).length, 0);
+    eq("ohne Seite keine Zone", TF({ tType: "water", tAt: 190 }, tee, green).length, 0);
+    eq("hinter dem Grün keine Zone", TF({ tType: "water", tSide: "R", tAt: 395 }, tee, green).length, 0);
+
+    /* Gefahr vor dem Grün: mittig, kurz davor — das deckt den kurzen Fehler ab. */
+    const g = TF({ green: "water" }, tee, green);
+    eq("eine Zone vor dem Grün", g.length, 1);
+    near("kurz vor dem Grün", vor(mitte(g[0].ring)), 384, 3);
+    near("mittig", quer(mitte(g[0].ring)), 0, 2);
+
+    /* Geschlossener Ring, sonst zeichnet und füllt niemand korrekt. */
+    const r0 = rechts[0].ring;
+    eq("Ring ist geschlossen", r0[0].join(","), r0[r0.length - 1].join(","));
+
+    eq("ohne Eintrag nichts", TF(null, tee, green).length, 0);
+    eq("ohne Geometrie nichts", TF({ green: "water" }, null, green).length, 0);
+    eq("zu kurze Bahn ergibt nichts", TF({ green: "water" }, tee, [54.0003, 10.75]).length, 0);
+  }
+
+  /* Die Zonen müssen dort ankommen, wo gerechnet wird — Raster UND Warnungen. */
+  ok("Raster nimmt sie auf", /troubleFeatures\(holeTrouble\(courseName,holeNo\), hh\.tee, hh\.green\)/.test(src));
+  ok("Live-Caddy warnt damit", /troubleFeatures\(holeTrouble\(PLAY\.course,h\.hole\)/.test(src));
+  ok("Positions-Caddy ebenso", /troubleFeatures\(holeTrouble\(CADDYPOS\.courseName,n\)/.test(src));
+  /* Und eine Änderung muss den gespeicherten Gameplan ungültig machen. */
+  ok("Gameplan-Abdruck kennt die Hinweise", /_hash32\(tr\)/.test(src));
+  /* An BEIDEN Stellen — die stündliche Prüfung und die Handrechnung. Fehlt es
+     einer, hängt der Plan je nach Weg an einem anderen Abdruck. */
+  eq("beide Abdruck-Aufrufe kennen die Hinweise",
+    (src.match(/gpFingerprint\(c\.geo, clubList\(\)[\s\S]{0,140}?c\.trouble\)/g) || []).length, 2);
+
+  /* Bevorzugte Seite ist eine Vorliebe, keine Fläche: klein genug, um eine
+     sachlich bessere Linie nicht zu überstimmen. */
+  ok("bevorzugte Seite wirkt auf die Ziellinie", /favZ=0\.03/.test(src));
+  ok("und nur auf die Gegenseite", /if\(seite!==_fav\) favZ=0\.03/.test(src));
+
+  /* Was NICHT rechnet, muss dranstehen — sonst trägt man ein und wundert sich. */
+  ok("Editor sagt, was mitrechnet", /Was rechnet mit:/.test(src));
+  ok("und was nicht", /nicht gerechnet/.test(src));
+}
+
+/* ============ 24bm. Aufnehmen statt versehentlich verschieben ============ */
+group("Karteneditor — Objekte hängen nicht mehr am Finger");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+  const dn = src.slice(src.indexOf("function geoEdDown"), src.indexOf("const DRAG_HOLD_MS"));
+  const mv = src.slice(src.indexOf("function geoEdMove"), src.indexOf("function geoEdUp"));
+  const up = src.slice(src.indexOf("function geoEdUp"), src.indexOf("function geoEdClick"));
+
+  /* URSACHE: Ein Objekt hing am Finger, SOBALD man es berührte, und 2 px
+     Bewegung galten als Verschieben. Nach einer Erkennung liegen hunderte
+     13-px-Trefferflächen über der Bahn — man kam gar nicht mehr an leere
+     Fläche, jeder Schiebeversuch verrückte einen Baum. */
+  ok("Aufnahme wartet", /warten:true/.test(dn));
+  ok("Haltezeit gesetzt", /DRAG_HOLD_MS=320/.test(src));
+  ok("Wackelgrenze 10 px statt 2", /DRAG_SLOP=10/.test(src));
+  ok("Rückmeldung beim Aufnehmen", /navigator\.vibrate\(12\)/.test(dn));
+  ok("und sichtbar", /drop-shadow/.test(dn));
+  ok("Bewegung vor dem Aufnehmen verwirft es", /clearTimeout\(_gdragT\); GDRAG=null/.test(mv));
+
+  /* Beim Umbau ging der EIN-FINGER-SCHUB verloren: `GEOED.pan` wurde gesetzt,
+     aber nichts führte ihn mehr aus. Übrig blieb Zoomen mit zwei Fingern. */
+  ok("Kartenschub auch auf leerer Fläche vorbereitet",
+    dn.indexOf("GEOED.pan={") < dn.indexOf('closest("[data-drag]")'));
+  ok("und in geoEdMove ausgeführt", /GEOED\.pan && GEOED\.ptrs && GEOED\.ptrs\.size===1/.test(mv));
+  ok("Pixel in Kartenkoordinaten", /\/Math\.max\(1,r\.width\)\*p\.view\.w/.test(mv));
+  ok("an den Rand geklemmt", /Math\.min\(M\.W-p\.view\.w/.test(mv));
+  /* Nach dem Verwerfen NICHT zurückkehren — sonst hinkt die Karte ein
+     Ereignis hinterher und es ruckelt beim Anschieben. */
+  ok("nach dem Verwerfen geht es weiter zum Schub", /\}\s*\n\s*else return;/.test(mv));
+
+  /* `preventDefault` auf pointerdown unterdrückt `click` — und darüber laufen
+     Setzen und Löschen. Dieselbe Falle wie im Schlag-Editor (v2.63). */
+  ok("kein preventDefault beim Aufsetzen", !/e\.preventDefault\(\);\s*\n\}/.test(dn));
+  ok("Klick nach echtem Schub unterdrückt", /gSuppressClick=true/.test(mv));
+
+  /* Aufräumen: ein überlebender Wecker nimmt sonst ein Objekt auf, das längst
+     losgelassen ist. */
+  ok("Wecker beim Loslassen gelöscht", /clearTimeout\(_gdragT\); _gdragT=null;/.test(up));
+  ok("Schub beim Loslassen beendet", /GEOED\.pan=null;/.test(up));
+  ok("Leuchten wird zurückgenommen", /style\.filter=""/.test(up));
+
+  /* Und die Bedienung muss dranstehen — eine Geste, die man erraten muss,
+     ist keine. */
+  ok("Halten wird erklärt", /halten<\/b>, bis es leuchtet/.test(src));
+  ok("auch im Werkzeug-Hinweis", /halten zum Verschieben/.test(src));
 }
 
 /* ============ 24bl. Vegetation dezent darstellen ============ */
