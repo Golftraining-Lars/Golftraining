@@ -4398,6 +4398,73 @@ group("Karteneditor — die Karte steht oben");
       new RegExp(k + ':"[^"]{10,70}"').test(tp), (tp.match(new RegExp(k + ':"([^"]*)"'))||[])[1]));
 }
 
+/* ============ 24bw. Kartenschirm: Zoom, Aufräumen, ein Löschweg ============ */
+group("Kartenschirm — Verwaltung, nicht zweiter Spielmodus");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+  const cm = src.slice(src.indexOf("function renderCourseMap(idx)"),
+                       src.indexOf("function mapSelHole(n)"));
+
+  /* Derselbe Ausschnitt wie im Spielmodus — `corridor` fehlte, deshalb wurde
+     über das 55-m-Vorgabeband gefittet. */
+  ok("Bahn-Ausschnitt wie im Spielmodus", /rotate:!!hole, tight:!!hole, corridor:46, fitHoles:!hole/.test(cm));
+
+  /* Alles Ortsbezogene ist raus: Es war eine zweite, schlechtere Ausgabe
+     dessen, was der Spielmodus mit GPS, Caddy und Ringen ohnehin kann. */
+  ["mRings","mLive","mHere","mAdd","mCaddy"].forEach(id =>
+    ok("Knopf entfernt: " + id, cm.indexOf('id="' + id + '"') < 0));
+  ok("Distanz-Ringe-Zeile weg", !/Distanz-Ringe \(50–250 m\)/.test(cm));
+  ok("Live-Distanzzeile weg", !/liveDist/.test(cm));
+  ["mapToggleLive","mapLocate","mapAddPoint"].forEach(f =>
+    ok("Funktion entfernt: " + f, src.indexOf("function " + f + "(") < 0));
+  /* Was bleiben MUSS: Luftbild, Offline-Vorrat, Bearbeiten, Import, Löschen. */
+  ["mSat","mSatPre","mSatClr","mEdit","mReload","mClear"].forEach(id =>
+    ok("Knopf bleibt: " + id, cm.indexOf('id="' + id + '"') > 0));
+}
+
+/* ============ 24bv. Grün als Fläche · Freihand-Zeichnen ============ */
+group("Grünfläche und Freihand");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+
+  /* Grün gab es nur als PUNKT (die Mitte = Ziel des Caddys). Die FLÄCHE fehlte,
+     obwohl das Raster sie auswertet und Front/Mitte/Back sie brauchen. */
+  ok("Grün als Flächenart wählbar", /geoEdFinishArea\('green'\)/.test(src));
+  ok("Fairway ebenso", /geoEdFinishArea\('fairway'\)/.test(src));
+  ok("Bezeichnung vorhanden", /green:"Grün",fairway:"Fairway"/.test(src));
+  /* Und die selbst gezeichnete Fläche muss auch GEFUNDEN werden — vorher sah
+     `greenRingFor` nur in `features`, wer ein Grün nachtrug bekam trotzdem
+     keine F/M/B-Werte. */
+  ok("eigene Grüns zählen für F/M/B",
+    /greens=\(geo\.features\|\|\[\]\)\.concat\(geo\.mine\|\|\[\]\)\.filter\(f=>f\.kind==="green"/.test(src));
+  ok("Hinweis trennt Mitte und Fläche", /Setzt die Grün-MITTE/.test(src));
+
+  /* Freihand: nur Maus, nur PC-Modus — am Finger wäre jeder Wisch ein
+     Zeichenzug und das Verschieben ginge verloren. */
+  const dn = src.slice(src.indexOf("function geoEdDown"), src.indexOf("const DRAG_HOLD_MS"));
+  ok("Freihand nur mit Maus im PC-Modus",
+    /e\.pointerType==="mouse" && e\.button===0 && geoEdPcOn\(\)/.test(dn));
+  ok("Spur beginnt beim Aufsetzen", /GEOED\.free=\{pts:\[v\]\}/.test(dn));
+
+  const mv = src.slice(src.indexOf("function geoEdMove"), src.indexOf("function geoEdUp"));
+  ok("Punkte erst ab Mindestabstand", /Math\.hypot\(v\[0\]-l\[0\], v\[1\]-l\[1\]\)>=minU/.test(mv));
+  /* Der Mindestabstand ist in BILDPUNKTEN gedacht und wird umgerechnet —
+     sonst sammelt starker Zoom tausend Punkte auf einem Meter. */
+  ok("Abstand in Bildpunkten umgerechnet", /3\*\(\(GEOED\.view\?GEOED\.view\.w:GEOED\.M\.W\)\/Math\.max\(1,r\.width\)\)/.test(mv));
+  ok("während des Zugs nur der Pfad", /geoEdFreePath\(\)/.test(mv) && !/renderGeoEditor\(\)/.test(mv));
+
+  const fe = src.slice(src.indexOf("function geoEdFreeEnde("),
+                       src.indexOf("function geoEdMenuAus()"));
+  ok("kurzer Zug gilt als Klick", /f\.pts\.length<4\) return false/.test(fe));
+  /* Toleranz in METERN, nicht in Bildpunkten: sonst hängt die Glättung am
+     Zoom — nah gezeichnet fein, weit gezeichnet grob. */
+  ok("Glättung in Metern gedacht", /eps=Math\.max\(0\.5, 2\*\(M&&M\.s\|\|1\)\)/.test(fe));
+  ok("Notbremse gegen Riesenringe", /pts\.length>120/.test(fe));
+  ok("landet im normalen Zeichen-Entwurf", /GEOED\.draw=\{pts:ll\}/.test(fe));
+  ok("und unterdrückt den Klick danach", /gSuppressClick=true/.test(fe));
+  ok("Kürzelliste erklärt es", /freihand ziehen/.test(src));
+}
+
 /* ============ 24bu. Abschluss-Leiste folgt den Werkzeugen ============ */
 group("PC-Modus — Zeichnen abschließen, wo man hinsieht");
 {
@@ -4422,7 +4489,13 @@ group("PC-Modus — Zeichnen abschließen, wo man hinsieht");
 group("Alles löschen — mit Zahlen, mit Netz");
 {
   const src = fs.readFileSync(FILE, "utf8");
-  const w = src.slice(src.indexOf("function geoEdWipe()"), src.indexOf("function geoEdWipeUndo("));
+  /* EIN Weg für beide Aufrufer (v2.81): `geoEdWipe()` ist nur noch der
+     Kurzaufruf, die Arbeit macht `geoWipe(idx, ausEditor)`. */
+  const w = src.slice(src.indexOf("function geoWipe(idx, ausEditor)"), src.indexOf("function geoEdWipeUndo("));
+  ok("Editor ruft denselben Weg", /function geoEdWipe\(\)\{ geoWipe\(GEOED\.idx, true\); \}/.test(src));
+  ok("Kartenschirm ebenfalls", /\$\("#mClear"\)\.onclick=\(\)=>geoWipe\(idx\)/.test(src));
+  /* Der alte Weg darf nur noch im KOMMENTAR vorkommen, nicht als Aufruf. */
+  ok("kein zweiter Löschweg mehr", !/confirm\("OSM-Geodaten dieses Platzes löschen\?"\)/.test(src));
   const u = src.slice(src.indexOf("function geoEdWipeUndo("),
                       src.indexOf("function geoEdWipeUndo(") + 700);
 
@@ -4436,7 +4509,7 @@ group("Alles löschen — mit Zahlen, mit Netz");
 
   /* Das Rückgängig des Editors sichert nur `mine` und `overrides` — für
      `features` und `holes` braucht es eine vollständige Kopie. */
-  ok("vollständige Kopie vor dem Löschen", /GEOED\.geoBackup=\{idx:GEOED\.idx[\s\S]{0,80}JSON\.stringify\(geo\)/.test(w));
+  ok("vollständige Kopie vor dem Löschen", /GEOED\.geoBackup=\{idx, name:c\.name, json:JSON\.stringify\(geo\)/.test(w));
   ok("Kopie vor dem Löschen, nicht danach",
     w.indexOf("GEOED.geoBackup=") < w.indexOf("delete c.geo"));
   ok("Wiederherstellen prüft den Platz", /!b \|\| b\.idx!==idx/.test(u));
