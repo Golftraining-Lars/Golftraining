@@ -175,7 +175,7 @@ try {
                  "holeGir","holeUpDown","holeSandSave","platzAnalyse","taskFortschritt",
                  "warmupSchedule","warmupKorrektiv","WARMUP_PLANS","medianSplit","pearson",
                  "rKrit","gpKey","gpLabel","gpTotalES","pickClub","_aimClub","_aimLerp",
-                 "geoEdSelHat","geoEdVertHandles","_nearest","_reaching","pfWizHtml","heuteJetzt","dispOvalFrom","dispChipHtml","dispRingPath","pathTopPoint","dispHitShare","dispText","dispSchemaSvg","dispSigmaFor","_erf","gpClubFracs","measureOrigin","geoEdMinW","editMinW","vegMask","maskMorph","maskBlobs","blobRing","ringSimplify","detectVeg","gpFingerprint","gpStale","_hash32","vegOn","viewBoxFor","troubleFeatures","geoEdPunktVon","_mergeCourses","DB","STRAT","GEOED"];
+                 "geoEdSelHat","geoEdVertHandles","snapshot","_nearest","_reaching","pfWizHtml","heuteJetzt","dispOvalFrom","dispChipHtml","dispRingPath","pathTopPoint","dispHitShare","dispText","dispSchemaSvg","dispSigmaFor","_erf","gpClubFracs","measureOrigin","geoEdMinW","editMinW","vegMask","maskMorph","maskBlobs","blobRing","ringSimplify","detectVeg","gpFingerprint","gpStale","_hash32","vegOn","viewBoxFor","troubleFeatures","geoEdPunktVon","_mergeCourses","snapBehalten","DB","STRAT","GEOED"];
   const epilog = "\n;globalThis.__T={" +
     namen.map(n => `${n}: (typeof ${n}!=="undefined"?${n}:undefined)`).join(",") + "};";
   vm.runInContext(code + epilog, ctx, { timeout: 20000 });
@@ -4450,6 +4450,80 @@ group("Hand — die Karte schieben, sonst nichts");
   ok("vier Spalten", /\.geoed-tools\{display:grid;grid-template-columns:repeat\(4,1fr\)/.test(src));
 }
 
+/* ============ 24cc. Sicherungskopien & Versionssprung ============ */
+group("Sicherungen — bezahlbar und verlässlich");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+  const B = G("snapBehalten");
+
+  /* GEMESSEN: Zehn volle Kopien bei ~3 MB Daten sind ~30 MB im Speicher und
+     eine Schreibverstärkung von Faktor zehn alle drei Minuten. Die Tiefe
+     richtet sich jetzt nach der Größe. */
+  if (typeof B === "function") {
+    eq("kleiner Stand: zehn Kopien", B(200e3), 10);
+    eq("halbe MB: sechs", B(900e3), 6);
+    eq("1,5 MB: drei", B(2e6), 3);
+    eq("über 4 MB: zwei", B(5e6), 2);
+    eq("ohne Angabe der Vorgabewert", B(0), 10);
+    ok("monoton fallend", B(200e3) >= B(900e3) && B(900e3) >= B(2e6) && B(2e6) >= B(5e6));
+  }
+
+  const sn = src.slice(src.indexOf("function snapshot(reason, force)"),
+                       src.indexOf("function getBackups()"));
+  /* Der localStorage-Zweig ist ersatzlos entfallen: ein 30-MB-String für einen
+     Speicher mit 5 MB Grenze — der Versuch MUSSTE scheitern, still im catch. */
+  ok("keine localStorage-Kopie mehr", !/localStorage\.setItem\("golfdb_backups"/.test(src));
+  ok("Tiefe aus der Größe", /const max=snapBehalten\(data\.length\)/.test(sn));
+  /* Ein leerer Stand darf keine echte Sicherung verdrängen — beim Start läuft
+     snapshot(), BEVOR idbHydrate die echten Daten geladen hat. */
+  ok("leerer Stand kommt nicht in den Ring", /if\(score<5 && _backups\.length\)\{ return; \}/.test(sn));
+
+  /* Versionssprung: verwerfen war die Ursache einer ganzen Kette. */
+  const ld = src.slice(src.indexOf("function load(){"), src.indexOf("function load(){") + 700);
+  ok("Stand wird migriert, nicht verworfen", /_schemaAlt=d\.version==null\?"\?":d\.version; d\.version=SEED\.version;/.test(ld));
+  ok("Struktur bleibt die Bedingung", /Array\.isArray\(d\.testDefs\) && Array\.isArray\(d\.rounds\)/.test(ld));
+  ok("keine Versionsprüfung mehr in load", !/d\.version===SEED\.version/.test(ld));
+
+  const hy = src.slice(src.indexOf("async function idbHydrate()"),
+                       src.indexOf("async function idbHydrate()") + 1600);
+  ok("idbHydrate prüft die Version nicht mehr", !/idb\.version===SEED\.version/.test(hy));
+  /* Der eigentliche Datenverlust: Die abgelehnte IDB-Kopie wurde mit dem
+     leeren SEED überschrieben. */
+  ok("nie eine reichere Kopie überschreiben",
+    /else if\(!idb \|\| dataScore\(DB\) >= dataScore\(idb\|\|\{\}\)\)/.test(hy));
+}
+
+group("Merge — ein leerer Stand überschreibt keine Skalare");
+{
+  const M = G("mergeDB"), src = fs.readFileSync(FILE, "utf8");
+  if (typeof M === "function") {
+    const voll = () => ({ version: 12, testDefs: [{key:"a"}], rounds: [{id:"r1"},{id:"r2"},{id:"r3"}],
+      profile: { name: "Lars", hcpIndex: 20.4 }, ui: { theme: "dark" }, tests: [], notes: [],
+      clubDistances: [{club:"Driver"}], competitions: [], tomb: {} });
+    const leer = () => ({ version: 12, testDefs: [], rounds: [], profile: { name: "" }, ui: {},
+      tests: [], notes: [], clubDistances: [], competitions: [], tomb: {} });
+
+    /* DER FALL: lokal frisch (Schema-Neustart, Neuinstallation, Speicher
+       geleert), Repo hat alles. Vorher gewannen die LOKALEN Skalare — Profil
+       und Einstellungen wurden mit Leerwerten überschrieben und verteilt. */
+    const r1 = M(leer(), voll());
+    eq("Profil kommt aus dem Repo", (r1.profile || {}).name, "Lars");
+    eq("Handicap ebenso", (r1.profile || {}).hcpIndex, 20.4);
+    eq("Einstellungen ebenso", (r1.ui || {}).theme, "dark");
+    eq("Runden sowieso (Union)", (r1.rounds || []).length, 3);
+
+    /* Normalfall: lokal hat Daten — dann gewinnt wie bisher LOKAL. */
+    const l2 = voll(); l2.profile = { name: "Lars", hcpIndex: 19.8 };
+    const r2 = M(l2, voll());
+    eq("lokale Korrektur gewinnt weiterhin", (r2.profile || {}).hcpIndex, 19.8);
+
+    /* Beide leer: nichts Besonderes, kein Absturz. */
+    ok("beide leer geht durch", !!M(leer(), leer()));
+  }
+  ok("Schwelle wie beim Empty-Guard", /const lLeer = \(dataScore\(L\)<5 && dataScore\(R\)>=5\)/.test(src));
+  ok("ui folgt derselben Regel", /out\.ui=Object\.assign\(\{\}, lLeer\?\(L\.ui\|\|\{\}\):\(R\.ui\|\|\{\}\)/.test(src));
+}
+
 /* ============ 24ca. worker.js liegt in der Doku ============ */
 group("Worker-Code in der Doku");
 {
@@ -4461,7 +4535,15 @@ group("Worker-Code in der Doku");
      serverseitig — tatsächlich ist er im benutzten Modus ein SHA-Türsteher.
      Eine Aussage über Code, den man nicht sieht, ist eine Vermutung. */
   ok("Abschnitt vorhanden", /## 28\. `worker\.js` — vollstaendiger Stand/.test(doc));
-  ok("Fassung benannt", /Fassung v2\.2/.test(doc));
+  ok("Fassung benannt", /Fassung v2\.3/.test(doc));
+  /* Beim Bau von v2.87 landete eine mergeDB-Änderung im Worker-ABZUG statt in
+     der App — eine Suche nach `function mergeDB(` findet den Abzug zuerst,
+     weil die Doku im Dokument vor dem Code steht. Der Hinweis muss dastehen. */
+  ok("Warnung vor der doppelten mergeDB", /Die Funktion steht seit v2\.85 \*\*ZWEIMAL\*\*/.test(doc));
+  ok("und nennt das Unterscheidungsmerkmal", /mit drei Argumenten/.test(doc));
+  /* Die Leer-Regel muss auch im Worker stehen (ALT-Modus). */
+  ok("Worker spiegelt die Leer-Regel", /const lLeer = \(dataScore\(L\)<5 && dataScore\(R\)>=5\)/.test(doc));
+  ok("Worker bringt dataScore mit", /function dataScore\(d\)\{ d=d\|\|\{\}/.test(doc));
 
   /* Der CODE selbst muss dastehen, nicht nur eine Beschreibung. */
   ["const CFG = {", "function _mergeArr(a,b,keyFn){", "function _mergeCourses(La, Ra){",
