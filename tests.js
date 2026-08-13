@@ -175,7 +175,7 @@ try {
                  "holeGir","holeUpDown","holeSandSave","platzAnalyse","taskFortschritt",
                  "warmupSchedule","warmupKorrektiv","WARMUP_PLANS","medianSplit","pearson",
                  "rKrit","gpKey","gpLabel","gpTotalES","pickClub","_aimClub","_aimLerp",
-                 "_nearest","_reaching","pfWizHtml","heuteJetzt","dispOvalFrom","dispChipHtml","dispRingPath","pathTopPoint","dispHitShare","dispText","dispSchemaSvg","dispSigmaFor","_erf","gpClubFracs","measureOrigin","geoEdMinW","editMinW","vegMask","maskMorph","maskBlobs","blobRing","ringSimplify","detectVeg","DB","STRAT","GEOED"];
+                 "_nearest","_reaching","pfWizHtml","heuteJetzt","dispOvalFrom","dispChipHtml","dispRingPath","pathTopPoint","dispHitShare","dispText","dispSchemaSvg","dispSigmaFor","_erf","gpClubFracs","measureOrigin","geoEdMinW","editMinW","vegMask","maskMorph","maskBlobs","blobRing","ringSimplify","detectVeg","gpFingerprint","gpStale","_hash32","vegOn","DB","STRAT","GEOED"];
   const epilog = "\n;globalThis.__T={" +
     namen.map(n => `${n}: (typeof ${n}!=="undefined"?${n}:undefined)`).join(",") + "};";
   vm.runInContext(code + epilog, ctx, { timeout: 20000 });
@@ -4357,6 +4357,82 @@ group("Wald & Bäume erkennen — Farbe, Form, Fläche");
     ok("Wald bekommt einen Ring mit Ecken",
       !r2.woods.length || r2.woods[0].ring.length>=4);
   }
+}
+
+/* ============ 24bh. Wald ausblenden · Gameplan frisch halten ============ */
+group("Vegetation ausblenden — Anzeige, nicht Bewertung");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+  ok("Schalter vorhanden", /function toggleVeg\(\)/.test(src));
+  ok("Karte bekommt den Zustand", /veg:vegOn\(\)/.test(src));
+  ok("Standard ist eingeblendet", /DB\.ui && DB\.ui\.mapVeg===false/.test(src));
+
+  /* BEIDE Quellen: Wald aus OSM und selbst gezeichneter/erkannter aus `mine`.
+     Wer ausblendet, will nicht die halbe Vegetation stehen haben. */
+  const cs = src.slice(src.indexOf("const zeigVeg"), src.indexOf("const zeigVeg") + 6000);
+  ok("Flächen aus OSM gefiltert", /if\(!zeigVeg && istVeg\(k\)\) return;/.test(cs));
+  ok("Linien aus OSM gefiltert", /if\(!zeigVeg && istVeg\(f\.kind\)\) return;/.test(cs));
+  ok("eigene Zeichnungen ebenso", /if\(!zeigVeg && istVeg\(m\.kind\)\) return;/.test(cs));
+  ok("Hecken und Baumreihen zählen dazu", /wood:1, scrub:1, tree:1, treerow:1, hedge:1/.test(cs));
+
+  /* Die Bewertung darf der Schalter NICHT anfassen — ein ausgeblendeter Wald,
+     der auch nicht mehr blockiert, wäre ein Kartenfehler mit Ansage. */
+  ok("Raster kennt den Schalter nicht",
+    !/vegOn\(\)/.test(src.slice(src.indexOf("  grid(geo,courseName,holeNo)"),
+                                  src.indexOf("  grid(geo,courseName,holeNo)") + 5200)));
+  ok("die Meldung sagt das auch", /Caddy rechnet weiter damit/.test(src));
+}
+
+group("Gameplan hält sich selbst frisch");
+{
+  const FP = G("gpFingerprint"), ST = G("gpStale"), src = fs.readFileSync(FILE, "utf8");
+  if (typeof FP === "function") {
+    const geo = { features:[{kind:"wood", ring:[[54.0,10.75],[54.001,10.75],[54.001,10.751]]}],
+      mine:[], holes:{1:{tee:[54.0,10.74], green:[54.004,10.74]}} };
+    const clubs = [{name:"Driver", carry:211}, {name:"7 Iron", carry:140}];
+    const a = FP(geo, clubs, 20.4);
+
+    eq("gleiche Eingaben, gleicher Abdruck", FP(geo, clubs, 20.4), a);
+
+    /* Genau die drei Änderungen, die den Plan ungültig machen. */
+    const geo2 = JSON.parse(JSON.stringify(geo));
+    geo2.mine.push({kind:"tree", pt:[54.002,10.7505]});
+    ok("erkannter Baum ändert den Abdruck", FP(geo2, clubs, 20.4) !== a);
+    const geo3 = JSON.parse(JSON.stringify(geo));
+    geo3.holes[1].green = [54.0045,10.7402];
+    ok("verschobenes Grün ändert ihn", FP(geo3, clubs, 20.4) !== a);
+    ok("neuer Schläger ändert ihn", FP(geo, clubs.concat([{name:"5 Wood",carry:192}]), 20.4) !== a);
+    ok("neue Schlägerlänge ändert ihn",
+      FP(geo, [{name:"Driver", carry:219}, {name:"7 Iron", carry:140}], 20.4) !== a);
+    ok("neues Handicap ändert ihn", FP(geo, clubs, 18.1) !== a);
+    /* Ein Zehntel Handicap zählt, damit ein HCP-Sprung nicht durchrutscht. */
+    ok("auch ein Zehntel", FP(geo, clubs, 20.5) !== a);
+  }
+
+  if (typeof ST === "function") {
+    const jetzt = Date.parse("2026-08-13T09:00:00Z");
+    const frisch = { fp:"x", ts:"2026-08-13T08:00:00Z" };
+    ok("frischer Plan mit gleichem Abdruck bleibt", !ST(frisch, "x", jetzt));
+    ok("anderer Abdruck macht ihn ungültig", ST(frisch, "y", jetzt));
+    ok("kein Plan heißt rechnen", ST(null, "x", jetzt));
+    /* Altbestand ohne Abdruck einmal neu rechnen — sonst bliebe er ewig alt. */
+    ok("Plan aus der Zeit vor dem Abdruck", ST({ts:"2026-08-13T08:00:00Z"}, "x", jetzt));
+    ok("kaputter Zeitstempel heißt rechnen", ST({fp:"x", ts:"gestern"}, "x", jetzt));
+    /* Höchstalter fängt Änderungen ab, die der Abdruck nicht sieht. */
+    ok("31 Tage alt wird erneuert",
+      ST({fp:"x", ts:"2026-07-10T09:00:00Z"}, "x", jetzt, 30));
+    ok("29 Tage alt bleibt", !ST({fp:"x", ts:"2026-07-16T09:00:00Z"}, "x", jetzt, 30));
+  }
+
+  /* Der teure Teil gehört NICHT in die Runde und nicht in Serie. */
+  const ar = src.slice(src.indexOf("function gpAutoRefresh()"),
+                       src.indexOf("function gpAutoRefresh()") + 1400);
+  ok("niemals während einer Runde", /PLAY\.active\) return;/.test(ar));
+  ok("höchstens ein Plan je Durchgang", /\n      return;\s*\/\/ einer pro Durchgang/.test(ar));
+  ok("Abdruck wird mitgeschrieben", /p\.fp=fp; p\.ts=new Date\(\)\.toISOString\(\)/.test(ar));
+  ok("stündlich geprüft", /GP_PRUEF_MS=3600e3/.test(src));
+  ok("nicht sofort beim Start", /setTimeout\(gpAutoRefresh, 4000\)/.test(src));
+  ok("auch der Handrechnung folgt ein Abdruck", /p\.fp=gpFingerprint\(c\.geo, clubList\(\)/.test(src));
 }
 
 /* ============ 24bg. Schläge bearbeiten statt tracken ============ */
