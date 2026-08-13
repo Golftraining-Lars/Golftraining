@@ -175,7 +175,7 @@ try {
                  "holeGir","holeUpDown","holeSandSave","platzAnalyse","taskFortschritt",
                  "warmupSchedule","warmupKorrektiv","WARMUP_PLANS","medianSplit","pearson",
                  "rKrit","gpKey","gpLabel","gpTotalES","pickClub","_aimClub","_aimLerp",
-                 "_nearest","_reaching","pfWizHtml","heuteJetzt","dispOvalFrom","dispChipHtml","dispRingPath","pathTopPoint","dispHitShare","dispText","dispSchemaSvg","dispSigmaFor","_erf","gpClubFracs","measureOrigin","DB","STRAT"];
+                 "_nearest","_reaching","pfWizHtml","heuteJetzt","dispOvalFrom","dispChipHtml","dispRingPath","pathTopPoint","dispHitShare","dispText","dispSchemaSvg","dispSigmaFor","_erf","gpClubFracs","measureOrigin","geoEdMinW","editMinW","DB","STRAT","GEOED"];
   const epilog = "\n;globalThis.__T={" +
     namen.map(n => `${n}: (typeof ${n}!=="undefined"?${n}:undefined)`).join(",") + "};";
   vm.runInContext(code + epilog, ctx, { timeout: 20000 });
@@ -4261,6 +4261,84 @@ group("Streuungs-Oval — Mittelpunkt, Ausrichtung, Schalter");
     eq("σ 0 ergibt keinen Chip", C({ sigL: 0, sigD: 0 }), "");
     DBx.ui.disp = vorher;
   }
+}
+
+/* ============ 24bf. Zoomgrenze des Karteneditors ============ */
+group("Karteneditor — tief genug zum Zeichnen");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+  const Z = G("geoEdMinW");
+
+  /* EINE Quelle für beide Wege. Vorher stand die Formel doppelt — einmal für
+     Knöpfe/Mausrad, einmal im Pinch-Zweig. Zwei Kopien derselben Grenze heißt
+     früher oder später zwei verschiedene Grenzen, je nachdem ob man mit den
+     Fingern oder dem Knopf zoomt. */
+  ok("keine zweite Zoomgrenze im Code", !/M\.W\*0\.12/.test(src.replace(/Vorher `[^`]*`/g, "")));
+  /* Der Schlag-Editor teilt sie: Wer einen Schlag auf die Bahn setzt, zielt
+     auf denselben Meter wie beim Zeichnen einer Kante. */
+  ok("Schlag-Editor nutzt dieselbe Grenze", /minW=editMinW\(M\)/.test(src));
+  ok("Knöpfe nutzen die gemeinsame Grenze",
+    /geoEdZoomAt\(factor,cx,cy\)\{[\s\S]{0,200}?minW=geoEdMinW\(\)/.test(src));
+  ok("Pinch nutzt dieselbe", /p0=GEOED\.pinch, minW=geoEdMinW\(\)/.test(src));
+
+  if (typeof Z === "function") {
+    const G2 = G("GEOED");
+    if (G2) {
+      const vorher = G2.M;
+      /* Eine 400 m breite Bahn: 2 % sind 8 m Bildbreite — fein genug, um eine
+         Bunkerkante zu setzen. Vorher waren es 48 m. */
+      G2.M = { W: 400, H: 300 };
+      near("2 % der Bahnbreite", Z(), 8, 0.001);
+      ok("deutlich tiefer als die alte Grenze", Z() < 400 * 0.12);
+
+      /* Untergrenze: Bei einer kurzen Bahn dürfen 2 % nicht unter das fallen,
+         was ein Finger noch treffen kann. */
+      G2.M = { W: 80, H: 60 };
+      eq("Untergrenze 3 m greift", Z(), 3);
+
+      /* Ohne Karte darf nichts krachen — der Editor ruft das auch, bevor eine
+         Bahn gewählt ist. */
+      G2.M = null;
+      eq("ohne Karte ein sicherer Wert", Z(), 3);
+      G2.M = vorher;
+    }
+  }
+}
+
+/* ============ 24be. ✕ während der Runde · Schlagart beim Nachtragen ============ */
+group("Blatt schließen und Schläge nachtragen");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+
+  /* ✕ löste `history.back()` aus — und Android wertet eine Rückwärts-
+     navigation als Verlassen des Vollbilds. `pfOpen()` umgeht beides: Es setzt
+     `_sheetHist=false` VOR closeSheet, es gibt also gar kein back(). */
+  const sc = src.slice(src.indexOf("function sheetCloseSmart()"),
+                       src.indexOf("function sheetCloseSmart()") + 700);
+  ok("✕ ist verdrahtet", /sc\.onclick=sheetCloseSmart/.test(src));
+  ok("zurück auf die Karte statt nur schließen", /pfOpen\(\)/.test(sc));
+  ok("nur bei laufender Runde", /PLAY\.active/.test(sc));
+  ok("nur wenn die Karte der Ausgangspunkt war", /_pfVorher!=null/.test(sc));
+  /* Blätter ÜBER der Karte (Scorekarte, Details) laufen weiter über das
+     schlichte Schließen — dort ist mapFocus true und man will dort bleiben. */
+  ok("Blätter über der Karte bleiben unberührt", /!PLAY\.mapFocus/.test(sc));
+  ok("sonst das normale Schließen", /\n  closeSheet\(\);\n\}/.test(sc));
+
+  /* Schlagart beim nachträglichen Einzeichnen. */
+  const rs = src.slice(src.indexOf("function renderShotTrack("),
+                       src.indexOf("function renderShotTrack(") + 3000);
+  ok("Schlagart-Auswahl je Schlag", /class="strk-swing/.test(rs));
+  ok("Liste kommt aus DB.swingTypes", /DB\.swingTypes/.test(rs));
+  /* Der LETZTE Punkt ist die Ruhelage, kein Schlag — dort wären Schläger und
+     Schlagart sinnlos und würden zu Geisterdaten führen. */
+  ok("Ruhelage bekommt keine Schlagart", /istSchlag\?`<select class="strk-swing/.test(rs));
+  ok("und auch keinen Schläger", /istSchlag\?"":" disabled"/.test(rs));
+
+  const sw = src.slice(src.indexOf("function strkSwing("),
+                       src.indexOf("function strkSwing(") + 600);
+  ok("Setzen zeichnet die Karte NICHT neu", !/renderShotTrack/.test(sw));
+  ok("leere Auswahl löscht den Wert", /s\.swing=v\|\|null/.test(sw));
+  ok("Entwurf wird gesichert", /playSaveDraft/.test(sw));
 }
 
 /* ============ 24bd. Vollbild beim Öffnen der Karte ============ */
