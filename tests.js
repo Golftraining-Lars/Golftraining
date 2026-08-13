@@ -4398,6 +4398,73 @@ group("Karteneditor — die Karte steht oben");
       new RegExp(k + ':"[^"]{10,70}"').test(tp), (tp.match(new RegExp(k + ':"([^"]*)"'))||[])[1]));
 }
 
+/* ============ 24bq. Übersicht „alle" und Erkennung über den Platz ============ */
+group("Alle Bahnen — Ausschnitt und Erkennung");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+  const cs = src.slice(src.indexOf("if(opt.fitHoles"), src.indexOf("if(opt.fitHoles") + 900);
+
+  /* Ohne `hole` fittet die Karte sonst auf den GESAMTEN Datenbestand — nach
+     einem OSM-Import also inklusive Clubhaus, Parkplatz und Nachbaräckern.
+     Der Platz lag dann als kleines Rechteck in der Mitte. */
+  ok("Übersicht fittet auf die Bahnen", /if\(opt\.fitHoles && !HR && geo\.holes\)/.test(src));
+  ok("nimmt Tee, Linie und Grün aller Löcher", /hr\.tee\) alle\.push[\s\S]{0,120}hr\.line/.test(cs));
+  ok("und setzt den Mittelpunkt darauf", /center=\[la\/alle\.length/.test(cs));
+  ok("nur bei genug Punkten", /alle\.length>=2/.test(cs));
+  ok("Karteneditor nutzt es in der Übersicht", /fitHoles:!hole/.test(src));
+  /* Gezeichnet wird weiterhin alles — nur der Ausschnitt richtet sich nach den
+     Bahnen. Wer hier filtert, nimmt dem Editor die Objekte zum Bearbeiten. */
+  ok("Features werden nicht gefiltert", !/opt\.fitHoles[\s\S]{0,400}feats\s*=/.test(cs));
+
+  /* Der Platz-Lauf rechnet BAHN FÜR BAHN. Über 18 Bahnen auf einmal läge die
+     Auflösung bei 2–3 m/px — ein Einzelbaum wäre zwei Bildpunkte groß. */
+  const da = src.slice(src.indexOf("async function geoEdDetectAll()"),
+                       src.indexOf("async function geoEdDetectAll()") + 1800);
+  ok("läuft je Bahn", /geoEdDetectHole\(geo, n, OPT, batch\)/.test(da));
+  ok("EINE Stapel-Nummer für den ganzen Lauf",
+    (da.match(/batch="veg"\+Date\.now\(\)/g) || []).length === 1);
+  /* Ein Schnappschuss zu Beginn, nicht je Bahn — sonst wäre der Verlauf nach
+     einem Lauf mit 18 Einträgen gefüllt und alles davor herausgefallen. */
+  eq("ein Schnappschuss für den ganzen Lauf",
+    (da.match(/geoEdSnapshot\(/g) || []).length, 1);
+  ok("Rückfrage vor dem langen Lauf", /confirm\(/.test(da));
+  ok("Fortschritt sichtbar", /Bahn \$\{n\} …/.test(da));
+  ok("Oberfläche darf atmen", /await new Promise\(r=>setTimeout\(r,0\)\)/.test(da));
+  ok("eine Bahn ohne Luftbild bricht den Lauf nicht ab", /fehler\+\+; continue;/.test(da));
+  ok("Knopf nur in der Übersicht", /id="geoedDetectAll"/.test(src));
+}
+
+/* ============ 24bp. Editoren rahmen die Bahn wie der Spielmodus ============ */
+group("Karteneditor & Schlag-Editor — gleicher Ausschnitt wie beim Spielen");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+  const rg = src.slice(src.indexOf("function renderGeoEditor()"),
+                       src.indexOf("function renderGeoEditor()") + 2800);
+  const rs = src.slice(src.indexOf("function renderShotTrack("),
+                       src.indexOf("function renderShotTrack(") + 1200);
+
+  /* Der Spielmodus rahmt mit drei Angaben. Fehlt eine, liegt die Bahn schräg
+     im Bild oder der Ausschnitt wird über zufällige Nachbarflächen gefittet —
+     bei einer Bahn neben der Range zieht das Bild weit auf. */
+  ok("Karteneditor dreht in Spielrichtung", /rotate:!!hole/.test(rg));
+  ok("und fittet nur auf die Bahn", /tight:!!hole/.test(rg));
+  ok("und nimmt dasselbe Band", /corridor:46/.test(rg));
+  ok("Schlag-Editor ebenso", /rotate:true,tight:true,corridor:46/.test(rs));
+
+  /* Ohne gewähltes Loch („alle") darf NICHT gedreht werden — dort gibt es
+     keine Spielrichtung, und eine willkürliche Drehung machte die Übersicht
+     unlesbar. Deshalb `!!hole` statt `true`. */
+  ok("bei „alle\" keine Drehung", !/rotate:true[,}]/.test(rg));
+
+  /* Die Rückrechnung MUSS die Drehung herausnehmen, sonst landet jeder
+     gesetzte Punkt verdreht. Das kann `llFromVB` seit jeher — hier steht die
+     Zusicherung, damit es beim nächsten Umbau nicht verlorengeht. */
+  const ll = src.slice(src.indexOf("function llFromVB("), src.indexOf("function llFromVB(") + 500);
+  ok("llFromVB dreht zurück", /if\(M\.rot\)/.test(ll));
+  const sl = src.slice(src.indexOf("function strkLL("), src.indexOf("function strkLL(") + 500);
+  ok("strkLL ebenso", /M\.rot/.test(sl));
+}
+
 /* ============ 24bo. Die Doku muss wahr bleiben ============ */
 group("Doku — Behauptungen gegen den Quelltext");
 {
@@ -4642,7 +4709,7 @@ group("Karteneditor — Ansicht bleibt, Änderungen sind umkehrbar");
   /* Der Anker wird VOR dem Neuaufbau genommen — danach ist die alte
      Projektion überschrieben und der Ausschnitt nicht mehr übersetzbar. */
   const rg = src.slice(src.indexOf("function renderGeoEditor()"),
-                       src.indexOf("function renderGeoEditor()") + 1600);
+                       src.indexOf("function renderGeoEditor()") + 2800);
   ok("Anker vor courseSVG", rg.indexOf("geoEdViewAnchor()") < rg.indexOf("courseSVG("));
   ok("Wiederherstellen statt Zurücksetzen", /geoEdViewRestore\(_geoedAnker\)/.test(rg));
 
