@@ -4359,6 +4359,45 @@ group("Wald & Bäume erkennen — Farbe, Form, Fläche");
   }
 }
 
+/* ============ 24bi. Runde verwerfen ============ */
+group("Runde verwerfen — der zweite Ausgang");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+  /* Nur der Rumpf von playDiscard — das folgende playFinish speichert
+     natürlich, und genau das darf die Prüfung nicht mitlesen. */
+  const pd = src.slice(src.indexOf("function playDiscard()"),
+                       src.indexOf("function playFinish()"));
+
+  ok("Knopf in der Eingabemaske", /onclick="playDiscard\(\)"/.test(src));
+  ok("neben dem speichernden Ausgang",
+    src.indexOf('onclick="playFinish()"') < src.indexOf('onclick="playDiscard()"'));
+
+  /* Die Rückfrage muss ZAHLEN nennen. „Wirklich verwerfen?" beantwortet man
+     nach drei Stunden auf dem Platz falsch. */
+  ok("Rückfrage vorhanden", /confirm\(/.test(pd));
+  ok("sie nennt die erfassten Löcher", /\$\{loecher\} Loch/.test(pd));
+  ok("und die Scores", /\$\{scores\} Score/.test(pd));
+  ok("und sagt, dass es endgültig ist", /nicht rückgängig/.test(pd));
+  /* Ohne Eingaben keine Rückfrage — eine Warnung ohne Inhalt gewöhnt einem
+     das Lesen ab, und genau dann klickt man auch die wichtige weg. */
+  ok("leere Runde fragt nicht", /if\(loecher && !confirm/.test(pd));
+
+  /* Die Runde darf NICHT in der Ablage landen. */
+  ok("nichts wird gespeichert", !/DB\.rounds\.push|DB\.rounds\[i\]=/.test(pd));
+  ok("der Entwurf bekommt seinen Grabstein", /draftFinalize\(\)/.test(pd));
+
+  /* Reihenfolge wie in playFinish: erst inaktiv, dann Ansicht zurück, dann
+     schließen — nur dann greift dort wakeRelease() und der Bildschirm darf
+     wieder abschalten. */
+  ok("erst inaktiv, dann Ansicht", pd.indexOf("PLAY.active=false") < pd.indexOf("pfRestoreView()"));
+  ok("dann erst schließen", pd.indexOf("pfRestoreView()") < pd.indexOf("closeSheet()"));
+  ok("Spielmodus wird verlassen", /pfRestoreView\(\)/.test(pd));
+  ok("GPS wird freigegeben", /liveStop\(\)/.test(pd));
+  /* Der Grabstein muss sofort ins Repo, sonst holt der nächste Merge den
+     Entwurf vom anderen Gerät zurück (Fehlerklasse aus v1.60). */
+  ok("Grabstein sofort ins Repo", /flushCloudNow\(\)/.test(pd));
+}
+
 /* ============ 24bh. Wald ausblenden · Gameplan frisch halten ============ */
 group("Vegetation ausblenden — Anzeige, nicht Bewertung");
 {
