@@ -175,7 +175,7 @@ try {
                  "holeGir","holeUpDown","holeSandSave","platzAnalyse","taskFortschritt",
                  "warmupSchedule","warmupKorrektiv","WARMUP_PLANS","medianSplit","pearson",
                  "rKrit","gpKey","gpLabel","gpTotalES","pickClub","_aimClub","_aimLerp",
-                 "geoEdSelHat","geoEdVertHandles","_nearest","_reaching","pfWizHtml","heuteJetzt","dispOvalFrom","dispChipHtml","dispRingPath","pathTopPoint","dispHitShare","dispText","dispSchemaSvg","dispSigmaFor","_erf","gpClubFracs","measureOrigin","geoEdMinW","editMinW","vegMask","maskMorph","maskBlobs","blobRing","ringSimplify","detectVeg","gpFingerprint","gpStale","_hash32","vegOn","viewBoxFor","troubleFeatures","geoEdPunktVon","DB","STRAT","GEOED"];
+                 "geoEdSelHat","geoEdVertHandles","_nearest","_reaching","pfWizHtml","heuteJetzt","dispOvalFrom","dispChipHtml","dispRingPath","pathTopPoint","dispHitShare","dispText","dispSchemaSvg","dispSigmaFor","_erf","gpClubFracs","measureOrigin","geoEdMinW","editMinW","vegMask","maskMorph","maskBlobs","blobRing","ringSimplify","detectVeg","gpFingerprint","gpStale","_hash32","vegOn","viewBoxFor","troubleFeatures","geoEdPunktVon","_mergeCourses","DB","STRAT","GEOED"];
   const epilog = "\n;globalThis.__T={" +
     namen.map(n => `${n}: (typeof ${n}!=="undefined"?${n}:undefined)`).join(",") + "};";
   vm.runInContext(code + epilog, ctx, { timeout: 20000 });
@@ -4416,6 +4416,76 @@ group("Löschen — rücknehmen oder endgültig machen");
      werden, wenn zufällig noch seine Kopie liegt. */
   ok("prüft den Platz", /!b \|\| b\.idx!==idx/.test(cm));
   ok("Ansicht wird neu gezeichnet", /renderGeoImport\(idx\)/.test(cm));
+}
+
+/* ============ 24bz. Gelöschte Karte bleibt gelöscht ============ */
+group("Merge — eine Löschung ist ein Datum, kein Fehlen");
+{
+  const M = G("_mergeCourses");
+  if (typeof M === "function") {
+    const mitGeo = (n, extra) => Object.assign({ name: n, geo: { features: [1, 2, 3], mine: [] } }, extra || {});
+    const ohneGeo = (n, extra) => Object.assign({ name: n }, extra || {});
+
+    /* DER FALL: lokal gelöscht, im Repo liegt die Karte noch. Ohne Stempel
+       gewinnt der „vollständigere" Eintrag — also das Repo — und die Karte
+       kommt zurück. Genau das war beobachtet worden. */
+    const lokal = [ohneGeo("Nordplatz", { geoDeletedAt: "2026-08-13T10:00:00Z" })];
+    const repo = [mitGeo("Nordplatz", { geoAt: "2026-08-12T09:00:00Z" })];
+    const r1 = M(lokal, repo, null);
+    eq("ein Platz", r1.length, 1);
+    ok("Karte bleibt gelöscht", !r1[0].geo);
+    eq("Löschdatum wandert mit", r1[0].geoDeletedAt, "2026-08-13T10:00:00Z");
+
+    /* Umgekehrt: Nach dem Löschen neu importiert — die JÜNGERE Karte gewinnt,
+       sonst könnte man nach einer Löschung nie wieder importieren. */
+    const r2 = M([mitGeo("Nordplatz", { geoAt: "2026-08-13T12:00:00Z", geoDeletedAt: "2026-08-13T10:00:00Z" })],
+                 [ohneGeo("Nordplatz", { geoDeletedAt: "2026-08-13T10:00:00Z" })], null);
+    ok("Neu-Import nach dem Löschen bleibt", !!r2[0].geo);
+
+    /* Löschung auf dem ANDEREN Gerät: Das Repo trägt das Datum, lokal liegt
+       noch die alte Karte. Auch dann muss sie weichen. */
+    const r3 = M([mitGeo("Nordplatz", { geoAt: "2026-08-11T09:00:00Z" })],
+                 [ohneGeo("Nordplatz", { geoDeletedAt: "2026-08-13T10:00:00Z" })], null);
+    ok("Löschung vom anderen Gerät wirkt", !r3[0].geo);
+
+    /* Altbestand ohne `geoAt` gilt als älter als jede Löschung — ein Import
+       von vor dieser Änderung hat den Stempel noch nicht. */
+    const r4 = M([mitGeo("Nordplatz")], [ohneGeo("Nordplatz", { geoDeletedAt: "2026-08-13T10:00:00Z" })], null);
+    ok("Karte ohne Stempel weicht der Löschung", !r4[0].geo);
+
+    /* NIEMALS die Eingaben verändern: `_mergeArr` liefert die ORIGINALOBJEKTE.
+       Ein `delete c.geo` träfe sonst den lokalen DB-Eintrag — auch dann, wenn
+       das Merge-Ergebnis anschließend verworfen wird (cloudLoadManual rechnet
+       erst `dataScore(merged)` und entscheidet danach). Die Karte wäre weg,
+       ohne dass jemand sie gelöscht hätte. Beim Ende-zu-Ende-Test gefunden. */
+    const quelle = [mitGeo("Nordplatz", { geoAt: "2026-08-11T09:00:00Z" })];
+    M([ohneGeo("Nordplatz", { geoDeletedAt: "2026-08-13T10:00:00Z" })], quelle, null);
+    ok("die Eingabe bleibt unangetastet", !!quelle[0].geo);
+    const quelle2 = [ohneGeo("Nordplatz", { geoDeletedAt: "2026-08-13T10:00:00Z" })];
+    M(quelle2, [mitGeo("Nordplatz", { geoAt: "2026-08-11T09:00:00Z" })], null);
+    ok("auch die andere Seite", !quelle2[0].geo && quelle2[0].geoDeletedAt === "2026-08-13T10:00:00Z");
+
+    /* Ohne jede Löschung ändert sich nichts — die Erweiterung darf den
+       Normalfall nicht anfassen. */
+    const r5 = M([ohneGeo("Nordplatz")], [mitGeo("Nordplatz")], null);
+    ok("ohne Löschdatum gewinnt wie bisher der vollständigere", !!r5[0].geo);
+    /* Und ein anderer Platz bleibt unberührt. */
+    const r6 = M([ohneGeo("A", { geoDeletedAt: "2026-08-13T10:00:00Z" })], [mitGeo("B")], null);
+    eq("zwei Plätze", r6.length, 2);
+    ok("fremder Platz behält seine Karte", !!r6.find(c => c.name === "B").geo);
+  }
+
+  const src = fs.readFileSync(FILE, "utf8");
+  ok("mergeDB benutzt es", /out\.courses = _mergeCourses\(L\.courses, R\.courses/.test(src));
+  ok("Löschen stempelt", /c\.geoDeletedAt=new Date\(\)\.toISOString\(\); delete c\.geoAt;/.test(src));
+  ok("Import stempelt", /DB\.courses\[idx\]\.geoAt=new Date\(\)\.toISOString\(\);\s*\n\s*delete DB\.courses\[idx\]\.geoDeletedAt;/.test(src));
+  ok("jede Editor-Änderung stempelt", /DB\.courses\[GEOED\.idx\]\.geoAt=new Date\(\)\.toISOString\(\);/.test(src));
+  /* Der Worker merged nur im ALT-Modus (v2.1: NEU-Modus = SHA-Türsteher). Das
+     muss im Code stehen, sonst spiegelt beim nächsten Mal jemand ins Leere
+     oder unterlässt die Spiegelung ganz. */
+  ok("Worker-Verhalten dokumentiert", /geprueft an worker\.js v2\.1/.test(src));
+  ok("NEU-Modus als SHA-Türsteher benannt", /SHA-Tuersteher/.test(src));
+  ok("ALT-Modus als Spiegelungspflicht benannt", /ALT-Modus[\s\S]{0,200}gespiegelt/.test(src));
 }
 
 /* ============ 24by. Grün und Teebox in EINEM Schritt ============ */
