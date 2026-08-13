@@ -175,7 +175,7 @@ try {
                  "holeGir","holeUpDown","holeSandSave","platzAnalyse","taskFortschritt",
                  "warmupSchedule","warmupKorrektiv","WARMUP_PLANS","medianSplit","pearson",
                  "rKrit","gpKey","gpLabel","gpTotalES","pickClub","_aimClub","_aimLerp",
-                 "_nearest","_reaching","pfWizHtml","heuteJetzt","dispOvalFrom","dispChipHtml","dispRingPath","pathTopPoint","dispHitShare","dispText","dispSchemaSvg","dispSigmaFor","_erf","gpClubFracs","measureOrigin","geoEdMinW","editMinW","vegMask","maskMorph","maskBlobs","blobRing","ringSimplify","detectVeg","gpFingerprint","gpStale","_hash32","vegOn","viewBoxFor","troubleFeatures","DB","STRAT","GEOED"];
+                 "geoEdSelHat","geoEdVertHandles","_nearest","_reaching","pfWizHtml","heuteJetzt","dispOvalFrom","dispChipHtml","dispRingPath","pathTopPoint","dispHitShare","dispText","dispSchemaSvg","dispSigmaFor","_erf","gpClubFracs","measureOrigin","geoEdMinW","editMinW","vegMask","maskMorph","maskBlobs","blobRing","ringSimplify","detectVeg","gpFingerprint","gpStale","_hash32","vegOn","viewBoxFor","troubleFeatures","geoEdPunktVon","DB","STRAT","GEOED"];
   const epilog = "\n;globalThis.__T={" +
     namen.map(n => `${n}: (typeof ${n}!=="undefined"?${n}:undefined)`).join(",") + "};";
   vm.runInContext(code + epilog, ctx, { timeout: 20000 });
@@ -4398,6 +4398,120 @@ group("Karteneditor — die Karte steht oben");
       new RegExp(k + ':"[^"]{10,70}"').test(tp), (tp.match(new RegExp(k + ':"([^"]*)"'))||[])[1]));
 }
 
+/* ============ 24bs. Auswahl, Eckpunkte, Ausschnitt-Erkennung ============ */
+group("Karteneditor — Erkennung nachbessern");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+  const P = G("geoEdPunktVon");
+
+  /* Der Vertreterpunkt entscheidet, was ins Rechteck fällt. Bei Flächen der
+     SCHWERPUNKT: ein Ring, dessen Mitte drin liegt, ist gemeint — einer, von
+     dem nur eine Ecke hineinragt, nicht. */
+  if (typeof P === "function") {
+    eq("Punkt-Objekt liefert seinen Punkt", P({ pt: [54, 10] }).join(","), "54,10");
+    const r = P({ ring: [[0, 0], [0, 2], [2, 2], [2, 0]] });
+    eq("Fläche liefert den Schwerpunkt", r.join(","), "1,1");
+    eq("Linie ebenso", P({ line: [[0, 0], [4, 0]] }).join(","), "2,0");
+    eq("ohne Geometrie nichts", P({}), null);
+    eq("ohne Objekt nichts", P(null), null);
+  }
+
+  /* Indizes sind heikel: `mine` ist ein Array, Löschen verschiebt alles
+     dahinter. Absteigend löschen, und die Auswahl bei JEDER Änderung leeren. */
+  const del = src.slice(src.indexOf("function geoEdSelDelete()"),
+                        src.indexOf("function geoEdSelDelete()") + 700);
+  ok("absteigend löschen", /sort\(\(a,b\)=>b-a\)/.test(del));
+  ok("Auswahl danach leer", /geoEdSelClear\(\)/.test(del));
+  ok("Rückfrage ab sechs Objekten", /sel\.length>5 && !confirm/.test(del));
+  ok("ein Schnappschuss vorher", /geoEdSnapshot\(/.test(del));
+  eq("Einzellöschen leert die Auswahl auch",
+    (src.match(/geo\.mine\.splice\([a-z]i,1\)[^;]*; geoEdSelClear\(\)/g) || []).length >= 2, true);
+
+  /* Eckpunkte: nur bei GENAU EINER Auswahl — bei 60-Punkt-Ringen wären mehr
+     unlesbar. Und ein Ring darf nicht unter drei Ecken fallen. */
+  const vh = src.slice(src.indexOf("function geoEdVertHandles("),
+                       src.indexOf("function geoEdVertAdd("));
+  ok("Griffe nur bei einer Auswahl", /sel\.length!==1\) return;/.test(vh));
+  ok("Griffgröße folgt dem Zoom", /5\*\(v\.w\/M\.W\)/.test(vh));
+  ok("Schlusspunkt bekommt keinen eigenen Griff", /zu\?pts\.length-1:pts\.length/.test(vh));
+  const vd = src.slice(src.indexOf("function geoEdVertDel("),
+                       src.indexOf("function geoEdVertDel(") + 800);
+  ok("Untergrenze 3 Ecken / 2 Punkte", /n<= \(m\.ring\?3:2\)/.test(vd));
+  ok("Ring wird wieder geschlossen", /pts\[pts\.length-1\]=pts\[0\]\.slice\(\)/.test(vd));
+  /* Beim Ziehen des ERSTEN Punktes muss der Schlusspunkt mitwandern, sonst
+     reißt die Fläche auf. */
+  ok("erster Punkt zieht den Schlusspunkt mit",
+    /vi===0 && pts\.length>2[\s\S]{0,120}pts\[pts\.length-1\]=pts\[0\]\.slice\(\)/.test(src));
+
+  /* Wiederherstellen: neuer Eingriff verwirft den Stapel, sonst springt man in
+     einen Stand, den es nie gab. */
+  ok("Redo-Stapel vorhanden", /function geoEdRedo\(\)/.test(src));
+  ok("Undo füllt ihn", /GEOED\.redo\.push\(/.test(src));
+  ok("neuer Eingriff verwirft ihn", /GEOED\.redo=\[\];\s*\n\s*GEOED\.undo=GEOED\.undo\|\|\[\];/.test(src));
+
+  /* Ausschnitt-Erkennung: die Box aus VIER Ecken, weil die Karte gedreht ist —
+     ein Rechteck im Bild ist keines auf der Erde. */
+  const dv = src.slice(src.indexOf("async function geoEdDetectView()"),
+                       src.indexOf("async function geoEdDetectAll()"));
+  ok("vier Ecken zurückgerechnet", /\[v\.x,v\.y\],\[v\.x\+v\.w,v\.y\],\[v\.x,v\.y\+v\.h\],\[v\.x\+v\.w,v\.y\+v\.h\]/.test(dv));
+  ok("zu großer Ausschnitt wird abgelehnt", /breite>1200/.test(dv));
+  ok("nutzt dieselbe Bildbeschaffung", /geoEdSatBildBB\(bb\)/.test(dv));
+
+  /* Kontextmenü nur an der Maus; am Finger kommt es vom Langdruck und stört. */
+  ok("Menü nicht am Touchgerät", /e\.pointerType==="touch" \|\| !g/.test(src));
+  ok("Art ändern im Menü", /geoEdSelArt\('\$\{k\}'\)|geoEdSelArt\('/.test(src));
+
+  /* Zeigerform und Maßstab. */
+  ok("Zeiger je Werkzeug", /#geoedSvg\.t-del svg\{cursor:not-allowed\}/.test(src));
+  ok("Werkzeugklasse am Container", /id="geoedSvg" class="t-\$\{GEOED\.tool\}"/.test(src));
+  ok("Maßstabsbalken", /function geoEdScaleHtml\(\)/.test(src));
+  ok("gerundete Stufen", /kand=\[5,10,25,50,100,200,400\]/.test(src));
+  ok("Länge beim Zeichnen", /gesamt \$\{Math\.round\(L\)\} m/.test(src));
+}
+
+/* ============ 24br. PC-Modus im Karteneditor ============ */
+group("Karteneditor am Rechner");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+  const on = src.slice(src.indexOf("function geoEdPcOn()"), src.indexOf("function toggleGeoEdPc"));
+
+  /* Vorbelegung nach Gerät, nicht nach Geschmack: feiner Zeiger UND breites
+     Fenster. Die Wahl bleibt lokal — dasselbe Konto am Telefon und am Rechner
+     soll nicht dieselbe Form erzwingen. */
+  ok("erkennt Maus und Breite", /pointer:fine[\s\S]{0,80}innerWidth>=1080/.test(on));
+  ok("eigene Wahl schlägt die Erkennung", /DB\.ui\.geoPc!=null/.test(on));
+  ok("umschaltbar", /function toggleGeoEdPc\(\)/.test(src));
+
+  /* Form: breites Blatt, Karte und Bedienung nebeneinander, Karte bleibt beim
+     Scrollen stehen. */
+  ok("Blatt wird breit", /\.sheet\.pc\{max-width:min\(1500px/.test(src));
+  ok("zwei Spalten", /\.geoed-pc\{display:grid;grid-template-columns:minmax\(0,1fr\) 380px/.test(src));
+  ok("Karte bleibt stehen", /\.geoed-pc \.geoed-pc-map\{position:sticky/.test(src));
+  ok("Werkzeugleiste klebt dort nicht mehr", /\.geoed-pc \.geoed-bar\{position:static/.test(src));
+  /* Unter 1080 px zurück auf eine Spalte — sonst wäre die Karte am kleinen
+     Fenster 380 px schmal. */
+  ok("Rückfall auf eine Spalte", /@media \(max-width:1080px\)\{ \.geoed-pc\{grid-template-columns:1fr\}/.test(src));
+
+  /* Tastatur: hängt EINMAL und entfernt sich selbst, sobald der Editor zu ist.
+     Ein Kürzel, das in einer anderen Ansicht noch feuert, wäre ein Fehler mit
+     Ansage. */
+  const ks = src.slice(src.indexOf("function geoEdKeysAn()"), src.indexOf("function geoEdKeysAus()"));
+  ok("nur einmal einhängen", /if\(_geoedKeys\) return;/.test(ks));
+  ok("entfernt sich selbst", /if\(!document\.querySelector\("#geoedSvg svg"\)\)\{ geoEdKeysAus\(\)/.test(ks));
+  ok("Eingabefelder bleiben unangetastet", /t==="INPUT"\|\|t==="TEXTAREA"\|\|t==="SELECT"/.test(ks));
+  ok("Werkzeuge auf Tasten", /p:"add", g:"green", b:"tree", f:"area", l:"line", x:"del"/.test(ks));
+  ok("Rückgängig auf Z", /k==="z"[\s\S]{0,60}geoEdUndo\(\)/.test(ks));
+  ok("Esc bricht nur das Zeichnen ab", /k==="escape"[\s\S]{0,60}GEOED\.draw/.test(ks));
+  ok("beim Verlassen abgemeldet", /#geoedDone"\)\.onclick=\(\)=>\{ geoEdKeysAus\(\);/.test(src));
+
+  /* Mausrad auf den ZEIGER, nicht auf die Bildmitte — sonst läuft einem die
+     Stelle, die man vergrößern will, aus dem Bild. */
+  ok("Mausrad zoomt auf den Zeiger",
+    /wheel[\s\S]{0,220}geoEdZoomAt\(e\.deltaY>0\?1\.18:0\.85, v\[0\], v\[1\]\)/.test(src));
+  ok("und scrollt das Blatt nicht mit", /\{passive:false\}/.test(src));
+  ok("Kürzel stehen in der Oberfläche", /class="geoed-keys"/.test(src));
+}
+
 /* ============ 24bq. Übersicht „alle" und Erkennung über den Platz ============ */
 group("Alle Bahnen — Ausschnitt und Erkennung");
 {
@@ -4611,7 +4725,12 @@ group("Karteneditor — Objekte hängen nicht mehr am Finger");
      Bewegung galten als Verschieben. Nach einer Erkennung liegen hunderte
      13-px-Trefferflächen über der Bahn — man kam gar nicht mehr an leere
      Fläche, jeder Schiebeversuch verrückte einen Baum. */
-  ok("Aufnahme wartet", /warten:true/.test(dn));
+  /* Mit dem FINGER wird gewartet, mit der Maus nicht — `pointerType`
+     entscheidet, nicht der PC-Modus: Wer ein Touchgerät am großen Bildschirm
+     benutzt, bekommt weiterhin den Schutz. */
+  ok("Aufnahme wartet beim Finger", /warten:!maus/.test(dn));
+  ok("Maus greift sofort", /const maus = \(e\.pointerType==="mouse"\)/.test(dn));
+  ok("und schiebt dann nicht die Karte", /if\(maus\)\{ GEOED\.pan=null; return; \}/.test(dn));
   ok("Haltezeit gesetzt", /DRAG_HOLD_MS=320/.test(src));
   ok("Wackelgrenze 10 px statt 2", /DRAG_SLOP=10/.test(src));
   ok("Rückmeldung beim Aufnehmen", /navigator\.vibrate\(12\)/.test(dn));
@@ -4620,8 +4739,10 @@ group("Karteneditor — Objekte hängen nicht mehr am Finger");
 
   /* Beim Umbau ging der EIN-FINGER-SCHUB verloren: `GEOED.pan` wurde gesetzt,
      aber nichts führte ihn mehr aus. Übrig blieb Zoomen mit zwei Fingern. */
+  /* Der Schub wird vorbereitet, BEVOR über dem Objekt entschieden wird — nur
+     das Auswahl-Rechteck und der Alt-Klick auf eine Ecke gehen vorher ab. */
   ok("Kartenschub auch auf leerer Fläche vorbereitet",
-    dn.indexOf("GEOED.pan={") < dn.indexOf('closest("[data-drag]")'));
+    dn.indexOf("GEOED.pan={ x0:e.clientX") < dn.indexOf("const g=g0;"));
   ok("und in geoEdMove ausgeführt", /GEOED\.pan && GEOED\.ptrs && GEOED\.ptrs\.size===1/.test(mv));
   ok("Pixel in Kartenkoordinaten", /\/Math\.max\(1,r\.width\)\*p\.view\.w/.test(mv));
   ok("an den Rand geklemmt", /Math\.min\(M\.W-p\.view\.w/.test(mv));
@@ -4735,7 +4856,11 @@ group("Karteneditor — Ansicht bleibt, Änderungen sind umkehrbar");
      still als auf der Spielkarte. */
   ok("Karteneditor fängt das Kontextmenü ab",
     /#geoedSvg, #geoedSvg svg, #strkSvg, #strkSvg svg\{-webkit-touch-callout:none/.test(src));
-  ok("und den Zeiger-Langdruck", (src.match(/addEventListener\("contextmenu", e=>e\.preventDefault\(\)\)/g)||[]).length >= 3);
+  /* Drei Karten fangen es ab; im Karteneditor mit Menü statt nur Unterdrücken
+     (v2.77), deshalb wird dort auf `preventDefault` IM Handler geprüft. */
+  ok("und den Zeiger-Langdruck",
+    (src.match(/addEventListener\("contextmenu", e=>e\.preventDefault\(\)\)/g)||[]).length >= 2
+    && /addEventListener\("contextmenu", e=>\{ e\.preventDefault\(\);/.test(src));
 }
 
 /* ============ 24bi. Runde verwerfen ============ */
