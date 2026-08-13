@@ -4418,6 +4418,75 @@ group("Löschen — rücknehmen oder endgültig machen");
   ok("Ansicht wird neu gezeichnet", /renderGeoImport\(idx\)/.test(cm));
 }
 
+/* ============ 24cb. Hand-Werkzeug ============ */
+group("Hand — die Karte schieben, sonst nichts");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+  const dn = src.slice(src.indexOf("function geoEdDown"), src.indexOf("const DRAG_HOLD_MS"));
+  const cl = src.slice(src.indexOf("function geoEdClick(evt)"),
+                       src.indexOf("function geoEdClick(evt)") + 900);
+
+  ok("Werkzeug vorhanden", /tool\("pan","✋<br>Verschieben"\)/.test(src));
+  ok("Hinweis dazu", /pan:"Ziehen verschiebt die Karte/.test(src));
+
+  /* DER PUNKT: nur schieben. Beim Zeichnen verbraucht die Maus den Zug für die
+     Kontur, und über einem Objekt könnte man es aus Versehen aufnehmen —
+     hier nicht. */
+  ok("setzt nur den Schub", /if\(GEOED\.tool==="pan"\)\{[\s\S]{0,220}GEOED\.pan=\{ x0:e\.clientX/.test(dn));
+  ok("und steigt sofort aus", /if\(GEOED\.tool==="pan"\)\{[\s\S]{0,320}return;\s*\n\s*\}/.test(dn));
+  /* Vor der Objekt- und Freihand-Behandlung, sonst greift die zuerst. */
+  ok("vor Fläche/Linie geprüft",
+    dn.indexOf('GEOED.tool==="pan"') < dn.indexOf('GEOED.tool==="area"||GEOED.tool==="line"'));
+  ok("vor der Objektaufnahme", dn.indexOf('GEOED.tool==="pan"') < dn.indexOf('closest("[data-drag]")'));
+  ok("Klick setzt nichts", /if\(GEOED\.tool==="pan"\) return;/.test(cl));
+
+  ok("Zeiger als Hand", /#geoedSvg\.t-pan svg\{cursor:grab\}/.test(src));
+  ok("beim Ziehen geschlossen", /#geoedSvg\.t-pan svg:active\{cursor:grabbing\}/.test(src));
+  ok("Kürzel H", /s:"sel", h:"pan"/.test(src));
+  ok("Kürzel steht in der Oberfläche", /<kbd>H<\/kbd> Hand/.test(src));
+
+  /* Acht Werkzeuge passen nicht mehr in sechs Spalten — auf dem Telefon wären
+     das 44-px-Streifen. */
+  ok("vier Spalten", /\.geoed-tools\{display:grid;grid-template-columns:repeat\(4,1fr\)/.test(src));
+}
+
+/* ============ 24ca. worker.js liegt in der Doku ============ */
+group("Worker-Code in der Doku");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+  const doc = (src.match(/<script[^>]*devdocs[^>]*>([\s\S]*?)<\/script>/) || [])[1] || "";
+
+  /* Der Worker ist der zweite Teil des Systems und lag nur im Cloudflare-
+     Dashboard. In v2.84 wurde deshalb über ihn BEHAUPTET, er merge
+     serverseitig — tatsächlich ist er im benutzten Modus ein SHA-Türsteher.
+     Eine Aussage über Code, den man nicht sieht, ist eine Vermutung. */
+  ok("Abschnitt vorhanden", /## 28\. `worker\.js` — vollstaendiger Stand/.test(doc));
+  ok("Fassung benannt", /Fassung v2\.2/.test(doc));
+
+  /* Der CODE selbst muss dastehen, nicht nur eine Beschreibung. */
+  ["const CFG = {", "function _mergeArr(a,b,keyFn){", "function _mergeCourses(La, Ra){",
+   "function mergeDB(localDB, repoDB){", "async function ghSha(env, path)",
+   "export default {"].forEach(t =>
+    ok("enthält: " + t.slice(0, 34), doc.indexOf(t) > 0));
+  ok("Zeile mit _mergeCourses ist gespiegelt", /out\.courses\s*= _mergeCourses\(L\.courses, R\.courses\);/.test(doc));
+
+  /* Der Unterschied NEU-/ALT-Modus ist der Kern jeder Fehleinschätzung. */
+  ok("NEU-Modus als Türsteher benannt", /NEU-Modus, den diese App benutzt[\s\S]{0,200}merged NICHT/.test(doc));
+  ok("ALT-Modus als Spiegelungsstelle", /ALT-Modus[\s\S]{0,160}Spiegelung des App-Merges/.test(doc));
+
+  /* Und die Pflicht, ihn zu lesen und zu pflegen. */
+  ok("Regel: erst lesen", /Diesen Abschnitt LESEN/.test(doc));
+  ok("Regel: bei Bedarf mitändern", /den Code hier unten mitaendern/.test(doc));
+  ok("Regel: Stand hier ersetzen", /Quelle der Wahrheit fuer/.test(doc));
+  ok("Sync-Architektur verweist darauf", /Worker-Code steht in Abschnitt 28/.test(doc));
+  ok("Doku-Pflicht nennt ihn", /DAZU GEHOERT DER WORKER/.test(doc));
+
+  /* Der eingebettete Code darf den Doku-Block nicht sprengen. */
+  ok("kein schließendes script-Tag im Code", doc.indexOf("</scr" + "ipt>") < 0);
+  ok("Zaun mit vier Backticks (Template-Literale im Code)",
+    doc.indexOf("`".repeat(4) + "js") > 0);
+}
+
 /* ============ 24bz. Gelöschte Karte bleibt gelöscht ============ */
 group("Merge — eine Löschung ist ein Datum, kein Fehlen");
 {
