@@ -3467,7 +3467,7 @@ group("strkDown/Move/Up — ein Finger zieht die Karte");
   const src=fs.readFileSync(FILE,"utf8");
   const dn=src.slice(src.indexOf("function strkDown"), src.indexOf("function strkMove"));
   const mv=src.slice(src.indexOf("function strkMove"), src.indexOf("function strkUp"));
-  const up=src.slice(src.indexOf("function strkUp"), src.indexOf("function strkUp")+700);
+  const up=src.slice(src.indexOf("function strkUp"), src.indexOf("function strkUp")+1400);
   /* WAS FEHLTE: `strkDown` brach bei `if(!g) return;` ab, wenn man NICHT auf
      einen Schlagpunkt tippte — ein Zug auf freier Fläche bewirkte nichts.
      Zwei Finger zoomten, ein Finger tat gar nichts. Beim Nachtragen zoomt man
@@ -3485,7 +3485,15 @@ group("strkDown/Move/Up — ein Finger zieht die Karte");
      und fände nicht zurück. */
   ok("an den Rand geklemmt",
      /Math\.max\(0, Math\.min\(M\.W-p\.view\.w/.test(mv));
-  ok("Ziehen endet beim Loslassen", /STRK\.pan=null; return;/.test(up));
+  ok("Ziehen endet beim Loslassen", /STRK\.pan=null;/.test(up));
+  /* v2.63: Der Tipp wird im pointerup erkannt, nicht mehr über `click`. Seit
+     das Ziehen auf freier Fläche `preventDefault()` ruft, unterdrückt der
+     Browser die abgeleiteten Maus-Ereignisse — `click` kam nie mehr an, und
+     das Anlegen per Tipp war lautlos tot. */
+  ok("kurzer Tipp ohne Bewegung legt an", /!p\.moved && Date\.now\(\)-p\.t0<700/.test(up));
+  ok("und ruft den Anleger", /strkAddAt\(e\.clientX, e\.clientY/.test(up));
+  ok("kein click-Horcher mehr", !/addEventListener\("click",strkClick\)/.test(src));
+  ok("ein Zug ist kein Tipp", /Math\.hypot\(e\.clientX-p\.x0, e\.clientY-p\.y0\)>8/.test(src));
   /* Beim Aufsetzen des zweiten Fingers muss das Ziehen enden — sonst springt
      die Karte im Moment des Umschaltens auf Zoom. */
   ok("zweiter Finger beendet das Ziehen",
@@ -4263,6 +4271,34 @@ group("Streuungs-Oval — Mittelpunkt, Ausrichtung, Schalter");
   }
 }
 
+/* ============ 24bg. Schläge bearbeiten statt tracken ============ */
+group("Schlag-Editor — Nacherfassen ist kein Aufzeichnen");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+
+  /* Die Maske wird aus dem RUNDENEDITOR geöffnet: man trägt nach, was gespielt
+     wurde. „Tracken" und ein GPS-Knopf führen dort in die Irre. */
+  ok("Knopf heißt bearbeiten", /✏️ Schläge bearbeiten/.test(src));
+  /* Der Changelog erzählt die Geschichte und darf den alten Namen nennen —
+     geprüft wird der ausführbare Teil. */
+  ok("nicht mehr tracken", !/🎯 Schläge tracken/.test(code));
+  ok("Überschrift ebenso", /<h2>✏️ Schläge bearbeiten · Loch/.test(src));
+
+  /* GPS nur am Spieltag — sonst zeichnet der Knopf den Schreibtisch auf. */
+  ok("GPS am Datum der Runde festgemacht", /STRK\.gps = \(d===todayISO\(\)\)/.test(src));
+  ok("GPS-Knopf nur dann im Markup", /\$\{gpsAn\?`<button class="btn ghost" id="strkAdd"/.test(src));
+  ok("und sein Handler hält das aus", /const g=document\.getElementById\("strkAdd"\); if\(g\)/.test(src));
+
+  /* Anlegen muss auch ohne Kartentreffer gehen. */
+  const np = src.slice(src.indexOf("function strkNewPoint("),
+                       src.indexOf("function strkNewPoint(") + 1200);
+  ok("erster Punkt kommt aufs Tee", /!arr\.length && hr && hr\.tee/.test(np));
+  ok("weitere auf halbem Weg zum Grün", /letzt\[0\]\+hr\.green\[0\]\)\/2/.test(np));
+  ok("ohne Geodaten eine ehrliche Meldung", /fehlen Geodaten/.test(np));
+  ok("und kein stiller Abbruch", /if\(!p\)\{ toast/.test(np));
+  ok("Hinweis sagt, was als Nächstes zu tun ist", /an die richtige Stelle ziehen/.test(np));
+}
+
 /* ============ 24bf. Zoomgrenze des Karteneditors ============ */
 group("Karteneditor — tief genug zum Zeichnen");
 {
@@ -4318,11 +4354,31 @@ group("Blatt schließen und Schläge nachtragen");
   ok("✕ ist verdrahtet", /sc\.onclick=sheetCloseSmart/.test(src));
   ok("zurück auf die Karte statt nur schließen", /pfOpen\(\)/.test(sc));
   ok("nur bei laufender Runde", /PLAY\.active/.test(sc));
-  ok("nur wenn die Karte der Ausgangspunkt war", /_pfVorher!=null/.test(sc));
+  /* Die Bedingung ist bewusst SCHLICHT (v2.62.1): Läuft eine Runde und ist die
+     Karte gerade nicht offen, führt ✕ dorthin zurück. Die frühere Zusatzprüfung
+     auf `_pfVorher` griff nicht immer — und der Rückfallweg endete in einer
+     Ansicht ohne Bedienelemente. */
+  ok("keine zu strenge Zusatzbedingung",
+    !/if\(inRunde[^)]*_pfVorher/.test(sc) && /if\(inRunde && !PLAY\.mapFocus/.test(sc));
   /* Blätter ÜBER der Karte (Scorekarte, Details) laufen weiter über das
      schlichte Schließen — dort ist mapFocus true und man will dort bleiben. */
   ok("Blätter über der Karte bleiben unberührt", /!PLAY\.mapFocus/.test(sc));
-  ok("sonst das normale Schließen", /\n  closeSheet\(\);\n\}/.test(sc));
+  ok("sonst das normale Schließen", /\n  closeSheet\(\);/.test(sc));
+
+  /* Die Sackgasse: `play` aktiv, ohne Vollbildklasse, ohne offenes Blatt.
+     `pfRender()` steigt dort in der ersten Zeile aus, die Eingabemaske ist zu —
+     es steht eine Karte von vorhin da, an der nichts reagiert. Sieht aus wie
+     ein Absturz, ist eine Ansicht ohne Bedienelemente. */
+  const eu = src.slice(src.indexOf("function pfEnsureUsable()"),
+                       src.indexOf("function pfEnsureUsable()") + 700);
+  ok("Wache stellt den brauchbaren Zustand her", /PLAY\.mapFocus \? pfOpen\(\) : renderPlay\(\)|PLAY\.mapFocus\) pfOpen\(\); else renderPlay\(\)/.test(eu));
+  ok("offenes Blatt ist in Ordnung", /sheet\.classList\.contains\("open"\)\) return/.test(eu));
+  ok("Vollbild ist in Ordnung", /contains\("play-mode"\)\) return/.test(eu));
+  ok("andere Ansichten gehen sie nichts an", /v-play[\s\S]{0,120}?return/.test(eu));
+  ok("läuft nach dem ✕", /setTimeout\(pfEnsureUsable, 80\)/.test(sc));
+  ok("läuft nach Zurück", /setTimeout\(pfEnsureUsable, 60\)/.test(src));
+  ok("läuft beim Wechsel auf die Spielansicht",
+    /v==="play" && typeof pfEnsureUsable==="function"/.test(src));
 
   /* Schlagart beim nachträglichen Einzeichnen. */
   const rs = src.slice(src.indexOf("function renderShotTrack("),
