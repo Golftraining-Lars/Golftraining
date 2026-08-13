@@ -4398,6 +4398,62 @@ group("Karteneditor — die Karte steht oben");
       new RegExp(k + ':"[^"]{10,70}"').test(tp), (tp.match(new RegExp(k + ':"([^"]*)"'))||[])[1]));
 }
 
+/* ============ 24bx. Löschen abschließen ============ */
+group("Löschen — rücknehmen oder endgültig machen");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+  const cm = src.slice(src.indexOf("function geoWipeCommit(idx)"),
+                       src.indexOf("function geoEdWipeUndo(idx)"));
+
+  /* Zwei Wege stehen nebeneinander: zurücknehmen oder abschließen. „Verfällt
+     beim App-Schluss von selbst" ist kein Zustand, den man SIEHT. */
+  ok("Streifen bietet beides an", /geoEdWipeUndo\(\$\{idx\}\)[\s\S]{0,400}geoWipeCommit\(\$\{idx\}\)/.test(src));
+  ok("eigene Rückfrage", /confirm\(/.test(cm));
+  ok("sie nennt den Platz und die Menge", /\$\{b\.name\}[\s\S]{0,40}\$\{n\} Objekte/.test(cm));
+  ok("und sagt, was danach bleibt", /nur noch ein neuer Import/.test(cm));
+  ok("Kopie wird verworfen", /GEOED\.geoBackup=null/.test(cm));
+  /* Nur die Kopie DIESES Platzes — ein anderer Platz darf nicht mitbestätigt
+     werden, wenn zufällig noch seine Kopie liegt. */
+  ok("prüft den Platz", /!b \|\| b\.idx!==idx/.test(cm));
+  ok("Ansicht wird neu gezeichnet", /renderGeoImport\(idx\)/.test(cm));
+}
+
+/* ============ 24by. Grün und Teebox in EINEM Schritt ============ */
+group("Neues Grün / neue Teebox anlegen");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+  const fa = src.slice(src.indexOf("function geoEdFinishArea(type)"),
+                       src.indexOf("function geoEdFinishLine(type)"));
+
+  /* Grün und Abschlag sind ZWEI Dinge: die FLÄCHE (Lie-Raster, F/M/B) und der
+     PUNKT (Ziel des Caddys bzw. Start der Bahn). Beides von Hand zu setzen war
+     umständlich UND ungenauer — der Schwerpunkt trifft besser als ein zweiter
+     Fingertipp. */
+  ok("Teebox als Flächenart", /geoEdFinishArea\('tee'\)/.test(src));
+  ok("Grün und Tee setzen den Punkt mit", /type==="green" \|\| type==="tee"/.test(fa));
+  ok("Punkt kommt aus dem Schwerpunkt", /ringCentroid\(ring\)/.test(fa));
+  ok("Loch wird einmal erfragt", /prompt\(`Für welches Loch/.test(fa));
+  /* „Leer lassen" muss gehen — ein Übungsgrün gehört zu keiner Bahn. */
+  ok("ohne Loch bleibt es die reine Fläche", /nRaw==null \? null : parseInt/.test(fa));
+  ok("nur 1–18 zählt", /n>=1 && n<=18/.test(fa));
+  /* Bestehende Overrides desselben Lochs dürfen nicht verlorengehen: Grün und
+     Tee liegen im selben Objekt. */
+  ok("bestehende Overrides bleiben", /Object\.assign\(\{\}, geo\.overrides\.holes\[n\]/.test(fa));
+  ok("Tee schreibt tee, Grün schreibt green",
+    /type==="green" \? \{green:roundLL\(c\)\} : \{tee:roundLL\(c\)\}/.test(fa));
+
+  /* Und `applyGeoOverrides` muss den Abschlag überhaupt kennen. */
+  const ag = src.slice(src.indexOf("function applyGeoOverrides(geo)"),
+                       src.indexOf("function applyGeoOverrides(geo)") + 900);
+  ok("Overrides kennen den Abschlag", /if\(o\.tee\)\{ geo\.holes\[n\]\.tee=o\.tee/.test(ag));
+  ok("Länge wird neu gerechnet", /o\.tee[\s\S]{0,160}distM=Math\.round\(lineLenM/.test(ag));
+
+  /* Der Ablauf muss dastehen — er ist nicht zu erraten. */
+  ok("Ablauf erklärt", /Neues Grün oder neue Teebox anlegen/.test(src));
+  ok("Punkt-Werkzeug als Korrektur benannt", /Korrigiert nur die Grünmitte/.test(src));
+  ok("Teebox hat einen Stil", /tee:\{fill:"#cfe0b4"/.test(src));
+}
+
 /* ============ 24bw. Kartenschirm: Zoom, Aufräumen, ein Löschweg ============ */
 group("Kartenschirm — Verwaltung, nicht zweiter Spielmodus");
 {
@@ -4437,7 +4493,7 @@ group("Grünfläche und Freihand");
      keine F/M/B-Werte. */
   ok("eigene Grüns zählen für F/M/B",
     /greens=\(geo\.features\|\|\[\]\)\.concat\(geo\.mine\|\|\[\]\)\.filter\(f=>f\.kind==="green"/.test(src));
-  ok("Hinweis trennt Mitte und Fläche", /Setzt die Grün-MITTE/.test(src));
+  ok("Hinweis trennt Mitte und Fläche", /Korrigiert nur die Grünmitte/.test(src));
 
   /* Freihand: nur Maus, nur PC-Modus — am Finger wäre jeder Wisch ein
      Zeichenzug und das Verschieben ginge verloren. */
