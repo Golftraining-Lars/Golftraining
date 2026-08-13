@@ -4398,6 +4398,64 @@ group("Karteneditor — die Karte steht oben");
       new RegExp(k + ':"[^"]{10,70}"').test(tp), (tp.match(new RegExp(k + ':"([^"]*)"'))||[])[1]));
 }
 
+/* ============ 24bu. Abschluss-Leiste folgt den Werkzeugen ============ */
+group("PC-Modus — Zeichnen abschließen, wo man hinsieht");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+  const uiA = src.indexOf('const h=`<h2 style="margin-bottom:2px">✏️ Karte');
+  const ui = src.slice(uiA, src.indexOf('openSheet(h); bindAllPanZoom(sheetBody);', uiA));
+
+  /* Am Telefon unter der Karte, am Rechner in der rechten Spalte unter den
+     Werkzeugen: Unter einer hohen Karte läge sie sonst weit weg vom Blick, und
+     man scrollt zum Abschließen einer Fläche nach unten. */
+  ok("am Telefon unter der Karte", /\$\{pc\?"":drawBar\}/.test(ui));
+  ok("am Rechner in der rechten Spalte", /\$\{pc\?drawBar:""\}/.test(ui));
+  ok("und dort NACH dem Spaltenwechsel",
+    ui.indexOf('${pc?`</div><div>`') < ui.indexOf('${pc?drawBar:""}'));
+  ok("genau einmal gerendert",
+    (ui.match(/drawBar/g) || []).length === 2);
+  /* In der 380-px-Spalte müssen die Art-Knöpfe umbrechen dürfen. */
+  ok("Knöpfe nutzen die Spaltenbreite", /\.geoed-pc \.geoed-draw button\{flex:1 1 46%/.test(src));
+}
+
+/* ============ 24bt. Gesamten Kartenbestand löschen ============ */
+group("Alles löschen — mit Zahlen, mit Netz");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+  const w = src.slice(src.indexOf("function geoEdWipe()"), src.indexOf("function geoEdWipeUndo("));
+  const u = src.slice(src.indexOf("function geoEdWipeUndo("),
+                      src.indexOf("function geoEdWipeUndo(") + 700);
+
+  /* Die Rückfrage nennt Zahlen. „Alles löschen?" beantwortet man nach zwei
+     Stunden Zeichnen falsch, „412 Flächen, 137 eigene Objekte" nicht. */
+  ok("Rückfrage vorhanden", /confirm\(/.test(w));
+  ok("nennt importierte Flächen", /importierte Flächen/.test(w));
+  ok("nennt eigene und erkannte Objekte", /eigene und erkannte Objekte/.test(w));
+  ok("nennt die Bahn-Geometrien", /Bahn-Geometrien/.test(w));
+  ok("sagt, was NICHT betroffen ist", /Runden, Scorekarte und Schläger/.test(w));
+
+  /* Das Rückgängig des Editors sichert nur `mine` und `overrides` — für
+     `features` und `holes` braucht es eine vollständige Kopie. */
+  ok("vollständige Kopie vor dem Löschen", /GEOED\.geoBackup=\{idx:GEOED\.idx[\s\S]{0,80}JSON\.stringify\(geo\)/.test(w));
+  ok("Kopie vor dem Löschen, nicht danach",
+    w.indexOf("GEOED.geoBackup=") < w.indexOf("delete c.geo"));
+  ok("Wiederherstellen prüft den Platz", /!b \|\| b\.idx!==idx/.test(u));
+  ok("und leert die Kopie danach", /GEOED\.geoBackup=null/.test(u));
+
+  /* Ein gespeicherter Gameplan ohne Geometrie wäre ein Rechenergebnis ohne
+     Grundlage — er muss mit weg. */
+  ok("Gameplan des Platzes wird verworfen", /DB\.strat\.gameplans[\s\S]{0,160}delete DB\.strat\.gameplans\[k\]/.test(w));
+  /* Nur DIESER Platz — die Pläne anderer Plätze gehen es nichts an. */
+  ok("und nur dieser Platz", /k\.split\("\|"\)\[0\]===c\.name/.test(w));
+
+  /* Aufräumen: Auswahl, Tastatur, breites Blatt. */
+  ok("Auswahl geleert", /geoEdSelClear\(\)/.test(w));
+  ok("Tastatur abgemeldet", /geoEdKeysAus\(\)/.test(w));
+
+  ok("Knopf im Editor", /onclick="geoEdWipe\(\)"/.test(src));
+  ok("Rücknahme im Kartenschirm angeboten", /geoEdWipeUndo\(\$\{idx\}\)/.test(src));
+}
+
 /* ============ 24bs. Auswahl, Eckpunkte, Ausschnitt-Erkennung ============ */
 group("Karteneditor — Erkennung nachbessern");
 {
