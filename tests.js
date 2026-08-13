@@ -175,7 +175,7 @@ try {
                  "holeGir","holeUpDown","holeSandSave","platzAnalyse","taskFortschritt",
                  "warmupSchedule","warmupKorrektiv","WARMUP_PLANS","medianSplit","pearson",
                  "rKrit","gpKey","gpLabel","gpTotalES","pickClub","_aimClub","_aimLerp",
-                 "_nearest","_reaching","pfWizHtml","heuteJetzt","dispOvalFrom","dispChipHtml","dispRingPath","pathTopPoint","dispHitShare","dispText","dispSchemaSvg","dispSigmaFor","_erf","gpClubFracs","measureOrigin","geoEdMinW","editMinW","DB","STRAT","GEOED"];
+                 "_nearest","_reaching","pfWizHtml","heuteJetzt","dispOvalFrom","dispChipHtml","dispRingPath","pathTopPoint","dispHitShare","dispText","dispSchemaSvg","dispSigmaFor","_erf","gpClubFracs","measureOrigin","geoEdMinW","editMinW","vegMask","maskMorph","maskBlobs","blobRing","ringSimplify","detectVeg","DB","STRAT","GEOED"];
   const epilog = "\n;globalThis.__T={" +
     namen.map(n => `${n}: (typeof ${n}!=="undefined"?${n}:undefined)`).join(",") + "};";
   vm.runInContext(code + epilog, ctx, { timeout: 20000 });
@@ -4268,6 +4268,94 @@ group("Streuungs-Oval — Mittelpunkt, Ausrichtung, Schalter");
     eq("ohne σ kein Chip", C(null), "");
     eq("σ 0 ergibt keinen Chip", C({ sigL: 0, sigD: 0 }), "");
     DBx.ui.disp = vorher;
+  }
+}
+
+/* ============ 24bh. Vegetation aus dem Luftbild ============ */
+group("Wald & Bäume erkennen — Farbe, Form, Fläche");
+{
+  const VM=G("vegMask"), MM=G("maskMorph"), MB=G("maskBlobs"),
+        BR=G("blobRing"), RS=G("ringSimplify"), DV=G("detectVeg");
+
+  /* Kunstbild 20×20: heller Rasen, darin ein dunkelgrünes Quadrat (Baumgruppe),
+     ein heller Sandfleck und ein dunkles, blaues Wasserstück. Nur das erste
+     darf als Vegetation durchgehen. */
+  const W=20,H=20, px=new Uint8ClampedArray(W*H*4);
+  const setz=(x,y,r,g,b)=>{ const i=(y*W+x)*4; px[i]=r; px[i+1]=g; px[i+2]=b; px[i+3]=255; };
+  for(let y=0;y<H;y++) for(let x=0;x<W;x++) setz(x,y,120,150,90);      // Rasen: hell
+  for(let y=2;y<9;y++) for(let x=2;x<9;x++) setz(x,y,40,80,35);        // Baumgruppe: dunkelgrün
+  for(let y=12;y<16;y++) for(let x=2;x<6;x++) setz(x,y,210,195,160);   // Sand: hell
+  for(let y=12;y<18;y++) for(let x=12;x<18;x++) setz(x,y,30,50,80);    // Wasser: dunkel, blau
+
+  if(typeof VM==="function"){
+    const m=VM(px,W,H,{});
+    const an=(x,y)=>m[y*W+x];
+    ok("dunkles Grün wird erkannt", an(4,4)===1);
+    /* Die beiden Fehlgriffe, auf die es ankommt: Wasser ist dunkel, aber nicht
+       grün; Rasen ist grün, aber hell. Ohne BEIDE Bedingungen fällt die
+       Erkennung auseinander. */
+    ok("Wasser gilt nicht als Wald", an(14,14)===0);
+    ok("gemähtes Gras gilt nicht als Wald", an(15,2)===0);
+    ok("Sand gilt nicht als Wald", an(3,13)===0);
+    /* Die Empfindlichkeit muss auch wirklich etwas ändern. */
+    const streng=VM(px,W,H,{exg:16,lum:60}), weit=VM(px,W,H,{exg:5,lum:160});
+    ok("streng findet weniger als weit",
+      streng.reduce((a,b)=>a+b,0) < weit.reduce((a,b)=>a+b,0));
+  }
+
+  if(typeof MM==="function"){
+    const einzeln=new Uint8Array(W*H); einzeln[5*W+5]=1;              // ein Pixel Rauschen
+    ok("Öffnen entfernt Einzelpixel",
+      MM(einzeln,W,H,1,false).reduce((a,b)=>a+b,0)===0);
+    ok("Dilatieren vergrößert", MM(einzeln,W,H,1,true).reduce((a,b)=>a+b,0)===9);
+  }
+
+  if(typeof MB==="function"){
+    const m=new Uint8Array(W*H);
+    for(let y=2;y<6;y++) for(let x=2;x<6;x++) m[y*W+x]=1;
+    for(let y=12;y<14;y++) for(let x=12;x<14;x++) m[y*W+x]=1;
+    const bl=MB(m,W,H,1);
+    eq("zwei getrennte Flächen", bl.length, 2);
+    eq("Größe stimmt", bl[0].n, 16);
+    /* Die Mindestgröße hält Rauschen draußen, ohne die große Fläche zu treffen. */
+    eq("Mindestgröße filtert", MB(m,W,H,10).length, 1);
+    ok("Mittelpunkt in der Fläche", bl[0].cx>=2 && bl[0].cx<=5);
+  }
+
+  if(typeof BR==="function" && typeof MB==="function"){
+    const m=new Uint8Array(W*H);
+    for(let y=3;y<9;y++) for(let x=3;x<9;x++) m[y*W+x]=1;
+    const b=MB(m,W,H,1)[0], ring=BR(m,W,H,b);
+    ok("Kontur gefunden", ring.length>=4, String(ring.length));
+    ok("Kontur läuft auf dem Rand",
+      ring.every(([x,y])=>x>=3&&x<=8&&y>=3&&y<=8));
+    /* Ein Quadrat hat 20 Randpixel — deutlich mehr wäre eine Endlosschleife. */
+    ok("Kontur endet", ring.length<=24, String(ring.length));
+  }
+
+  if(typeof RS==="function"){
+    /* Eine gerade Linie mit vielen Stützpunkten muss auf die Enden schrumpfen —
+       sonst wäre jede Waldfläche ein unbearbeitbarer Pixelrand. */
+    const linie=[]; for(let i=0;i<=20;i++) linie.push([i,0]);
+    eq("Gerade schrumpft auf zwei Punkte", RS(linie,1).length, 2);
+    const ecke=[[0,0],[5,0],[10,0],[10,5],[10,10]];
+    eq("die Ecke bleibt erhalten", RS(ecke,1).length, 3);
+    ok("zu kurze Ringe bleiben unangetastet", RS([[0,0],[1,1]],1).length===2);
+  }
+
+  if(typeof DV==="function"){
+    /* 1 m je Pixel: die 7×7-Baumgruppe sind 49 m² — nach den Schwellen ein
+       EINZELBAUM, kein Waldstück. Genau diese Grenze trennt die beiden. */
+    const r=DV(px,W,H,1,{});
+    ok("kleine Gruppe zählt als Baum, nicht als Wald",
+      r.trees.length>=1 && r.woods.length===0,
+      "B"+r.trees.length+" W"+r.woods.length);
+    /* Dasselbe Bild mit 3 m je Pixel: 441 m² — jetzt eine Waldfläche. */
+    const r2=DV(px,W,H,3,{});
+    ok("dieselbe Form wird bei gröberer Auflösung zur Fläche",
+      r2.woods.length>=1, "W"+r2.woods.length);
+    ok("Wald bekommt einen Ring mit Ecken",
+      !r2.woods.length || r2.woods[0].ring.length>=4);
   }
 }
 
