@@ -175,7 +175,7 @@ try {
                  "holeGir","holeUpDown","holeSandSave","platzAnalyse","taskFortschritt",
                  "warmupSchedule","warmupKorrektiv","WARMUP_PLANS","medianSplit","pearson",
                  "rKrit","gpKey","gpLabel","gpTotalES","pickClub","_aimClub","_aimLerp",
-                 "geoEdSelHat","geoEdVertHandles","snapshot","_nearest","_reaching","pfWizHtml","heuteJetzt","dispOvalFrom","dispChipHtml","dispRingPath","pathTopPoint","dispHitShare","dispText","dispSchemaSvg","dispSigmaFor","_erf","gpClubFracs","measureOrigin","geoEdMinW","editMinW","vegMask","maskMorph","maskBlobs","blobRing","ringSimplify","detectVeg","gpFingerprint","gpStale","_hash32","vegOn","viewBoxFor","troubleFeatures","geoEdPunktVon","_mergeCourses","snapBehalten","DB","STRAT","GEOED"];
+                 "geoEdSelHat","geoEdVertHandles","snapshot","_nearest","_reaching","pfWizHtml","heuteJetzt","dispOvalFrom","dispChipHtml","dispRingPath","pathTopPoint","dispHitShare","dispText","dispSchemaSvg","dispSigmaFor","_erf","gpClubFracs","measureOrigin","geoEdMinW","editMinW","vegMask","maskMorph","maskBlobs","blobRing","ringSimplify","detectVeg","gpFingerprint","gpStale","_hash32","vegOn","viewBoxFor","troubleFeatures","geoEdPunktVon","_mergeCourses","snapBehalten","SAT_SRC","satSrcFor","satTileUrl","satTileKey","DB","STRAT","GEOED"];
   const epilog = "\n;globalThis.__T={" +
     namen.map(n => `${n}: (typeof ${n}!=="undefined"?${n}:undefined)`).join(",") + "};";
   vm.runInContext(code + epilog, ctx, { timeout: 20000 });
@@ -4448,6 +4448,57 @@ group("Hand — die Karte schieben, sonst nichts");
   /* Acht Werkzeuge passen nicht mehr in sechs Spalten — auf dem Telefon wären
      das 44-px-Streifen. */
   ok("vier Spalten", /\.geoed-tools\{display:grid;grid-template-columns:repeat\(4,1fr\)/.test(src));
+}
+
+/* ============ 24cd. Neue Luftbildquellen · PNG für die Erkennung ============ */
+group("Luftbild — Quellen und Format");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+  const S = G("SAT_SRC"), F = G("satSrcFor"), U = G("satTileUrl"), K = G("satTileKey");
+
+  if (Array.isArray(S)) {
+    const byId = {}; S.forEach(x => byId[x.id] = x);
+    ok("Bremen DOP10 vorhanden", !!byId.hb && byId.hb.res === 0.10);
+    ok("MV DOP20 vorhanden", !!byId.mv && byId.mv.res === 0.20);
+    ok("Bremen-Layer trägt das Bildflugjahr", /^dop10_\d{4}_HB$/.test((byId.hb||{}).layer||""));
+    /* Jede WMS-Quelle braucht Adresse, Layer UND Gebiet — fehlt eines, bleibt
+       die Karte leer, ohne zu sagen warum. */
+    S.filter(x => x.type === "wms").forEach(x => {
+      ok("vollständig: " + x.id, !!(x.url && x.layer && x.bbox && x.bbox.length === 4 && x.attr));
+      ok("Gebiet plausibel: " + x.id, x.bbox[0] < x.bbox[2] && x.bbox[1] < x.bbox[3]);
+    });
+  }
+
+  /* Die Auto-Wahl nimmt das FEINSTE Amtsbild, dessen Gebiet den Platz enthält. */
+  if (typeof F === "function" && G("DB")) {
+    const db = G("DB"); db.ui = db.ui || {}; const vorher = db.ui.satSrc; db.ui.satSrc = "auto";
+    eq("Timmendorfer Strand → SH", F(54.00, 10.77).id, "sh");
+    eq("Bremen → DOP10 statt Esri", F(53.11, 8.80).id, "hb");
+    eq("Ostsee bei Kühlungsborn → MV", F(54.15, 11.75).id, "mv");
+    eq("Wien → Esri (kein Amtsbild)", F(48.21, 16.37).id, "esri");
+    db.ui.satSrc = vorher;
+  }
+
+  /* PNG NUR für die Erkennung: JPEG legt Farbe in 8x8-Blöcken zusammen und
+     färbt genau die Kanten um, auf die die Grün/Dunkel-Bewertung schaut. */
+  if (typeof U === "function" && Array.isArray(S)) {
+    const wms = S.find(x => x.type === "wms");
+    ok("Anzeige holt JPEG", /FORMAT=image%2Fjpeg|FORMAT=image\/jpeg/.test(U(wms, 18, 1, 1)));
+    ok("Erkennung holt PNG", /FORMAT=image\/png|FORMAT=image%2Fpng/.test(U(wms, 18, 1, 1, true)));
+  }
+  /* Getrennter Speicherschlüssel, sonst verdrängt eine Fassung die andere. */
+  if (typeof K === "function" && Array.isArray(S)) {
+    const wms = S.find(x => x.type === "wms");
+    ok("PNG hat einen eigenen Schlüssel", K(wms,18,1,1,true) !== K(wms,18,1,1));
+    ok("und ist als solcher erkennbar", /\/png\//.test(K(wms,18,1,1,true)));
+  }
+  ok("Erkennung fordert PNG nur bei WMS", /const png=\(src\.type==="wms"\);/.test(src));
+
+  /* Ich konnte die neuen Dienste hier nicht anfragen (Netz gesperrt) — deshalb
+     ein Selbsttest im Gerät statt einer Behauptung. */
+  ok("Quellen-Prüfung vorhanden", /async function satTestSrc\(idx\)/.test(src));
+  ok("erkennt XML-Antwort als Layer-Fehler", /Layer-Name oder Gebiet falsch/.test(src));
+  ok("Knopf in den Karten-Einstellungen", /id="mSatTest"/.test(src));
 }
 
 /* ============ 24cc. Sicherungskopien & Versionssprung ============ */
