@@ -175,7 +175,7 @@ try {
                  "holeGir","holeUpDown","holeSandSave","platzAnalyse","taskFortschritt",
                  "warmupSchedule","warmupKorrektiv","WARMUP_PLANS","medianSplit","pearson",
                  "rKrit","gpKey","gpLabel","gpTotalES","pickClub","_aimClub","_aimLerp",
-                 "geoEdSelHat","geoEdVertHandles","snapshot","_nearest","_reaching","pfWizHtml","heuteJetzt","dispOvalFrom","dispChipHtml","dispRingPath","pathTopPoint","dispHitShare","dispText","dispSchemaSvg","dispSigmaFor","_erf","gpClubFracs","measureOrigin","geoEdMinW","editMinW","vegMask","maskMorph","maskBlobs","blobRing","ringSimplify","detectVeg","gpFingerprint","gpStale","_hash32","vegOn","viewBoxFor","troubleFeatures","geoEdPunktVon","_mergeCourses","snapBehalten","playVecKey","syncFinger","courseSVG","mergeDB","mergeDraft","SAT_SRC","satSrcFor","satTileUrl","satTileKey","DB","STRAT","GEOED"];
+                 "geoEdSelHat","geoEdVertHandles","snapshot","_nearest","_reaching","pfWizHtml","heuteJetzt","dispOvalFrom","dispChipHtml","dispRingPath","pathTopPoint","dispHitShare","dispText","dispSchemaSvg","dispSigmaFor","_erf","gpClubFracs","measureOrigin","geoEdMinW","editMinW","vegMask","maskMorph","maskBlobs","blobRing","ringSimplify","detectVeg","gpFingerprint","gpStale","_hash32","vegOn","viewBoxFor","troubleFeatures","geoEdPunktVon","_mergeCourses","snapBehalten","playVecKey","syncFinger","courseSVG","mergeDB","mergeDraft","watchPayload","SAT_SRC","satSrcFor","satTileUrl","satTileKey","DB","STRAT","GEOED"];
   const epilog = "\n;globalThis.__T={" +
     namen.map(n => `${n}: (typeof ${n}!=="undefined"?${n}:undefined)`).join(",") + "};";
   vm.runInContext(code + epilog, ctx, { timeout: 20000 });
@@ -4558,6 +4558,61 @@ group("Caddy — immer von hier, nie vom gespeicherten Tee");
   }
 }
 
+/* ============ 24ck. Schlanke Datei für die Uhr ============ */
+group("watch.json — die Uhr trägt nicht 3 MB");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+  const WP = G("watchPayload"), DB0 = G("DB");
+
+  /* Die Uhr liest Plätze, Schläger, Optionen, Handicap und Gameplans. Runden,
+     Tests, Notizen und die Wissensdatenbank machen den Großteil der 3 MB aus
+     und interessieren sie nie. */
+  if (typeof WP === "function" && DB0) {
+    const alt = { courses: DB0.courses, rounds: DB0.rounds, clubDistances: DB0.clubDistances };
+    DB0.courses = [
+      { name: "A", tees: { Gelb: { holes: [] } }, geo: { features: [1, 2, 3] } },
+      { name: "B", tees: { Gelb: { holes: [] } }, geo: { features: [4, 5] } },
+      { name: "C", tees: { Gelb: { holes: [] } }, geo: { features: [6] } },
+      { name: "D", tees: { Gelb: { holes: [] } }, geo: { features: [7] } }
+    ];
+    DB0.rounds = [
+      { date: "2026-08-10", course: "A" }, { date: "2026-08-08", course: "B" },
+      { date: "2026-08-01", course: "C" }
+    ];
+    const p = WP();
+    eq("alle Plätze sind dabei", (p.courses || []).length, 4);
+    const mitGeo = (p.courses || []).filter(c => c.geo).map(c => c.name).sort().join(",");
+    /* Die Geometrie ist der Löwenanteil — nur die zuletzt gespielten drei. */
+    eq("Geometrie nur für die zuletzt gespielten", mitGeo, "A,B,C");
+    ok("nie gespielter Platz ohne Geometrie", !(p.courses.find(c => c.name === "D") || {}).geo);
+    /* Und das Schwere fehlt. */
+    ["rounds", "tests", "notes", "wiki", "lmSessions", "fitnessSessions"].forEach(k =>
+      ok("nicht enthalten: " + k, !(k in p)));
+    ok("Schläger enthalten", "clubDistances" in p);
+    ok("Gameplans enthalten", !!(p.strat || {}).gameplans);
+    DB0.courses = alt.courses; DB0.rounds = alt.rounds; DB0.clubDistances = alt.clubDistances;
+  }
+
+  /* Nur bei Änderung schreiben — sonst bekäme die Datei im Minutentakt
+     Commits. Der Fingerabdruck lässt den Zeitstempel bewusst aus, sonst wäre
+     jeder Aufruf eine Änderung. */
+  ok("Fingerabdruck ohne Zeitstempel", /replace\(\/"at":"\[\^"\]\*",\/,""\)/.test(src));
+  ok("unverändert = kein Schreiben", /if\(!force && fp===WATCH_FP\) return true;/.test(src));
+  ok("Schreiben über den SHA-Türsteher", /"X-Path":WATCH_PATH,"X-Base-Sha":WATCH_SHA/.test(src));
+  ok("alter Worker schaltet ab", /if\(r\.status===403\)\{ WATCH_MODE=false; return false; \}/.test(src));
+  ok("Anstoß entprellt", /_watchT=setTimeout\(\(\)=>\{ watchFilePush\(\); \}, 8000\)/.test(src));
+  /* Angestoßen dort, wo sich der Inhalt ändern kann. */
+  ["geoEdSnapshot", "geo=geo;\n  DB.courses\[idx\].geoAt"].forEach(() => {});
+  ok("Kartenänderung stößt an", /function geoEdSnapshot\(was\)\{\s*\n\s*watchFilePushSoon\(\)/.test(src));
+  ok("Import stößt an", /geoAt=new Date\(\)\.toISOString\(\);\s*\n\s*watchFilePushSoon\(\)/.test(src));
+  ok("Gameplan stößt an", /persistSoon\(\); watchFilePushSoon\(\)/.test(src));
+  ok("einmal nach dem Start", /setTimeout\(\(\)=>\{ watchFilePush\(\); \}, 6000\)/.test(src));
+
+  const doc = (src.match(/<script[^>]*devdocs[^>]*>([\s\S]*?)<\/script>/) || [])[1] || "";
+  ok("Worker kennt watch.json", /"draft\.json", "watch\.json"/.test(doc));
+  ok("Worker-Fassung hochgezählt", /Fassung v2\.7/.test(doc));
+}
+
 /* ============ 24ch. Abgleich prüfen ============ */
 group("Diagnose — welches Glied der Kette fehlt");
 {
@@ -4674,7 +4729,9 @@ group("draft.json — heiß und klein statt kalt und groß");
   ok("Worker kennt draft.json", /"trainingsdaten\.json", "wissen-bilder\.json", "draft\.json"/.test(doc));
   ok("GET nimmt einen Pfad", /const p = url\.searchParams\.get\("path"\) \|\| "trainingsdaten\.json";/.test(doc));
   ok("und prüft ihn gegen die Whitelist", /if \(!CFG\.PATHS\.includes\(p\)\) return resp\(403/.test(doc));
-  ok("Worker-Fassung hochgezählt", /Fassung v2\.6/.test(doc));
+  /* Nicht die Nummer festnageln — die waechst mit jeder Aenderung. Gemeint ist:
+     der Abzug in der Doku kennt draft.json. */
+  ok("Abzug kennt die kleine Datei", /"draft\.json"/.test(doc));
 }
 
 /* ============ 24cf. Schlagmessungen der Uhr ============ */
@@ -4708,7 +4765,7 @@ group("gpsShots — die Messungen der Uhr überleben den Abgleich");
   /* Und im Worker (ALT-Modus — den benutzt die Uhr!) gespiegelt. */
   const doc = (src.match(/<script[^>]*devdocs[^>]*>([\s\S]*?)<\/script>/) || [])[1] || "";
   ok("Worker vereinigt sie ebenfalls", /out\.gpsShots\s+= _mergeArr\(L\.gpsShots, R\.gpsShots/.test(doc));
-  ok("Worker-Fassung hochgezählt", /Fassung v2\.5/.test(doc));
+  ok("Abzug vereinigt gpsShots", /out\.gpsShots\s+= _mergeArr/.test(doc));
 }
 
 /* ============ 24ce. GPS-Tick und Runden-Sync ============ */
@@ -4941,7 +4998,7 @@ group("Worker-Code in der Doku");
      serverseitig — tatsächlich ist er im benutzten Modus ein SHA-Türsteher.
      Eine Aussage über Code, den man nicht sieht, ist eine Vermutung. */
   ok("Abschnitt vorhanden", /## 28\. `worker\.js` — vollstaendiger Stand/.test(doc));
-  ok("Fassung benannt", /Fassung v2\.6/.test(doc));
+  ok("Fassung benannt", /Fassung v2\.7/.test(doc));
   /* Beim Bau von v2.87 landete eine mergeDB-Änderung im Worker-ABZUG statt in
      der App — eine Suche nach `function mergeDB(` findet den Abzug zuerst,
      weil die Doku im Dokument vor dem Code steht. Der Hinweis muss dastehen. */
@@ -5652,7 +5709,7 @@ group("Karteneditor — Ansicht bleibt, Änderungen sind umkehrbar");
      landet in `overrides`, alles andere in `mine`; wer nur eines sichert,
      stellt die Hälfte wieder her. */
   const sn = src.slice(src.indexOf("function geoEdSnapshot("),
-                       src.indexOf("function geoEdSnapshot(") + 700);
+                       src.indexOf("function geoEdSnapshot(") + 1000);
   ok("beide Töpfe gesichert", /mine: JSON\.stringify/.test(sn) && /ovr: JSON\.stringify/.test(sn));
   ok("Tiefe begrenzt", /GEOED\.undo\.length>12/.test(sn));
   const un = src.slice(src.indexOf("function geoEdUndo("),
