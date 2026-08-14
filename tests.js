@@ -175,7 +175,7 @@ try {
                  "holeGir","holeUpDown","holeSandSave","platzAnalyse","taskFortschritt",
                  "warmupSchedule","warmupKorrektiv","WARMUP_PLANS","medianSplit","pearson",
                  "rKrit","gpKey","gpLabel","gpTotalES","pickClub","_aimClub","_aimLerp",
-                 "geoEdSelHat","geoEdVertHandles","snapshot","_nearest","_reaching","pfWizHtml","heuteJetzt","dispOvalFrom","dispChipHtml","dispRingPath","pathTopPoint","dispHitShare","dispText","dispSchemaSvg","dispSigmaFor","_erf","gpClubFracs","measureOrigin","geoEdMinW","editMinW","vegMask","maskMorph","maskBlobs","blobRing","ringSimplify","detectVeg","gpFingerprint","gpStale","_hash32","vegOn","viewBoxFor","troubleFeatures","geoEdPunktVon","_mergeCourses","snapBehalten","SAT_SRC","satSrcFor","satTileUrl","satTileKey","DB","STRAT","GEOED"];
+                 "geoEdSelHat","geoEdVertHandles","snapshot","_nearest","_reaching","pfWizHtml","heuteJetzt","dispOvalFrom","dispChipHtml","dispRingPath","pathTopPoint","dispHitShare","dispText","dispSchemaSvg","dispSigmaFor","_erf","gpClubFracs","measureOrigin","geoEdMinW","editMinW","vegMask","maskMorph","maskBlobs","blobRing","ringSimplify","detectVeg","gpFingerprint","gpStale","_hash32","vegOn","viewBoxFor","troubleFeatures","geoEdPunktVon","_mergeCourses","snapBehalten","playVecKey","syncFinger","courseSVG","SAT_SRC","satSrcFor","satTileUrl","satTileKey","DB","STRAT","GEOED"];
   const epilog = "\n;globalThis.__T={" +
     namen.map(n => `${n}: (typeof ${n}!=="undefined"?${n}:undefined)`).join(",") + "};";
   vm.runInContext(code + epilog, ctx, { timeout: 20000 });
@@ -4450,6 +4450,96 @@ group("Hand — die Karte schieben, sonst nichts");
   ok("vier Spalten", /\.geoed-tools\{display:grid;grid-template-columns:repeat\(4,1fr\)/.test(src));
 }
 
+/* ============ 24ce. GPS-Tick und Runden-Sync ============ */
+group("Spielbetrieb — Rechenzeit und Funk auf der Runde");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+  const CS = G("courseSVG"), VK = G("playVecKey"), SF = G("syncFinger");
+
+  /* GEMESSEN: Auf einer Bahn mit 300 erkannten Bäumen und 40 Waldringen baute
+     jeder GPS-Tick 79 kB SVG neu — im Sekundentakt, vier Stunden lang. Dabei
+     ändern sich zwischen zwei Ticks nur Position, Ringe, Messlinie und Oval. */
+  if (typeof CS === "function") {
+    const mLat = 110540, mLng = 111320 * Math.cos(54 * Math.PI / 180);
+    const tee = [54.0, 10.75], green = [54.0 + 400 / mLat, 10.75];
+    const ring = (f, s, r) => { const o = [];
+      for (let k = 0; k < 12; k++) { const t = k / 12 * 2 * Math.PI;
+        o.push([tee[0] + (f + Math.cos(t) * r) / mLat, tee[1] + (s + Math.sin(t) * r) / mLng]); }
+      o.push(o[0]); return o; };
+    const geo = { holes: { 1: { tee, green, line: [tee, green], par: 4, distM: 400 } },
+      features: [{ kind: "fairway", ring: ring(200, 0, 30) }, { kind: "green", ring: ring(395, 0, 12) }],
+      mine: [] };
+    for (let i = 0; i < 60; i++) geo.mine.push({ kind: "tree", pt: [tee[0] + (40 + i * 5) / mLat, tee[1] + ((i % 2 ? 1 : -1) * 25) / mLng] });
+    const here = [tee[0] + 150 / mLat, tee[1] + 8 / mLng];
+    const opt = { w: 660, hole: 1, here, fitHere: false, rings: true, rotate: true, sat: false,
+      tight: true, corridor: 46, flag: true, oval: { center: here, sigD: 18, sigL: 12, brg: 0, biasL: 0 } };
+    const voll = CS(geo, opt), nur = CS(geo, Object.assign({}, opt, { dynOnly: true }));
+
+    ok("Vollaufbau liefert beide Teile", !!voll.bodyStatic && !!voll.bodyDyn);
+    eq("Reihenfolge bleibt: statisch, dann beweglich", voll.bodyNoSat, voll.bodyStatic + voll.bodyDyn);
+    ok("dynOnly lässt den statischen Teil weg", nur.bodyStatic === "");
+    eq("und liefert dasselbe Bewegliche", nur.bodyDyn, voll.bodyDyn);
+    /* DER PUNKT: der bewegliche Teil ist ein Bruchteil. */
+    /* Bei 60 Bäumen sind es ~28 %; auf einer erkannten Bahn mit 300 Bäumen
+       fällt der Anteil unter 4 % (gemessen: 2,8 kB von 79 kB). Die Prüfung
+       hält nur fest, dass der bewegliche Teil KLEIN bleibt. */
+    ok("beweglich ist deutlich kleiner als das Ganze",
+      voll.bodyDyn.length < voll.bodyNoSat.length * 0.35,
+      voll.bodyDyn.length + " von " + voll.bodyNoSat.length);
+    /* Die Projektion MUSS auch bei dynOnly stimmen — die beweglichen Teile
+       rechnen damit. */
+    eq("Projektion identisch", JSON.stringify([nur.M.W, nur.M.H, nur.M.s]), JSON.stringify([voll.M.W, voll.M.H, voll.M.s]));
+    /* Die eigene Position gehört ins Bewegliche, die Bahn nicht. */
+    ok("Positionspunkt ist beweglich", /id="hereDot"/.test(voll.bodyDyn));
+    ok("Flächen sind statisch", /fairway|#d5ecc0/.test(voll.bodyStatic) || voll.bodyStatic.length > voll.bodyDyn.length);
+  }
+
+  /* Der Schlüssel darf NICHT von der Position abhängen — sonst wäre er bei
+     jedem Tick neu und die Trennung wirkungslos. */
+  if (typeof VK === "function" && G("PLAY")) {
+    const P = G("PLAY"); P.course = "Nordplatz";
+    const a = VK({ hole: 3 });
+    eq("gleiches Loch, gleicher Schlüssel", VK({ hole: 3 }), a);
+    ok("anderes Loch ändert ihn", VK({ hole: 4 }) !== a);
+    ok("Position kommt nicht vor", !/54\./.test(a));
+  }
+  ok("Tick baut nur das Bewegliche, wenn möglich", /dynOnly:nurDyn/.test(src));
+  ok("eigene Gruppe im SVG", /<g id="playDynG">/.test(src));
+
+  /* Sync: erst fragen, dann laden. */
+  ok("SHA-Abfrage vorhanden", /async function freshRepoSha\(\)/.test(src));
+  ok("Tick prüft zuerst die Kennung", /const sha=await freshRepoSha\(\);/.test(src));
+  ok("und bricht bei Gleichstand ab", /sha===REPO_SHA\)\{ playSyncBusy=false; return; \}/.test(src));
+  /* Ohne Antwort (alter Worker) MUSS der volle Weg bleiben — Worker und App
+     werden getrennt ausgerollt. */
+  ok("Rückfall auf Vollabruf", /return \(d && typeof d\.sha==="string" && d\.sha\) \? d\.sha : null;/.test(src));
+  ok("Worker kennt ?sha=1", /url\.searchParams\.get\("sha"\) === "1"/.test(src));
+
+  /* Der Minutenvergleich lief über ZWEI vollständige Serialisierungen der
+     3-MB-Datenbank — auf dem Hauptthread, während man spielt. */
+  /* Im Minutentakt der RUNDE darf kein voller Vergleich mehr stehen. Die
+     übrigen Stellen (Start, manueller Abgleich, Uhr-Wächter) laufen nach der
+     SHA-Prüfung nur noch, wenn sich wirklich etwas geändert hat — dort ist der
+     volle Vergleich richtig und billig. */
+  const ps = src.slice(src.indexOf("async function playSyncTick()"),
+                       src.indexOf("async function playSyncTick()") + 1400);
+  ok("kein doppeltes stringify im Runden-Takt", !/JSON\.stringify\(merged\)!==JSON\.stringify\(DB\)/.test(ps));
+  ok("Uhr-Wächter prüft ebenfalls zuerst die Kennung",
+    /watchLiveBusy=true;[\s\S]{0,420}const sha=await freshRepoSha\(\);/.test(src));
+  if (typeof SF === "function") {
+    const leer = { rounds: [], ui: {} };
+    eq("gleicher Stand, gleicher Abdruck", SF(leer), SF({ rounds: [], ui: {} }));
+    ok("neuer Entwurf ändert ihn", SF({ rounds: [], ui: {}, _draftRound: { ts: "2026-08-14T09:00:00Z", round: { holes: [] } } }) !== SF(leer));
+    ok("ein Loch mehr ändert ihn",
+      SF({ rounds: [], ui: {}, _draftRound: { ts: "x", round: { holes: [{ hole: 1, score: 4 }] } } }) !==
+      SF({ rounds: [], ui: {}, _draftRound: { ts: "x", round: { holes: [] } } }));
+    ok("geänderter Score ändert ihn",
+      SF({ rounds: [], ui: {}, _draftRound: { ts: "x", round: { holes: [{ hole: 1, score: 5 }] } } }) !==
+      SF({ rounds: [], ui: {}, _draftRound: { ts: "x", round: { holes: [{ hole: 1, score: 4 }] } } }));
+    ok("Verworfen-Marke zählt", SF({ rounds: [], ui: { draftDiscardedTs: "z" } }) !== SF(leer));
+  }
+}
+
 /* ============ 24cd. Neue Luftbildquellen · PNG für die Erkennung ============ */
 group("Luftbild — Quellen und Format");
 {
@@ -4586,7 +4676,7 @@ group("Worker-Code in der Doku");
      serverseitig — tatsächlich ist er im benutzten Modus ein SHA-Türsteher.
      Eine Aussage über Code, den man nicht sieht, ist eine Vermutung. */
   ok("Abschnitt vorhanden", /## 28\. `worker\.js` — vollstaendiger Stand/.test(doc));
-  ok("Fassung benannt", /Fassung v2\.3/.test(doc));
+  ok("Fassung benannt", /Fassung v2\.4/.test(doc));
   /* Beim Bau von v2.87 landete eine mergeDB-Änderung im Worker-ABZUG statt in
      der App — eine Suche nach `function mergeDB(` findet den Abzug zuerst,
      weil die Doku im Dokument vor dem Code steht. Der Hinweis muss dastehen. */
