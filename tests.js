@@ -4450,6 +4450,31 @@ group("Hand — die Karte schieben, sonst nichts");
   ok("vier Spalten", /\.geoed-tools\{display:grid;grid-template-columns:repeat\(4,1fr\)/.test(src));
 }
 
+/* ============ 24ch. Abgleich prüfen ============ */
+group("Diagnose — welches Glied der Kette fehlt");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+  const cd = src.slice(src.indexOf("async function cloudDiag()"), src.indexOf("function cloudCfg()"));
+
+  /* Der Abgleich hängt an vier Gliedern; fällt eines aus, sieht man an der
+     Oberfläche immer dasselbe: nichts kommt an. Beim Umbau auf draft.json hat
+     sich das gerächt — ein Worker vor v2.6 ignoriert `path` und liefert mit
+     Status 200 die große Datei, der Ausfall sah wie ein Erfolg aus. */
+  ok("Knopf in den Einstellungen", /id="cfgDiag"/.test(src));
+  ok("Ausgabefeld daneben", /id="cfgDiagOut"/.test(src));
+  ok("prüft die Erreichbarkeit", /Worker erreichbar/.test(cd));
+  ok("nennt die Worker-Fassung", /workerV=\(d&&d\.worker\)/.test(cd));
+  ok("prüft ?sha=1", /freshRepoSha\(\)/.test(cd));
+  ok("prüft das LESEN der kleinen Datei", /draftPull\(\)/.test(cd));
+  ok("und benennt den alten Worker als Ursache", /älter als v2\.6/.test(cd));
+  ok("prüft das SCHREIBEN", /draftPush\(\)/.test(cd));
+  ok("nennt CFG.PATHS als Stellschraube", /CFG\.PATHS/.test(cd));
+  ok("prüft auch den großen Weg", /freshRepoFetch\(\)/.test(cd));
+  ok("meldet die App-Fassung mit", /APP_VERSION/.test(cd));
+  /* Ohne Zugangsdaten darf sie nicht ins Leere laufen. */
+  ok("ohne Konfiguration klare Ansage", /Keine Worker-URL\/Passwort eingetragen/.test(cd));
+}
+
 /* ============ 24cg. Der Entwurf als eigene kleine Datei ============ */
 group("draft.json — heiß und klein statt kalt und groß");
 {
@@ -4497,10 +4522,33 @@ group("draft.json — heiß und klein statt kalt und groß");
      gerade auf der Bahn. */
   ok("409 wird vereint statt überschrieben", /if\(r\.status===409\)\{[\s\S]{0,300}mergeDraft\(DB\._draftRound, p\.draft/.test(src));
   /* Alter Worker (403) oder fehlende Datei (404) dürfen nicht blockieren. */
-  ok("404 gilt als leer", /if\(r\.status===404\)\{ DRAFT_SHA=null; return \{leer:true\}; \}/.test(src));
-  ok("403 fällt auf den alten Weg zurück", /if\(!r\.ok\) return null;/.test(src));
+  ok("404 gilt als leer", /if\(r\.status===404\)\{ DRAFT_SHA=null; DRAFT_MODE=true; return \{leer:true\}; \}/.test(src));
+  ok("403 fällt auf den alten Weg zurück", /if\(!r\.ok\)\{ DRAFT_MODE=false; return null; \}/.test(src));
+
+  /* DER AUSFALL VOM 14.08.: Ein Worker VOR v2.6 kennt den `path`-Parameter
+     nicht — er ignoriert ihn und liefert mit Status 200 die GROSSE Datei. Das
+     sah wie ein Erfolg aus, enthielt aber kein `round`; beide Seiten hielten
+     das für „keine Runde läuft" und fielen NICHT zurück. Der Abgleich stand
+     still, und `draft.json` wurde nie angelegt, weil der Schreibversuch am
+     selben Worker mit 403 scheiterte.
+     Ein Statuscode sagt nicht, WAS man bekommen hat. */
+  ok("große Datei wird am Inhalt erkannt",
+    /if\(d && \(d\.testDefs \|\| d\.rounds \|\| d\._draftRound\)\)\{ DRAFT_MODE=false; return null; \}/.test(src));
+  ok("danach wird der kleine Weg gesperrt", /if\(DRAFT_MODE===false\) return false;/.test(src));
+  ok("403 beim Schreiben sperrt ihn auch", /if\(r\.status===403\)\{ DRAFT_MODE=false; return false; \}/.test(src));
+  /* Und der Takt darf NUR abkürzen, wenn wirklich ein Entwurf kam. */
+  ok("leere Antwort kürzt nicht ab", /if\(p && p\.draft\)\{/.test(src));
   ok("Runden-Takt nimmt zuerst die kleine Datei",
-    /const p=await draftPull\(\);[\s\S]{0,80}if\(p\)\{/.test(src));
+    /const p=await draftPull\(\);\s*\n\s*if\(p && p\.draft\)\{/.test(src));
+  /* KORREKTUR v2.91.1 — der Fehler, der den Abgleich ganz lahmgelegt hat:
+     Eine LEERE oder fehlende Datei galt als erledigte Antwort. Solange
+     `draft.json` nicht existierte (also bis zum allerersten Push), lief damit
+     gar kein Abgleich mehr, in beide Richtungen. Nur ein Entwurf IN der Datei
+     darf den Takt beenden. */
+  ok("leere Datei beendet den Takt NICHT",
+    !/if\(p\)\{\s*\n\s*if\(p\.draft\)/.test(src));
+  ok("und legt sie stattdessen an", /if\(p && p\.leer && DB\._draftRound\) draftPush\(\);/.test(src));
+  ok("Uhr-Wächter ebenso", /if\(p && p\.draft\)\{[\s\S]{0,260}watchLiveMaybeOpen\(\); watchLiveBusy=false; return;/.test(src));
   ok("Schreiben ist entprellt", /_draftPushT=setTimeout\(\(\)=>\{ draftPush\(\); \}, 2000\)/.test(src));
   /* Die Messungen der Uhr reisen in derselben kleinen Datei mit — winzig, und
      sie dürfen nicht bis zum Rundenende liegenbleiben. Beim eigenen Schreiben
