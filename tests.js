@@ -175,7 +175,7 @@ try {
                  "holeGir","holeUpDown","holeSandSave","platzAnalyse","taskFortschritt",
                  "warmupSchedule","warmupKorrektiv","WARMUP_PLANS","medianSplit","pearson",
                  "rKrit","gpKey","gpLabel","gpTotalES","pickClub","_aimClub","_aimLerp",
-                 "geoEdSelHat","geoEdVertHandles","snapshot","_nearest","_reaching","pfWizHtml","heuteJetzt","dispOvalFrom","dispChipHtml","dispRingPath","pathTopPoint","dispHitShare","dispText","dispSchemaSvg","dispSigmaFor","_erf","gpClubFracs","measureOrigin","geoEdMinW","editMinW","vegMask","maskMorph","maskBlobs","blobRing","ringSimplify","detectVeg","gpFingerprint","gpStale","_hash32","vegOn","viewBoxFor","troubleFeatures","geoEdPunktVon","_mergeCourses","snapBehalten","playVecKey","syncFinger","courseSVG","SAT_SRC","satSrcFor","satTileUrl","satTileKey","DB","STRAT","GEOED"];
+                 "geoEdSelHat","geoEdVertHandles","snapshot","_nearest","_reaching","pfWizHtml","heuteJetzt","dispOvalFrom","dispChipHtml","dispRingPath","pathTopPoint","dispHitShare","dispText","dispSchemaSvg","dispSigmaFor","_erf","gpClubFracs","measureOrigin","geoEdMinW","editMinW","vegMask","maskMorph","maskBlobs","blobRing","ringSimplify","detectVeg","gpFingerprint","gpStale","_hash32","vegOn","viewBoxFor","troubleFeatures","geoEdPunktVon","_mergeCourses","snapBehalten","playVecKey","syncFinger","courseSVG","mergeDB","mergeDraft","SAT_SRC","satSrcFor","satTileUrl","satTileKey","DB","STRAT","GEOED"];
   const epilog = "\n;globalThis.__T={" +
     namen.map(n => `${n}: (typeof ${n}!=="undefined"?${n}:undefined)`).join(",") + "};";
   vm.runInContext(code + epilog, ctx, { timeout: 20000 });
@@ -4450,6 +4450,111 @@ group("Hand — die Karte schieben, sonst nichts");
   ok("vier Spalten", /\.geoed-tools\{display:grid;grid-template-columns:repeat\(4,1fr\)/.test(src));
 }
 
+/* ============ 24cg. Der Entwurf als eigene kleine Datei ============ */
+group("draft.json — heiß und klein statt kalt und groß");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+  const MD = G("mergeDraft");
+
+  /* Die Vereinigungsregel stand INLINE in mergeDB. Seit der Entwurf auch als
+     eigene Datei läuft, braucht sie ein zweiter Aufrufer — zwei Kopien wären
+     zwei Wahrheiten darüber, wessen Eingabe gewinnt. */
+  if (typeof MD === "function") {
+    const d = (ts, holes, live) => ({ ts, round: { date: "2026-08-14", course: "N", side: "18 Loch", holes },
+      live: live || undefined });
+    const alt = d("2026-08-14T10:00:00Z", [{ hole: 1, score: 5 }, { hole: 2, putts: 2 }]);
+    const neu = d("2026-08-14T10:05:00Z", [{ hole: 1, putts: 2 }, { hole: 3, score: 4 }]);
+    const r = MD(alt, neu, "");
+    eq("gleiche Runde: Löcher vereint", (r.round.holes || []).length, 3);
+    eq("Feld des älteren bleibt", r.round.holes.find(h => h.hole === 1).score, 5);
+    eq("Feld des neueren kommt dazu", r.round.holes.find(h => h.hole === 1).putts, 2);
+    eq("Zeitstempel des neueren", r.ts, "2026-08-14T10:05:00Z");
+
+    /* null darf nie löschen — sonst räumt ein Gerät die Eingaben des anderen ab. */
+    const mitNull = d("2026-08-14T10:06:00Z", [{ hole: 1, score: null, putts: 3 }]);
+    eq("null löscht nicht", MD(alt, mitNull, "").round.holes.find(h => h.hole === 1).score, 5);
+
+    /* Verschiedene Runden: der neuere gewinnt ganz. */
+    const andere = { ts: "2026-08-14T11:00:00Z", round: { date: "2026-08-14", course: "X", side: "18 Loch", holes: [] } };
+    eq("andere Runde: neuerer gewinnt", MD(alt, andere, "").round.course, "X");
+
+    /* Der live-Zeiger folgt einer EIGENEN Regel — sonst verliert das Gerät, das
+       gerade nur blättert, gegen das Gerät, das gerade tippt. */
+    const a2 = d("2026-08-14T10:00:00Z", [], { src: "phone", hole: 3, at: "2026-08-14T10:20:00Z" });
+    const b2 = d("2026-08-14T10:10:00Z", [], { src: "watch", hole: 7, at: "2026-08-14T10:05:00Z" });
+    eq("neuerer Zeiger gewinnt unabhängig vom Entwurf", MD(a2, b2, "").live.hole, 3);
+
+    /* Verworfen-Marke: ein älterer Entwurf darf nicht auferstehen. */
+    eq("verworfener Entwurf bleibt weg", MD(alt, null, "2026-08-14T12:00:00Z"), null);
+    eq("ohne beides nichts", MD(null, null, ""), null);
+  }
+
+  /* Die kleine Datei: Lesen, Schreiben, Rückfall. */
+  ok("Pfad ist draft.json", /const DRAFT_PATH="draft\.json"/.test(src));
+  ok("Lesen über den path-Parameter", /fresh=1&path="\+encodeURIComponent\(DRAFT_PATH\)/.test(src));
+  ok("Schreiben über den SHA-Türsteher", /"X-Path":DRAFT_PATH,"X-Base-Sha":DRAFT_SHA/.test(src));
+  /* 409 = jemand war schneller: VEREINEN, nicht überschreiben — der andere ist
+     gerade auf der Bahn. */
+  ok("409 wird vereint statt überschrieben", /if\(r\.status===409\)\{[\s\S]{0,300}mergeDraft\(DB\._draftRound, p\.draft/.test(src));
+  /* Alter Worker (403) oder fehlende Datei (404) dürfen nicht blockieren. */
+  ok("404 gilt als leer", /if\(r\.status===404\)\{ DRAFT_SHA=null; return \{leer:true\}; \}/.test(src));
+  ok("403 fällt auf den alten Weg zurück", /if\(!r\.ok\) return null;/.test(src));
+  ok("Runden-Takt nimmt zuerst die kleine Datei",
+    /const p=await draftPull\(\);[\s\S]{0,80}if\(p\)\{/.test(src));
+  ok("Schreiben ist entprellt", /_draftPushT=setTimeout\(\(\)=>\{ draftPush\(\); \}, 2000\)/.test(src));
+  /* Die Messungen der Uhr reisen in derselben kleinen Datei mit — winzig, und
+     sie dürfen nicht bis zum Rundenende liegenbleiben. Beim eigenen Schreiben
+     müssen sie unverändert zurück, sonst löscht das Handy sie. */
+  ok("Messungen werden übernommen", /DB\.gpsShots=_mergeArr\(DB\.gpsShots, d\.gpsShots/.test(src));
+  ok("und beim Schreiben erhalten", /if\(DRAFT_SHOTS\.length\) d\.gpsShots=DRAFT_SHOTS;/.test(src));
+  ok("Grabsteine gelten auch hier", /_tombFor\(DB,"gpsShots"\)/.test(src));
+  ok("jede Eingabe stößt es an", /draftPushSoon\(\);\s+\/\/ v2\.91/.test(src));
+  /* Nach dem Abschluss MUSS die kleine Datei leer sein, sonst zieht das andere
+     Gerät die Runde wieder herein. */
+  ok("Rundenende leert sie", /clearDraft\(\);\s*\n\s*draftFileClear\(\);/.test(src));
+
+  /* Worker-Seite. */
+  const doc = (src.match(/<script[^>]*devdocs[^>]*>([\s\S]*?)<\/script>/) || [])[1] || "";
+  ok("Worker kennt draft.json", /"trainingsdaten\.json", "wissen-bilder\.json", "draft\.json"/.test(doc));
+  ok("GET nimmt einen Pfad", /const p = url\.searchParams\.get\("path"\) \|\| "trainingsdaten\.json";/.test(doc));
+  ok("und prüft ihn gegen die Whitelist", /if \(!CFG\.PATHS\.includes\(p\)\) return resp\(403/.test(doc));
+  ok("Worker-Fassung hochgezählt", /Fassung v2\.6/.test(doc));
+}
+
+/* ============ 24cf. Schlagmessungen der Uhr ============ */
+group("gpsShots — die Messungen der Uhr überleben den Abgleich");
+{
+  const M = G("mergeDB"), src = fs.readFileSync(FILE, "utf8");
+
+  /* DER VERLUST: Für `gpsShots` gab es in mergeDB KEINE Regel — die Liste fiel
+     unter Object.assign({},R,L), das lokale Array gewann vollständig. Die Uhr
+     misst, pusht (additiv), das Handy lädt und wirft die Messungen weg; beim
+     nächsten Push des Handys sind sie auch im Repo weg. Ohne Meldung.
+     Die Uhr-Doku führt das seit Monaten als offenen Punkt. */
+  if (typeof M === "function") {
+    const basis = extra => Object.assign({ version: 12, testDefs: [{key:"a"}], rounds: [{id:"r1"}],
+      tests: [], notes: [], clubDistances: [], competitions: [], profile: {}, ui: {}, tomb: {} }, extra);
+    const handy = basis({ gpsShots: [{id:"G1",club:"Driver"},{id:"G2",club:"7 Iron"}] });
+    const repo  = basis({ gpsShots: [{id:"G1",club:"Driver"},{id:"G2",club:"7 Iron"},
+                                     {id:"G3",club:"5 Wood"},{id:"G4",club:"PW"}] });
+    const r = M(handy, repo);
+    eq("Messungen der Uhr kommen dazu", (r.gpsShots||[]).length, 4);
+    ok("und zwar die richtigen", (r.gpsShots||[]).map(x=>x.id).sort().join(",") === "G1,G2,G3,G4");
+
+    /* Gegenprobe: ein GELÖSCHTER Schlag darf nicht zurückkommen. */
+    const mitTomb = basis({ gpsShots: [{id:"G1"}], tomb: { gpsShots: { G3: "2026-08-14T10:00:00Z" } } });
+    const r2 = M(mitTomb, basis({ gpsShots: [{id:"G1"},{id:"G3"}] }));
+    ok("gelöschter Schlag bleibt gelöscht", !(r2.gpsShots||[]).some(x=>x.id==="G3"));
+  }
+  ok("Merge-Schlüssel eingetragen", /gpsShots:\s+x => x\.id \|\| _J\(x\)/.test(src));
+  ok("Löschen setzt einen Grabstein", /tombDel\("gpsShots", weg\)/.test(src));
+  ok("Rückgängig hebt ihn auf", /tombClear\("gpsShots", weg\.id\)/.test(src));
+  /* Und im Worker (ALT-Modus — den benutzt die Uhr!) gespiegelt. */
+  const doc = (src.match(/<script[^>]*devdocs[^>]*>([\s\S]*?)<\/script>/) || [])[1] || "";
+  ok("Worker vereinigt sie ebenfalls", /out\.gpsShots\s+= _mergeArr\(L\.gpsShots, R\.gpsShots/.test(doc));
+  ok("Worker-Fassung hochgezählt", /Fassung v2\.5/.test(doc));
+}
+
 /* ============ 24ce. GPS-Tick und Runden-Sync ============ */
 group("Spielbetrieb — Rechenzeit und Funk auf der Runde");
 {
@@ -4524,8 +4629,12 @@ group("Spielbetrieb — Rechenzeit und Funk auf der Runde");
   const ps = src.slice(src.indexOf("async function playSyncTick()"),
                        src.indexOf("async function playSyncTick()") + 1400);
   ok("kein doppeltes stringify im Runden-Takt", !/JSON\.stringify\(merged\)!==JSON\.stringify\(DB\)/.test(ps));
-  ok("Uhr-Wächter prüft ebenfalls zuerst die Kennung",
-    /watchLiveBusy=true;[\s\S]{0,420}const sha=await freshRepoSha\(\);/.test(src));
+  /* v2.91: Beide Takte fragen zuerst die KLEINE Datei; die Kennung der grossen
+     ist nur noch der Rückfall für einen Worker ohne `draft.json`. */
+  ok("Uhr-Wächter zieht zuerst den Entwurf",
+    /watchLiveBusy=true;[\s\S]{0,300}const p=await draftPull\(\);/.test(src));
+  ok("und danach erst die grosse Kennung",
+    /watchLiveBusy=true;[\s\S]{0,900}const sha=await freshRepoSha\(\);/.test(src));
   if (typeof SF === "function") {
     const leer = { rounds: [], ui: {} };
     eq("gleicher Stand, gleicher Abdruck", SF(leer), SF({ rounds: [], ui: {} }));
@@ -4676,7 +4785,7 @@ group("Worker-Code in der Doku");
      serverseitig — tatsächlich ist er im benutzten Modus ein SHA-Türsteher.
      Eine Aussage über Code, den man nicht sieht, ist eine Vermutung. */
   ok("Abschnitt vorhanden", /## 28\. `worker\.js` — vollstaendiger Stand/.test(doc));
-  ok("Fassung benannt", /Fassung v2\.4/.test(doc));
+  ok("Fassung benannt", /Fassung v2\.6/.test(doc));
   /* Beim Bau von v2.87 landete eine mergeDB-Änderung im Worker-ABZUG statt in
      der App — eine Suche nach `function mergeDB(` findet den Abzug zuerst,
      weil die Doku im Dokument vor dem Code steht. Der Hinweis muss dastehen. */
