@@ -3174,8 +3174,8 @@ group("STRAT.tee — vertauschte Tee/Grün-Punkte und Modus-Reaktion");
      Der Fehler war nur auf Löchern mit `swap` sichtbar. Deshalb betraf er
      Loch 1 des Nordplatzes und sonst nichts, und deshalb war er so schwer zu
      finden. */
-  const teeFn=src.slice(src.indexOf("  tee(geo,courseName,holeNo,mode,hcp){"),
-                        src.indexOf("  tee(geo,courseName,holeNo,mode,hcp){")+1400);
+  const teeFn=src.slice(src.indexOf("  tee(geo,courseName,holeNo,mode,hcp,von){"),
+                        src.indexOf("  tee(geo,courseName,holeNo,mode,hcp,von){")+1400);
   ok("STRAT.tee nutzt holeRef", /holeRef\(geo,holeNo\)/.test(teeFn));
   ok("und bevorzugt dessen Tee-Punkt", /\(hr&&hr\.tee\)/.test(teeFn));
   ok("Begründung dokumentiert", /swap/.test(teeFn));
@@ -3196,7 +3196,12 @@ group("STRAT.tee — vertauschte Tee/Grün-Punkte und Modus-Reaktion");
   /* Der Cache-Schlüssel MUSS den Modus enthalten, sonst hilft das Verwerfen
      nichts — die Bewertung käme aus dem Speicher zurück. */
   ok("Bewertungs-Cache schlüsselt über den Modus",
-     /_aimTeeEv[\s\S]{0,200}caddyMode\(\)/.test(src));
+     /function _aimTeeEv[\s\S]{0,900}caddyMode\(\)/.test(src));
+  /* Und über die POSITION (v2.94) — auf 10 m gerundet: ohne sie bliebe die
+     erste Rechnung für immer im Speicher, mit voller Genauigkeit käme bei
+     jedem GPS-Zucken eine neue Monte-Carlo-Rechnung. */
+  ok("und über die gerundete Position",
+     /const k="T\|"\+PLAY\.course\+"\|"\+PLAY\.tee\+"\|"\+h\.hole\+"\|"\+caddyMode\(\)\+pk/.test(src));
   ok("Kettenschlüssel ebenso",
      /_aimChainKey[\s\S]{0,300}caddyMode\(\)/.test(src));
 }
@@ -4448,6 +4453,109 @@ group("Hand — die Karte schieben, sonst nichts");
   /* Acht Werkzeuge passen nicht mehr in sechs Spalten — auf dem Telefon wären
      das 44-px-Streifen. */
   ok("vier Spalten", /\.geoed-tools\{display:grid;grid-template-columns:repeat\(4,1fr\)/.test(src));
+}
+
+/* ============ 24ci. Immer ab der eigenen Position ============ */
+group("Caddy — Bezugspunkt ist der Standort, nie das Tee");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+  /* Die Kette baut `_aimBuild`; `playAimChain` ist nur der Zwischenspeicher. */
+  const ac = src.slice(src.indexOf("function _aimBuild(strategic)"),
+                       src.indexOf("function _aimBuild(strategic)") + 3000);
+
+  /* Welchen Abschlag man benutzt, entscheidet die Tee-Farbe — der Kartenpunkt
+     liegt oft zwanzig Meter daneben. Wer vom gelben Tee spielt und die Karte
+     kennt nur das weiße, bekam alle Entfernungen und die Ziellinie um diesen
+     Versatz verschoben, ausgerechnet beim längsten Schlag des Lochs. */
+  ok("Startpunkt ist der Standort", /const start = PLAY\.here \|\| hr\.tee \|\| hr\.green;/.test(ac));
+  ok("keine 30-m-Regel mehr für den Startpunkt",
+    /const amTee = zuWeit \|\| \(!PLAY\.here\);/.test(ac));
+  /* Die beiden Fälle, die bleiben, heißen beide „ich bin gar nicht auf der
+     Bahn": kein GPS-Punkt, oder unplausibel weit weg. */
+  ok("ohne GPS weiterhin das Tee", /!PLAY\.here/.test(ac));
+  ok("zu weit weg weiterhin der Lochplan", /const zuWeit = \(typeof playTooFar/.test(ac));
+  /* Die RECHNUNG darf weiter von der Tee-Nähe abhängen — das ist eine Frage
+     der Methode, nicht des Bezugspunkts. */
+  ok("Schlagzahl folgt der Tee-Nähe", /const abschlagNah = amTee \|\| \(hr\.tee && geoDist\(start,hr\.tee\)<30\);/.test(ac));
+  ok("und wird dort benutzt", /if\(!abschlagNah\)\{/.test(ac));
+
+  /* Die Messung war schon richtig — hier steht die Zusicherung, damit sie es
+     bleibt: das Tee nur ohne Position oder wenn man zu weit weg ist. */
+  const mo = src.slice(src.indexOf("function measureOrigin(here, tee, zuWeit)"),
+                       src.indexOf("function measureOrigin(here, tee, zuWeit)") + 260);
+  ok("Messung nimmt zuerst die Position", /if\(here\) return \{p:here, ab:"Position"\}/.test(mo));
+}
+
+/* ============ 24cj. Takt und Klebeleiste ============ */
+group("Gleichlauf mit der Uhr · Fußraum in der Eingabe");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+
+  /* Der Lochwechsel nahm den langsamsten Weg: cloudSave() mit 3 MB für einen
+     Zeiger von wenigen Byte — ausgerechnet das Ereignis, das drüben sofort
+     ankommen soll. */
+  const lp = src.slice(src.indexOf("function playLivePush()"), src.indexOf("function playLiveRemote()"));
+  ok("Lochwechsel geht über die kleine Datei", /draftPush\(\);\s+\/\/ sofort/.test(lp));
+  ok("und wird nicht entprellt", /clearTimeout\(_draftPushT\)/.test(lp));
+  ok("der große Abgleich nur noch verzögert", /scheduleCloudSync\(\)/.test(lp));
+  /* Ohne draft.json (alter Worker) MUSS der alte Weg bleiben, sonst sieht die
+     Uhr den Wechsel gar nicht. */
+  ok("Rückfall bei altem Worker", /if\(DRAFT_MODE===false\)\{ cloudPushDraft\(\); return; \}/.test(lp));
+
+  /* Takt nach Sichtbarkeit: Wer hinschaut, erwartet Gleichlauf; wer das Handy
+     in der Tasche hat, will kein Dauerfunken. */
+  ok("5 s sichtbar, 30 s im Hintergrund", /SYNC_MS_VORN=5000, SYNC_MS_HINTEN=30000/.test(src));
+  ok("Maßstab ist die Sichtbarkeit", /document\.visibilityState==="visible"\) \? SYNC_MS_VORN/.test(src));
+  ok("Taktwechsel ohne doppelten Timer", /if\(playSyncTimer && _syncMs===ms\) return;/.test(src));
+  ok("beim Aufwecken sofort abgleichen",
+    /visibilitychange[\s\S]{0,400}playSyncTick\(\)/.test(src));
+
+  /* Die klebende Leiste liegt über dem Inhalt — ohne Fußraum verschwinden die
+     letzten Felder dauerhaft dahinter. */
+  ok("Fußraum für die Klebeleiste", /\.sheet\.has-closebar #sheetBody\{padding-bottom:calc\(104px/.test(src));
+  ok("nur in der Eingabemaske", /sheet\.classList\.add\("has-closebar"\)/.test(src));
+  /* Und zurückgenommen bei JEDEM neuen Blatt — sonst hätte das nächste
+     unerklärliche Luft am Fuß. */
+  ok("beim nächsten Blatt zurückgenommen",
+    /function openSheet\(html\)\{[\s\S]{0,400}classList\.remove\("has-closebar"\)/.test(src));
+}
+
+/* ============ 24ci. Caddy rechnet ab der eigenen Position ============ */
+group("Caddy — immer von hier, nie vom gespeicherten Tee");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+  const S = G("STRAT");
+
+  /* Der gespeicherte Abschlag ist EIN Tee, meist das gelbe. Wer von Weiß oder
+     Blau spielt, steht 20–40 m dahinter — die Rechnung unterschlug diese Meter
+     und empfahl für ein kürzeres Loch. Bei 30 m kippt die Schlägerwahl. */
+  ok("tee() nimmt einen Startpunkt", /tee\(geo,courseName,holeNo,mode,hcp,von\)\{/.test(src));
+  ok("ohne Angabe wie bisher der gespeicherte", /const teeP = von \|\| teeGespeichert;/.test(src));
+  ok("Caddy-Zeile gibt die Position mit", /_aimTeeEv\(geo,h,_caddyVon\(\)\)/.test(src));
+  ok("aufgeklappter Caddy ebenso", /STRAT\.tee\(geo,PLAY\.course,h\.hole,caddyMode\(\),null,_caddyVon\(\)\)/.test(src));
+
+  /* Der Zwischenspeicher MUSS die Position enthalten — sonst bliebe die erste
+     Rechnung für immer stehen. Aber gerundet, sonst rechnet jedes GPS-Zucken
+     eine neue Monte-Carlo-Runde. */
+  const cv = src.slice(src.indexOf("function _caddyVon()"), src.indexOf("function _aimTeeEv"));
+  ok("Position wird gerundet", /Math\.round\(p\[0\]\*11054\)\/11054/.test(cv));
+  ok("ohne Position: null", /if\(!p\) return null;/.test(cv));
+
+  /* Gegenprobe an der Engine: Derselbe Abschlag von 30 m weiter hinten muss
+     eine längere Restdistanz ergeben — sonst wirkt der Startpunkt nicht. */
+  if (S && typeof S.tee === "function") {
+    const mLat = 110540;
+    const tee = [54.0, 10.75], green = [54.0 + 380 / mLat, 10.75];
+    const geo = { holes: { 1: { tee, green, line: [tee, green], par: 4, distM: 380 } },
+      features: [], mine: [] };
+    const a = S.tee(geo, "T", 1, "bal", 20);
+    const b = S.tee(geo, "T", 1, "bal", 20, [54.0 - 30 / mLat, 10.75]);   // 30 m dahinter
+    if (a && b && a.best && b.best) {
+      ok("weiter hinten = längeres Loch",
+        (b.best.rest || 0) >= (a.best.rest || 0) || JSON.stringify(a.target) !== JSON.stringify(b.target),
+        "Ziel a=" + JSON.stringify(a.target) + " b=" + JSON.stringify(b.target));
+    }
+  }
 }
 
 /* ============ 24ch. Abgleich prüfen ============ */
@@ -5929,8 +6037,8 @@ group("Caddy — zweiter Zug und die Gewichte, die ihn tragen");
 
     /* --- (b) Zweiter Zug --- */
     ok("_ply2 existiert", typeof S._ply2 === "function");
-    const te = src.slice(src.indexOf("  tee(geo,courseName,holeNo,mode,hcp)"),
-                         src.indexOf("  tee(geo,courseName,holeNo,mode,hcp)") + 6000);
+    const te = src.slice(src.indexOf("  tee(geo,courseName,holeNo,mode,hcp,von)"),
+                         src.indexOf("  tee(geo,courseName,holeNo,mode,hcp,von)") + 6000);
     ok("zweite Ebene nur für die Spitze", /Math\.min\(5,cands\.length\)/.test(te));
     ok("Korrektur gedämpft (Mittelpunkt statt Verteilung)", /0\.7\s*\*\s*c\.ply2/.test(te));
     ok("Korrektur ist Gelände minus Tabelle", /p2\.sc\s*-\s*generisch/.test(te));
