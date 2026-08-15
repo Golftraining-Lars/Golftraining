@@ -175,7 +175,7 @@ try {
                  "holeGir","holeUpDown","holeSandSave","platzAnalyse","taskFortschritt",
                  "warmupSchedule","warmupKorrektiv","WARMUP_PLANS","medianSplit","pearson",
                  "rKrit","gpKey","gpLabel","gpTotalES","pickClub","_aimClub","_aimLerp",
-                 "geoEdSelHat","geoEdVertHandles","snapshot","_nearest","_reaching","pfWizHtml","heuteJetzt","dispOvalFrom","dispChipHtml","dispRingPath","pathTopPoint","dispHitShare","dispText","dispSchemaSvg","dispSigmaFor","_erf","gpClubFracs","measureOrigin","geoEdMinW","editMinW","vegMask","maskMorph","maskBlobs","blobRing","ringSimplify","detectVeg","gpFingerprint","gpStale","_hash32","vegOn","viewBoxFor","troubleFeatures","geoEdPunktVon","_mergeCourses","snapBehalten","playVecKey","syncFinger","courseSVG","mergeDB","mergeDraft","watchPayload","shotZaehlt","playTouchHole","wikiRelated","wikiToc","wikiTocId","wikiForSG","wikiTagsShow","SAT_SRC","satSrcFor","satTileUrl","satTileKey","DB","STRAT","GEOED"];
+                 "geoEdSelHat","geoEdVertHandles","snapshot","_nearest","_reaching","pfWizHtml","heuteJetzt","dispOvalFrom","dispChipHtml","dispRingPath","pathTopPoint","dispHitShare","dispText","dispSchemaSvg","dispSigmaFor","_erf","gpClubFracs","measureOrigin","geoEdMinW","editMinW","vegMask","maskMorph","maskBlobs","blobRing","ringSimplify","detectVeg","gpFingerprint","gpStale","_hash32","vegOn","viewBoxFor","troubleFeatures","geoEdPunktVon","_mergeCourses","snapBehalten","playVecKey","syncFinger","courseSVG","mergeDB","mergeDraft","watchPayload","shotZaehlt","playTouchHole","watchGeo","probeFrage","wikiRelated","wikiToc","wikiTocId","wikiForSG","wikiTagsShow","SAT_SRC","satSrcFor","satTileUrl","satTileKey","DB","STRAT","GEOED"];
   const epilog = "\n;globalThis.__T={" +
     namen.map(n => `${n}: (typeof ${n}!=="undefined"?${n}:undefined)`).join(",") + "};";
   vm.runInContext(code + epilog, ctx, { timeout: 20000 });
@@ -4701,6 +4701,82 @@ group("Bibliothek — Verweise, Inhalt, Brücke zum Spiel");
     /if\(!WIKI\.q && !WIKI\.cat && !WIKI\.grp && !WIKI\.tags\.length && !WIKI\.onlyFav\) h\+=wikiSGHtml\(\);/.test(src));
 }
 
+/* ============ 24cr. Kopplungstest App ↔ Uhr ============ */
+group("Kopplungstest — rechnen beide dasselbe?");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+  const F = G("probeFrage"), DB0 = G("DB");
+
+  /* Die Rundensimulation prüft nur DIESE App. Ob die Uhr dieselben Zahlen
+     rechnet, zeigte bisher erst die Bahn — dort ist es aufgefallen. */
+  ok("eigene Datei, keine Spieldaten", /const PROBE_PATH="probe\.json"/.test(src));
+  ok("Frage schreiben", /async function probeSchreiben\(obj\)/.test(src));
+  ok("Antwort lesen", /async function probeLesen\(\)/.test(src));
+  ok("Test-Knopf vorhanden", /id="cfgKoppel"/.test(src));
+
+  /* Gefragt wird bevorzugt ein Loch mit VERTAUSCHTEM Tee/Grün — genau dort
+     ist der Fehler aufgetreten, also wird genau dort geprüft. */
+  if (typeof F === "function" && DB0) {
+    const alt = DB0.courses;
+    const mLat = 110540;
+    const tee = [54.0, 10.75], green = [54.0 + 300 / mLat, 10.75];
+    DB0.courses = [{ name: "T", tees: {}, geo: { holes: {
+      1: { tee, green, line: [tee, green] },
+      2: { tee: green, green: tee, swap: true, line: [tee, green] } }, features: [] } }];
+    const q = F();
+    ok("Frage gebildet", !!q, JSON.stringify(q));
+    eq("nimmt das vertauschte Loch", q.hole, 2);
+    ok("Testpunkt liegt ~150 m vor dem Grün", Math.abs(q.erwartet - 150) <= 3, String(q.erwartet));
+    ok("Position ist ein Punkt", Array.isArray(q.pos) && q.pos.length === 2);
+    DB0.courses = alt;
+  }
+
+  /* Der Wert des Tests liegt im VERGLEICH — „ok" allein prüft nichts. */
+  ok("zeigt beide Zahlen", /App rechnet: /.test(src) && /Uhr rechnet: /.test(src));
+  ok("meldet Abweichung deutlich", /ABWEICHUNG /.test(src));
+  ok("meldet beide Fassungen", /Fassungen — App /.test(src));
+  ok("wartet begrenzt", /for\(let i=0;i<15;i\+\+\)/.test(src));
+
+  const doc = (src.match(/<script[^>]*devdocs[^>]*>([\s\S]*?)<\/script>/) || [])[1] || "";
+  ok("Worker kennt probe.json", /"watch\.json", "probe\.json"/.test(doc));
+}
+
+/* ============ 24cq. Die Uhr bekommt die AUFGELÖSTE Karte ============ */
+group("watchGeo — was die Uhr sieht, ist was die App sieht");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+  const W = G("watchGeo");
+
+  /* DER FELDFEHLER: `applyGeoOverrides` setzt bei vertauschtem Tee/Grün nur die
+     MARKE `swap`; gedreht wird erst beim Lesen in `holeRef`. Die Uhr las roh —
+     und zielte auf den Abschlag. Am Tee sind das rund 40 m statt 300 m zum
+     Grün, und zwar nur auf den Löchern mit gesetztem swap. */
+  if (typeof W === "function") {
+    const mLat = 110540;
+    const tee = [54.0, 10.75], green = [54.0 + 300 / mLat, 10.75];
+    const geo = { holes: { 1: { tee: green, green: tee, swap: true },   // vertauscht gespeichert
+                           2: { tee, green } },
+                  features: [], overrides: { holes: { 1: { swap: true } } } };
+    const w = W(geo);
+    eq("Loch 1: Grün ist wirklich das Grün", JSON.stringify(w.holes["1"].green), JSON.stringify(green));
+    eq("Loch 1: Tee ist wirklich der Abschlag", JSON.stringify(w.holes["1"].tee), JSON.stringify(tee));
+    ok("die Marke ist weg (schon angewendet)", !("swap" in w.holes["1"]));
+    eq("Loch 2 bleibt unverändert", JSON.stringify(w.holes["2"].green), JSON.stringify(green));
+    /* Länge neu gerechnet — sonst stünde die Distanz des vertauschten Standes. */
+    ok("distM passt zur aufgelösten Bahn", Math.abs(w.holes["1"].distM - 300) <= 2, String(w.holes["1"].distM));
+    ok("overrides nicht doppelt mitgeschickt", !w.overrides);
+    /* Fehlendes Grün: `holeRef` ergänzt es aus dem nächsten green-Feature
+       (90 m um das Linienende, sonst 120 m). Die Uhr kann das nicht und zeigte
+       dort gar keine Distanz. Der Ring muss dafür in Reichweite der BAHN
+       liegen — hier über die Spiellinie. */
+    const ring = [[54.0026,10.75],[54.0027,10.7501],[54.0026,10.7502],[54.0026,10.75]];
+    const geo2 = { holes: { 3: { tee, line: [tee, green] } },
+                   features: [{ kind: "green", ring }] };
+    ok("fehlendes Grün wird ergänzt", !!W(geo2).holes["3"].green);
+  }
+  ok("Uhr-Datei nutzt die aufgelöste Karte", /o\.geo=watchGeo\(c\.geo\)/.test(src));
+}
+
 /* ============ 24cn. Verwerfen gilt auf beiden Geräten ============ */
 group("Runde verwerfen — die Entscheidung reist mit");
 {
@@ -4715,14 +4791,23 @@ group("Runde verwerfen — die Entscheidung reist mit");
   ok("Lesen erkennt sie", /if\(d && d\.discardedTs\)\{/.test(src));
   /* Nur wenn sie JÜNGER ist als der eigene Entwurf — sonst beendete eine alte
      Marke jede neue Runde sofort wieder. */
-  ok("nur eine jüngere Marke zählt", /if\(!eigen \|\| d\.discardedTs > eigen\) return \{verworfen/.test(src));
+  /* NUR mit eigenem Entwurf und nur wenn die Marke jünger ist. Ohne eigene
+     Runde gibt es nichts zu beenden — sonst wird aus einer Notiz ein Befehl,
+     und zwei Geräte schaufeln sich gegenseitig die Datei leer (v3.05). */
+  ok("nur eine jüngere Marke zählt", /if\(eigen && d\.discardedTs > eigen\) return \{verworfen/.test(src));
+  ok("ohne eigenen Entwurf kein Befehl", /if\(!eigen\) return \{leer:true\};/.test(src));
   ok("laufende Runde wird beendet", /if\(p && p\.verworfen\)\{[\s\S]{0,400}PLAY\.active=false/.test(src));
   ok("ohne Rückfrage", !/if\(p && p\.verworfen\)\{[\s\S]{0,300}confirm\(/.test(src));
   ok("auch ohne laufende Runde übernommen",
     /if\(p && p\.verworfen\)\{[\s\S]{0,600}watchLiveBusy=false/.test(src));
   /* Und der eigene Push darf die verworfene Runde nicht zurückschreiben. */
   ok("kein Wiederbeleben durch den eigenen Push",
-    /if\(tomb && \(!eigen \|\| tomb>=eigen\)\) return draftPushRaw\(\{discardedTs:tomb\}\)/.test(src));
+    /if\(tomb && tomb>=eigen\) return draftPushRaw\(\{discardedTs:tomb\}\)/.test(src));
+  /* DER FEHLER VON v3.02: Ohne eigenen Entwurf wurde der Grabstein alle fünf
+     Sekunden geschrieben — und löschte die laufende Runde des ANDEREN Geräts
+     aus der gemeinsamen Datei. Ohne Eigenes wird gar nicht geschrieben. */
+  ok("ohne eigenen Entwurf wird nicht geschrieben",
+    /if\(!eigen\) return false;\s+\/\/ nichts Eigenes/.test(src));
 }
 
 /* ============ 24cm. Änderungen zwischen den Geräten ============ */
@@ -4739,7 +4824,23 @@ group("Abgleich — der neuere Stand gewinnt, je Loch");
     T(h);
     ok("Loch bekommt einen Zeitstempel", typeof h.ts === "string" && h.ts.length > 10);
     ok("ohne Loch kein Absturz", (T(null), true));
+    /* UHRZEIT-VERSATZ (v3.07, aus der Rundensimulation): Geht die Uhr eine
+       Minute vor, trägt jede ihrer Eingaben einen Zeitstempel aus der Zukunft
+       — und jede Korrektur am Handy gälte als älter und würde verworfen. Wer
+       gerade tippt, muss das letzte Wort haben. */
+    const zukunft = new Date(Date.now() + 60000).toISOString();
+    const h2 = { hole: 4, ts: zukunft };
+    T(h2);
+    ok("schlägt einen Zeitstempel aus der Zukunft", h2.ts > zukunft, h2.ts + " > " + zukunft);
+    const alt3 = new Date(Date.now() - 60000).toISOString();
+    const h3 = { hole: 5, ts: alt3 };
+    T(h3);
+    ok("sonst schlicht die aktuelle Zeit", h3.ts > alt3 && h3.ts <= new Date(Date.now() + 2000).toISOString(), h3.ts);
   }
+  /* Und die REIHENFOLGE: erst stempeln, dann die Runde bauen — `playRound()`
+     kopiert die Löcher, wer danach stempelt, schickt den alten Stand. */
+  ok("erst stempeln, dann bauen",
+    /playTouchHole\(PLAY\.holes\[PLAY\.idx\]\);\s*\n\s*const r=playRound\(\);/.test(src));
 
   const ad = src.slice(src.indexOf("function playAdoptDraft()"),
                        src.indexOf("function playAdoptDraft()") + 1600);
@@ -4863,6 +4964,18 @@ group("watch.json — die Uhr trägt nicht 3 MB");
       const da = Array.isArray(DB0[k]);
       ok("Liste mitgegeben: " + k, !da || Array.isArray(p[k]));
     });
+
+    /* DIE KARTE IST DER GRUND, WARUM DIE UHR DISTANZEN ZEIGT (v3.05).
+       Vorher bekamen nur die drei zuletzt GESPIELTEN Plätze eine — beim ersten
+       Mal auf einem Platz gibt es aber noch keine Runde, also stand man ohne
+       Karte auf der Bahn. */
+    DB0.rounds = [{ date: "2026-08-10", course: "A" }];
+    const vorher = DB0._draftRound;
+    DB0._draftRound = { ts: "x", round: { course: "D", date: "2026-08-15" } };
+    const p2 = WP();
+    const mitGeo2 = (p2.courses || []).filter(c => c.geo).map(c => c.name).sort().join(",");
+    ok("Platz der laufenden Runde ist dabei", mitGeo2.indexOf("D") >= 0, mitGeo2);
+    DB0._draftRound = vorher;
     DB0.courses = alt.courses; DB0.rounds = alt.rounds; DB0.clubDistances = alt.clubDistances;
   }
 
@@ -4883,7 +4996,7 @@ group("watch.json — die Uhr trägt nicht 3 MB");
 
   const doc = (src.match(/<script[^>]*devdocs[^>]*>([\s\S]*?)<\/script>/) || [])[1] || "";
   ok("Worker kennt watch.json", /"draft\.json", "watch\.json"/.test(doc));
-  ok("Worker-Fassung hochgezählt", /Fassung v2\.7/.test(doc));
+  ok("Worker-Fassung hochgezählt", /Fassung v2\.8/.test(doc));
 }
 
 /* ============ 24ch. Abgleich prüfen ============ */
@@ -5271,7 +5384,7 @@ group("Worker-Code in der Doku");
      serverseitig — tatsächlich ist er im benutzten Modus ein SHA-Türsteher.
      Eine Aussage über Code, den man nicht sieht, ist eine Vermutung. */
   ok("Abschnitt vorhanden", /## 28\. `worker\.js` — vollstaendiger Stand/.test(doc));
-  ok("Fassung benannt", /Fassung v2\.7/.test(doc));
+  ok("Fassung benannt", /Fassung v2\.8/.test(doc));
   /* Beim Bau von v2.87 landete eine mergeDB-Änderung im Worker-ABZUG statt in
      der App — eine Suche nach `function mergeDB(` findet den Abzug zuerst,
      weil die Doku im Dokument vor dem Code steht. Der Hinweis muss dastehen. */
