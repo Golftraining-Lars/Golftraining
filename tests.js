@@ -4572,6 +4572,30 @@ group("Caddy — immer von hier, nie vom gespeicherten Tee");
   }
 }
 
+/* ============ 24cn. Verwerfen gilt auf beiden Geräten ============ */
+group("Runde verwerfen — die Entscheidung reist mit");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+
+  /* Eine LEERE draft.json heißt nur „gerade keine Runde im Repo" — nicht
+     „verworfen". Das andere Gerät spielte weiter, sein nächster Push legte die
+     Runde wieder an, und weil der jünger war, kam sie zurück. Ein Fehlen lässt
+     sich nicht übertragen, ein DATUM schon. */
+  ok("Verwerfen schreibt eine Marke", /draftPushRaw\(\{discardedTs:ts\}\)/.test(src));
+  ok("eigener Schreibweg dafür", /async function draftPushRaw\(obj\)/.test(src));
+  ok("Lesen erkennt sie", /if\(d && d\.discardedTs\)\{/.test(src));
+  /* Nur wenn sie JÜNGER ist als der eigene Entwurf — sonst beendete eine alte
+     Marke jede neue Runde sofort wieder. */
+  ok("nur eine jüngere Marke zählt", /if\(!eigen \|\| d\.discardedTs > eigen\) return \{verworfen/.test(src));
+  ok("laufende Runde wird beendet", /if\(p && p\.verworfen\)\{[\s\S]{0,400}PLAY\.active=false/.test(src));
+  ok("ohne Rückfrage", !/if\(p && p\.verworfen\)\{[\s\S]{0,300}confirm\(/.test(src));
+  ok("auch ohne laufende Runde übernommen",
+    /if\(p && p\.verworfen\)\{[\s\S]{0,600}watchLiveBusy=false/.test(src));
+  /* Und der eigene Push darf die verworfene Runde nicht zurückschreiben. */
+  ok("kein Wiederbeleben durch den eigenen Push",
+    /if\(tomb && \(!eigen \|\| tomb>=eigen\)\) return draftPushRaw\(\{discardedTs:tomb\}\)/.test(src));
+}
+
 /* ============ 24cm. Änderungen zwischen den Geräten ============ */
 group("Abgleich — der neuere Stand gewinnt, je Loch");
 {
@@ -4967,7 +4991,7 @@ group("Spielbetrieb — Rechenzeit und Funk auf der Runde");
   ok("Uhr-Wächter zieht zuerst den Entwurf",
     /watchLiveBusy=true;[\s\S]{0,300}const p=await draftPull\(\);/.test(src));
   ok("und danach erst die grosse Kennung",
-    /watchLiveBusy=true;[\s\S]{0,900}const sha=await freshRepoSha\(\);/.test(src));
+    /watchLiveBusy=true;[\s\S]{0,1800}const sha=await freshRepoSha\(\);/.test(src));
   if (typeof SF === "function") {
     const leer = { rounds: [], ui: {} };
     eq("gleicher Stand, gleicher Abdruck", SF(leer), SF({ rounds: [], ui: {} }));
