@@ -175,7 +175,7 @@ try {
                  "holeGir","holeUpDown","holeSandSave","platzAnalyse","taskFortschritt",
                  "warmupSchedule","warmupKorrektiv","WARMUP_PLANS","medianSplit","pearson",
                  "rKrit","gpKey","gpLabel","gpTotalES","pickClub","_aimClub","_aimLerp",
-                 "geoEdSelHat","geoEdVertHandles","snapshot","_nearest","_reaching","pfWizHtml","heuteJetzt","dispOvalFrom","dispChipHtml","dispRingPath","pathTopPoint","dispHitShare","dispText","dispSchemaSvg","dispSigmaFor","_erf","gpClubFracs","measureOrigin","geoEdMinW","editMinW","vegMask","maskMorph","maskBlobs","blobRing","ringSimplify","detectVeg","gpFingerprint","gpStale","_hash32","vegOn","viewBoxFor","troubleFeatures","geoEdPunktVon","_mergeCourses","snapBehalten","playVecKey","syncFinger","courseSVG","mergeDB","mergeDraft","watchPayload","shotZaehlt","playTouchHole","SAT_SRC","satSrcFor","satTileUrl","satTileKey","DB","STRAT","GEOED"];
+                 "geoEdSelHat","geoEdVertHandles","snapshot","_nearest","_reaching","pfWizHtml","heuteJetzt","dispOvalFrom","dispChipHtml","dispRingPath","pathTopPoint","dispHitShare","dispText","dispSchemaSvg","dispSigmaFor","_erf","gpClubFracs","measureOrigin","geoEdMinW","editMinW","vegMask","maskMorph","maskBlobs","blobRing","ringSimplify","detectVeg","gpFingerprint","gpStale","_hash32","vegOn","viewBoxFor","troubleFeatures","geoEdPunktVon","_mergeCourses","snapBehalten","playVecKey","syncFinger","courseSVG","mergeDB","mergeDraft","watchPayload","shotZaehlt","playTouchHole","wikiRelated","wikiToc","wikiTocId","wikiForSG","wikiTagsShow","SAT_SRC","satSrcFor","satTileUrl","satTileKey","DB","STRAT","GEOED"];
   const epilog = "\n;globalThis.__T={" +
     namen.map(n => `${n}: (typeof ${n}!=="undefined"?${n}:undefined)`).join(",") + "};";
   vm.runInContext(code + epilog, ctx, { timeout: 20000 });
@@ -4570,6 +4570,135 @@ group("Caddy — immer von hier, nie vom gespeicherten Tee");
         "Ziel a=" + JSON.stringify(a.target) + " b=" + JSON.stringify(b.target));
     }
   }
+}
+
+/* ============ 24cp. Chip-Tests und Gewichtung ============ */
+group("Chippen — drei neue Tests, saubere Gewichtung");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+  const a = src.indexOf('"testDefs": [');
+  let b = src.indexOf("[", a), d = 0, p = b;
+  while (p < src.length) { if (src[p] === "[") d++; else if (src[p] === "]") { d--; if (!d) break; } p++; }
+  let defs = []; try { defs = JSON.parse(src.slice(b, p + 1)); } catch (e) { defs = []; }
+
+  ["chiplande", "chiproll", "chipleiter"].forEach(k =>
+    ok("Test angelegt: " + k, defs.some(t => t.key === k)));
+
+  /* Jeder neue Test misst eine URSACHE, die die vorhandenen nicht trennen:
+     Landung, Rollverhältnis, Entfernung. */
+  const neu = defs.filter(t => ["chiplande", "chiproll", "chipleiter"].indexOf(t.key) >= 0);
+  neu.forEach(t => {
+    ok(t.key + ": im Kurzspiel einsortiert", t.category === "Short Game & Pelz");
+    ok(t.key + ": Eingaben vorhanden", (t.inputs || []).length >= 2);
+    ok(t.key + ": Skala mit fünf Stufen", ((t.benchmark || {}).levels || []).length === 5);
+    ok(t.key + ": Skala steigt", ((t.benchmark || {}).levels || []).every((v, i, arr) => i === 0 || v > arr[i - 1]));
+    ok(t.key + ": geht in die Gewichtung", (t.weight || 0) > 0 && !!t.weightKey);
+  });
+
+  /* DIE GEWICHTUNG IST EIN GANZES: Drei Tests dazuzunehmen, ohne die anderen
+     anzupassen, hätte die Summe auf 1,09 getrieben — die Oberfläche zeigt die
+     Gewichte als Prozent, und 109 % sind keine Prozente. Alle Werte wurden im
+     selben Verhältnis skaliert; die Rangfolge unter den alten Tests bleibt
+     damit exakt erhalten. */
+  const summe = defs.reduce((a2, t) => a2 + (t.weight || 0), 0);
+  ok("Gewichte summieren sich auf rund 1", summe > 0.95 && summe <= 1.001, summe.toFixed(4));
+  /* Und jeder gewichtete Test braucht seinen Eintrag in priorityWeights,
+     sonst zeigt die Fokusliste ein anderes Gewicht als die Auswertung. */
+  const pw = (src.match(/"priorityWeights": \{([\s\S]*?)\n \}/) || [])[1] || "";
+  /* Nur Tests, die tatsächlich ein Gewicht TRAGEN. `R10 Dispersion (/30)` hat
+     einen weightKey, aber kein `weight` — er läuft damit gar nicht in der
+     Gewichtung mit (focusList verlangt beides). Das ist ein Altbefund, kein
+     Fehler dieser Änderung; wer ihn beheben will, vergibt ein Gewicht. */
+  const keys = defs.filter(t => t.weightKey && t.weight).map(t => t.weightKey);
+  const fehlt = keys.filter(k => pw.indexOf('"' + k + '"') < 0);
+  ok("jeder weightKey steht in priorityWeights", fehlt.length === 0, fehlt.join(", "));
+}
+
+/* ============ 24co. Wissensdatenbank ============ */
+group("Bibliothek — Verweise, Inhalt, Brücke zum Spiel");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+  const R = G("wikiRelated"), T = G("wikiToc"), TI = G("wikiTocId"), SG = G("wikiForSG"),
+        TS = G("wikiTagsShow"), DB0 = G("DB");
+
+  /* Inhaltsverzeichnis: erst ab drei Überschriften — darunter ist der Artikel
+     kurz genug zum Scrollen, und ein Verzeichnis mit zwei Einträgen ist nur
+     eine weitere Zeile. */
+  if (typeof T === "function") {
+    eq("zwei Überschriften: kein Verzeichnis", T("# A\ntext\n## B").length, 0);
+    eq("drei ergeben eines", T("# A\n## B\n### C").length, 3);
+    eq("Ebene wird mitgeführt", T("# A\n## B\n### C")[2].tief, 3);
+    eq("Fließtext zählt nicht", T("kein # Titel\nnoch was").length, 0);
+    eq("ohne Text nichts", T("").length, 0);
+  }
+  /* Die Sprungmarke MUSS zur Bildung im HTML passen, sonst zeigt das
+     Verzeichnis ins Leere. */
+  if (typeof TI === "function") {
+    eq("Marke wird normalisiert", TI("Grün lesen: Fall & Korn"), "wtoc_gr-n-lesen-fall-korn");
+    ok("dieselbe Regel im HTML",
+      /toLowerCase\(\)\.replace\(\/\[\^a-z0-9\]\+\/g,"-"\)\.replace\(\/\^-\|-\$\/g,""\)/.test(src));
+  }
+
+  /* Verwandte Artikel: gemeinsame Tags wiegen am schwersten, weil sie jemand
+     bewusst vergeben hat. `grundpfeiler` darf NICHT zählen — das tragen alle
+     84 Artikel, es würde jeden mit jedem verwandt machen. */
+  if (typeof R === "function" && DB0) {
+    const alt = DB0.wiki;
+    DB0.wiki = { articles: [
+      { id: "a", title: "Chippen Basis", cat: "Chippen", tags: ["grundpfeiler", "chippen", "release"] },
+      { id: "b", title: "Chippen Release", cat: "Chippen", tags: ["grundpfeiler", "chippen", "release"] },
+      { id: "c", title: "Pitchen", cat: "Pitchen", tags: ["grundpfeiler", "kurzspiel"] },
+      { id: "d", title: "Driver", cat: "Driver", tags: ["grundpfeiler", "driver"] }
+    ] };
+    const r = R(DB0.wiki.articles[0], 3);
+    eq("engster Treffer zuerst", r[0].id, "b");
+    ok("sich selbst nie", !r.some(x => x.id === "a"));
+    /* Nur `grundpfeiler` gemeinsam reicht NICHT für eine Empfehlung. */
+    ok("kein Zufallstreffer über das Allerwelts-Tag", !r.some(x => x.id === "d"));
+    DB0.wiki = alt;
+  }
+
+  /* Brücke: schwächste SG-Kategorie → passende Artikel, Übungen zuerst. */
+  if (typeof SG === "function" && DB0) {
+    const alt = DB0.wiki;
+    DB0.wiki = { articles: [
+      { id: "p1", title: "Putt-Technik", cat: "Putten – Technik", tags: ["putten"] },
+      { id: "p2", title: "Lag-Drill", cat: "Putten – Technik", tags: ["putten", "drill"] },
+      { id: "x1", title: "Driver", cat: "Driver", tags: ["driver"] }
+    ] };
+    const r = SG("putt", 3);
+    ok("Putt-Artikel gefunden", r.length >= 2);
+    eq("Übung steht vorn", r[0].id, "p2");
+    ok("Fremdes bleibt draußen", !r.some(x => x.id === "x1"));
+    eq("unbekannte Kategorie: nichts", SG("gibtsnicht", 3).length, 0);
+    DB0.wiki = alt;
+  }
+
+  /* Das Allerwelts-Tag verschwindet aus der ANZEIGE, bleibt aber in den Daten:
+     Es ist die Herkunftsangabe, und `gpDiff` vergleicht normalisierte Tags —
+     wegschreiben hieße, alle 84 Artikel als „geändert" zu melden. */
+  if (typeof TS === "function") {
+    const a = { tags: ["grundpfeiler", "chippen"] };
+    eq("stumm geschaltet", TS(a).join(","), "chippen");
+    eq("in den Daten unberührt", a.tags.length, 2);
+  }
+  ok("Filter arbeitet weiter mit allen Tags", /if\(tags\.length\)\{ const at=wikiTagsOf\(a\)/.test(src));
+
+  /* Kategorien: keine Einzelstücke mehr, und die Feinheit lebt als Tag weiter. */
+  {
+    const lib = JSON.parse((src.match(/id="gplib">([\s\S]*?)<\/script>/) || [])[1]);
+    const zahl = {}; lib.forEach(a => zahl[a.cat] = (zahl[a.cat] || 0) + 1);
+    const einzel = Object.keys(zahl).filter(k => zahl[k] < 2);
+    eq("keine Kategorie mit nur einem Artikel", einzel.join(", "), "");
+    ok("deutlich weniger Kategorien", Object.keys(zahl).length <= 26, String(Object.keys(zahl).length));
+    /* Gegenprobe: Der Artikel, der mal „Green-Reading" war, trägt es als Tag. */
+    const gr = lib.find(a => (a.tags || []).indexOf("green-reading") >= 0);
+    ok("alte Kategorie lebt als Tag weiter", !!gr && gr.cat === "Putten – Technik");
+  }
+  ok("Wanderung für eigene Artikel", /function migrateWikiCats\(\)/.test(src));
+  ok("nur einmal", /if\(DB\.ui && DB\.ui\.wikiCatsMigriert\) return;/.test(src));
+  ok("Brücke nur ohne aktiven Filter",
+    /if\(!WIKI\.q && !WIKI\.cat && !WIKI\.grp && !WIKI\.tags\.length && !WIKI\.onlyFav\) h\+=wikiSGHtml\(\);/.test(src));
 }
 
 /* ============ 24cn. Verwerfen gilt auf beiden Geräten ============ */
