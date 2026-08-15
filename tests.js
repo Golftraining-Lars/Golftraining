@@ -175,7 +175,7 @@ try {
                  "holeGir","holeUpDown","holeSandSave","platzAnalyse","taskFortschritt",
                  "warmupSchedule","warmupKorrektiv","WARMUP_PLANS","medianSplit","pearson",
                  "rKrit","gpKey","gpLabel","gpTotalES","pickClub","_aimClub","_aimLerp",
-                 "geoEdSelHat","geoEdVertHandles","snapshot","_nearest","_reaching","pfWizHtml","heuteJetzt","dispOvalFrom","dispChipHtml","dispRingPath","pathTopPoint","dispHitShare","dispText","dispSchemaSvg","dispSigmaFor","_erf","gpClubFracs","measureOrigin","geoEdMinW","editMinW","vegMask","maskMorph","maskBlobs","blobRing","ringSimplify","detectVeg","gpFingerprint","gpStale","_hash32","vegOn","viewBoxFor","troubleFeatures","geoEdPunktVon","_mergeCourses","snapBehalten","playVecKey","syncFinger","courseSVG","mergeDB","mergeDraft","watchPayload","SAT_SRC","satSrcFor","satTileUrl","satTileKey","DB","STRAT","GEOED"];
+                 "geoEdSelHat","geoEdVertHandles","snapshot","_nearest","_reaching","pfWizHtml","heuteJetzt","dispOvalFrom","dispChipHtml","dispRingPath","pathTopPoint","dispHitShare","dispText","dispSchemaSvg","dispSigmaFor","_erf","gpClubFracs","measureOrigin","geoEdMinW","editMinW","vegMask","maskMorph","maskBlobs","blobRing","ringSimplify","detectVeg","gpFingerprint","gpStale","_hash32","vegOn","viewBoxFor","troubleFeatures","geoEdPunktVon","_mergeCourses","snapBehalten","playVecKey","syncFinger","courseSVG","mergeDB","mergeDraft","watchPayload","shotZaehlt","SAT_SRC","satSrcFor","satTileUrl","satTileKey","DB","STRAT","GEOED"];
   const epilog = "\n;globalThis.__T={" +
     namen.map(n => `${n}: (typeof ${n}!=="undefined"?${n}:undefined)`).join(",") + "};";
   vm.runInContext(code + epilog, ctx, { timeout: 20000 });
@@ -4556,6 +4556,55 @@ group("Caddy — immer von hier, nie vom gespeicherten Tee");
         "Ziel a=" + JSON.stringify(a.target) + " b=" + JSON.stringify(b.target));
     }
   }
+}
+
+/* ============ 24cl. Schlag-Beschriftung und Statistik-Marke ============ */
+group("Schlageditor — was am Schlag steht und was zählt");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+  const Z = G("shotZaehlt");
+
+  /* EINE Quelle für „zählt in die gelernten Schlägerlängen": Sonst sagt die
+     Marke auf der Karte das eine und `clubMeasured` rechnet das andere. */
+  if (typeof Z === "function") {
+    const heute = new Date().toISOString();
+    const alt = new Date(Date.now() - 400 * 864e5).toISOString();
+    ok("voller Schlag mit Schläger zählt", Z({ club: "7 Iron", ts: heute, accA: 5, accB: 5 }));
+    ok("ohne Schläger nicht", !Z({ ts: heute, accA: 5, accB: 5 }));
+    /* Fehlendes `swing` bedeutet voll — so waren alle Altdaten gemeint. */
+    ok("ohne Angabe gilt als voll", Z({ club: "PW", ts: heute }));
+    ok("ausdrückliches Voll zählt auch", Z({ club: "PW", swing: "Voll", ts: heute }));
+    ok("¾ zählt nicht", !Z({ club: "PW", swing: "¾", ts: heute }));
+    ok("älter als ein Jahr zählt nicht", !Z({ club: "PW", ts: alt }));
+    /* Zu ungenau gemessen = Länge geraten. */
+    ok("bei 60 m Ungenauigkeit nicht", !Z({ club: "PW", ts: heute, accA: 60, accB: 60 }));
+    ok("bei 5 m Ungenauigkeit doch", Z({ club: "PW", ts: heute, accA: 5, accB: 5 }));
+    ok("ohne Schlag nichts", !Z(null));
+  }
+
+  /* Beschriftung: Meter + ✓, darunter Schläger und Schwungart. */
+  ok("Meter mit Marke", /\$\{d\} m\$\{zaehlt\?" ✓":""\}/.test(src));
+  ok("zweite Zeile für Schläger/Schwung", /zeile2\.join\(" · "\)/.test(src));
+  /* Ein voller Schwung wird nicht beschriftet: Normalfall, und eine Angabe
+     bei neun von zehn Schlägen liest niemand. */
+  ok("voll wird nicht beschriftet", /meta\.swing!=="Voll"\) zeile2\.push/.test(src));
+  ok("Editor gibt die Angaben mit", /shotMeta:meta/.test(src));
+  /* Die Bahn von i-1 nach i gehört zum Schlag, der an i-1 begann — der letzte
+     Punkt ist die Ruhelage und hat keine eigene Bahn. */
+  ok("letzter Punkt fällt weg", /const meta=shots\.slice\(0,-1\);/.test(src));
+  ok("Rundenansicht ebenso", /shotMeta:hl\.shots\.slice\(0,-1\)/.test(src));
+
+  /* Altbestand: einmalig ausdrücklich „Voll". */
+  const mg = src.slice(src.indexOf("function migrateSwingVoll()"),
+                       src.indexOf("function ensureDefaults()"));
+  ok("Wanderung vorhanden", /if\(x && !x\.swing\)\{ x\.swing="Voll"/.test(mg));
+  ok("gpsShots erfasst", /setz\(DB\.gpsShots\)/.test(mg));
+  ok("Runden erfasst", /\(r\.holes\|\|\[\]\)\.forEach\(h=>setz\(h\.shots\)\)/.test(mg));
+  ok("laufender Entwurf auch", /DB\._draftRound/.test(mg));
+  /* Einmalig — sonst liefe sie bei jedem Start über alle Runden. */
+  ok("nur einmal", /if\(DB\.ui && DB\.ui\.swingMigriert\) return;/.test(mg));
+  ok("Marke wird gesetzt", /DB\.ui\.swingMigriert=new Date\(\)\.toISOString\(\)/.test(mg));
+  ok("beim Start aufgerufen", /try\{ migrateSwingVoll\(\); \}catch/.test(src));
 }
 
 /* ============ 24ck. Schlanke Datei für die Uhr ============ */
