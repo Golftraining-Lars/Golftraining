@@ -4512,8 +4512,22 @@ group("Gleichlauf mit der Uhr · Fußraum in der Eingabe");
 
   /* Die klebende Leiste liegt über dem Inhalt — ohne Fußraum verschwinden die
      letzten Felder dauerhaft dahinter. */
-  ok("Fußraum für die Klebeleiste", /\.sheet\.has-closebar #sheetBody\{padding-bottom:calc\(104px/.test(src));
-  ok("nur in der Eingabemaske", /sheet\.classList\.add\("has-closebar"\)/.test(src));
+  /* AUSSERHALB des Scrollbereichs (v3.01): `position:sticky` hielt nicht, weil
+     ein klebendes Element sich nur innerhalb seines ELTERN hält — und der
+     endete direkt hinter ihm. Dieselbe Lehre wie beim ✕ in v1.55. */
+  ok("eigener Bereich neben #sheetBody", /<div id="sheetBody"><\/div><div id="sheetFoot"><\/div>/.test(src));
+  ok("Fuß nimmt keine Scrollhöhe", /#sheetFoot\{flex:0 0 auto/.test(src));
+  ok("leerer Fuß verschwindet ganz", /#sheetFoot:empty\{display:none/.test(src));
+  ok("kein sticky mehr am Fuß", !/\.play-foot\{position:sticky/.test(src));
+  ok("Eingabemaske füllt ihn", /f\.innerHTML=fuss/.test(src));
+  ok("Navigation klebt nicht mehr selbst", !/\.play-navbar\{position:sticky/.test(src));
+  ok("Score-Leiste klebt nicht mehr selbst", !/\.play-close\{position:sticky/.test(src));
+  ok("Score oben, Navigation darunter",
+    src.indexOf("${playCloseBarHtml()}") < src.indexOf('<div class="play-navbar">'));
+  /* Und jedes neue Blatt leert ihn — sonst trüge das nächste Blatt die
+     Score-Stepper des vorigen. */
+  ok("jedes neue Blatt leert ihn",
+    /function openSheet\(html\)\{[\s\S]{0,500}sheetFoot"\); if\(f\) f\.innerHTML="";/.test(src));
   /* Und zurückgenommen bei JEDEM neuen Blatt — sonst hätte das nächste
      unerklärliche Luft am Fuß. */
   ok("beim nächsten Blatt zurückgenommen",
