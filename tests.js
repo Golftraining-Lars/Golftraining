@@ -175,7 +175,7 @@ try {
                  "holeGir","holeUpDown","holeSandSave","platzAnalyse","taskFortschritt",
                  "warmupSchedule","warmupKorrektiv","WARMUP_PLANS","medianSplit","pearson",
                  "rKrit","gpKey","gpLabel","gpTotalES","pickClub","_aimClub","_aimLerp",
-                 "geoEdSelHat","geoEdVertHandles","snapshot","_nearest","_reaching","pfWizHtml","heuteJetzt","dispOvalFrom","dispChipHtml","dispRingPath","pathTopPoint","dispHitShare","dispText","dispSchemaSvg","dispSigmaFor","_erf","gpClubFracs","measureOrigin","geoEdMinW","editMinW","vegMask","maskMorph","maskBlobs","blobRing","ringSimplify","detectVeg","gpFingerprint","gpStale","_hash32","vegOn","viewBoxFor","troubleFeatures","geoEdPunktVon","_mergeCourses","snapBehalten","playVecKey","syncFinger","courseSVG","mergeDB","mergeDraft","watchPayload","shotZaehlt","playTouchHole","watchGeo","probeFrage","wikiRelated","wikiToc","wikiTocId","wikiForSG","wikiTagsShow","SAT_SRC","satSrcFor","satTileUrl","satTileKey","DB","STRAT","GEOED"];
+                 "geoEdSelHat","geoEdVertHandles","snapshot","_nearest","_reaching","pfWizHtml","heuteJetzt","dispOvalFrom","dispChipHtml","dispRingPath","pathTopPoint","dispHitShare","dispText","dispSchemaSvg","dispSigmaFor","_erf","gpClubFracs","measureOrigin","geoEdMinW","editMinW","vegMask","maskMorph","maskBlobs","blobRing","ringSimplify","detectVeg","gpFingerprint","gpStale","_hash32","vegOn","viewBoxFor","troubleFeatures","geoEdPunktVon","_mergeCourses","snapBehalten","playVecKey","syncFinger","courseSVG","mergeDB","mergeDraft","watchPayload","shotZaehlt","playTouchHole","watchGeo","probeFrage","probePlan","ensureSeedTests","SEED","wikiRelated","wikiToc","wikiTocId","wikiForSG","wikiTagsShow","SAT_SRC","satSrcFor","satTileUrl","satTileKey","DB","STRAT","GEOED"];
   const epilog = "\n;globalThis.__T={" +
     namen.map(n => `${n}: (typeof ${n}!=="undefined"?${n}:undefined)`).join(",") + "};";
   vm.runInContext(code + epilog, ctx, { timeout: 20000 });
@@ -4701,6 +4701,79 @@ group("Bibliothek — Verweise, Inhalt, Brücke zum Spiel");
     /if\(!WIKI\.q && !WIKI\.cat && !WIKI\.grp && !WIKI\.tags\.length && !WIKI\.onlyFav\) h\+=wikiSGHtml\(\);/.test(src));
 }
 
+/* ============ 24ct. Changelog-Archiv ============ */
+group("Changelog — aktuell in der Datei, älteres im Archiv");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+  const doc = (src.match(/<script[^>]*devdocs[^>]*>([\s\S]*?)<\/script>/) || [])[1] || "";
+  const i = doc.indexOf("## Changelog");
+  const cl = doc.slice(i);
+  const eintraege = (cl.match(/\n- \*\*v/g) || []).length;
+
+  /* Das Changelog war auf 283 kB gewachsen — ein Achtel einer Datei, die bei
+     jedem Start geladen und geparst wird. Die Begründungen bleiben erhalten,
+     sie stehen nur woanders. */
+  ok("Changelog bleibt handlich", eintraege <= 45, eintraege + " Einträge");
+  ok("Archiv ist benannt", /changelog-archiv\.md/.test(cl));
+  ok("aktuelle Fassung steht drin", cl.indexOf("v" + (src.match(/APP_VERSION="([\d.]+)"/) || [])[1]) > 0);
+
+  /* NACH FASSUNGSNUMMER sortiert, nicht nach Reihenfolge im Text — beim
+     Auslagern fiel auf, dass ein Eintrag (v2.94) über neueren stand. */
+  const vs = [...cl.matchAll(/\n- \*\*v([\d.]+)/g)].map(m => m[1].split(".").map(Number));
+  let sortiert = true;
+  for (let k = 1; k < vs.length; k++) {
+    const a = vs[k - 1], b = vs[k];
+    for (let p = 0; p < 3; p++) {
+      if ((a[p] || 0) > (b[p] || 0)) break;
+      if ((a[p] || 0) < (b[p] || 0)) { sortiert = false; break; }
+    }
+    if (!sortiert) break;
+  }
+  ok("neueste Fassung zuerst", sortiert);
+}
+
+/* ============ 24cs. Neue Seed-Tests erreichen bestehende Datenbanken ============ */
+group("Seed-Tests nachziehen");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+  const E = G("ensureSeedTests"), DB0 = G("DB"), SEED0 = G("SEED");
+
+  /* `SEED.testDefs` gilt nur für eine LEERE Datenbank. Wer die App schon
+     benutzt, hat seine eigene Liste — und die wurde nie mit dem Seed
+     abgeglichen. Jeder neu angelegte Test war für bestehende Nutzer damit
+     unsichtbar; aufgefallen an den Chip-Tests aus v3.04. */
+  if (typeof E === "function" && DB0 && SEED0) {
+    const sicher = JSON.parse(JSON.stringify(DB0.testDefs || []));
+    const uiSicher = DB0.ui && DB0.ui.seedTestsAdded;
+    DB0.testDefs = (DB0.testDefs || []).filter(d => String(d.key).indexOf("chip") !== 0);
+    DB0.ui = DB0.ui || {}; delete DB0.ui.seedTestsAdded;
+
+    const n = E();
+    ok("ergänzt die fehlenden", n >= 3, String(n));
+    ["chiplande", "chiproll", "chipleiter"].forEach(k =>
+      ok("vorhanden: " + k, (DB0.testDefs || []).some(d => d.key === k)));
+    eq("zweiter Lauf ergänzt nichts", E(), 0);
+    const doppelt = (() => { const s = {}; let d = 0;
+      DB0.testDefs.forEach(t2 => { if (s[t2.key]) d++; s[t2.key] = 1; }); return d; })();
+    eq("keine Doppelten", doppelt, 0);
+
+    /* Eine LÖSCHUNG war eine Entscheidung — sie darf nicht bei jedem Start
+       zurückgenommen werden. */
+    DB0.testDefs = DB0.testDefs.filter(d => d.key !== "chiproll");
+    E();
+    ok("gelöschter Test bleibt gelöscht", !DB0.testDefs.some(d => d.key === "chiproll"));
+
+    /* Gewichte sind kein Nutzerwert, sondern die Einteilung eines Ganzen. */
+    const summe = DB0.testDefs.reduce((a, d) => a + (d.weight || 0), 0);
+    ok("Gewichte bleiben bei rund 1", summe > 0.9 && summe <= 1.01, summe.toFixed(3));
+
+    DB0.testDefs = sicher; if (uiSicher) DB0.ui.seedTestsAdded = uiSicher;
+  }
+  ok("beim Start aufgerufen", /try\{ ensureSeedTests\(\); \}catch/.test(src));
+  ok("merkt sich Angelegtes", /DB\.ui\.seedTestsAdded=schon;/.test(src));
+  ok("überschreibt keinen bestehenden Test", /if\(schon\.indexOf\(sd\.key\)>=0\) return;/.test(src));
+}
+
 /* ============ 24cr. Kopplungstest App ↔ Uhr ============ */
 group("Kopplungstest — rechnen beide dasselbe?");
 {
@@ -4728,14 +4801,38 @@ group("Kopplungstest — rechnen beide dasselbe?");
     eq("nimmt das vertauschte Loch", q.hole, 2);
     ok("Testpunkt liegt ~150 m vor dem Grün", Math.abs(q.erwartet - 150) <= 3, String(q.erwartet));
     ok("Position ist ein Punkt", Array.isArray(q.pos) && q.pos.length === 2);
+    /* Der Plan muss das vertauschte Loch ENTHALTEN — dort war der Fehler. */
+    const P = G("probePlan");
+    if (typeof P === "function") {
+      const pl = P();
+      ok("Plan gebildet", !!pl && (pl.aufgaben || []).length >= 6, pl && String(pl.aufgaben.length));
+      const geoAuf = (pl.aufgaben || []).filter(x => x.k === "geo");
+      ok("mehrere Geo-Prüfungen", geoAuf.length >= 3, String(geoAuf.length));
+      ok("das vertauschte Loch ist dabei", geoAuf.some(x => x.hole === 2));
+      ok("jede Geo-Prüfung trägt die Erwartung", geoAuf.every(x => x.soll > 0));
+      /* Am Abschlag ist die Erwartung fast die volle Lochlänge, kurz vor dem
+         Grün fast null — genau daran fällt ein Vorzeichenfehler auf. */
+      const l2 = geoAuf.filter(x => x.hole === 2).map(x => x.soll);
+      ok("Erwartungen fallen zum Grün hin", l2.length === 3 && l2[0] > l2[1] && l2[1] > l2[2], l2.join(" > "));
+    }
     DB0.courses = alt;
   }
 
   /* Der Wert des Tests liegt im VERGLEICH — „ok" allein prüft nichts. */
-  ok("zeigt beide Zahlen", /App rechnet: /.test(src) && /Uhr rechnet: /.test(src));
+  ok("zeigt beide Zahlen", /App "\+auf\.soll\+" m · Uhr "/.test(src));
   ok("meldet Abweichung deutlich", /ABWEICHUNG /.test(src));
-  ok("meldet beide Fassungen", /Fassungen — App /.test(src));
-  ok("wartet begrenzt", /for\(let i=0;i<15;i\+\+\)/.test(src));
+  ok("meldet beide Fassungen", /App "\+APP_VERSION\+" · Uhr "/.test(src));
+  ok("wartet begrenzt", /for\(let i=0;i<20;i\+\+\)/.test(src));
+  /* Ein PLAN statt einer einzelnen Frage: Eine Distanz kann auf einem
+     harmlosen Loch zufällig stimmen. */
+  ok("Prüfplan vorhanden", /function probePlan\(\)/.test(src));
+  ok("prüft mehrere Positionen je Loch", /am Abschlag[\s\S]{0,120}kurz vor dem Grün/.test(src));
+  ok("prüft Schläger, Listen, Caddy und Quelle",
+    /k:"club"/.test(src) && /k:"liste"/.test(src) && /k:"caddy"/.test(src) && /k:"quelle"/.test(src));
+  /* Listen: Anzahl ALLEIN würde zwei verschiedene Listen gleicher Länge nicht
+     unterscheiden — deshalb auch der erste Eintrag. */
+  ok("Listen mit erstem Eintrag", /ersteSoll:String\(l\[0\]\)/.test(src));
+  ok("zählt bestanden gegen abgewichen", /von "\+\(gut\+schlecht\)\+" Prüfungen bestanden/.test(src));
 
   const doc = (src.match(/<script[^>]*devdocs[^>]*>([\s\S]*?)<\/script>/) || [])[1] || "";
   ok("Worker kennt probe.json", /"watch\.json", "probe\.json"/.test(doc));
