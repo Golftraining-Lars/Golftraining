@@ -4686,6 +4686,16 @@ group("watch.json — die Uhr trägt nicht 3 MB");
       ok("nicht enthalten: " + k, !(k in p)));
     ok("Schläger enthalten", "clubDistances" in p);
     ok("Gameplans enthalten", !!(p.strat || {}).gameplans);
+    /* DIE AUSWAHLLISTEN: Die Uhr liest sie aus der OBERSTEN Ebene. Fehlten
+       sie, fiel sie auf ihre eingebauten Vorgaben zurück — „100-150m" statt
+       „110-140" —, und ein auf der Uhr gewählter Wert stand am Handy in keiner
+       Liste. Es sah aus, als würde nichts übertragen. */
+    ["approachBuckets","approachLies","approachMiss","bunkerTypes","firstPuttDist",
+     "kurzseitig","penaltyTypes","puttMiss","puttRest","qualityOpts","teeClubs",
+     "teeResults"].forEach(k => {
+      const da = Array.isArray(DB0[k]);
+      ok("Liste mitgegeben: " + k, !da || Array.isArray(p[k]));
+    });
     DB0.courses = alt.courses; DB0.rounds = alt.rounds; DB0.clubDistances = alt.clubDistances;
   }
 
