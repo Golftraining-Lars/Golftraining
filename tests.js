@@ -175,7 +175,7 @@ try {
                  "holeGir","holeUpDown","holeSandSave","platzAnalyse","taskFortschritt",
                  "warmupSchedule","warmupKorrektiv","WARMUP_PLANS","medianSplit","pearson",
                  "rKrit","gpKey","gpLabel","gpTotalES","pickClub","_aimClub","_aimLerp",
-                 "geoEdSelHat","geoEdVertHandles","snapshot","_nearest","_reaching","pfWizHtml","heuteJetzt","dispOvalFrom","dispChipHtml","dispRingPath","pathTopPoint","dispHitShare","dispText","dispSchemaSvg","dispSigmaFor","_erf","gpClubFracs","measureOrigin","geoEdMinW","editMinW","vegMask","maskMorph","maskBlobs","blobRing","ringSimplify","detectVeg","gpFingerprint","gpStale","_hash32","vegOn","viewBoxFor","troubleFeatures","geoEdPunktVon","_mergeCourses","snapBehalten","playVecKey","syncFinger","courseSVG","mergeDB","mergeDraft","watchPayload","shotZaehlt","SAT_SRC","satSrcFor","satTileUrl","satTileKey","DB","STRAT","GEOED"];
+                 "geoEdSelHat","geoEdVertHandles","snapshot","_nearest","_reaching","pfWizHtml","heuteJetzt","dispOvalFrom","dispChipHtml","dispRingPath","pathTopPoint","dispHitShare","dispText","dispSchemaSvg","dispSigmaFor","_erf","gpClubFracs","measureOrigin","geoEdMinW","editMinW","vegMask","maskMorph","maskBlobs","blobRing","ringSimplify","detectVeg","gpFingerprint","gpStale","_hash32","vegOn","viewBoxFor","troubleFeatures","geoEdPunktVon","_mergeCourses","snapBehalten","playVecKey","syncFinger","courseSVG","mergeDB","mergeDraft","watchPayload","shotZaehlt","playTouchHole","SAT_SRC","satSrcFor","satTileUrl","satTileKey","DB","STRAT","GEOED"];
   const epilog = "\n;globalThis.__T={" +
     namen.map(n => `${n}: (typeof ${n}!=="undefined"?${n}:undefined)`).join(",") + "};";
   vm.runInContext(code + epilog, ctx, { timeout: 20000 });
@@ -4555,6 +4555,53 @@ group("Caddy — immer von hier, nie vom gespeicherten Tee");
         (b.best.rest || 0) >= (a.best.rest || 0) || JSON.stringify(a.target) !== JSON.stringify(b.target),
         "Ziel a=" + JSON.stringify(a.target) + " b=" + JSON.stringify(b.target));
     }
+  }
+}
+
+/* ============ 24cm. Änderungen zwischen den Geräten ============ */
+group("Abgleich — der neuere Stand gewinnt, je Loch");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+  const MD = G("mergeDraft"), T = G("playTouchHole");
+
+  /* DAS PROBLEM: Der Abgleich füllte nur LEERE Felder. Das schützt vor
+     gegenseitigem Überschreiben — macht aber das ÄNDERN unmöglich: Wer den
+     Tee-Schläger am Handy korrigiert, sah auf der Uhr weiter den alten Wert. */
+  if (typeof T === "function") {
+    const h = { hole: 3 };
+    T(h);
+    ok("Loch bekommt einen Zeitstempel", typeof h.ts === "string" && h.ts.length > 10);
+    ok("ohne Loch kein Absturz", (T(null), true));
+  }
+
+  const ad = src.slice(src.indexOf("function playAdoptDraft()"),
+                       src.indexOf("function playAdoptDraft()") + 1600);
+  ok("neuerer fremder Stand gewinnt", /const fremdNeuer = !!\(dh\.ts && \(!h\.ts \|\| dh\.ts > h\.ts\)\)/.test(ad));
+  ok("null löscht weiterhin nichts", /if\(dh\[k\]==null\) return;/.test(ad));
+  /* Ohne Zeitstempel (Entwurf von vor dieser Fassung) bleibt es beim alten,
+     sicheren Verhalten. */
+  ok("Rückfall auf „nur leere Felder\"", /if\(h\[k\]==null \|\| fremdNeuer\)/.test(ad));
+  ok("Zeitstempel wandert mit", /if\(fremdNeuer\) h\.ts=dh\.ts;/.test(ad));
+  /* Die ganze Maske nachziehen, nicht nur drei Zahlen. */
+  ok("Eingabemaske wird erneuert", /sheet\.classList\.contains\("open"\)\) renderPlay\(\)/.test(ad));
+  ok("jede Eingabe stempelt das Loch", /playTouchHole\(PLAY\.holes\[PLAY\.idx\]\)/.test(src));
+
+  /* Und im Merge: je Loch entscheiden, nicht pauschal nach Entwurf. */
+  if (typeof MD === "function") {
+    const d = (ts, holes) => ({ ts, round: { date: "2026-08-15", course: "N", side: "18 Loch", holes } });
+    /* Gerät A hat zuletzt IRGENDETWAS getan (neuerer Entwurf), aber Loch 3
+       zuletzt von B korrigiert. Ohne Loch-Zeitstempel gewänne A. */
+    const a = d("2026-08-15T10:10:00Z", [{ hole: 3, club: "5 Wood", ts: "2026-08-15T09:00:00Z" },
+                                          { hole: 7, score: 4, ts: "2026-08-15T10:10:00Z" }]);
+    const b = d("2026-08-15T10:00:00Z", [{ hole: 3, club: "3 Wood", ts: "2026-08-15T10:00:00Z" }]);
+    const r = MD(b, a, "");
+    const l3 = r.round.holes.find(h => h.hole === 3);
+    eq("die jüngere Korrektur am Loch gewinnt", l3.club, "3 Wood");
+    ok("das andere Loch bleibt erhalten", !!r.round.holes.find(h => h.hole === 7));
+    /* Ohne Zeitstempel wie bisher: gesetzte Felder des neueren Entwurfs. */
+    const a2 = d("2026-08-15T10:10:00Z", [{ hole: 3, club: "5 Wood" }]);
+    const b2 = d("2026-08-15T10:00:00Z", [{ hole: 3, club: "3 Wood" }]);
+    eq("ohne Loch-Zeitstempel gilt der neuere Entwurf", MD(b2, a2, "").round.holes[0].club, "5 Wood");
   }
 }
 
