@@ -175,7 +175,7 @@ try {
                  "holeGir","holeUpDown","holeSandSave","platzAnalyse","taskFortschritt",
                  "warmupSchedule","warmupKorrektiv","WARMUP_PLANS","medianSplit","pearson",
                  "rKrit","gpKey","gpLabel","gpTotalES","pickClub","_aimClub","_aimLerp",
-                 "geoEdSelHat","geoEdVertHandles","snapshot","_nearest","_reaching","pfWizHtml","heuteJetzt","dispOvalFrom","dispChipHtml","dispRingPath","pathTopPoint","dispHitShare","dispText","dispSchemaSvg","dispSigmaFor","_erf","gpClubFracs","measureOrigin","geoEdMinW","editMinW","vegMask","maskMorph","maskBlobs","blobRing","ringSimplify","detectVeg","gpFingerprint","gpStale","_hash32","vegOn","viewBoxFor","troubleFeatures","geoEdPunktVon","_mergeCourses","snapBehalten","playVecKey","syncFinger","courseSVG","mergeDB","mergeDraft","watchPayload","shotZaehlt","playTouchHole","watchGeo","probeFrage","probePlan","ensureSeedTests","SEED","wikiRelated","wikiToc","wikiTocId","wikiForSG","wikiTagsShow","SAT_SRC","satSrcFor","satTileUrl","satTileKey","DB","STRAT","GEOED"];
+                 "geoEdSelHat","geoEdVertHandles","snapshot","_nearest","_reaching","pfWizHtml","heuteJetzt","dispOvalFrom","dispChipHtml","dispRingPath","pathTopPoint","dispHitShare","dispText","dispSchemaSvg","dispSigmaFor","_erf","gpClubFracs","measureOrigin","geoEdMinW","editMinW","vegMask","maskMorph","maskBlobs","blobRing","ringSimplify","detectVeg","gpFingerprint","gpStale","_hash32","vegOn","viewBoxFor","troubleFeatures","geoEdPunktVon","_mergeCourses","snapBehalten","playVecKey","syncFinger","courseSVG","mergeDB","mergeDraft","watchPayload","shotZaehlt","playTouchHole","watchGeo","probeFrage","probePlan","cardBlock","equipSet","equipAll","equipHtml","ensureSeedTests","SEED","wikiRelated","wikiToc","wikiTocId","wikiForSG","wikiTagsShow","SAT_SRC","satSrcFor","satTileUrl","satTileKey","DB","STRAT","GEOED"];
   const epilog = "\n;globalThis.__T={" +
     namen.map(n => `${n}: (typeof ${n}!=="undefined"?${n}:undefined)`).join(",") + "};";
   vm.runInContext(code + epilog, ctx, { timeout: 20000 });
@@ -4699,6 +4699,78 @@ group("Bibliothek — Verweise, Inhalt, Brücke zum Spiel");
   ok("nur einmal", /if\(DB\.ui && DB\.ui\.wikiCatsMigriert\) return;/.test(src));
   ok("Brücke nur ohne aktiven Filter",
     /if\(!WIKI\.q && !WIKI\.cat && !WIKI\.grp && !WIKI\.tags\.length && !WIKI\.onlyFav\) h\+=wikiSGHtml\(\);/.test(src));
+}
+
+/* ============ 24cu. Scorekarte wie auf Papier ============ */
+group("Scorekarte — das gewohnte Raster");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+  const B = G("cardBlock");
+
+  /* Vorher eine LISTE mit 18 Zeilen. Vollständig, aber nicht die Darstellung,
+     die ein Golfer kennt — und die typische Frage „erste gegen zweite Neun"
+     musste man im Kopf rechnen. */
+  if (typeof B === "function") {
+    const hs = [];
+    for (let h = 1; h <= 18; h++) hs.push({ hole: h, par: h % 3 === 0 ? 3 : 4, si: h, score: 5, putts: 2 });
+    const out = B(hs, 1, 9, "OUT");
+    ok("Tabelle statt Liste", /<table class="scorecard">/.test(out));
+    ok("neun Löcher plus Summenspalte", (out.match(/<th>/g) || []).length === 9);
+    ok("Kopfzeile Loch", /Loch<\/th>/.test(out) || /sc-lab">Loch/.test(out));
+    ["Par", "Vorgabe", "Score", "Putts"].forEach(z =>
+      ok("Zeile vorhanden: " + z, out.indexOf(">" + z + "<") > 0));
+    /* Die Summen MÜSSEN stimmen — eine Scorekarte, die falsch addiert, ist
+       schlimmer als keine. */
+    const parSum = hs.slice(0, 9).reduce((a, x) => a + x.par, 0);
+    ok("Par-Summe stimmt", out.indexOf(">" + parSum + "<") > 0, String(parSum));
+    ok("Score-Summe stimmt", out.indexOf(">45<") > 0);
+    ok("Putt-Summe stimmt", out.indexOf(">18<") > 0);
+    /* Bei einer 9-Loch-Runde entfällt der zweite Block ganz. */
+    eq("kein Block ohne Löcher", B(hs.slice(0, 9), 10, 18, "IN"), "");
+  }
+  /* Die Zeichen der Papierkarte: Birdie im Kreis, Doppelbogey doppelt gerahmt. */
+  ok("Birdie markiert", /\.sc-birdie\{/.test(src));
+  ok("Doppelbogey markiert", /\.sc-dbl\{/.test(src));
+  ok("feste Spaltenbreite", /table-layout:fixed/.test(src));
+  ok("Ziffern in gleicher Breite", /font-variant-numeric:tabular-nums/.test(src));
+}
+
+/* ============ 24cv. Ausrüstung ============ */
+group("Ausrüstung — womit, und seit wann");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+  const S = G("equipSet"), A = G("equipAll"), H = G("equipHtml"), DB0 = G("DB");
+
+  /* Die Schlägerliste beantwortet „wie weit", nicht „womit". Und das DATUM ist
+     der eigentliche Wert: Ändern sich die Zahlen ab einem Tag, sieht man, ob
+     dort etwas gewechselt wurde — allen voran der Ball. */
+  if (typeof S === "function" && DB0) {
+    const sicher = DB0.equipment;
+    DB0.equipment = {};
+    S("ball", "text", "Srixon Q-Star Tour");
+    const e = A();
+    eq("Wert gespeichert", e.ball.text, "Srixon Q-Star Tour");
+    ok("Datum beim Modellwechsel gesetzt", /^\d{4}-\d{2}-\d{2}$/.test(e.ball.seit || ""), e.ball.seit);
+    const seit1 = e.ball.seit;
+    /* Eine Notiz ist kein Wechsel — sonst wäre das Datum wertlos. */
+    S("ball", "seit", "2026-05-01");
+    eq("Datum von Hand änderbar", A().ball.seit, "2026-05-01");
+    S("ball", "text", "Srixon Q-Star Tour");
+    eq("gleicher Text setzt das Datum NICHT neu", A().ball.seit, "2026-05-01");
+    S("ball", "text", "Titleist Pro V1");
+    ok("neuer Text setzt es neu", A().ball.seit !== "2026-05-01");
+    /* Leeren entfernt auch das Datum — ein „seit" ohne Gerät wäre sinnlos. */
+    S("ball", "text", "");
+    ok("leeren entfernt das Datum", !A().ball.seit);
+    DB0.equipment = sicher;
+  }
+  if (typeof H === "function") {
+    const h = H();
+    ["Golfball", "Trolley", "Golftasche", "Putter", "Wedges", "Entfernungsmesser"].forEach(f =>
+      ok("Feld vorhanden: " + f, h.indexOf(f) > 0));
+  }
+  ok("unter Schläger eingehängt", /h \+= equipHtml\(\);/.test(src));
+  ok("Eingaben werden gebunden", /equipBind\(\);/.test(src));
 }
 
 /* ============ 24ct. Changelog-Archiv ============ */
