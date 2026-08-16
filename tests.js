@@ -175,7 +175,7 @@ try {
                  "holeGir","holeUpDown","holeSandSave","platzAnalyse","taskFortschritt",
                  "warmupSchedule","warmupKorrektiv","WARMUP_PLANS","medianSplit","pearson",
                  "rKrit","gpKey","gpLabel","gpTotalES","pickClub","_aimClub","_aimLerp",
-                 "geoEdSelHat","geoEdVertHandles","snapshot","_nearest","_reaching","pfWizHtml","heuteJetzt","dispOvalFrom","dispChipHtml","dispRingPath","pathTopPoint","dispHitShare","dispText","dispSchemaSvg","dispSigmaFor","_erf","gpClubFracs","measureOrigin","geoEdMinW","editMinW","vegMask","maskMorph","maskBlobs","blobRing","ringSimplify","detectVeg","gpFingerprint","gpStale","_hash32","vegOn","viewBoxFor","troubleFeatures","geoEdPunktVon","_mergeCourses","snapBehalten","playVecKey","syncFinger","courseSVG","mergeDB","mergeDraft","watchPayload","shotZaehlt","playTouchHole","watchGeo","probeFrage","probePlan","cardBlock","playCardHtml","heuteTests","heuteSport","caddyFuerPunkt","_watchPos","istAchtzehn","equipSet","equipAll","equipHtml","deDatumZuIso","isoZuDeDatum","ensureSeedTests","SEED","condZeile","caddyClubs","clubPick","gearHat","gearSeed","gearAll","progVerfuegbar","GOLF_PROG","fitplanIdx","fitplanAll","fitplanSet","fitplanHeute","fitplanWocheGeschafft","wikiRelated","wikiToc","wikiTocId","wikiForSG","wikiTagsShow","SAT_SRC","satSrcFor","satTileUrl","satTileKey","DB","STRAT","GEOED"];
+                 "geoEdSelHat","geoEdVertHandles","snapshot","_nearest","_reaching","pfWizHtml","heuteJetzt","dispOvalFrom","dispChipHtml","dispRingPath","pathTopPoint","dispHitShare","dispText","dispSchemaSvg","dispSigmaFor","_erf","gpClubFracs","measureOrigin","geoEdMinW","editMinW","vegMask","maskMorph","maskBlobs","blobRing","ringSimplify","detectVeg","gpFingerprint","gpStale","_hash32","vegOn","viewBoxFor","troubleFeatures","geoEdPunktVon","_mergeCourses","snapBehalten","playVecKey","syncFinger","courseSVG","mergeDB","mergeDraft","watchPayload","shotZaehlt","playTouchHole","watchGeo","probeFrage","probePlan","cardBlock","playCardHtml","heuteTests","heuteSport","caddyFuerPunkt","_watchPos","istAchtzehn","equipSet","equipAll","equipHtml","deDatumZuIso","isoZuDeDatum","ensureSeedTests","SEED","logWarn","logWarnEinmal","ERRLOG","condZeile","caddyClubs","clubPick","gearHat","gearSeed","gearAll","progVerfuegbar","GOLF_PROG","fitplanIdx","fitplanAll","fitplanSet","fitplanHeute","fitplanWocheGeschafft","wikiRelated","wikiToc","wikiTocId","wikiForSG","wikiTagsShow","SAT_SRC","satSrcFor","satTileUrl","satTileKey","DB","STRAT","GEOED"];
   const epilog = "\n;globalThis.__T={" +
     namen.map(n => `${n}: (typeof ${n}!=="undefined"?${n}:undefined)`).join(",") + "};";
   vm.runInContext(code + epilog, ctx, { timeout: 20000 });
@@ -4999,6 +4999,53 @@ group("Fitness — eigener Reiter, Wochenplan, Erinnerungen");
   ok("einmal je Tag", /if\(DB\.ui\.fitErinnertAm===tag\) return;/.test(src));
   ok("nicht an Erledigtes", /const schon=\(DB\.fitnessSessions\|\|\[\]\)\.some/.test(src));
   ok("Takt läuft", /setInterval\(fitErinnerungTick, 60000\)/.test(src));
+}
+
+/* ============ 24dh. Warnungen im Protokoll ============ */
+group("Protokoll — Warnungen neben Fehlern");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+  const W = G("logWarn"), WE = G("logWarnEinmal"), LOG = G("ERRLOG");
+
+  /* Ein Fehler sagt „etwas ist schiefgegangen". Eine Warnung sagt „es lief,
+     aber das Ergebnis kann falsch sein" — auf der Bahn die wichtigere
+     Auskunft. Ein Caddy ohne Schlägerdistanzen wirft keine Ausnahme; er nennt
+     nur einen schlechteren Schläger. */
+  if (typeof W === "function" && Array.isArray(LOG)) {
+    const vorher = LOG.length;
+    W("Test", "eine Warnung");
+    const r = LOG[LOG.length - 1];
+    eq("Warnung landet im Protokoll", LOG.length, vorher + 1);
+    eq("mit eigener Stufe", r.lvl, "warn");
+    /* Gleiche Warnung nicht zweimal — sonst verdrängt sie die eine Meldung,
+       auf die es ankommt. */
+    W("Test", "eine Warnung");
+    eq("Wiederholung wird gezählt", LOG[LOG.length - 1].n, 2);
+    eq("und nicht angehängt", LOG.length, vorher + 1);
+    /* Warnungen erzeugen NIE eine Einblendung: Sie sind Hintergrundwissen;
+       über der Karte wären sie ein Ärgernis. */
+    ok("kein toast in logWarn", !/function logWarn\(where, text\)\{[\s\S]{0,600}toast\(/.test(src));
+    if (typeof WE === "function") {
+      const n0 = LOG.length;
+      WE("k1", "Test", "nur einmal"); WE("k1", "Test", "nur einmal");
+      eq("logWarnEinmal meldet genau einmal", LOG.length, n0 + 1);
+    }
+    LOG.length = vorher;
+  }
+  /* Die Ansicht muss beide Stufen unterscheiden — sonst nützt die Trennung
+     nichts. */
+  ok("Warnungen sind erkennbar", /r\.lvl==="warn"\?"⚠ ":"✕ "/.test(src));
+  ok("Kopiertext trennt sie auch", /\[WARN\] /.test(src) && /\[FEHLER\] /.test(src));
+
+  /* Die konkreten Warnstellen: alles Fälle, in denen ein Ergebnis falsch
+     AUSSIEHT, ohne dass etwas kaputtgeht. */
+  ["bagLeer", "keineKarte", "keinWetter", "speicher"].forEach(k =>
+    ok("Warnung vorhanden: " + k, src.indexOf('"' + k) > 0 || src.indexOf("\"" + k + ":") > 0));
+  ok("Uhr-Stille wird gemeldet", /logWarn\("Uhr", stumm\?/.test(src));
+  ok("nur beim Wechsel", /if\(stumm!==_uhrStumm\)/.test(src));
+  ok("Runde: Löcher ohne Par", /mit Score, aber ohne Par/.test(src));
+  ok("Runde: fehlende Putts", /ohne Putts — Putt-Statistik/.test(src));
+  ok("Speicherprüfung läuft beim Start", /setTimeout\(speicherPruefen, 8000\)/.test(src));
 }
 
 /* ============ 24dg. GPS-Lochvorschlag ist weg ============ */
