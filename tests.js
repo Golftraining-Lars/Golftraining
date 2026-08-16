@@ -175,7 +175,7 @@ try {
                  "holeGir","holeUpDown","holeSandSave","platzAnalyse","taskFortschritt",
                  "warmupSchedule","warmupKorrektiv","WARMUP_PLANS","medianSplit","pearson",
                  "rKrit","gpKey","gpLabel","gpTotalES","pickClub","_aimClub","_aimLerp",
-                 "geoEdSelHat","geoEdVertHandles","snapshot","_nearest","_reaching","pfWizHtml","heuteJetzt","dispOvalFrom","dispChipHtml","dispRingPath","pathTopPoint","dispHitShare","dispText","dispSchemaSvg","dispSigmaFor","_erf","gpClubFracs","measureOrigin","geoEdMinW","editMinW","vegMask","maskMorph","maskBlobs","blobRing","ringSimplify","detectVeg","gpFingerprint","gpStale","_hash32","vegOn","viewBoxFor","troubleFeatures","geoEdPunktVon","_mergeCourses","snapBehalten","playVecKey","syncFinger","courseSVG","mergeDB","mergeDraft","watchPayload","shotZaehlt","playTouchHole","watchGeo","probeFrage","probePlan","cardBlock","playCardHtml","heuteTests","heuteSport","caddyFuerPunkt","_watchPos","istAchtzehn","equipSet","equipAll","equipHtml","deDatumZuIso","isoZuDeDatum","ensureSeedTests","SEED","gearHat","gearSeed","gearAll","progVerfuegbar","GOLF_PROG","fitplanIdx","fitplanAll","fitplanSet","fitplanHeute","fitplanWocheGeschafft","wikiRelated","wikiToc","wikiTocId","wikiForSG","wikiTagsShow","SAT_SRC","satSrcFor","satTileUrl","satTileKey","DB","STRAT","GEOED"];
+                 "geoEdSelHat","geoEdVertHandles","snapshot","_nearest","_reaching","pfWizHtml","heuteJetzt","dispOvalFrom","dispChipHtml","dispRingPath","pathTopPoint","dispHitShare","dispText","dispSchemaSvg","dispSigmaFor","_erf","gpClubFracs","measureOrigin","geoEdMinW","editMinW","vegMask","maskMorph","maskBlobs","blobRing","ringSimplify","detectVeg","gpFingerprint","gpStale","_hash32","vegOn","viewBoxFor","troubleFeatures","geoEdPunktVon","_mergeCourses","snapBehalten","playVecKey","syncFinger","courseSVG","mergeDB","mergeDraft","watchPayload","shotZaehlt","playTouchHole","watchGeo","probeFrage","probePlan","cardBlock","playCardHtml","heuteTests","heuteSport","caddyFuerPunkt","_watchPos","istAchtzehn","equipSet","equipAll","equipHtml","deDatumZuIso","isoZuDeDatum","ensureSeedTests","SEED","condZeile","caddyClubs","clubPick","gearHat","gearSeed","gearAll","progVerfuegbar","GOLF_PROG","fitplanIdx","fitplanAll","fitplanSet","fitplanHeute","fitplanWocheGeschafft","wikiRelated","wikiToc","wikiTocId","wikiForSG","wikiTagsShow","SAT_SRC","satSrcFor","satTileUrl","satTileKey","DB","STRAT","GEOED"];
   const epilog = "\n;globalThis.__T={" +
     namen.map(n => `${n}: (typeof ${n}!=="undefined"?${n}:undefined)`).join(",") + "};";
   vm.runInContext(code + epilog, ctx, { timeout: 20000 });
@@ -5001,6 +5001,125 @@ group("Fitness — eigener Reiter, Wochenplan, Erinnerungen");
   ok("Takt läuft", /setInterval\(fitErinnerungTick, 60000\)/.test(src));
 }
 
+/* ============ 24dg. GPS-Lochvorschlag ist weg ============ */
+group("Spielmodus — kein GPS-Lochvorschlag mehr");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+  /* Der automatische Lochwechsel verschwand in v1.98, weil er beim Warten am
+     nächsten Tee, beim Ballsuchen und auf dem Rückweg umsprang. Der Vorschlag
+     war sein letzter Rest — dieselbe Fehlerquelle mit einem Tipp dazwischen,
+     und er stand dabei ÜBER der Caddy-Empfehlung. */
+  /* Gegen den CODE prüfen, nicht gegen die Datei: Im Changelog steht der
+     entfernte Text weiterhin — dort gehört er auch hin. */
+  {
+    const js = (src.match(/<script(?![^>]*(?:src=|application\/json|text\/markdown|devdocs))[^>]*>([\s\S]*?)<\/script>/g) || []).join("\n");
+    ok("kein Vorschlag im Spielmodus", !/out\+=`<div class="play-detect"/.test(js));
+    ok("kein Aufruf mit playGoHole aus der Erkennung", !/GPS erkennt Loch \$\{nh\.hole\}/.test(js));
+  }
+  ok("auch die Gestaltung ist weg", !/\.play-detect\{/.test(src));
+  /* `nearestHole` selbst bleibt — die Caddy-Position braucht es, um bei
+     grober Abweichung auf das nähere Loch umzustellen. Ein Aufräumen, das
+     nützliche Funktionen mitnimmt, ist kein Aufräumen. */
+  ok("nearestHole bleibt erhalten", /function nearestHole\(geo, here\)/.test(src));
+  ok("Caddy-Position nutzt es weiter", /const nh=nearestHole\(geo, here\);/.test(src));
+}
+
+/* ============ 24df. Score Differential und Neun aus Achtzehn ============ */
+group("WHS — 9-Loch-Differential und automatische Umstellung");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+
+  /* Hier stand `is9 ? X : X` — beide Zweige identisch. Der 9-Loch-Wert ging als
+     fertiges Differential durch, obwohl er die halbe Runde abdeckt: Bei HCPI 20
+     und 44 Schlägen standen dort 6,8 — eine Zahl, die einem Handicap um 7
+     entspricht. */
+  ok("keine Schein-Verzweigung mehr", !/sd = is9 \? Math\.round\(\(\(ags-CR\)\*113\/SL\)\*10\)\/10 : Math/.test(src));
+  /* DGV/WHS seit 1.4.2024: SD(9 berechnet) = ((HCPI × 1,04) + 2,4) / 2 */
+  ok("Ergänzungsformel nach DGV", /\(\(\(HI\*1\.04\)\+2\.4\)\/2\)/.test(src));
+  ok("SD 18 = gespielt + berechnet", /sd=Math\.round\(\(sd9\+sdErg\)\*10\)\/10/.test(src));
+  /* Ohne Handicap-Index lässt sich die Ergänzung nicht bilden — dann lieber
+     eine ehrliche Lücke als eine erfundene Zahl. */
+  ok("ohne HCPI kein erfundener Wert", /\} else sd=null;\s+\/\/ unvollstaendig/.test(src));
+  ok("beide Teilwerte werden zurückgegeben", /stblB,stblN,ags,sd,sd9,sdErg,cost/.test(src));
+  ok("Anzeige nennt die Zusammensetzung", /9 Löcher \$\{e\.sd9/.test(src));
+
+  /* Rechnung von Hand: HCPI 20 → Ergänzung 11,6; mit SD(9)=6,8 also 18,4. */
+  {
+    const erg = Math.round((((20 * 1.04) + 2.4) / 2) * 10) / 10;
+    eq("Ergänzung bei HCPI 20", erg, 11.6);
+    eq("Summe stimmt", Math.round((6.8 + erg) * 10) / 10, 18.4);
+  }
+
+  /* ALS 18 GESTARTET, NEUN GESPIELT: Das war bisher eine unvollständige
+     Achtzehn — richtig aus den Summen ausgeschlossen, aber eben auch keine
+     Neun, obwohl sie genau das ist. */
+  ok("Umstellung beim Beenden", /const istAchtzehnGestartet/.test(src));
+  ok("nur bei genau einer vollen Hälfte",
+    /if\(vorn===9 && hinten===0\) neu="Front 9";\s*\n\s*else if\(hinten===9 && vorn===0\) neu="Back 9";/.test(src));
+  /* Zwei Felder mit verschiedenen Wertebereichen — wer beide gleich setzt,
+     erzeugt einen Wert, den keine Auswertung kennt. */
+  ok("side und type getrennt gesetzt", /r\.side=neu;\s*\n\s*r\.type="9 Loch";/.test(src));
+  /* Und es wird gesagt: Eine stille Umdeutung der eigenen Runde wäre unheimlich. */
+  ok("Umstellung wird gemeldet", /Als "\+neu\+" gewertet/.test(src));
+}
+
+/* ============ 24de. Caddy: Anzeige, Bedingungen, Tee-Schläger ============ */
+group("Caddy — vollständig sichtbar, Bedingungen, 2 Iron nur vom Tee");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+  const css = (src.match(/<style[^>]*>([\s\S]*?)<\/style>/g) || []).join("\n");
+  const CC = G("caddyClubs"), CP = G("clubPick"), CZ = G("condZeile"), DB0 = G("DB");
+
+  /* AUFGEKLAPPT will man alles sehen — die Karte ist in dem Moment zweitrangig.
+     Vorher: 52 vh und 66 px Rand für die Knopfspalte, also eine schmale halbe
+     Säule. */
+  ok("aufgeklappt bis zum unteren Rand", /\.pf-caddy\.open\{right:12px;bottom:calc\(12px/.test(css));
+  ok("keine feste Höhenbegrenzung mehr", !/\.pf-caddy\.open\{[^}]*max-height:52vh/.test(css));
+  /* Der Schließen-Knopf klebt oben — sonst muss man zum Zuklappen erst wieder
+     hochscrollen, und genau das fühlt sich hängend an. */
+  ok("Schließen bleibt erreichbar", /\.pf-caddy\.open \.pf-cad-x\{position:sticky/.test(css));
+
+  /* Wind/Temperatur wurden längst gerechnet, aber nur im heuristischen Zweig
+     angezeigt — am Abschlag übernimmt die EV-Engine, und deren Anzeige kannte
+     die Bedingungen gar nicht. */
+  ok("Bedingungen auch im EV-Zweig", /\$\{condZeile\(PLAY\.here, ev\.target\|\|_hrC\.green\)\}/.test(src));
+  if (typeof CZ === "function") {
+    eq("ohne Punkte keine Zeile", CZ(null, null), "");
+    /* Unter drei Metern schweigt sie: Eine Zeile, die bei jedem Loch „±1 m"
+       meldet, liest niemand mehr — und sie verdeckt die echten Fälle. */
+    ok("Schwelle vorhanden", /if\(Math\.abs\(diff\)<3 && !\(c\.teile&&c\.teile\.length\)\) return "";/.test(src));
+  }
+
+  /* 2 IRON NUR VOM TEE: Ein Vorschlag, den man ohnehin nicht ausführt, ist
+     schlechter als ein kürzerer, den man spielt — er kostet Vertrauen in den
+     Caddy insgesamt. Die Regel muss für Caddy UND Gameplan gelten. */
+  ok("Regel an einer Stelle", /const TEE_ONLY=/.test(src));
+  if (typeof CC === "function" && DB0) {
+    const sicher = DB0.clubDistances;
+    DB0.clubDistances = [{ club: "Driver", carry: 211 }, { club: "2 Iron", carry: 187 },
+      { club: "5 Wood", carry: 192 }, { club: "7 Iron", carry: 140 }];
+    const boden = CC().map(c => c.name), tee = CC(null, true).map(c => c.name);
+    ok("vom Boden ohne 2 Iron", boden.indexOf("2 Iron") < 0, boden.join(", "));
+    ok("vom Tee mit 2 Iron", tee.indexOf("2 Iron") >= 0, tee.join(", "));
+    /* Schreibweisen: 2er Eisen, 2i, Driving Iron zählen genauso. */
+    DB0.clubDistances = [{ club: "2er Eisen", carry: 187 }, { club: "7 Iron", carry: 140 }];
+    ok("auch „2er Eisen\"", CC().map(c => c.name).indexOf("2er Eisen") < 0);
+    DB0.clubDistances = [{ club: "Driving Iron", carry: 187 }, { club: "7 Iron", carry: 140 }];
+    ok("auch „Driving Iron\"", CC().map(c => c.name).indexOf("Driving Iron") < 0);
+    /* Und NIE einen leeren Beutel erzeugen — das wäre schlimmer als ein
+       unpassender Vorschlag. */
+    DB0.clubDistances = [{ club: "2 Iron", carry: 187 }];
+    eq("letzter Schläger bleibt", CC().length, 1);
+    DB0.clubDistances = sicher;
+  }
+  if (typeof CP === "function") {
+    const bag = [{ name: "2 Iron", reach: 190 }, { name: "5 Wood", reach: 195 }, { name: "7 Iron", reach: 140 }];
+    ok("clubPick meidet es ohne vomTee", (CP(bag, 190, { by: "reach" }) || {}).name !== "2 Iron");
+    ok("mit vomTee ist es erlaubt",
+      [ "2 Iron", "5 Wood" ].indexOf((CP(bag, 190, { by: "reach", vomTee: true }) || {}).name) >= 0);
+  }
+}
+
 /* ============ 24dd. Geräte und golfspezifisches Programm ============ */
 group("Trainingsgeräte — der Plan liest den Bestand");
 {
@@ -5793,7 +5912,19 @@ group("draft.json — heiß und klein statt kalt und groß");
   ok("Schreiben über den SHA-Türsteher", /"X-Path":DRAFT_PATH,"X-Base-Sha":DRAFT_SHA/.test(src));
   /* 409 = jemand war schneller: VEREINEN, nicht überschreiben — der andere ist
      gerade auf der Bahn. */
-  ok("409 wird vereint statt überschrieben", /if\(r\.status===409\)\{[\s\S]{0,300}mergeDraft\(DB\._draftRound, p\.draft/.test(src));
+  /* Seit v3.32 VIER Anläufe statt eines — bei häufigem Schreiben beider Geräte
+     kollidiert sonst auch der nächste Takt, und der Abgleich reißt mitten in
+     der Runde ab, ohne dass etwas danach aussieht. */
+  ok("409 wird vereint statt überschrieben",
+    /for\(let anlauf=0; anlauf<4 && r\.status===409; anlauf\+\+\)\{[\s\S]{0,300}mergeDraft\(DB\._draftRound, p\.draft/.test(src));
+  /* Die Pause muss ZUFÄLLIG sein: Zwei Geräte, die nach einem Konflikt
+     gleichzeitig neu senden, kollidieren synchron wieder. */
+  ok("zufällige Pause zwischen den Anläufen", /setTimeout\(x, 250\+Math\.random\(\)\*600\)/.test(src));
+  /* Und ein Fehlschlag darf nicht lautlos bleiben — daran ist eine ganze Runde
+     ohne Abgleich gelaufen. */
+  ok("Fehlschlag wird protokolliert", /logErr\("draftPush", new Error\("HTTP "/.test(src));
+  ok("nach drei Fehlschlägen wird gewarnt", /if\(DRAFT_FEHLER===3\) toast/.test(src));
+  ok("Caddy-Takt drängelt sich nicht vor", /if\(_draftPushT\) return;/.test(src));
   /* Alter Worker (403) oder fehlende Datei (404) dürfen nicht blockieren. */
   ok("404 gilt als leer", /if\(r\.status===404\)\{ DRAFT_SHA=null; DRAFT_MODE=true; return \{leer:true\}; \}/.test(src));
   ok("403 fällt auf den alten Weg zurück", /if\(!r\.ok\)\{ DRAFT_MODE=false; return null; \}/.test(src));
@@ -7205,7 +7336,7 @@ group("Caddy — zweiter Zug und die Gewichte, die ihn tragen");
     /* --- (b) Zweiter Zug --- */
     ok("_ply2 existiert", typeof S._ply2 === "function");
     const te = src.slice(src.indexOf("  tee(geo,courseName,holeNo,mode,hcp,von)"),
-                         src.indexOf("  tee(geo,courseName,holeNo,mode,hcp,von)") + 6000);
+                         src.indexOf("  tee(geo,courseName,holeNo,mode,hcp,von)") + 7500);
     ok("zweite Ebene nur für die Spitze", /Math\.min\(5,cands\.length\)/.test(te));
     ok("Korrektur gedämpft (Mittelpunkt statt Verteilung)", /0\.7\s*\*\s*c\.ply2/.test(te));
     ok("Korrektur ist Gelände minus Tabelle", /p2\.sc\s*-\s*generisch/.test(te));
