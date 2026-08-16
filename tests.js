@@ -4841,6 +4841,56 @@ group("Scorekarte — das gewohnte Raster");
   ok("Ziffern in gleicher Breite", /font-variant-numeric:tabular-nums/.test(src));
 }
 
+/* ============ 24db. Mehrere Bilder je Artikel ============ */
+group("Wissensspeicher — Bildstrecke statt Einzelbild");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+
+  /* Dem Feld fehlte `multiple`, und der Handler las nur `files[0]` — unter
+     Android ließ sich dann gar nichts mehrfach auswählen. Wer eine Bildstrecke
+     zu einem Drill anlegt, musste den Weg je Bild einmal gehen. */
+  ok("Bildfeld nimmt mehrere", /🖼 Bilder<input type="file" accept="image\/\*" multiple/.test(src));
+  ok("Handler liest alle Dateien", /const fs=Array\.prototype\.slice\.call\(\(input&&input\.files\)\|\|\[\]\)/.test(src));
+  /* NACHEINANDER: Parallel liefe auf dem Telefon der Speicher voll, und die
+     Reihenfolge im Text wäre zufällig — bei einer Bildstrecke ist die
+     Reihenfolge aber die halbe Aussage. */
+  ok("nacheinander statt gleichzeitig", /const naechstes=\(i\)=>\{[\s\S]{0,600}naechstes\(i\+1\)/.test(src));
+  /* Ein Bild, das nicht durchkommt, darf die übrigen nicht mitnehmen. */
+  ok("Fehler je Bild aufgefangen", /\.catch\(\(\)=>\{ fehler\+\+; \}\)/.test(src));
+  ok("Bilanz am Ende", /ok\+" von "\+fs\.length\+" Bildern eingefügt/.test(src));
+  /* Erst NACH allen Bildern anstoßen — sonst ein Push je Bild. */
+  ok("Repo-Anstoß erst am Ende", /if\(i>=fs\.length\)\{[\s\S]{0,200}wikiImgSchedulePush\(\)/.test(src));
+  /* Videos bleiben bewusst einzeln — die Größenrückfrage je Datei wäre in
+     Serie eine Zumutung. */
+  ok("Video weiterhin einzeln, mit Begründung", /bewusst EINZELN: Videos sind gross/.test(src));
+}
+
+/* ============ 24db. Mehrere Bilder in einen Artikel ============ */
+group("Bilder — drei Wege, eine Verarbeitung");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+
+  /* Das Eingabefeld fordert seit jeher `multiple` an und die Verarbeitung
+     läuft über ALLE Dateien. Ob man mehrere wählen kann, entscheidet aber die
+     Android-Auswahl — manche Galerie-Apps geben trotz `multiple` nur eines
+     heraus. Darauf hat die App keinen Zugriff, also gibt es Wege daran vorbei. */
+  ok("Dateiauswahl fordert mehrere an", /accept="image\/\*" multiple/.test(src));
+  ok("Ziehen ins Textfeld", /ta\.addEventListener\("drop"/.test(src));
+  ok("Einfügen aus der Zwischenablage", /ta\.addEventListener\("paste"/.test(src));
+  /* Manche Systeme legen das Bild nur unter `items` ab — ohne diesen Zweig
+     käme beim Einfügen nichts an. */
+  ok("auch über clipboardData.items", /if\(it\.kind==="file"\)/.test(src));
+  ok("sichtbare Rückmeldung beim Ziehen", /\.we-drop\{outline:2px dashed/.test(src));
+
+  /* EINE Verarbeitung für alle drei Wege — sonst hätte jeder seine eigene
+     Fehlerbehandlung, und einer davon wäre irgendwann anders. */
+  ok("gemeinsame Verarbeitung", /function wikiAddImageFiles\(fs\)\{/.test(src));
+  ok("Dateiauswahl nutzt sie", /function wikiAddImageFromInput\(input\)\{[\s\S]{0,200}wikiAddImageFiles\(fs\);/.test(src));
+  ok("Ziehen und Einfügen ebenso", (src.match(/wikiAddImageFiles\(bilder\)/g) || []).length >= 1);
+  /* Nur Bilder — ein versehentlich gezogenes PDF darf nicht als Bild landen. */
+  ok("filtert auf Bilder", /filter\(f=>f && \/\^image\\\//.test(src));
+}
+
 /* ============ 24da. Eine Vorlage für alle Scorekarten ============ */
 group("Scorekarte — im Spielmodus dieselbe wie in der Runde");
 {
@@ -4900,7 +4950,21 @@ group("Layout — Breite, Zeigergerät, Spalten");
   /* Navigation zur Seite — nur mit Maus UND Breite. */
   ok("Seitennavigation ab 1280 px mit Maus",
     /@media \(min-width:1280px\) and \(pointer:fine\)\{[\s\S]{0,200}nav\{/.test(css));
-  ok("Blatt wird zum Dialog", /\.sheet\{[\s\S]{0,200}translate\(-50%,-46%\)/.test(css));
+  /* NUR DAS GEÖFFNETE Blatt wird zum Dialog. Die Regel auf `.sheet` allgemein
+     setzte auch das GESCHLOSSENE in die Bildschirmmitte — es schließt sich am
+     Telefon dadurch, dass es unten aus dem Bild fährt. Ergebnis war ein leeres
+     Fenster mit einem ✕, das nichts tut (v3.21 → v3.23). */
+  ok("nur das offene Blatt wird zum Dialog", /\.sheet\.open\{[\s\S]{0,200}translate\(-50%,-50%\)/.test(css));
+  ok("geschlossene Blätter bleiben unten", !/body:not\(\.komp\) \.sheet\{/.test(css));
+  /* Im Dialog ist der Geräterand kein Bezugspunkt mehr — der Fußraum für die
+     Handy-Sicherheitszone sieht dort aus wie ein Fehler. */
+  ok("Fußraum im Dialog angepasst", /\.sheet\.open #sheetBody\{padding-bottom:18px\}/.test(css));
+  /* Feste Elemente saßen 84 px über dem unteren Rand — dort ist mit der
+     Seitennavigation nichts mehr, sie schwebten grundlos hoch. */
+  ok("Meldung sitzt am unteren Rand", /\.toast\{bottom:24px/.test(css));
+  ok("Aktionsknopf folgt der Inhaltsspalte", /\.fab\{bottom:24px;\s*right:max\(16px/.test(css));
+  ok("Unterleiste macht den Einzug mit", /#subnav\{padding-left:198px\}/.test(css));
+  ok("Ecken werden mitgemacht", /\.sheet\.open #sheetFoot\{[^}]*border-radius:0 0 18px 18px/.test(css));
 
   /* Der Schalter übersteuert die Automatik: Media Queries kennen die
      Fenstergröße, nicht die Absicht. */
