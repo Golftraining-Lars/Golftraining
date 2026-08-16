@@ -5048,7 +5048,11 @@ group("Trainingsgeräte — der Plan liest den Bestand");
   /* Der Plan zielt auf Rotation, nicht auf „mehr Kraft" — und begründet jede
      Übung, sonst macht man sie falsch oder gar nicht. */
   if (Array.isArray(PROG)) {
-    eq("drei Einheiten", PROG.length, 3);
+    /* Vier Einheiten seit v3.30: Das Aufwärmen VOR der Runde kam dazu — der
+       Teil mit dem besten Verhältnis von Aufwand zu Wirkung. */
+    eq("vier Einheiten", PROG.length, 4);
+    ok("Aufwärmen ist dabei", PROG.some(e => e.id === "W" && /Aufwärmen/.test(e.titel)));
+    ok("Aufwärmen bleibt kurz", /10 min/.test((PROG.find(e => e.id === "W") || {}).dauer || ""));
     ok("jede Einheit hat einen Zweck", PROG.every(e => (e.zweck || "").length > 20));
     ok("jede Übung nennt Sätze", PROG.every(e => e.uebungen.every(u => (u.s || "").length > 2)));
     ok("jede Übung nennt das Warum", PROG.every(e => e.uebungen.every(u => (u.w || "").length > 20)));
