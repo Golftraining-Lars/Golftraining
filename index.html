@@ -1039,6 +1039,40 @@
   /* Sichtbare Rueckmeldung beim Ziehen — ohne sie weiss man nicht, ob das
      Textfeld die Dateien ueberhaupt annimmt (v3.24). */
   .we-drop{outline:2px dashed var(--gold);outline-offset:-3px;background:var(--surface2)}
+  /* ---------- WOCHENPLAN (v3.28) ---------- */
+  .fp-row{display:grid;grid-template-columns:52px 104px 62px 1fr;gap:6px;align-items:center;
+    padding:5px 0;border-bottom:1px solid var(--line-soft)}
+  .fp-row:last-child{border-bottom:none}
+  .fp-tag{font-size:12.5px;font-weight:700;color:var(--ink-soft)}
+  .fp-heute .fp-tag{color:var(--gold-ink)}
+  .fp-heute{background:var(--surface-2);border-radius:8px;padding-left:6px;padding-right:6px}
+  .fp-art,.fp-min,.fp-note{border:none;background:transparent;color:var(--ink);font-size:13px;
+    padding:5px 4px;min-width:0;border-bottom:1px solid var(--line)}
+  .fp-min{text-align:right}
+  .fp-art:focus,.fp-min:focus,.fp-note:focus{outline:none;border-bottom-color:var(--gold)}
+  /* ---------- GERÄTE & PROGRAMM (v3.29) ---------- */
+  .gear-row{display:grid;grid-template-columns:24px 1fr 1fr 28px;gap:6px;align-items:center;
+    padding:4px 0;border-bottom:1px solid var(--line-soft)}
+  .gear-row:last-child{border-bottom:none}
+  .gear-aus{opacity:.45}
+  .gear-name,.gear-note{border:none;background:transparent;color:var(--ink);font-size:13px;
+    padding:5px 4px;min-width:0;border-bottom:1px solid var(--line)}
+  .gear-note{font-size:11.5px;color:var(--ink-soft)}
+  .gear-name:focus,.gear-note:focus{outline:none;border-bottom-color:var(--gold)}
+  .gear-del{border:none;background:transparent;color:var(--ink-faint);font-size:15px;cursor:pointer}
+  .pg-row{padding:7px 0;border-bottom:1px solid var(--line-soft)}
+  .pg-row:last-of-type{border-bottom:none}
+  .pg-n{font-weight:650;font-size:13.5px}
+  .pg-s{font-size:12.5px;color:var(--gold-ink);font-variant-numeric:tabular-nums}
+  .pg-w{margin-top:2px}
+  /* „Heute geplant": Zeilen, nicht Karten — es sind hoechstens drei, und sie
+     sollen den Weg zu den Knoepfen darunter nicht verlaengern (v3.25). */
+  .hp-card{padding-top:6px;padding-bottom:6px}
+  .hp-row{display:flex;gap:10px;align-items:flex-start;padding:9px 0;cursor:pointer;
+    border-bottom:1px solid var(--line-soft)}
+  .hp-row:last-child{border-bottom:none}
+  .hp-ic{flex:0 0 auto;font-size:16px;line-height:1.2}
+  .hp-row .r-s{display:block}
   .play-close .pc-lab{display:flex;align-items:center;gap:6px;font-size:11px;font-weight:800;
     letter-spacing:.07em;text-transform:uppercase;color:var(--pine);margin:0 2px 6px}
   .play-close .pc-lab b{display:inline-grid;place-items:center;width:17px;height:17px;
@@ -1812,7 +1846,22 @@ oder **Wald**, Linie auch als **Hecke**). `GEOED.M` haelt die Projektion.
 + **Bildstrecken (v3.24):** Bildfeld im Wiki-Editor mit `multiple`; `wikiAddImageFromInput`
   verarbeitet alle Dateien NACHEINANDER (Reihenfolge!), fängt Fehler je Bild ab und stößt den
   Repo-Push erst am Ende an. Videos bleiben einzeln.
-+ **Bilder: drei Wege (v3.24):** `wikiAddImageFiles(fs)` ist die gemeinsame Verarbeitung für
++ **Heute geplant (v3.26):** `heuteTests(max)` (überfälligste zuerst, Blockfokus bevorzugt, ab
+  60 Tagen, höchstens zwei) und `heuteSport()` (kein Kraft am Turniertag/Vortag · Kraft ab 3 Tagen,
+  im Wettkampfblock ab 4 · sonst Mobilität ab 2 · sonst Ruhetag) → `heuteProgrammHtml()` unter dem
+  Blockkasten.
++ **Aktualisierung sichtbar (v3.27):** `updatefound` meldet eine neue Fassung mit Knopf „Jetzt
+  anwenden" (nur bei echter Aktualisierung, erkennbar an `serviceWorker.controller`); die Fassung
+  steht am Fuß der Heute-Seite.
++ **Geräte & Programm (v3.29):** `DB.gear` (Liste mit `aktiv`-Schalter, `gearSeed()` befüllt einmalig),
+  `gearHat(begriffe)` prüft den Bestand über Teilzeichenketten. `GOLF_PROG` = drei Einheiten
+  (Rotation & Rumpf · Beweglichkeit · Schnellkraft); `progVerfuegbar` blendet Übungen ohne Gerät aus,
+  `progInPlan` trägt eine Einheit auf den ersten FREIEN Wochentag ein.
++ **Fitness (v3.28):** eigener Reiter (`{g:"fitness"}` mit `fitness` + `fitplan`), Turnier unter
+  „Mehr". `DB.fitPlan={tage,erinnern,zeit}` als WOCHENplan; `fitplanIdx` zählt ab Montag,
+  `fitplanWocheGeschafft` vergleicht die Art statt des Tages. `fitErinnerungTick` (Minutentakt,
+  einmal je Tag, nicht an Erledigtes), `fitplanIcs()` erzeugt eine Wochenserie mit Voralarm.
++ **Bilder: drei Wege (v3.25):** `wikiAddImageFiles(fs)` ist die gemeinsame Verarbeitung für
   Dateiauswahl, Ziehen aufs Textfeld und Einfügen aus der Zwischenablage (auch über
   `clipboardData.items`). Hinweis im Editor: am Handy „Dateien" statt „Fotos" wählen.
 + **Desktop-Korrekturen (v3.23):** Dialoggeometrie nur für `.sheet.open` (sonst stand das
@@ -4334,6 +4383,94 @@ export default {
 > **Beim Archivieren gilt:** nach Fassungsnummer sortieren, nie nach Reihenfolge im Text —
 > beim Sortieren fiel auf, dass ein Eintrag (v2.94) ueber neueren stand.
 
+- **v3.29.0 · 2026-08-16** — **Geräteliste und ein Trainingsplan, der sie liest.**
+  **(1) Geräte** unter Fitness: die vorhandene Ausrüstung als bearbeitbare Liste, einmalig befüllt
+  aus dem, was fotografiert vorliegt — Swing Trainer, Widerstands- und Loop-Bänder, Türanker,
+  Kurz- und Langhantel, Klimmzugstange, Faszienrolle, Massagebälle, Matte, Kissen, Thera-Band.
+  **Nicht verfügbar statt gelöscht:** Geräte, die gerade verliehen oder im Keller sind, werden
+  abgewählt — dann fallen sie aus dem Plan, ohne dass man sie später neu eintippt.
+  **(2) Das Programm liest diese Liste.** Ein Plan, der Geräte voraussetzt, die man nicht hat, ist
+  wertlos; einer, der vorhandene nicht nutzt, verschenkt sie. Fehlt ein Gerät, erscheint die Übung
+  nicht — mit Zähler, damit man weiß, dass etwas fehlt.
+  **Worauf der Plan zielt, und warum nicht auf „mehr Kraft":** Der Schwung ist eine **Rotation um
+  eine stabile Mitte**, ausgelöst von unten. Begrenzt wird er selten durch Kraft, sondern durch die
+  Trennung von Becken und Brustkorb, durch verkürzte Hüftbeuger, durch fehlende Rumpfstabilität —
+  und erst dann durch Schnellkraft. In dieser Reihenfolge sind die drei Einheiten aufgebaut:
+  **A Rotation & Rumpf**, **B Beweglichkeit & Regeneration**, **C Schnellkraft & Schwung**.
+  **Drei Einheiten, nicht fünf:** Mehr hält neben Runden und Beruf niemand durch, und ein Plan, den
+  man nicht hält, ist schlechter als ein kleinerer, den man hält. **Rotation immer beidseitig** —
+  Golf ist einseitig; wer nur die Schwungrichtung trainiert, verstärkt die Schiefe. Die
+  Gegenrichtung bekommt weniger Sätze, fällt aber nicht weg.
+  **Jede Übung nennt ihr Warum.** Eine Übung ohne Begründung macht man falsch oder gar nicht.
+  „In den Wochenplan übernehmen" trägt eine Einheit auf den ersten **freien** Tag ein — ein
+  vorhandener Plan wird nie stillschweigend überschrieben.
+
+- **v3.28.0 · 2026-08-16** — **Fitness wird eigener Reiter · Wochenplan mit Erinnerungen.**
+  **(1) Navigation:** Fitness lag als vierter Reiter unter „Training" — erreichbar, aber nicht
+  präsent, und damit genau so oft benutzt, wie es dort stand. „Turnier" wandert unter „Mehr".
+  **Die Häufigkeit der Benutzung gehört in die Reihenfolge, nicht die Wichtigkeit des Themas** —
+  ein Turnier ist wichtiger als eine Yoga-Einheit, aber man öffnet es ein paar Mal im Jahr.
+  **(2) Wochenplan**, kein Kalender mit Datum: „montags Kraft" gilt weiter, auch wenn eine Woche
+  ausfällt; ein Datumsplan wäre nach der ersten Verschiebung falsch und müsste gepflegt werden.
+  Je Tag Art, Dauer und Schwerpunkt — Übungen gehören in die **erfasste** Einheit, sonst pflegt man
+  zwei Listen. Der Fortschritt der Woche vergleicht die **Art**, nicht den Tag: Wer die
+  Montags-Einheit am Dienstag macht, hat sie gemacht.
+  **(3) Erinnerungen — und was dabei ehrlich gesagt werden muss:** Eine Web-App kann **keine**
+  Benachrichtigung schicken, während sie geschlossen ist; dafür bräuchte es einen Push-Server, und
+  hier gibt es nur eine statische Seite. Was geht: ein Hinweis, solange die App läuft oder im
+  Hintergrund offen ist. Was **zuverlässig** geht: ein Termin im Kalender des Telefons — deshalb
+  „📅 In den Kalender", das eine **wöchentliche Serie** mit 30-Minuten-Voralarm erzeugt. Alles
+  andere wäre ein Versprechen, das die Technik nicht hält.
+  Erinnert wird **einmal je Tag** (sonst schaltet man es nach dem zweiten Hinweis ab) und **nicht an
+  Erledigtes**: Eine Erinnerung an etwas bereits Gemachtes ist der schnellste Weg, sie loszuwerden.
+
+- **v3.27.0 · 2026-08-16** — **„Ich habe neu geladen und sehe es nicht" — jetzt sagt es die App.**
+  Die App-Hülle läuft nach *stale-while-revalidate*: Sie startet **immer** aus dem Zwischenspeicher
+  und holt die neue Fassung im Hintergrund. Das ist richtig — im Funkloch auf dem 14. Loch will
+  niemand eine Fehlerseite —, hat aber eine unangenehme Folge: **Nach dem Einspielen zeigt das
+  erste Neuladen noch die alte Fassung**, erst das zweite die neue. Wer das nicht weiß, hält eine
+  eingebaute Neuerung für nicht vorhanden und sucht den Fehler an der falschen Stelle. Genau das
+  ist mehrfach passiert — zuletzt beim Block „Heute geplant" aus v3.26.
+  Jetzt meldet die App die neue Fassung selbst, mit einem Knopf, der das zweite Neuladen gleich
+  erledigt. **Nur bei einer echten Aktualisierung:** Bei der ersten Installation gibt es nichts zu
+  melden, unterschieden über `serviceWorker.controller`.
+  Dazu steht die **Fassungsnummer am Fuß der Heute-Seite**. Ob eine Neuerung fehlt oder nur die
+  alte Fassung läuft, war bisher nur über die Abgleich-Prüfung herauszufinden — drei Ebenen tief.
+
+- **v3.26.0 · 2026-08-16** — **„Heute geplant": welche Tests und welches Sportprogramm heute dran
+  sind.**
+  Fällige Tests und Trainingsfokus standen bis v2.31 auf dieser Seite und wurden entfernt — zu
+  Recht: Es war eine **Liste**, und Listen sind Planung, kein Tagesgeschäft. Der Wunsch ist ein
+  anderer: nicht „was ist alles fällig", sondern „was mache ich **heute**". Das sind zwei bis drei
+  Zeilen, und die gehören hierher.
+  **Tests:** die überfälligsten zuerst (nie gemacht zählt als unendlich alt), aber **bevorzugt aus
+  dem Schwerpunkt des laufenden Blocks** — ein Bunker-Test in einer Wedge-Woche ist zwar fällig,
+  aber nicht dran. Erst ab 60 Tagen, und **höchstens zwei**: Wer drei Tests an einem Tag macht,
+  macht keinen davon ordentlich.
+  **Sportprogramm:** Es gibt keinen hinterlegten Wochenplan, nur erfasste Einheiten — die
+  Empfehlung wird deshalb abgeleitet. **Am Turniertag und am Vortag kein Krafttraining**,
+  Muskelkater am Abschlag hat noch nie geholfen; Mobilität ja. Sonst Kraft, wenn die letzte Einheit
+  drei Tage her ist — im Wettkampfblock vier, dort steht Frische über Reiz. Sonst Mobilität ab zwei
+  Tagen. Sonst ausdrücklich **Ruhetag**: Ein Ruhetag ist ein Programm, kein Ausfall — wer ihn nicht
+  benennt, trainiert ihn weg.
+  Die Regeln stehen als lesbarer Code, nicht in einer Tabelle: Es sind Faustregeln, und man soll sie
+  ändern können. Jede Zeile führt direkt dorthin, wo man sie erledigt — Test öffnen, Kraft- oder
+  Yoga-Eintrag anlegen.
+
+- **v3.25.0 · 2026-08-16** — **Mehrere Bilder je Artikel: zwei Wege an der Android-Galerie vorbei.**
+  Die App fordert seit jeher `multiple` an, und die Verarbeitung läuft über **alle** ausgewählten
+  Dateien — der Code war also nie das Problem. Ob man mehrere wählen **kann**, entscheidet die
+  Android-Auswahl: Manche Galerie-Apps geben trotz `multiple` nur ein Bild heraus, der
+  Dateiauswähler dagegen mehrere. Darauf hat eine Web-App keinen Zugriff.
+  Also zwei Wege, die ohne sie auskommen: **Bilder ins Textfeld ziehen** und **aus der
+  Zwischenablage einfügen** — beide nehmen mehrere auf einmal. Beim Einfügen wird auch
+  `clipboardData.items` ausgewertet, weil manche Systeme das Bild nur dort ablegen; ohne diesen
+  Zweig käme nichts an.
+  **Alle drei Wege laufen in dieselbe Verarbeitung** (`wikiAddImageFiles`) — sonst hätte jeder seine
+  eigene Fehlerbehandlung und seinen eigenen Zähler, und einer davon wäre irgendwann anders.
+  Gefiltert wird auf Bilder: Ein versehentlich gezogenes PDF darf nicht als Bild landen.
+  Dazu der Hinweis im Editor, der am Handy hilft: **im Auswahlfenster „Dateien" statt „Fotos"**.
+
 - **v3.24.0 · 2026-08-16** — **Mehrere Bilder auf einmal in einen Artikel.**
   Dem Bildfeld fehlte schlicht `multiple`, und der Handler las ohnehin nur `files[0]` — unter
   Android ließ sich damit gar nichts mehrfach auswählen. Wer eine Bildstrecke zu einem Drill anlegt,
@@ -4348,20 +4485,6 @@ export default {
   eine Zumutung.
   Gegengeprüft im Sandkasten mit drei Dateien, davon eine defekte: zwei eingefügt, Reihenfolge
   erhalten, Fehler gemeldet, Feld sofort geleert.
-
-- **v3.24.0 · 2026-08-16** — **Mehrere Bilder je Artikel: zwei Wege an der Android-Galerie vorbei.**
-  Die App fordert seit jeher `multiple` an, und die Verarbeitung läuft über **alle** ausgewählten
-  Dateien — der Code war also nie das Problem. Ob man mehrere wählen **kann**, entscheidet die
-  Android-Auswahl: Manche Galerie-Apps geben trotz `multiple` nur ein Bild heraus, der
-  Dateiauswähler dagegen mehrere. Darauf hat eine Web-App keinen Zugriff.
-  Also zwei Wege, die ohne sie auskommen: **Bilder ins Textfeld ziehen** und **aus der
-  Zwischenablage einfügen** — beide nehmen mehrere auf einmal. Beim Einfügen wird auch
-  `clipboardData.items` ausgewertet, weil manche Systeme das Bild nur dort ablegen; ohne diesen
-  Zweig käme nichts an.
-  **Alle drei Wege laufen in dieselbe Verarbeitung** (`wikiAddImageFiles`) — sonst hätte jeder seine
-  eigene Fehlerbehandlung und seinen eigenen Zähler, und einer davon wäre irgendwann anders.
-  Gefiltert wird auf Bilder: Ein versehentlich gezogenes PDF darf nicht als Bild landen.
-  Dazu der Hinweis im Editor, der am Handy hilft: **im Auswahlfenster „Dateien" statt „Fotos"**.
 
 - **v3.23.0 · 2026-08-16** — **BUGFIX: Das „zweite Fenster", das sich nicht schließen ließ · klebende
   Elemente am Schreibtisch.**
@@ -5070,97 +5193,6 @@ export default {
   Runde ändert sich genau eines: der Rundenentwurf. `syncFinger` fasst ihn und die wenigen anderen
   relevanten Marken zusammen. Die übrigen Stellen behalten den vollen Vergleich — sie laufen nach
   der SHA-Prüfung nur noch, wenn wirklich etwas neu ist.
-
-- **v2.88.0 · 2026-08-13** — **Zwei neue Luftbildquellen · PNG für die Erkennung · Quellen-Prüfung.**
-  **(1) Bremen DOP10 (10 cm)** und **MV DOP20**, beide CC BY 4.0. Bremen trägt das Bildflugjahr im
-  Layer-Namen (`dop10_2025_HB`) — wenn dort irgendwann „XML statt Bild" gemeldet wird, ist genau das
-  der Grund. Bremerhaven liegt in einem eigenen Layer und ist nicht drin; dort greift wieder Esri.
-  **MV hat auch DOP10 — bewusst nicht eingebaut:** Die Nutzungsbedingungen dieses Dienstes
-  beschränken die externe Einbindung ausdrücklich und verlangen eine Beantragung. Eine Quelle, die
-  man rechtlich nicht einbinden darf, gehört nicht in eine Auswahlliste, auch wenn sie technisch
-  funktioniert.
-  **(2) PNG für die Erkennung.** Die Anzeige holt weiter JPEG — kleiner, schneller, fürs Auge genug.
-  Die Vegetationserkennung bewertet aber **einzelne Pixel** auf „gleichzeitig grün und dunkel", und
-  genau daran vergreift sich JPEG: Chroma-Subsampling legt Farbe in 8×8-Blöcken zusammen und färbt
-  die Kanten zwischen Krone und Fairway um. An einer Waldkante entstehen Pixel, die es nie gab.
-  Beide Fassungen liegen unter **getrennten Speicherschlüsseln** — sonst würde je nachdem, wer
-  zuerst da war, entweder die Anzeige langsamer oder die Auswertung falsch. Nur bei WMS; bei Esri
-  ist das Format nicht wählbar.
-  **(3) „🔍 Quelle prüfen"** in den Karten-Einstellungen. Grund, offen gesagt: Ich konnte die neuen
-  Dienste von hier aus **nicht anfragen** — die Hosts sind in meiner Umgebung gesperrt. Adresse,
-  Layer-Name und Gebiet stammen aus den amtlichen Metadaten, Bremen zusätzlich aus dem
-  Capabilities-Auszug; getestet ist keiner davon. Statt das zu behaupten, holt der Knopf **eine
-  echte Kachel** für die Platzmitte und sagt, was zurückkam: Bild mit Größe, Text/XML (dann stimmt
-  der Layer-Name oder das Gebiet nicht — WMS antwortet auf falsche Layer mit XML statt mit einem
-  Fehlercode) oder keine Verbindung. Fünf Sekunden statt Raten.
-
-- **v2.87.0 · 2026-08-13** — **Sicherungskopien bezahlbar gemacht · ein Versionssprung verwirft
-  nichts mehr · leere Stände überschreiben keine Skalare.**
-  **(1) Die Sicherungen waren der teuerste Vorgang der App.** Der Ring hielt starr **zehn**
-  vollständige Kopien: bei ~3 MB Daten rund 30 MB im Speicher, und bei jedem Schnappschuss wurde
-  das **ganze Array** neu nach IndexedDB geschrieben — Schreibverstärkung Faktor zehn, alle drei
-  Minuten. Dazu eine zweite Kopie nach `localStorage`: ein 30-MB-String, gebaut auf dem
-  Haupt-Thread, für einen Speicher mit 5 MB Grenze. Der Versuch **musste** scheitern, still im
-  `catch` — reine Rechenzeit für nichts, und `idbHydrate` räumt den Schlüssel ohnehin weg, worauf
-  `snapshot` ihn sofort wieder hinschrieb.
-  Neu richtet sich die Tiefe nach der **Größe** (`snapBehalten`: 10 · 6 · 3 · 2), der
-  localStorage-Zweig ist ersatzlos entfallen. Und ein **fast leerer Stand kommt nicht mehr in den
-  Ring**: Beim Start läuft `snapshot("Start")`, bevor `idbHydrate` die echten Daten geladen hat —
-  ging dabei etwas schief, verdrängte der leere Stand die letzte gute Sicherung. Die Sicherung
-  hätte also genau dann versagt, wenn man sie braucht.
-  **(2) Ein Versionssprung verwarf den gespeicherten Stand** — und im Zusammenspiel mit dem
-  Abgleich war das eine Kette: `load()` wirft die localStorage-Daten weg → `idbHydrate` lehnt die
-  IndexedDB-Kopie **mit derselben Bedingung** ab und **überschreibt sie mit dem leeren SEED** →
-  `cloudLoad` merged das Repo hinein, wobei `Object.assign({}, R, L)` Profil, Phasen und `ui` aus
-  dem leeren L nimmt → beim nächsten Push landen die Leerwerte auf **allen** Geräten. Die Doku
-  warnte davor, `SEED.version` zu erhöhen; eine Warnung ist aber keine Sicherung.
-  Jetzt wird **migriert statt verworfen**: Der Stand wird übernommen und nur die Versionsnummer
-  angehoben, `ensureDefaults()` legt Neues additiv an — dafür ist es gebaut. Verworfen wird nur,
-  was strukturell unbrauchbar ist. `idbHydrate` prüft die Version nicht mehr und **überschreibt nie
-  eine reichere Kopie**.
-  **(3) Wer leer ist, gewinnt nichts.** In `mergeDB` waren die Listen geschützt (Union nach ID),
-  die **Skalare nicht**: Ein frisch installiertes Gerät überschrieb Profil und Einstellungen im
-  Repo. Ist der lokale Stand leer (`dataScore<5`, dieselbe Schwelle wie der Empty-Guard des
-  Pushes) und der Repo-Stand nicht, drehen sich die Grundlagen um. Im Normalfall bleibt alles wie
-  bisher — die lokale Korrektur gewinnt weiterhin.
-  **Im Worker gespiegelt** (Abschnitt 28, Fassung **v2.3**), inklusive eines eigenen `dataScore`.
-  **Und ein Warnhinweis, der aus einem eigenen Fehler stammt:** `mergeDB` steht seit v2.85 ZWEIMAL
-  in der Datei — ausführbar und als Worker-Abzug. Eine Suche findet den **Abzug zuerst**, weil die
-  Doku im Dokument vor dem Code steht. Genau dort landete diese Änderung zunächst und blieb
-  wirkungslos, bis der Prüfstand es meldete. Der Hinweis steht jetzt über Abschnitt 28.
-  **Prüfstand:** 26 neue Prüfungen, darunter die Ringtiefe je Größe, die Migration statt Verwerfen,
-  „nie eine reichere Kopie überschreiben" und beide Merge-Richtungen mit echtem `mergeDB`.
-
-- **v2.86.0 · 2026-08-13** — **✋ Hand-Werkzeug: die Karte schieben, ohne etwas anzufassen.**
-  Bisher war Verschieben immer ein Nebenweg: Ziehen auf **freier** Fläche schob die Karte — aber im
-  Zeichen-Werkzeug verbraucht die Maus den Zug für die Kontur, und über einem Objekt kann man es
-  aufnehmen. Nach einer Erkennung liegen kaum noch freie Stellen. Das neue Werkzeug macht das
-  Schieben zum Hauptweg: **Ziehen verschiebt die Karte, sonst passiert nichts** — kein Aufnehmen,
-  kein Freihandzug, kein Setzen, kein Löschen.
-  Geprüft wird es **vor** der Freihand- und vor der Objektbehandlung, sonst griffe die zuerst; der
-  Klick ist ebenfalls stillgelegt. Zeiger als offene Hand, beim Ziehen geschlossen. Kürzel
-  <kbd>H</kbd>.
-  Mit Auswahl und Hand sind es acht Werkzeuge — das Raster geht deshalb auf **vier Spalten**; sechs
-  nebeneinander wären auf dem Telefon 44 px breite Streifen.
-
-- **v2.85.0 · 2026-08-13** — **`worker.js` liegt jetzt vollständig in der Doku (Abschnitt 28).**
-  Der Worker ist der zweite Teil dieses Systems und lag ausschließlich im Cloudflare-Dashboard —
-  bei jeder Merge-Frage also unsichtbar. Genau daran ist v2.84 zunächst gescheitert: Ich habe
-  **behauptet**, der Worker merge serverseitig und müsse angepasst werden, ohne seinen Stand zu
-  kennen. Tatsächlich merged er im benutzten Modus gar nicht — er ist ein SHA-Türsteher, der die
-  gesendeten Bytes schreibt. **Eine Aussage über Code, den man nicht sieht, ist eine Vermutung.**
-  Der vollständige Quelltext (Fassung v2.2, mit dem gespiegelten `_mergeCourses`) steht jetzt in
-  **Abschnitt 28**, samt Kurzbeschreibung beider Modi und der Fassungsgeschichte. Verwiesen wird
-  darauf an den drei Stellen, an denen man darüber stolpern muss: in der Sync-Architektur, in der
-  STRAT-Merge-Invariante und in der **Doku-Pflicht (Regel 0)**.
-  **Die Regel dazu:** Wer an `mergeDB`, den Sync-Pfaden oder synchronisierten Feldern arbeitet,
-  liest den Abschnitt **zuerst**, prüft ob der ALT-Modus betroffen ist, ändert den Code dort bei
-  Bedarf mit, erhöht die Fassungsnummer und ersetzt den Stand — der Abschnitt ist die Quelle der
-  Wahrheit für „was macht der Worker gerade?".
-  **Technisch:** Der Code steht in einem Zaun aus **vier** Backticks, weil er Template-Literale
-  enthält — mit dreien risse der Block auseinander. Der Prüfstand hält beides fest: dass die
-  tragenden Codestellen wirklich dastehen (nicht nur eine Beschreibung) und dass nichts im
-  eingebetteten Code den Doku-Block sprengen kann.
 </script>
 <header>
   <div class="h-top">
@@ -5203,6 +5235,9 @@ export default {
   <section class="view" id="v-gps"></section>
   <!-- FITNESS -->
   <section class="view" id="v-fitness"></section>
+  <section class="view" id="v-fitplan"></section>
+  <section class="view" id="v-programm"></section>
+  <section class="view" id="v-gear"></section>
   <!-- PLANUNG -->
   <section class="view" id="v-planung"></section>
   <!-- PINNWAND -->
@@ -5239,7 +5274,7 @@ export default {
 <nav>
   <button data-g="heute" class="on"><span class="ni">🏠</span>Heute</button>
   <button data-g="runden"><span class="ni">⛳</span>Runden</button>
-  <button data-g="turnier"><span class="ni">🏅</span>Turnier</button>
+  <button data-g="fitness"><span class="ni">🏋</span>Fitness</button>
   <button data-g="training"><span class="ni">🎯</span>Training</button>
   <button data-g="analyse"><span class="ni">📊</span>Analyse</button>
   <button data-g="mehr"><span class="ni">⋯</span>Mehr</button>
@@ -5652,7 +5687,35 @@ let SW_READY=false;
 function swRegister(){
   if(!("serviceWorker" in navigator) || location.protocol==="file:") return;
   navigator.serviceWorker.register("./sw.js",{scope:"./"})
-    .then(r=>{ SW_READY=true; r.update&&r.update(); })
+    .then(r=>{
+      SW_READY=true; r.update&&r.update();
+      /* ==================================================================
+         „ICH HABE NEU GELADEN UND SEHE ES NICHT" (v3.27)
+         --------------------------------------------------------------------
+         Die App-Huelle laeuft nach `stale-while-revalidate`: Sie startet IMMER
+         aus dem Zwischenspeicher und holt die neue Fassung im Hintergrund.
+         Das ist richtig — im Funkloch auf dem 14. Loch will man keine
+         Fehlerseite —, hat aber eine unangenehme Folge: Nach dem Einspielen
+         zeigt das ERSTE Neuladen noch die alte Fassung, erst das zweite die
+         neue. Wer das nicht weiss, haelt eine eingebaute Neuerung fuer
+         nicht vorhanden und sucht den Fehler an der falschen Stelle. Genau
+         das ist mehrfach passiert.
+         Deshalb sagt die App es jetzt selbst — mit einem Knopf, der das
+         zweite Neuladen gleich mit erledigt. */
+      r.addEventListener("updatefound", ()=>{
+        const neu=r.installing; if(!neu) return;
+        neu.addEventListener("statechange", ()=>{
+          /* `controller` unterscheidet die ERSTE Installation (da gibt es
+             nichts zu melden) von einer echten Aktualisierung. */
+          if(neu.state==="installed" && navigator.serviceWorker.controller){
+            /* `toast(text, {label, fn})` — die Aktion ist EIN Objekt, nicht
+               zwei Argumente. */
+            toast("Neue Fassung geladen",
+              {label:"Jetzt anwenden", fn:()=>location.reload()});
+          }
+        });
+      });
+    })
     .catch(e=>logErr("sw.register", e, true));
   navigator.serviceWorker.addEventListener("message", ev=>{
     const d=ev.data||{};
@@ -19532,6 +19595,101 @@ function testEmpfehlung(max){
   }catch(e){ logErr("testEmpfehlung", e, true); return {liste:[], hatSG:false}; }
 }
 
+/* ==========================================================================
+   WAS STEHT HEUTE AN? (v3.25)
+   --------------------------------------------------------------------------
+   Faellige Tests und Trainingsfokus standen bis v2.31 auf dieser Seite und
+   wurden entfernt — zu Recht: Es war eine LISTE, und Listen sind Planung, kein
+   Tagesgeschaeft. Der Wunsch ist aber ein anderer: nicht „was ist alles
+   faellig", sondern „was mache ich HEUTE". Das sind zwei bis drei Zeilen, und
+   die gehoeren hierher.
+   AUSWAHL DER TESTS: die ueberfaelligsten zuerst (nie gemacht zaehlt als
+   unendlich alt), aber bevorzugt aus dem Schwerpunkt des laufenden Blocks —
+   ein Bunker-Test in einer Wedge-Woche ist zwar faellig, aber nicht dran.
+   HOECHSTENS ZWEI: Wer drei Tests an einem Tag macht, macht keinen davon
+   ordentlich. */
+function heuteTests(max){
+  const defs=(DB.testDefs||[]).filter(d=>d&&d.key);
+  if(!defs.length) return [];
+  const blk=(typeof currentBlock==="function")?currentBlock():null;
+  const fokus=String((blk&&blk.focus)||"").toLowerCase();
+  const passt=d=>{
+    if(!fokus) return 0;
+    const k=String(d.category||"").toLowerCase();
+    if(fokus.indexOf("short")>=0 && k.indexOf("short")>=0) return 1;
+    if(fokus.indexOf("wedge")>=0 && k.indexOf("wedge")>=0) return 1;
+    if(fokus.indexOf("approach")>=0 && k.indexOf("wedge")>=0) return 1;
+    if(fokus.indexOf("putt")>=0 && k.indexOf("putting")>=0) return 1;
+    if((fokus.indexOf("long")>=0||fokus.indexOf("driver")>=0) && k.indexOf("driver")>=0) return 1;
+    return 0;
+  };
+  const bew=defs.map(d=>{
+    const f=(typeof testFaellig==="function")?testFaellig(d.key):null;
+    const tage = (!f || f.nie) ? 9999 : f.tage;
+    return {d, tage, nie:!!(f&&f.nie), passt:passt(d)};
+  }).filter(x=>x.tage>=60);          // erst ab „bald faellig" ueberhaupt zeigen
+  bew.sort((a,b)=> (b.passt-a.passt) || (b.tage-a.tage) || String(a.d.label).localeCompare(String(b.d.label)));
+  return bew.slice(0, max||2);
+}
+/* ==========================================================================
+   SPORTPROGRAMM DES TAGES (v3.25)
+   --------------------------------------------------------------------------
+   Es gibt keinen hinterlegten Wochenplan — nur ERFASSTE Einheiten. Die
+   Empfehlung wird deshalb abgeleitet, und zwar aus dem, was zaehlt:
+     · Turniertag und Vortag: KEIN Krafttraining. Muskelkater am Abschlag hat
+       noch nie geholfen; Mobilitaet ja.
+     · Sonst Kraft, wenn die letzte Einheit drei Tage her ist — bei einem
+       Wettkampfblock vier, dort steht Frische ueber Reiz.
+     · Sonst Mobilitaet/Yoga, wenn zwei Tage her.
+     · Sonst ausdruecklich RUHE. Ein Ruhetag ist ein Programm, kein Ausfall —
+       wer ihn nicht benennt, trainiert ihn weg.
+   Die Regeln stehen bewusst hier und nicht in einer Tabelle: Sie sind
+   Faustregeln, und man soll sie im Code lesen und aendern koennen. */
+function heuteSport(){
+  const heute=todayISO();
+  const nt=(typeof nextTournament==="function")?nextTournament():null;
+  const tage=nt&&nt.date ? Math.round((new Date(nt.date)-new Date(heute))/864e5) : null;
+  const blk=(typeof currentBlock==="function")?currentBlock():null;
+  const wettkampf=String((blk&&blk.loadType)||"").toLowerCase().indexOf("wettkampf")>=0
+    || (blk&&blk.tournamentWeek==="Ja");
+  const sess=(DB.fitnessSessions||[]).slice().sort((a,b)=>String(a.date||"").localeCompare(String(b.date||"")));
+  const letzte=art=>{ for(let i=sess.length-1;i>=0;i--){
+      const t=String(sess[i].type||"");
+      if(art==="Kraft" ? t==="Kraft" : t!=="Kraft") return daysSince(sess[i].date); }
+    return null; };
+  const kraftHer=letzte("Kraft"), mobilHer=letzte("Mobil");
+  if(tage!=null && tage>=0 && tage<=1)
+    return {art:"mobil", titel:"Nur Mobilität — locker",
+      warum: tage===0?"Turniertag":"Turnier morgen", kraftHer, mobilHer};
+  const kraftAb = wettkampf?4:3;
+  if(kraftHer==null || kraftHer>=kraftAb)
+    return {art:"kraft", titel:"Krafttraining",
+      warum: kraftHer==null?"noch keine Einheit erfasst":("letzte vor "+kraftHer+" Tagen"),
+      kraftHer, mobilHer};
+  if(mobilHer==null || mobilHer>=2)
+    return {art:"mobil", titel:"Mobilität / Yoga",
+      warum: mobilHer==null?"noch keine Einheit erfasst":("letzte vor "+mobilHer+" Tagen"),
+      kraftHer, mobilHer};
+  return {art:"ruhe", titel:"Ruhetag",
+    warum:"Kraft vor "+kraftHer+" · Mobilität vor "+mobilHer+" Tagen", kraftHer, mobilHer};
+}
+function heuteProgrammHtml(){
+  const tests=heuteTests(2), sp=heuteSport();
+  const sym={kraft:"🏋", mobil:"🧘", ruhe:"😌"}[sp.art]||"🧘";
+  const zeilen=tests.map(t=>`<div class="hp-row" onclick="openTest('${esc(t.d.key)}')">
+      <span class="hp-ic">🎯</span>
+      <span><b>${esc(t.d.label||t.d.key)}</b>
+        <span class="r-s">${t.nie?"noch nie gemacht":("zuletzt vor "+t.tage+" Tagen")}${t.passt?" · passt zum Blockfokus":""}</span></span>
+    </div>`).join("");
+  return `<div class="eyebrow">Heute geplant</div>
+    <div class="card pad hp-card">
+      ${zeilen||`<div class="hp-row"><span class="hp-ic">🎯</span><span>Kein Test fällig — alles jünger als 60 Tage.</span></div>`}
+      <div class="hp-row" onclick="${sp.art==="kraft"?"openKraftEditor(-1)":sp.art==="mobil"?"openYogaEditor(-1)":"setView('fitness')"}">
+        <span class="hp-ic">${sym}</span>
+        <span><b>${esc(sp.titel)}</b> <span class="r-s">${esc(sp.warum)}</span></span>
+      </div>
+    </div>`;
+}
 function testFaellig(key){
   const hist=(typeof testsFor==="function")?testsFor(key):[];
   if(!hist.length) return {nie:true};
@@ -25383,6 +25541,432 @@ function kraftVolume(s){ return (s.exercises||[]).reduce((a,e)=>a+((e.sets||0)*(
 function est1RM(e){ return e.weight&&e.reps? Math.round(e.weight*(1+e.reps/30)) : null; }
 function daysSince(iso){ if(!iso)return null; return Math.floor((Date.now()-new Date(iso).getTime())/864e5); }
 
+/* ==========================================================================
+   FITNESS-TRAININGSPLAN (v3.28)
+   --------------------------------------------------------------------------
+   Bisher wurden Einheiten nur ERFASST — was man tun SOLLTE, stand nirgends.
+   Die Empfehlung auf der Heute-Seite leitet sich aus den letzten Einheiten ab
+   („Kraft, letzte vor 4 Tagen"), das ist eine Notloesung: Sie sagt, was
+   ueberfaellig ist, nicht was geplant war.
+   DER PLAN IST EIN WOCHENPLAN, kein Kalender mit Datum. Golftraining richtet
+   sich nach Wochentagen („montags Kraft"), und ein Datumsplan waere nach der
+   ersten verschobenen Woche falsch und muesste gepflegt werden. Ein
+   Wochenplan gilt weiter, auch wenn man ihn einmal reissen laesst.
+   FESTGEHALTEN WIRD NUR: Wochentag, Art, Dauer, Notiz. Uebungen gehoeren in
+   die erfasste Einheit, nicht in den Plan — sonst pflegt man zwei Listen. */
+const FITPLAN_TAGE=["Montag","Dienstag","Mittwoch","Donnerstag","Freitag","Samstag","Sonntag"];
+function fitplanAll(){
+  if(!DB.fitPlan || typeof DB.fitPlan!=="object") DB.fitPlan={tage:{}, erinnern:false, zeit:"18:00"};
+  if(!DB.fitPlan.tage) DB.fitPlan.tage={};
+  return DB.fitPlan;
+}
+/* Wochentag 0=Montag … 6=Sonntag — NICHT die Zaehlung von `Date.getDay()`
+   (dort ist 0 der Sonntag). Wer das verwechselt, verschiebt den ganzen Plan
+   um einen Tag, und es faellt erst am Sonntag auf. */
+function fitplanIdx(d){ const g=(d||new Date()).getDay(); return (g+6)%7; }
+function fitplanHeute(){
+  const p=fitplanAll();
+  return p.tage[String(fitplanIdx())] || null;
+}
+function fitplanSet(i, feld, wert){
+  const p=fitplanAll();
+  const t=Object.assign({}, p.tage[String(i)]||{});
+  t[feld]=wert;
+  if(!t.art) delete p.tage[String(i)]; else p.tage[String(i)]=t;
+  persist();
+}
+function fitplanWocheGeschafft(){
+  /* Wie viele der geplanten Einheiten sind diese Woche erfasst? Verglichen
+     wird die ART, nicht der Tag: Wer die Montags-Einheit am Dienstag macht,
+     hat sie gemacht. */
+  const p=fitplanAll();
+  const geplant={}; Object.values(p.tage).forEach(t=>{ if(t&&t.art) geplant[t.art]=(geplant[t.art]||0)+1; });
+  const heute=new Date(); const mo=new Date(heute); mo.setDate(heute.getDate()-fitplanIdx(heute));
+  const ab=mo.toISOString().slice(0,10);
+  const gemacht={};
+  (DB.fitnessSessions||[]).forEach(f=>{ if(String(f.date||"")>=ab){ const a=f.type||"?"; gemacht[a]=(gemacht[a]||0)+1; } });
+  let soll=0, ist=0;
+  Object.keys(geplant).forEach(a=>{ soll+=geplant[a]; ist+=Math.min(geplant[a], gemacht[a]||0); });
+  return {soll, ist, geplant, gemacht};
+}
+/* ==========================================================================
+   ERINNERUNGEN (v3.28)
+   --------------------------------------------------------------------------
+   WAS GEHT UND WAS NICHT — ehrlich, weil die Erwartung sonst enttaeuscht wird:
+   Eine Web-App kann KEINE Benachrichtigung schicken, wenn sie geschlossen ist.
+   Dafuer braucht es einen Server, der Push-Nachrichten sendet (Web Push mit
+   VAPID-Schluesseln) — hier gibt es nur eine statische Seite und einen kleinen
+   Worker fuer Dateien.
+   WAS GEHT: eine Erinnerung, waehrend die App laeuft oder im Hintergrund
+   geoeffnet ist, und der Hinweis beim naechsten Oeffnen. Das deckt den
+   haeufigen Fall ab — man hat das Handy ohnehin in der Hand.
+   WAS ZUVERLAESSIG GEHT: Ein Termin im KALENDER des Telefons. Deshalb gibt es
+   den Knopf „In den Kalender“ — er erzeugt eine Serie fuer die geplanten Tage.
+   Das ist die einzige Erinnerung, die auch ankommt, wenn das Handy in der
+   Tasche liegt und die App zu ist; alles andere waere ein Versprechen, das
+   die Technik nicht haelt. */
+function fitErinnerungHtml(){
+  const p=fitplanAll();
+  const geplant=Object.keys(p.tage||{}).length;
+  const erlaubt=(typeof Notification!=="undefined") ? Notification.permission : "unsupported";
+  return `<div class="eyebrow" style="margin-top:16px">Erinnerungen</div>
+  <div class="card pad">
+    <label class="switch"><input type="checkbox" id="fpErinnern" ${p.erinnern?"checked":""}>
+      <span>Erinnern, solange die App läuft
+      <div class="r-s" style="font-weight:400">Hinweis am geplanten Tag ab der eingestellten Uhrzeit</div></span></label>
+    <div class="field" style="margin-top:8px"><label>Uhrzeit</label>
+      <input type="time" id="fpZeit" value="${esc(p.zeit||"18:00")}"></div>
+    ${erlaubt==="denied"?`<p class="note" style="color:var(--red)">Benachrichtigungen sind für diese Seite
+      gesperrt — im Browser unter „Website-Einstellungen“ wieder erlauben.</p>`:""}
+    <p class="note">Eine Web-App kann <b>keine</b> Benachrichtigung schicken, während sie geschlossen ist —
+    dafür bräuchte es einen Push-Server. Für eine Erinnerung, die auch bei geschlossener App ankommt,
+    trag den Plan in den Kalender ein:</p>
+    <button class="btn sec" type="button" id="fpIcs" ${geplant?"":"disabled"}>📅 In den Kalender (Serie)</button>
+  </div>`;
+}
+function fitErinnerungBind(){
+  const sw=document.getElementById("fpErinnern");
+  if(sw) sw.onchange=()=>{
+    const p=fitplanAll(); p.erinnern=sw.checked; persist();
+    if(sw.checked && typeof Notification!=="undefined" && Notification.permission==="default")
+      Notification.requestPermission().then(()=>renderFitplan());
+    fitErinnerungTick();
+  };
+  const z=document.getElementById("fpZeit");
+  if(z) z.onchange=()=>{ const p=fitplanAll(); p.zeit=z.value||"18:00"; persist(); };
+  const ics=document.getElementById("fpIcs");
+  if(ics) ics.onclick=()=>fitplanIcs();
+}
+/* Einmal je Minute nachsehen, ob heute etwas geplant und die Uhrzeit erreicht
+   ist. EINMAL JE TAG erinnern — `ui.fitErinnertAm` haelt das fest; ohne diese
+   Marke kaeme der Hinweis bei jedem Takt wieder, und man schaltet ihn nach dem
+   zweiten Mal ab. */
+function fitErinnerungTick(){
+  try{
+    const p=fitplanAll();
+    if(!p.erinnern) return;
+    const heute=fitplanHeute();
+    if(!heute||!heute.art) return;
+    const tag=todayISO();
+    DB.ui=DB.ui||{};
+    if(DB.ui.fitErinnertAm===tag) return;
+    const [hh,mm]=String(p.zeit||"18:00").split(":").map(Number);
+    const jetzt=new Date();
+    if(jetzt.getHours()*60+jetzt.getMinutes() < (hh||18)*60+(mm||0)) return;
+    /* Schon erledigt? Dann nicht erinnern — eine Erinnerung an etwas
+       Erledigtes ist der schnellste Weg, sie abzuschalten. */
+    const schon=(DB.fitnessSessions||[]).some(f=>String(f.date||"")===tag && f.type===heute.art);
+    if(schon){ DB.ui.fitErinnertAm=tag; persist(); return; }
+    DB.ui.fitErinnertAm=tag; persist();
+    const txt=heute.art+(heute.min?` · ${heute.min} min`:"")+(heute.note?` · ${heute.note}`:"");
+    if(typeof Notification!=="undefined" && Notification.permission==="granted"){
+      try{ new Notification("Training heute", {body:txt, tag:"fitplan"}); }
+      catch(e){ toast("🏋 Heute geplant: "+txt); }
+    } else {
+      toast("🏋 Heute geplant: "+txt, "Zum Plan", ()=>setView("fitplan"));
+    }
+  }catch(e){ logErr("fitErinnerungTick", e, true); }
+}
+/* Kalenderdatei mit woechentlicher Serie je geplantem Tag. Der Kalender des
+   Telefons erinnert zuverlaessig — anders als eine geschlossene Web-App. */
+function fitplanIcs(){
+  const p=fitplanAll();
+  const tage=Object.keys(p.tage||{}).map(Number).sort();
+  if(!tage.length){ toast("Noch nichts geplant"); return; }
+  const [hh,mm]=String(p.zeit||"18:00").split(":").map(Number);
+  const TAGCODE=["MO","TU","WE","TH","FR","SA","SU"];
+  const heute=new Date(); const mo=new Date(heute); mo.setDate(heute.getDate()-fitplanIdx(heute));
+  const pad=n=>String(n).padStart(2,"0");
+  const zeilen=["BEGIN:VCALENDAR","VERSION:2.0","PRODID:-//Golf-Training//Fitplan//DE","CALSCALE:GREGORIAN"];
+  tage.forEach(i=>{
+    const t=p.tage[String(i)]; if(!t||!t.art) return;
+    const d=new Date(mo); d.setDate(mo.getDate()+i);
+    const start=`${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}T${pad(hh||18)}${pad(mm||0)}00`;
+    const dauer=Math.max(15, +t.min||45);
+    const end=new Date(d); end.setHours(hh||18, (mm||0)+dauer, 0, 0);
+    const ende=`${end.getFullYear()}${pad(end.getMonth()+1)}${pad(end.getDate())}T${pad(end.getHours())}${pad(end.getMinutes())}00`;
+    zeilen.push("BEGIN:VEVENT",
+      "UID:fitplan-"+i+"-"+Date.now()+"@golftraining",
+      "DTSTAMP:"+start, "DTSTART:"+start, "DTEND:"+ende,
+      "RRULE:FREQ=WEEKLY;BYDAY="+TAGCODE[i],
+      "SUMMARY:"+(t.art||"Training")+(t.note?" · "+t.note:""),
+      "DESCRIPTION:Aus dem Wochenplan der Golf-Training-App",
+      "BEGIN:VALARM","TRIGGER:-PT30M","ACTION:DISPLAY","DESCRIPTION:Training in 30 Minuten","END:VALARM",
+      "END:VEVENT");
+  });
+  zeilen.push("END:VCALENDAR");
+  const blob=new Blob([zeilen.join("\r\n")],{type:"text/calendar"});
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(blob); a.download="golf-fitnessplan.ics";
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(a.href), 5000);
+  toast("Kalenderdatei erzeugt — öffnen und in den Kalender übernehmen");
+}
+/* ==========================================================================
+   TRAININGSGERÄTE (v3.29)
+   --------------------------------------------------------------------------
+   Ein Trainingsplan, der Geraete voraussetzt, die man nicht hat, ist wertlos —
+   und einer, der vorhandene nicht nutzt, verschenkt sie. Deshalb steht die
+   Liste VOR dem Plan: Der Plan liest sie und zeigt nur, was moeglich ist.
+   `aktiv:false` statt Loeschen fuer Geraete, die gerade nicht greifbar sind
+   (verliehen, im Keller) — sie sollen aus dem Plan fallen, ohne dass man sie
+   spaeter neu eintippt. */
+const GEAR_KAT=["Golf-spezifisch","Bänder","Gewichte","Mobilität","Sonstiges"];
+function gearAll(){ if(!Array.isArray(DB.gear)) DB.gear=[]; return DB.gear; }
+function gearSet(id, feld, wert){
+  const g=gearAll().find(x=>x.id===id); if(!g) return;
+  g[feld]=wert; persist();
+}
+function gearAdd(name, kat){
+  gearAll().push({id:"G"+Date.now().toString(36)+Math.random().toString(36).slice(2,5),
+    name:name||"Neues Gerät", kat:kat||"Sonstiges", aktiv:true, note:""});
+  persist();
+}
+function gearDel(id){ DB.gear=gearAll().filter(x=>x.id!==id); persist(); }
+function gearHat(suchbegriffe){
+  /* Hat der Bestand eines dieser Geraete (aktiv)? Verglichen wird in
+     Kleinschreibung und auf Teilzeichenketten — „Loop" trifft auch
+     „Loop-Band (light)", und der Plan muss nicht die exakten Namen kennen. */
+  const liste=gearAll().filter(x=>x.aktiv!==false).map(x=>String(x.name||"").toLowerCase());
+  return (suchbegriffe||[]).some(b=>liste.some(n=>n.indexOf(String(b).toLowerCase())>=0));
+}
+/* Einmalige Erstbefüllung aus dem, was fotografiert vorliegt. NUR wenn die
+   Liste leer ist und noch nie befuellt wurde — sonst kaeme sie nach jedem
+   Aufraeumen zurueck. */
+function gearSeed(){
+  DB.ui=DB.ui||{};
+  if(DB.ui.gearSeeded || gearAll().length) { DB.ui.gearSeeded=DB.ui.gearSeeded||new Date().toISOString(); return 0; }
+  const start=[
+    ["GolfForever Swing Trainer (Stab + Band)","Golf-spezifisch","G1–G5 Griffmarken, Karabiner für Türanker"],
+    ["GolfForever Widerstandsband LIGHT","Bänder",""],
+    ["GolfForever Widerstandsband MEDIUM","Bänder",""],
+    ["Türanker (Gurtschlaufe)","Bänder","für Tür oder Pfosten"],
+    ["Handgriffe (Paar)","Bänder","für die Widerstandsbänder"],
+    ["Loop-Band LIGHT (grün)","Bänder",""],
+    ["Loop-Band MEDIUM (grau)","Bänder",""],
+    ["Loop-Band HEAVY (schwarz)","Bänder",""],
+    ["Thera-Band","Bänder","in Tasche"],
+    ["Kurzhantel (Kurzstange + Scheiben)","Gewichte","Scheiben teilbar"],
+    ["Langhantel-Set (SONGMICS)","Gewichte","inkl. 1,25-kg-Scheiben, Sternverschlüsse"],
+    ["Klimmzugstange (Türrahmen)","Gewichte","purrgrit"],
+    ["Blackroll Faszienrolle","Mobilität",""],
+    ["Blackroll Ball","Mobilität",""],
+    ["Massageball groß (genoppt)","Mobilität",""],
+    ["Massageball klein (grün)","Mobilität","für Fußsohle und Unterarm"],
+    ["Massageball GolfForever (grau)","Mobilität",""],
+    ["Yogamatte","Mobilität",""],
+    ["Meditationskissen","Sonstiges","BODYMATE"]
+  ];
+  start.forEach(([name,kat,note])=>gearAll().push({
+    id:"G"+Math.random().toString(36).slice(2,9), name, kat, note, aktiv:true }));
+  DB.ui.gearSeeded=new Date().toISOString();
+  persist();
+  return start.length;
+}
+/* ==========================================================================
+   GOLFSPEZIFISCHER TRAININGSPLAN (v3.29)
+   --------------------------------------------------------------------------
+   WORAUF ER ZIELT — und warum nicht auf „mehr Kraft":
+   Ein Golfschwung ist eine ROTATION um eine stabile Mitte, ausgeloest von
+   unten. Was ihn begrenzt, ist bei den meisten Spielern nicht die Kraft,
+   sondern (1) die Trennung von Becken und Brustkorb, (2) die Streckung der
+   Hueftbeuger fuer eine vollstaendige Drehung, (3) die Rumpfstabilitaet, die
+   verhindert, dass Kraft im Koerper versickert, und (4) die Schnellkraft in
+   der Rotation. Genau darauf zielen die drei Einheiten.
+   DREI EINHEITEN, NICHT FUENF: Mehr wird neben Golfrunden und Beruf nicht
+   gehalten — und ein Plan, den man nicht haelt, ist schlechter als ein
+   kleinerer, den man haelt.
+   ROTATION IMMER BEIDSEITIG: Golf ist einseitig; wer nur die Schwungrichtung
+   trainiert, verstaerkt die Schiefe. Die Gegenrichtung bekommt weniger
+   Saetze, aber sie faellt nicht weg.
+   KEIN SCHWERES BEINTRAINING AM VORTAG einer Runde — das steht in der
+   Wochenplanung, nicht hier.
+   JEDE UEBUNG NENNT IHR GERAET. Fehlt es (Geräteliste), erscheint sie nicht;
+   ein Plan mit Uebungen, die man nicht ausfuehren kann, wird als Ganzes
+   ignoriert. */
+const GOLF_PROG=[
+  {id:"A", titel:"Rotation & Rumpf", dauer:"35–45 min", art:"Kraft",
+   zweck:"Die Trennung von Becken und Brustkorb — die Grundlage jeder Schlägerkopfgeschwindigkeit.",
+   uebungen:[
+    {n:"Pallof Press", g:["widerstandsband","türanker","handgriff"], s:"3 × 10 je Seite",
+     w:"Rumpf hält gegen Rotation — genau das, was im Abschwung passiert."},
+    {n:"Anti-Rotation mit Ausfallschritt", g:["widerstandsband","türanker"], s:"3 × 8 je Seite",
+     w:"Stabilität unter Beinarbeit statt im Stehen."},
+    {n:"Kurzhantel-Rudern einarmig", g:["kurzhantel","langhantel"], s:"3 × 10 je Seite",
+     w:"Rückenkette für den Rückschwung; einarmig deckt Seitenunterschiede auf."},
+    {n:"Kreuzheben (leicht, saubere Technik)", g:["langhantel","kurzhantel"], s:"3 × 8",
+     w:"Hüftstreckung ist der Motor des Abschwungs."},
+    {n:"Klimmzug oder Negativ-Klimmzug", g:["klimmzug"], s:"3 × max. 6",
+     w:"Zugkraft und Schulterstabilität — schützt die Schulter im langen Spiel."},
+    {n:"Pallof mit Rotation (Schwungrichtung 2:1)", g:["widerstandsband","türanker"], s:"2 × 12 / 1 × 12 gegen",
+     w:"Beidseitig, aber nicht gleich: Golf ist einseitig, Ausgleich trotzdem nötig."}
+   ]},
+  {id:"B", titel:"Beweglichkeit & Regeneration", dauer:"20–30 min", art:"Mobilität",
+   zweck:"Die Drehung freilegen, die Kraft erst nutzbar macht — und den Rücken entlasten.",
+   uebungen:[
+    {n:"Brustwirbelsäule ausrollen", g:["faszienrolle","blackroll"], s:"2 min",
+     w:"Wo die BWS nicht dreht, dreht die Lendenwirbelsäule — dort gehört sie nicht hin."},
+    {n:"Hüftbeuger dehnen (Ausfallschritt)", g:["yogamatte","matte"], s:"2 × 45 s je Seite",
+     w:"Verkürzte Hüftbeuger kippen das Becken und kosten Rückschwung."},
+    {n:"Open Book (Seitlage, Arm öffnen)", g:["yogamatte","matte"], s:"10 je Seite",
+     w:"Trennung Brustkorb/Becken — dieselbe Bewegung wie im Schwung, nur langsam."},
+    {n:"90/90 Hüftwechsel", g:["yogamatte","matte"], s:"10 Wechsel",
+     w:"Innen- und Außenrotation der Hüfte; beides braucht der Schwung."},
+    {n:"Fußsohle und Unterarm ausrollen", g:["massageball","ball"], s:"je 1 min",
+     w:"Unterarm: gegen Golferellenbogen. Fußsohle: Bodenkontakt und Balance."},
+    {n:"Atemübung im Sitzen", g:["meditationskissen","kissen"], s:"5 min",
+     w:"Senkt die Grundspannung — dieselbe Fähigkeit wie die Ruhe vor einem Putt."}
+   ]},
+  {id:"C", titel:"Schnellkraft & Schwung", dauer:"25–35 min", art:"Kraft",
+   zweck:"Aus vorhandener Kraft Geschwindigkeit machen — der Teil, der auf der Bahn ankommt.",
+   uebungen:[
+    {n:"Swing Trainer: Rückschwung gegen Widerstand", g:["swing trainer","golfforever"], s:"3 × 8 je Seite",
+     w:"Belastet genau die Bewegung, die man verbessern will — im Bewegungsmuster, nicht daneben."},
+    {n:"Swing Trainer: Abschwung explosiv", g:["swing trainer","golfforever"], s:"4 × 6",
+     w:"Schnellkraft schlägt Maximalkraft für Schlägerkopfgeschwindigkeit."},
+    {n:"Band-Rotation stehend, schnell", g:["widerstandsband","türanker"], s:"3 × 10 je Seite",
+     w:"Rotationsgeschwindigkeit unter leichtem Widerstand."},
+    {n:"Loop-Band: Hüftabduktion im Stand", g:["loop-band","loop"], s:"2 × 15 je Seite",
+     w:"Seitliche Hüftstabilität — ohne sie kippt der Oberkörper im Abschwung."},
+    {n:"Sprungkniebeuge ohne Zusatzlast", g:[], s:"3 × 6",
+     w:"Bodenkraft schnell abrufen; ohne Gewicht, weil es um Geschwindigkeit geht."},
+    {n:"Unterarm-/Griffkraft mit Band", g:["thera-band","band"], s:"2 × 15",
+     w:"Griff hält den Schläger ruhig — besonders am Ende einer Runde."}
+   ]}
+];
+function progVerfuegbar(u){ return !u.g.length || gearHat(u.g); }
+function renderProgramm(){
+  gearSeed();
+  let h=`<div class="eyebrow">Golfspezifisches Programm</div>
+    <div class="card pad">
+      <p class="note" style="margin-top:0">Drei Einheiten, abgestimmt auf <b>deine</b> Geräte. Was in
+      der Geräteliste fehlt oder abgewählt ist, erscheint hier nicht.</p>
+      <p class="note">Der Schwung ist eine <b>Rotation um eine stabile Mitte</b>, ausgelöst von unten.
+      Begrenzt wird er selten durch Kraft, sondern durch die Trennung von Becken und Brustkorb, durch
+      verkürzte Hüftbeuger, durch fehlende Rumpfstabilität — und erst dann durch Schnellkraft. Genau
+      in dieser Reihenfolge ist das Programm aufgebaut.</p>
+      <p class="note"><b>Drei statt fünf Einheiten:</b> Mehr hält neben Runden und Beruf niemand durch,
+      und ein Plan, den man nicht hält, ist schlechter als ein kleinerer, den man hält.</p>
+    </div>`;
+  GOLF_PROG.forEach(e=>{
+    const uebs=e.uebungen.filter(progVerfuegbar);
+    const fehlt=e.uebungen.length-uebs.length;
+    h+=`<div class="eyebrow" style="margin-top:16px">Einheit ${e.id} · ${esc(e.titel)}</div>
+      <div class="card pad">
+        <div class="r-s" style="margin-bottom:6px">${esc(e.dauer)} · ${esc(e.art)}</div>
+        <div style="font-weight:600;margin-bottom:8px">${esc(e.zweck)}</div>
+        ${uebs.map(u=>`<div class="pg-row">
+            <div class="pg-n">${esc(u.n)}</div>
+            <div class="pg-s">${esc(u.s)}</div>
+            <div class="pg-w r-s">${esc(u.w)}</div>
+          </div>`).join("")}
+        ${fehlt?`<p class="note">${fehlt} Übung${fehlt>1?"en":""} ausgeblendet — Gerät fehlt oder ist abgewählt.</p>`:""}
+        <button class="btn sec" type="button" data-prog="${e.id}" style="margin-top:10px">
+          In den Wochenplan übernehmen</button>
+      </div>`;
+  });
+  $("#v-programm").innerHTML=h;
+  document.querySelectorAll("[data-prog]").forEach(el=>{
+    el.onclick=()=>progInPlan(el.getAttribute("data-prog"));
+  });
+}
+/* Uebernahme in den Wochenplan: auf den ersten FREIEN Tag, nicht auf einen
+   festen — wer schon montags Kraft hat, will die zweite Einheit nicht dort.
+   Ist alles belegt, wird nichts ueberschrieben und es kommt ein Hinweis;
+   stilles Ueberschreiben eines Plans waere das Schlimmste. */
+function progInPlan(id){
+  const e=GOLF_PROG.find(x=>x.id===id); if(!e) return;
+  const p=fitplanAll();
+  const frei=[0,1,2,3,4,5,6].find(i=>!p.tage[String(i)]);
+  if(frei==null){ toast("Wochenplan ist voll — erst einen Tag frei machen"); return; }
+  p.tage[String(frei)]={art:e.art, min:parseInt(e.dauer,10)||40, note:"Einheit "+e.id+" · "+e.titel};
+  persist();
+  toast(FITPLAN_TAGE[frei]+": Einheit "+e.id+" eingetragen", "Zum Plan", ()=>setView("fitplan"));
+}
+function renderGear(){
+  gearSeed();
+  const liste=gearAll();
+  const nachKat={};
+  liste.forEach(g=>{ (nachKat[g.kat||"Sonstiges"]=nachKat[g.kat||"Sonstiges"]||[]).push(g); });
+  const kats=GEAR_KAT.filter(k=>nachKat[k]).concat(Object.keys(nachKat).filter(k=>GEAR_KAT.indexOf(k)<0));
+  const aktiv=liste.filter(g=>g.aktiv!==false).length;
+  let h=`<div class="eyebrow eyebrow-row"><span>Trainingsgeräte</span>
+    <span class="app-ver">${aktiv} von ${liste.length} verfügbar</span></div>
+    <p class="note">Der Trainingsplan liest diese Liste: Was hier <b>nicht verfügbar</b> ist, taucht
+    dort nicht auf. Geräte, die gerade verliehen oder im Keller sind, deshalb <b>abwählen</b> statt
+    löschen — dann fallen sie aus dem Plan, ohne dass du sie später neu eintippst.</p>`;
+  kats.forEach(k=>{
+    h+=`<div class="eyebrow" style="margin-top:14px">${esc(k)}</div><div class="card pad">`;
+    nachKat[k].forEach(g=>{
+      h+=`<div class="gear-row${g.aktiv===false?" gear-aus":""}">
+        <input type="checkbox" class="gear-ck" data-id="${g.id}" data-f="aktiv" ${g.aktiv!==false?"checked":""}
+          title="verfügbar">
+        <input class="gear-name" data-id="${g.id}" data-f="name" value="${esc(g.name||"")}">
+        <input class="gear-note" data-id="${g.id}" data-f="note" value="${esc(g.note||"")}" placeholder="Notiz">
+        <button type="button" class="gear-del" data-del="${g.id}" title="Löschen">✕</button>
+      </div>`;
+    });
+    h+=`</div>`;
+  });
+  h+=`<button class="btn sec" type="button" id="gearAdd" style="margin-top:12px">＋ Gerät ergänzen</button>`;
+  $("#v-gear").innerHTML=h;
+  document.querySelectorAll("[data-f][data-id]").forEach(el=>{
+    el.onchange=()=>{ const f=el.getAttribute("data-f");
+      gearSet(el.getAttribute("data-id"), f, f==="aktiv"?el.checked:el.value.trim());
+      if(f==="aktiv") renderGear(); markDirty(); };
+  });
+  document.querySelectorAll("[data-del]").forEach(el=>{
+    el.onclick=()=>{ if(confirm("Gerät löschen?")){ gearDel(el.getAttribute("data-del")); renderGear(); } };
+  });
+  { const b=document.getElementById("gearAdd");
+    if(b) b.onclick=()=>{ gearAdd(); renderGear(); toast("Gerät angelegt — Namen antippen und ändern"); }; }
+}
+function renderFitplan(){
+  const p=fitplanAll();
+  const w=fitplanWocheGeschafft();
+  const heuteI=fitplanIdx();
+  const zeilen=FITPLAN_TAGE.map((tag,i)=>{
+    const t=p.tage[String(i)]||{};
+    const jetzt=(i===heuteI);
+    return `<div class="fp-row${jetzt?" fp-heute":""}">
+      <div class="fp-tag">${tag.slice(0,2)}${jetzt?" <span class=\"r-s\">heute</span>":""}</div>
+      <select class="fp-art" data-i="${i}" data-f="art">
+        <option value="">—</option>
+        ${FIT_TYPES.map(x=>`<option value="${esc(x)}"${t.art===x?" selected":""}>${esc(x)}</option>`).join("")}
+      </select>
+      <input class="fp-min" data-i="${i}" data-f="min" inputmode="numeric" value="${t.min!=null?esc(String(t.min)):""}" placeholder="min">
+      <input class="fp-note" data-i="${i}" data-f="note" value="${esc(t.note||"")}" placeholder="Schwerpunkt">
+    </div>`;
+  }).join("");
+  $("#v-fitplan").innerHTML=`
+    <div class="eyebrow">Wochenplan</div>
+    <div class="card pad">
+      <p class="note" style="margin-top:0">Ein <b>Wochenplan</b>, kein Kalender: „montags Kraft“ gilt
+      weiter, auch wenn eine Woche ausfällt — ein Datumsplan wäre danach falsch und müsste gepflegt
+      werden. Leer lassen heißt Ruhetag.</p>
+      ${zeilen}
+    </div>
+    <div class="eyebrow" style="margin-top:16px">Diese Woche</div>
+    <div class="card pad">
+      ${w.soll ? `<div style="display:flex;justify-content:space-between;align-items:baseline">
+          <div><span class="tnum" style="font-size:28px;font-weight:700">${w.ist}</span>
+            <span class="r-s">von ${w.soll} geplanten Einheiten</span></div>
+          <div class="r-s">${Object.keys(w.geplant).map(a=>esc(a)+" "+(w.gemacht[a]||0)+"/"+w.geplant[a]).join(" · ")}</div>
+        </div>
+        <div class="bar" style="margin-top:8px"><i style="width:${Math.min(100,Math.round(w.ist/w.soll*100))}%"></i></div>
+        <p class="note">Verglichen wird die <b>Art</b>, nicht der Tag: Wer die Montags-Einheit am
+        Dienstag macht, hat sie gemacht.</p>`
+        : `<div class="empty">Noch nichts geplant — oben einen Wochentag belegen.</div>`}
+    </div>
+    ${fitErinnerungHtml()}`;
+  document.querySelectorAll("[data-f][data-i]").forEach(el=>{
+    el.onchange=()=>{ const i=+el.getAttribute("data-i"), f=el.getAttribute("data-f");
+      let v=el.value.trim();
+      if(f==="min") v=v?Math.max(0,Math.min(300,+v||0)):null;
+      fitplanSet(i,f,v||null); renderFitplan(); };
+  });
+  fitErinnerungBind();
+}
 function renderFitness(){
   const all=fitSorted();
   const yoga=all.filter(s=>s.type!=="Kraft");
@@ -25657,6 +26241,13 @@ function renderHeute(){
   if(blk){ h+=`<div class="card pad" style="margin-top:12px"><div class="r-s">Aktueller Block · KW ${isoWeek(new Date())}</div>
     <div style="font-weight:700">${esc(blk.name)} · ${esc(blk.focus||"")}</div>
     <div class="r-s">Ziel ${esc(blk.hcpTarget||"")} · Short ${esc(blk.shortPct||"")} / Long ${esc(blk.longPct||"")} · ${esc(blk.loadType||"")}${blk.tournamentWeek==="Ja"?" · 🏅 Turnierwoche":""}</div></div>`; }
+  /* Direkt unter dem Block: Der Block sagt WAS diese Wochen zaehlt, das hier
+     sagt, was HEUTE davon dran ist (v3.25). */
+  try{ h+=heuteProgrammHtml(); }catch(e){ logErr("heuteProgramm", e, true); }
+  /* FASSUNG SICHTBAR MACHEN (v3.27): Ob eine Neuerung „nicht da" ist oder nur
+     die alte Fassung laeuft, war bisher nur ueber die Abgleich-Pruefung
+     herauszufinden — drei Ebenen tief. Eine Zeile hier erspart die Suche. */
+  h+=`<div class="r-s" style="text-align:center;opacity:.55;margin:14px 0 2px">Fassung v${esc(APP_VERSION)}</div>`;
   if(nt){ const days=Math.round((new Date(nt.date)-new Date(todayISO()))/864e5);
     h+=`<div class="eyebrow eyebrow-row"><span>Nächstes Turnier</span>
     <button class="btn ghost" style="width:auto;padding:5px 10px;font-size:12px;margin:0"
@@ -31880,7 +32471,7 @@ const LOGO512="data:image/webp;base64,UklGRqRGAABXRUJQVlA4WAoAAAAQAAAA/wAA/wAAQU
 const LOGO192="data:image/webp;base64,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";
 const LOGO64 ="data:image/webp;base64,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";
 
-const APP_VERSION="3.24.0"; // App-Anzeigeversion (NICHT SEED.version! Diese bei jeder Änderung erhöhen)
+const APP_VERSION="3.29.0"; // App-Anzeigeversion (NICHT SEED.version! Diese bei jeder Änderung erhöhen)
 /* ---------- Darstellung: Hell/Dunkel (DB.ui.theme = "auto" | "light" | "dark") ---------- */
 const _darkMQ = (window.matchMedia? window.matchMedia("(prefers-color-scheme: dark)") : null);
 function themeSetting(){ return (DB && DB.ui && DB.ui.theme) || "auto"; }
@@ -31929,10 +32520,21 @@ function trackHeaderHeight(){
 const GROUPS=[
   {g:"heute", views:[["heute","Heute"]]},
   {g:"runden", views:[["rounds","Runden"]]},
-  {g:"turnier", views:[["comp","Turnier"]]},
-  {g:"training", views:[["tests","Tests"],["swing","Schwung"],["fitness","Fitness"],["launch","Launch"],["gps","Schlag-GPS"]]},
+  /* ==================================================================
+     FITNESS IN DIE HAUPTNAVIGATION (v3.28)
+     --------------------------------------------------------------------
+     Fitness lag als vierter Reiter unter „Training" — erreichbar, aber
+     nicht praesent, und damit genau so oft benutzt, wie es dort stand.
+     Wer regelmaessig trainieren will, braucht es an erster Ebene.
+     „Turnier" wandert dafuer unter „Mehr": Turniere plant man ein paar Mal
+     im Jahr, Fitness soll man mehrmals die Woche ansehen. Die Haeufigkeit
+     der Benutzung gehoert in die Reihenfolge, nicht die Wichtigkeit des
+     Themas — ein Turnier ist wichtiger als eine Yoga-Einheit, aber man
+     oeffnet es viel seltener. */
+  {g:"fitness", views:[["fitness","Fitness"],["fitplan","Plan"],["programm","Programm"],["gear","Geräte"]]},
+  {g:"training", views:[["tests","Tests"],["swing","Schwung"],["launch","Launch"],["gps","Schlag-GPS"]]},
   {g:"analyse", views:[["dash","Dashboard"],["records","Rekorde"],["korrelation","Korrelation"],["strat","Strategie"]]},
-  {g:"mehr", views:[["places","Plätze"],["planung","Planung"],["notes","Pinnwand"],["wissen","Wissen"],["bag","Schläger"],["data","Daten"]]},
+  {g:"mehr", views:[["comp","Turnier"],["places","Plätze"],["planung","Planung"],["notes","Pinnwand"],["wissen","Wissen"],["bag","Schläger"],["data","Daten"]]},
 ];
 const VIEW_GROUP={}; GROUPS.forEach(gr=>gr.views.forEach(([v])=>VIEW_GROUP[v]=gr.g));
 const groupLast={};
@@ -32107,7 +32709,8 @@ const VIEW_RENDER = {
   strat:renderStrat, records:renderRecords, tests:renderTests,
   rounds:renderRounds, comp:renderComp, places:renderPlaces,
   swing:renderSwing, launch:renderLaunch, gps:renderGps,
-  fitness:renderFitness, planung:renderPlanung, notes:renderNotes,
+  fitness:renderFitness, fitplan:renderFitplan, programm:renderProgramm, gear:renderGear,
+  planung:renderPlanung, notes:renderNotes,
   bag:renderBag, wissen:renderWiki, data:renderData,
   /* Der Spielmodus ist seit v1.88 eine regulaere Ansicht. Ohne diesen Eintrag
      bliebe sie leer — Selbstpruefung Nr. 8 faengt genau das ab. */
@@ -33242,6 +33845,10 @@ window.addEventListener("pagehide", ()=>{ try{ idbSet("golfdb", DB); }catch(e){ 
 snapshot("Start", true);
 applyTheme();
 layoutAnwenden();   // v3.21: schmale Darstellung, falls gewaehlt
+/* Erinnerung an das geplante Training — einmal beim Start und danach im
+   Minutentakt, solange die App laeuft (v3.28). */
+try{ setTimeout(fitErinnerungTick, 3000); setInterval(fitErinnerungTick, 60000); }
+catch(e){ logErr("fitErinnerung:start", e, true); }
 renderAll();
 setView("heute");
 trackHeaderHeight();

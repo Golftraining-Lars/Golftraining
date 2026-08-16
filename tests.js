@@ -175,7 +175,7 @@ try {
                  "holeGir","holeUpDown","holeSandSave","platzAnalyse","taskFortschritt",
                  "warmupSchedule","warmupKorrektiv","WARMUP_PLANS","medianSplit","pearson",
                  "rKrit","gpKey","gpLabel","gpTotalES","pickClub","_aimClub","_aimLerp",
-                 "geoEdSelHat","geoEdVertHandles","snapshot","_nearest","_reaching","pfWizHtml","heuteJetzt","dispOvalFrom","dispChipHtml","dispRingPath","pathTopPoint","dispHitShare","dispText","dispSchemaSvg","dispSigmaFor","_erf","gpClubFracs","measureOrigin","geoEdMinW","editMinW","vegMask","maskMorph","maskBlobs","blobRing","ringSimplify","detectVeg","gpFingerprint","gpStale","_hash32","vegOn","viewBoxFor","troubleFeatures","geoEdPunktVon","_mergeCourses","snapBehalten","playVecKey","syncFinger","courseSVG","mergeDB","mergeDraft","watchPayload","shotZaehlt","playTouchHole","watchGeo","probeFrage","probePlan","cardBlock","playCardHtml","caddyFuerPunkt","_watchPos","istAchtzehn","equipSet","equipAll","equipHtml","deDatumZuIso","isoZuDeDatum","ensureSeedTests","SEED","wikiRelated","wikiToc","wikiTocId","wikiForSG","wikiTagsShow","SAT_SRC","satSrcFor","satTileUrl","satTileKey","DB","STRAT","GEOED"];
+                 "geoEdSelHat","geoEdVertHandles","snapshot","_nearest","_reaching","pfWizHtml","heuteJetzt","dispOvalFrom","dispChipHtml","dispRingPath","pathTopPoint","dispHitShare","dispText","dispSchemaSvg","dispSigmaFor","_erf","gpClubFracs","measureOrigin","geoEdMinW","editMinW","vegMask","maskMorph","maskBlobs","blobRing","ringSimplify","detectVeg","gpFingerprint","gpStale","_hash32","vegOn","viewBoxFor","troubleFeatures","geoEdPunktVon","_mergeCourses","snapBehalten","playVecKey","syncFinger","courseSVG","mergeDB","mergeDraft","watchPayload","shotZaehlt","playTouchHole","watchGeo","probeFrage","probePlan","cardBlock","playCardHtml","heuteTests","heuteSport","caddyFuerPunkt","_watchPos","istAchtzehn","equipSet","equipAll","equipHtml","deDatumZuIso","isoZuDeDatum","ensureSeedTests","SEED","gearHat","gearSeed","gearAll","progVerfuegbar","GOLF_PROG","fitplanIdx","fitplanAll","fitplanSet","fitplanHeute","fitplanWocheGeschafft","wikiRelated","wikiToc","wikiTocId","wikiForSG","wikiTagsShow","SAT_SRC","satSrcFor","satTileUrl","satTileKey","DB","STRAT","GEOED"];
   const epilog = "\n;globalThis.__T={" +
     namen.map(n => `${n}: (typeof ${n}!=="undefined"?${n}:undefined)`).join(",") + "};";
   vm.runInContext(code + epilog, ctx, { timeout: 20000 });
@@ -4863,6 +4863,200 @@ group("Wissensspeicher — Bildstrecke statt Einzelbild");
   /* Videos bleiben bewusst einzeln — die Größenrückfrage je Datei wäre in
      Serie eine Zumutung. */
   ok("Video weiterhin einzeln, mit Begründung", /bewusst EINZELN: Videos sind gross/.test(src));
+}
+
+/* ============ 24dc. Was steht heute an ============ */
+group("Heute geplant — Tests und Sport");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+  const T = G("heuteTests"), S = G("heuteSport"), DB0 = G("DB");
+
+  /* Fällige Tests standen bis v2.31 als LISTE hier und wurden zu Recht
+     entfernt. Der Wunsch ist ein anderer: nicht „was ist alles fällig",
+     sondern „was mache ich HEUTE" — zwei Zeilen. */
+  if (typeof T === "function" && DB0) {
+    const sicherD = DB0.testDefs, sicherT = DB0.tests;
+    const alt = d => new Date(Date.now() - d * 864e5).toISOString().slice(0, 10);
+    DB0.testDefs = [
+      { key: "a", label: "Alt-Test", category: "Putting" },
+      { key: "b", label: "Frisch", category: "Putting" },
+      { key: "c", label: "Nie gemacht", category: "Short Game & Pelz" }
+    ];
+    DB0.tests = [{ defKey: "a", date: alt(200), total: 20 }, { defKey: "b", date: alt(5), total: 20 }];
+    const r = T(2);
+    ok("höchstens zwei", r.length <= 2, String(r.length));
+    ok("frischer Test bleibt draußen", !r.some(x => x.d.key === "b"));
+    ok("nie gemachter ist dabei", r.some(x => x.d.key === "c"));
+    /* Wer drei Tests an einem Tag macht, macht keinen davon ordentlich. */
+    eq("Obergrenze wird eingehalten", T(1).length, 1);
+    DB0.testDefs = sicherD; DB0.tests = sicherT;
+  }
+
+  /* Es gibt keinen hinterlegten Wochenplan — die Empfehlung wird abgeleitet.
+     Die wichtigste Regel: vor dem Turnier KEIN Krafttraining. */
+  if (typeof S === "function" && DB0) {
+    const sicherF = DB0.fitnessSessions, sicherC = DB0.competitions;
+    const tag = d => new Date(Date.now() + d * 864e5).toISOString().slice(0, 10);
+    DB0.fitnessSessions = [];
+    DB0.tournaments = [];
+    ok("ohne alles: Kraft", S().art === "kraft", S().art);
+    /* Turnier morgen -> nur Mobilität, egal wie lange die Kraft her ist. */
+    DB0.tournaments = [{ id: "t1", name: "T", date: tag(1), status: "geplant" }];
+    const vor = S();
+    ok("vor dem Turnier keine Kraft", vor.art === "mobil", vor.art + " / " + vor.warum);
+    DB0.tournaments = [];
+    /* Frisch trainiert -> Mobilität, dann Ruhe. */
+    DB0.fitnessSessions = [{ id: "f1", type: "Kraft", date: new Date().toISOString().slice(0, 10) }];
+    eq("nach Kraft heute: Mobilität", S().art, "mobil");
+    DB0.fitnessSessions.push({ id: "f2", type: "Yoga", date: new Date().toISOString().slice(0, 10) });
+    /* Ein Ruhetag ist ein Programm, kein Ausfall — wer ihn nicht benennt,
+       trainiert ihn weg. */
+    eq("beides frisch: Ruhetag", S().art, "ruhe");
+    DB0.fitnessSessions = sicherF; DB0.tournaments = sicherC;
+  }
+  ok("steht unter dem Block", /h\+=heuteProgrammHtml\(\);/.test(src));
+  ok("Tests führen in den Test", /openTest\('\$\{esc\(t\.d\.key\)\}'\)/.test(src));
+}
+
+/* ============ 24dc. Neue Fassung wird gemeldet ============ */
+group("Aktualisierung — neue Fassung wird gemeldet");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+
+  /* Die App-Hülle läuft nach `stale-while-revalidate`: Sie startet IMMER aus
+     dem Zwischenspeicher. Das ist richtig — im Funkloch will man keine
+     Fehlerseite —, aber das ERSTE Neuladen nach dem Einspielen zeigt noch die
+     alte Fassung. Wer das nicht weiß, hält eine eingebaute Neuerung für nicht
+     vorhanden und sucht an der falschen Stelle. */
+  ok("Aktualisierung wird erkannt", /addEventListener\("updatefound"/.test(src));
+  ok("und gemeldet", /toast\("Neue Fassung geladen"/.test(src));
+  ok("mit Knopf zum Anwenden", /label:"Jetzt anwenden", fn:\(\)=>location\.reload\(\)/.test(src));
+  /* NUR bei einer echten Aktualisierung: Bei der ERSTEN Installation gibt es
+     nichts zu melden — `controller` unterscheidet beides. */
+  ok("nicht bei der ersten Installation", /navigator\.serviceWorker\.controller\)\{/.test(src));
+  /* Und die Fassung steht sichtbar auf der Heute-Seite — sonst muss man drei
+     Ebenen tief in die Abgleich-Prüfung, um sie zu erfahren. */
+  ok("Fassung sichtbar", /Fassung v\$\{esc\(APP_VERSION\)\}/.test(src));
+}
+
+/* ============ 24dc. Fitness: Navigation, Wochenplan, Erinnerung ============ */
+group("Fitness — eigener Reiter, Wochenplan, Erinnerungen");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+  const I = G("fitplanIdx"), W = G("fitplanWocheGeschafft"), S = G("fitplanSet"),
+        A = G("fitplanAll"), H = G("fitplanHeute"), DB0 = G("DB");
+
+  /* Fitness lag als vierter Reiter unter „Training" — erreichbar, aber nicht
+     präsent. Turniere plant man ein paar Mal im Jahr, Fitness soll man
+     mehrmals die Woche ansehen; die HÄUFIGKEIT gehört in die Reihenfolge. */
+  ok("Fitness in der Hauptnavigation", /data-g="fitness"><span class="ni">🏋<\/span>Fitness/.test(src));
+  ok("kein Turnier-Knopf mehr", !/data-g="turnier"/.test(src));
+  ok("Turnier unter Mehr", /\{g:"mehr", views:\[\["comp","Turnier"\]/.test(src));
+  ok("Fitness-Gruppe mit Plan, Programm und Geräten",
+    /\{g:"fitness", views:\[\["fitness","Fitness"\],\["fitplan","Plan"\],\["programm","Programm"\],\["gear","Geräte"\]\]\}/.test(src));
+  ok("Plan-Ansicht angemeldet", /fitplan:renderFitplan/.test(src));
+  ok("Abschnitt im Markup", /id="v-fitplan"/.test(src));
+
+  /* Der Wochentag beginnt am MONTAG — `Date.getDay()` zählt ab Sonntag. Wer
+     das verwechselt, verschiebt den ganzen Plan um einen Tag, und es fällt
+     erst am Sonntag auf. */
+  if (typeof I === "function") {
+    eq("Montag ist 0", I(new Date("2026-08-17T12:00:00")), 0);
+    eq("Sonntag ist 6", I(new Date("2026-08-16T12:00:00")), 6);
+    eq("Samstag ist 5", I(new Date("2026-08-22T12:00:00")), 5);
+  }
+
+  if (typeof S === "function" && typeof A === "function" && DB0) {
+    const sicher = DB0.fitPlan, sicherS = DB0.fitnessSessions;
+    DB0.fitPlan = { tage: {}, erinnern: false, zeit: "18:00" };
+    S(0, "art", "Kraft"); S(0, "min", 45);
+    eq("Tag gespeichert", A().tage["0"].art, "Kraft");
+    /* Leere Art löscht den Tag — ein Eintrag ohne Art ist kein Ruhetag,
+       sondern Datenmüll. */
+    S(0, "art", null);
+    ok("ohne Art kein Eintrag", !A().tage["0"]);
+
+    /* Verglichen wird die ART, nicht der Tag: Wer die Montags-Einheit am
+       Dienstag macht, hat sie gemacht. */
+    S(0, "art", "Kraft"); S(2, "art", "Kraft"); S(4, "art", "Yoga");
+    const heute = new Date();
+    const mo = new Date(heute); mo.setDate(heute.getDate() - I(heute));
+    const di = new Date(mo); di.setDate(mo.getDate() + 1);
+    DB0.fitnessSessions = [{ date: di.toISOString().slice(0, 10), type: "Kraft" }];
+    const w = W();
+    eq("drei geplante Einheiten", w.soll, 3);
+    eq("die am Dienstag gemachte zählt", w.ist, 1);
+    DB0.fitPlan = sicher; DB0.fitnessSessions = sicherS;
+  }
+
+  /* EHRLICH BLEIBEN: Eine Web-App kann nicht benachrichtigen, während sie
+     geschlossen ist — dafür bräuchte es einen Push-Server. Der Kalender kann
+     es, deshalb der ICS-Weg. */
+  ok("Grenze benannt", /kann <b>keine<\/b> Benachrichtigung schicken/.test(src));
+  ok("Kalender-Serie als verlässlicher Weg", /RRULE:FREQ=WEEKLY;BYDAY=/.test(src));
+  ok("mit Voralarm", /TRIGGER:-PT30M/.test(src));
+  /* Nur EINMAL je Tag erinnern, und nicht an Erledigtes. */
+  ok("einmal je Tag", /if\(DB\.ui\.fitErinnertAm===tag\) return;/.test(src));
+  ok("nicht an Erledigtes", /const schon=\(DB\.fitnessSessions\|\|\[\]\)\.some/.test(src));
+  ok("Takt läuft", /setInterval\(fitErinnerungTick, 60000\)/.test(src));
+}
+
+/* ============ 24dd. Geräte und golfspezifisches Programm ============ */
+group("Trainingsgeräte — der Plan liest den Bestand");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+  const H = G("gearHat"), P = G("progVerfuegbar"), S = G("gearSeed"),
+        A = G("gearAll"), PROG = G("GOLF_PROG"), DB0 = G("DB");
+
+  /* Ein Plan, der Geräte voraussetzt, die man nicht hat, ist wertlos — und
+     einer, der vorhandene nicht nutzt, verschenkt sie. Deshalb liest der Plan
+     die Liste. */
+  if (typeof S === "function" && DB0) {
+    const sicherG = DB0.gear, sicherU = DB0.ui && DB0.ui.gearSeeded;
+    DB0.gear = []; if (DB0.ui) delete DB0.ui.gearSeeded;
+    const n = S();
+    ok("Erstbefüllung legt Geräte an", n >= 15, String(n));
+    ok("Swing Trainer dabei", A().some(g => /swing trainer/i.test(g.name)));
+    ok("Loop-Bänder dabei", A().filter(g => /loop-band/i.test(g.name)).length === 3);
+    /* NUR EINMAL — sonst käme die Liste nach jedem Aufräumen zurück. */
+    eq("zweiter Aufruf legt nichts an", S(), 0);
+
+    if (typeof H === "function") {
+      ok("findet über Teilzeichenkette", H(["swing trainer"]));
+      ok("Groß/Klein egal", H(["SWING TRAINER"]));
+      ok("Unbekanntes nicht", !H(["rudergerät"]));
+      /* Abgewählt heißt nicht vorhanden: Geräte im Keller sollen aus dem Plan
+         fallen, ohne dass man sie später neu eintippt. */
+      A().filter(g => /loop-band/i.test(g.name)).forEach(g => g.aktiv = false);
+      ok("abgewähltes Gerät zählt nicht", !H(["loop-band"]));
+      A().filter(g => /loop-band/i.test(g.name)).forEach(g => g.aktiv = true);
+    }
+    if (typeof P === "function" && Array.isArray(PROG)) {
+      const alle = PROG.reduce((a, e) => a.concat(e.uebungen), []);
+      ok("mit vollem Bestand ist fast alles verfügbar",
+        alle.filter(P).length >= alle.length - 1, alle.filter(P).length + "/" + alle.length);
+      /* Übungen ohne Gerät müssen IMMER gehen — sonst bliebe bei leerem
+         Bestand gar nichts übrig. */
+      const ohne = alle.filter(u => !u.g.length);
+      ok("Übungen ohne Gerät gelten immer", ohne.every(P), String(ohne.length));
+      DB0.gear = [];
+      ok("ohne Geräte bleiben nur die freien", alle.filter(P).length === ohne.length);
+    }
+    DB0.gear = sicherG; if (DB0.ui && sicherU) DB0.ui.gearSeeded = sicherU;
+  }
+
+  /* Der Plan zielt auf Rotation, nicht auf „mehr Kraft" — und begründet jede
+     Übung, sonst macht man sie falsch oder gar nicht. */
+  if (Array.isArray(PROG)) {
+    eq("drei Einheiten", PROG.length, 3);
+    ok("jede Einheit hat einen Zweck", PROG.every(e => (e.zweck || "").length > 20));
+    ok("jede Übung nennt Sätze", PROG.every(e => e.uebungen.every(u => (u.s || "").length > 2)));
+    ok("jede Übung nennt das Warum", PROG.every(e => e.uebungen.every(u => (u.w || "").length > 20)));
+  }
+  ok("Übernahme in den Wochenplan", /function progInPlan\(id\)/.test(src));
+  /* Kein stilles Überschreiben eines vorhandenen Plans. */
+  ok("nur auf einen freien Tag", /const frei=\[0,1,2,3,4,5,6\]\.find\(i=>!p\.tage\[String\(i\)\]\)/.test(src));
+  ok("voller Plan wird gemeldet", /Wochenplan ist voll/.test(src));
 }
 
 /* ============ 24db. Mehrere Bilder in einen Artikel ============ */
