@@ -175,7 +175,7 @@ try {
                  "holeGir","holeUpDown","holeSandSave","platzAnalyse","taskFortschritt",
                  "warmupSchedule","warmupKorrektiv","WARMUP_PLANS","medianSplit","pearson",
                  "rKrit","gpKey","gpLabel","gpTotalES","pickClub","_aimClub","_aimLerp",
-                 "geoEdSelHat","geoEdVertHandles","snapshot","_nearest","_reaching","pfWizHtml","heuteJetzt","dispOvalFrom","dispChipHtml","dispRingPath","pathTopPoint","dispHitShare","dispText","dispSchemaSvg","dispSigmaFor","_erf","gpClubFracs","measureOrigin","geoEdMinW","editMinW","vegMask","maskMorph","maskBlobs","blobRing","ringSimplify","detectVeg","gpFingerprint","gpStale","_hash32","vegOn","viewBoxFor","troubleFeatures","geoEdPunktVon","_mergeCourses","snapBehalten","playVecKey","syncFinger","courseSVG","mergeDB","mergeDraft","watchPayload","shotZaehlt","playTouchHole","watchGeo","probeFrage","probePlan","cardBlock","playCardHtml","heuteTests","heuteSport","caddyFuerPunkt","_watchPos","istAchtzehn","equipSet","equipAll","equipHtml","deDatumZuIso","isoZuDeDatum","ensureSeedTests","SEED","logWarn","logWarnEinmal","ERRLOG","condZeile","caddyClubs","clubPick","gearHat","gearSeed","gearAll","progVerfuegbar","GOLF_PROG","fitplanIdx","fitplanAll","fitplanSet","fitplanHeute","fitplanWocheGeschafft","wikiRelated","wikiToc","wikiTocId","wikiForSG","wikiTagsShow","SAT_SRC","satSrcFor","satTileUrl","satTileKey","DB","STRAT","GEOED"];
+                 "geoEdSelHat","geoEdVertHandles","snapshot","_nearest","_reaching","pfWizHtml","heuteJetzt","dispOvalFrom","dispChipHtml","dispRingPath","pathTopPoint","dispHitShare","dispText","dispSchemaSvg","dispSigmaFor","_erf","gpClubFracs","measureOrigin","geoEdMinW","editMinW","vegMask","maskMorph","maskBlobs","blobRing","ringSimplify","detectVeg","gpFingerprint","gpStale","_hash32","vegOn","viewBoxFor","troubleFeatures","geoEdPunktVon","_mergeCourses","snapBehalten","playVecKey","syncFinger","courseSVG","mergeDB","mergeDraft","watchPayload","shotZaehlt","playTouchHole","watchGeo","probeFrage","probePlan","cardBlock","playCardHtml","playAutoView","playBegin","playMapInitView","heuteTests","heuteSport","caddyFuerPunkt","_watchPos","istAchtzehn","equipSet","equipAll","equipHtml","deDatumZuIso","isoZuDeDatum","ensureSeedTests","SEED","logWarn","logWarnEinmal","ERRLOG","condZeile","caddyClubs","clubPick","gearHat","gearSeed","gearAll","progVerfuegbar","GOLF_PROG","fitplanIdx","fitplanAll","fitplanSet","fitplanHeute","fitplanWocheGeschafft","wikiRelated","wikiToc","wikiTocId","wikiForSG","wikiTagsShow","SAT_SRC","satSrcFor","satTileUrl","satTileKey","DB","STRAT","GEOED"];
   const epilog = "\n;globalThis.__T={" +
     namen.map(n => `${n}: (typeof ${n}!=="undefined"?${n}:undefined)`).join(",") + "};";
   vm.runInContext(code + epilog, ctx, { timeout: 20000 });
@@ -4999,6 +4999,39 @@ group("Fitness — eigener Reiter, Wochenplan, Erinnerungen");
   ok("einmal je Tag", /if\(DB\.ui\.fitErinnertAm===tag\) return;/.test(src));
   ok("nicht an Erledigtes", /const schon=\(DB\.fitnessSessions\|\|\[\]\)\.some/.test(src));
   ok("Takt läuft", /setInterval\(fitErinnerungTick, 60000\)/.test(src));
+}
+
+/* ============ 24di. Kopfraum hinter dem Grün ============ */
+group("Karte — hinter dem Grün muss Platz sein, auch beim Heranzoomen");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+
+  /* v3.38 hat den Zuschlag in die BASISEINPASSUNG gelegt — die falsche Ebene.
+     Was man SIEHT, bestimmt der Ausschnitt: `playMapInitView` beim Lochwechsel
+     und `playAutoView` beim Näherkommen. Und dort ist es am wichtigsten: Je
+     enger der Ausschnitt zoomt, desto größer der Anteil, den die Kopfzeilen
+     verdecken. */
+  ok("Kopfraum als eigene Funktion", /function playKopfraum\(v\)\{/.test(src));
+  ok("im Anfangsausschnitt", /v=playKopfraum\(v\);\s*\/\/ Platz fuer die Kopfzeilen/.test(src));
+  ok("und im mitwachsenden", /HIER IST ES AM WICHTIGSTEN[\s\S]{0,240}v=playKopfraum\(v\);/.test(src));
+  /* Das Basisbild behält den Zuschlag: Luftbildkacheln entstehen nur für die
+     eingepasste Fläche — ohne ihn gäbe es hinter dem Grün nichts zu zeigen.
+     Verfügbar machen und sichtbar machen sind zwei verschiedene Dinge. */
+  ok("Basisbild reicht weiter", /corridor:46,bufTopM:20,/.test(src));
+  /* Das Band ist so bemessen, dass der bisherige Inhalt vollständig UNTER die
+     Kopfzeilen rutscht: 0,28/(1−0,28). */
+  ok("Bandbreite hergeleitet", /KARTE_KOPF_ANTEIL\/\(1-KARTE_KOPF_ANTEIL\)/.test(src));
+
+  /* Gerechnet: Ein Ausschnitt der Höhe h wird um b = h·0,28/0,72 nach oben
+     erweitert. Alles, was vorher bei Anteil a saß, sitzt danach bei
+     (a·h + b)/(h + b) — also nie unter 0,28. */
+  {
+    const anteilNachher = a => (a * 1 + (0.28 / 0.72)) / (1 + (0.28 / 0.72));
+    ok("was oben klebte, liegt jetzt unter der Anzeige", anteilNachher(0) >= 0.28,
+      anteilNachher(0).toFixed(3));
+    ok("die Bahnmitte bleibt in der unteren Hälfte", anteilNachher(0.5) > 0.6,
+      anteilNachher(0.5).toFixed(3));
+  }
 }
 
 /* ============ 24dh. Warnungen im Protokoll ============ */
