@@ -175,7 +175,7 @@ try {
                  "holeGir","holeUpDown","holeSandSave","platzAnalyse","taskFortschritt",
                  "warmupSchedule","warmupKorrektiv","WARMUP_PLANS","medianSplit","pearson",
                  "rKrit","gpKey","gpLabel","gpTotalES","pickClub","_aimClub","_aimLerp",
-                 "geoEdSelHat","geoEdVertHandles","snapshot","_nearest","_reaching","pfWizHtml","heuteJetzt","dispOvalFrom","dispChipHtml","dispRingPath","pathTopPoint","dispHitShare","dispText","dispSchemaSvg","dispSigmaFor","_erf","gpClubFracs","measureOrigin","geoEdMinW","editMinW","vegMask","maskMorph","maskBlobs","blobRing","ringSimplify","detectVeg","gpFingerprint","gpStale","_hash32","vegOn","viewBoxFor","troubleFeatures","geoEdPunktVon","_mergeCourses","snapBehalten","playVecKey","syncFinger","courseSVG","mergeDB","mergeDraft","watchPayload","shotZaehlt","playTouchHole","watchGeo","probeFrage","probePlan","cardBlock","caddyFuerPunkt","_watchPos","istAchtzehn","equipSet","equipAll","equipHtml","deDatumZuIso","isoZuDeDatum","ensureSeedTests","SEED","wikiRelated","wikiToc","wikiTocId","wikiForSG","wikiTagsShow","SAT_SRC","satSrcFor","satTileUrl","satTileKey","DB","STRAT","GEOED"];
+                 "geoEdSelHat","geoEdVertHandles","snapshot","_nearest","_reaching","pfWizHtml","heuteJetzt","dispOvalFrom","dispChipHtml","dispRingPath","pathTopPoint","dispHitShare","dispText","dispSchemaSvg","dispSigmaFor","_erf","gpClubFracs","measureOrigin","geoEdMinW","editMinW","vegMask","maskMorph","maskBlobs","blobRing","ringSimplify","detectVeg","gpFingerprint","gpStale","_hash32","vegOn","viewBoxFor","troubleFeatures","geoEdPunktVon","_mergeCourses","snapBehalten","playVecKey","syncFinger","courseSVG","mergeDB","mergeDraft","watchPayload","shotZaehlt","playTouchHole","watchGeo","probeFrage","probePlan","cardBlock","playCardHtml","caddyFuerPunkt","_watchPos","istAchtzehn","equipSet","equipAll","equipHtml","deDatumZuIso","isoZuDeDatum","ensureSeedTests","SEED","wikiRelated","wikiToc","wikiTocId","wikiForSG","wikiTagsShow","SAT_SRC","satSrcFor","satTileUrl","satTileKey","DB","STRAT","GEOED"];
   const epilog = "\n;globalThis.__T={" +
     namen.map(n => `${n}: (typeof ${n}!=="undefined"?${n}:undefined)`).join(",") + "};";
   vm.runInContext(code + epilog, ctx, { timeout: 20000 });
@@ -4811,12 +4811,103 @@ group("Scorekarte — das gewohnte Raster");
     ok("Putt-Summe stimmt", out.indexOf(">18<") > 0);
     /* Bei einer 9-Loch-Runde entfällt der zweite Block ganz. */
     eq("kein Block ohne Löcher", B(hs.slice(0, 9), 10, 18, "IN"), "");
+
+    /* TEE-ERGEBNIS ALS PFEIL (v3.20): In einer 16-px-Spalte ist ein Pfeil
+       lesbarer als jede Abkürzung — und die RICHTUNG ist die Aussage. */
+    const tee = ["Hit", "Links", "Rechts", "Kurz", "Lang", "Weit links", "Weit rechts", "Mis-hit", "Hit"];
+    const hs2 = tee.map((tr, i2) => ({ hole: i2 + 1, par: 4, si: i2 + 1, score: 5, putts: 2, tee: tr,
+      girDirect: i2 < 3 ? "Ja" : "Nein" }));
+    const out2 = B(hs2, 1, 9, "OUT");
+    const zeile = lab => { const a = out2.indexOf(">" + lab + "<");
+      return a < 0 ? "" : out2.slice(a, out2.indexOf("</tr>", a)); };
+    const tz = zeile("Tee");
+    [["H", "Hit"], ["←", "Links"], ["→", "Rechts"], ["↓", "Kurz"], ["↑", "Lang"],
+     ["←←", "Weit links"], ["→→", "Weit rechts"], ["×", "Mis-hit"]].forEach(([z, l]) =>
+      ok("Tee " + l + " → " + z, tz.indexOf(">" + z + "<") > 0));
+    /* Fairway-Quote am Zeilenende — 2 Treffer aus 9 Par-4-Löchern. */
+    ok("Fairway-Quote in der Summe", tz.indexOf("22%") > 0, tz.slice(-90));
+    /* GIR als QUOTE: „3" sagt nichts ohne die Zahl der gewerteten Löcher. */
+    ok("GIR-Quote in der Summe", zeile("GIR").indexOf("33%") > 0, zeile("GIR").slice(-90));
+    /* Par 3 hat kein Fairway — mitzuzählen würde die Quote je nach Platz um
+       zehn Punkte drücken. */
+    const hs3 = hs2.map((h, i2) => (i2 === 0 ? { ...h, par: 3 } : h));
+    ok("Par 3 zählt nicht in die Fairway-Quote",
+      B(hs3, 1, 9, "OUT").indexOf("13%") > 0, "1 von 8");
   }
   /* Die Zeichen der Papierkarte: Birdie im Kreis, Doppelbogey doppelt gerahmt. */
   ok("Birdie markiert", /\.sc-birdie\{/.test(src));
   ok("Doppelbogey markiert", /\.sc-dbl\{/.test(src));
   ok("feste Spaltenbreite", /table-layout:fixed/.test(src));
   ok("Ziffern in gleicher Breite", /font-variant-numeric:tabular-nums/.test(src));
+}
+
+/* ============ 24da. Eine Vorlage für alle Scorekarten ============ */
+group("Scorekarte — im Spielmodus dieselbe wie in der Runde");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+  const P = G("playCardHtml"), PLAY0 = G("PLAY");
+
+  /* Es gab ZWEI Darstellungen — die neue im Rundendetail, die alte Liste im
+     Spielmodus. Dieselbe Sache zweimal gebaut heißt: Jede Verbesserung muss
+     man zweimal machen, und beim zweiten Mal vergisst man es. Die Pfeile und
+     Quoten aus v3.20 fehlten im Spielmodus komplett. */
+  ok("Spielmodus baut über roundCardHtml", /function playCardHtml\(\)\{[\s\S]{0,400}return roundCardHtml\(r\)/.test(src));
+  if (typeof P === "function" && PLAY0) {
+    const sicher = { holes: PLAY0.holes, course: PLAY0.course, tee: PLAY0.tee, side: PLAY0.side };
+    PLAY0.course = "T"; PLAY0.tee = "Gelb"; PLAY0.side = "18 Loch";
+    PLAY0.holes = [];
+    for (let h = 1; h <= 9; h++) PLAY0.holes.push({ hole: h, par: 4, si: h,
+      score: h <= 5 ? 5 : null, putts: 2, tee: "Hit", len: 300 });
+    const html = P();
+    ok("dasselbe Raster wie im Rundendetail", /<table class="scorecard">/.test(html));
+    ok("Tee-Zeile mit Pfeilen dabei", html.indexOf(">H<") > 0);
+    ok("Fairway-Quote dabei", /\d+%/.test(html));
+    /* Der EINE Unterschied bleibt: Während der Runde fehlen Scores, und darauf
+       muss anders hingewiesen werden als bei einer fertigen Runde. */
+    ok("Hinweis auf fehlende Scores", /noch ohne Score/.test(html));
+    PLAY0.holes = sicher.holes; PLAY0.course = sicher.course;
+    PLAY0.tee = sicher.tee; PLAY0.side = sicher.side;
+  }
+}
+
+/* ============ 24cz. Darstellung auf großen Bildschirmen ============ */
+group("Layout — Breite, Zeigergerät, Spalten");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+  const css = (src.match(/<style[^>]*>([\s\S]*?)<\/style>/g) || []).join("\n");
+
+  /* Gefragt wird nach BREITE und ZEIGERGERÄT, nicht nach „welches Gerät" —
+     ein Tablet quer ist breiter als mancher Laptop. Erkennung über den
+     User-Agent war nie verlässlich. */
+  ok("keine Geräteerkennung über den User-Agent",
+    !/navigator\.userAgent[^\n]{0,80}(iPad|Android|Mobile)/i.test(src));
+  ok("Spaltenbreite als Variable", /--spalte:640px/.test(css));
+  ok("main folgt der Variable", /main\{max-width:var\(--spalte, 640px\)/.test(css));
+  [900, 1280, 1800].forEach(b =>
+    ok("Stufe bei " + b + " px", css.indexOf("min-width:" + b + "px)") > 0 &&
+       new RegExp("min-width:" + b + "px\\)\\{\\s*:root\\{ --spalte").test(css)));
+  /* Die Textspalte wächst NICHT unbegrenzt — lange Zeilen liest niemand gern,
+     die Breite gehört dann in mehrere Spalten. */
+  ok("Textspalte endet bei 1280", /--spalte:1280px/.test(css) && !/--spalte:1[5-9]\d\dpx/.test(css));
+
+  /* Mit Maus darf es dichter sein: Am Handy braucht der Daumen 44 px. */
+  ok("dichter nur mit feinem Zeiger", /@media \(pointer:fine\) and \(min-width:900px\)/.test(css));
+  /* Mehrspaltig nur für unabhängige Karten. */
+  ok("Kachelraster ab 1000 px", /min-width:1000px\)\{[\s\S]{0,120}\.kachelgrid\{column-count:2/.test(css));
+  ok("drei Spalten ab 1600 px", /min-width:1600px\)\{[\s\S]{0,80}column-count:3/.test(css));
+  ok("Karten brechen nicht mitten durch", /break-inside:avoid/.test(css));
+  ok("Rekorde nutzen es", /kachelgrid">`\+h\+`<\/div>/.test(src));
+  /* Navigation zur Seite — nur mit Maus UND Breite. */
+  ok("Seitennavigation ab 1280 px mit Maus",
+    /@media \(min-width:1280px\) and \(pointer:fine\)\{[\s\S]{0,200}nav\{/.test(css));
+  ok("Blatt wird zum Dialog", /\.sheet\{[\s\S]{0,200}translate\(-50%,-46%\)/.test(css));
+
+  /* Der Schalter übersteuert die Automatik: Media Queries kennen die
+     Fenstergröße, nicht die Absicht. */
+  ok("Schalter vorhanden", /id="cfgKompakt"/.test(src));
+  ok("erzwingt die schmale Spalte", /body\.komp\{ --spalte:640px !important; \}/.test(css));
+  ok("alle Erweiterungen respektieren ihn", (css.match(/body:not\(\.komp\)/g) || []).length >= 10);
+  ok("beim Start angewandt", /layoutAnwenden\(\);\s+\/\/ v3\.21/.test(src));
 }
 
 /* ============ 24cy. Empfehlung zieht von selbst nach ============ */
