@@ -175,7 +175,7 @@ try {
                  "holeGir","holeUpDown","holeSandSave","platzAnalyse","taskFortschritt",
                  "warmupSchedule","warmupKorrektiv","WARMUP_PLANS","medianSplit","pearson",
                  "rKrit","gpKey","gpLabel","gpTotalES","pickClub","_aimClub","_aimLerp",
-                 "geoEdSelHat","geoEdVertHandles","snapshot","_nearest","_reaching","pfWizHtml","heuteJetzt","dispOvalFrom","dispChipHtml","dispRingPath","pathTopPoint","dispHitShare","dispText","dispSchemaSvg","dispSigmaFor","_erf","gpClubFracs","measureOrigin","geoEdMinW","editMinW","vegMask","maskMorph","maskBlobs","blobRing","ringSimplify","detectVeg","gpFingerprint","gpStale","_hash32","vegOn","viewBoxFor","troubleFeatures","geoEdPunktVon","_mergeCourses","snapBehalten","playVecKey","syncFinger","courseSVG","mergeDB","mergeDraft","watchPayload","shotZaehlt","playTouchHole","watchGeo","probeFrage","probePlan","cardBlock","istAchtzehn","equipSet","equipAll","equipHtml","ensureSeedTests","SEED","wikiRelated","wikiToc","wikiTocId","wikiForSG","wikiTagsShow","SAT_SRC","satSrcFor","satTileUrl","satTileKey","DB","STRAT","GEOED"];
+                 "geoEdSelHat","geoEdVertHandles","snapshot","_nearest","_reaching","pfWizHtml","heuteJetzt","dispOvalFrom","dispChipHtml","dispRingPath","pathTopPoint","dispHitShare","dispText","dispSchemaSvg","dispSigmaFor","_erf","gpClubFracs","measureOrigin","geoEdMinW","editMinW","vegMask","maskMorph","maskBlobs","blobRing","ringSimplify","detectVeg","gpFingerprint","gpStale","_hash32","vegOn","viewBoxFor","troubleFeatures","geoEdPunktVon","_mergeCourses","snapBehalten","playVecKey","syncFinger","courseSVG","mergeDB","mergeDraft","watchPayload","shotZaehlt","playTouchHole","watchGeo","probeFrage","probePlan","cardBlock","caddyFuerPunkt","_watchPos","istAchtzehn","equipSet","equipAll","equipHtml","deDatumZuIso","isoZuDeDatum","ensureSeedTests","SEED","wikiRelated","wikiToc","wikiTocId","wikiForSG","wikiTagsShow","SAT_SRC","satSrcFor","satTileUrl","satTileKey","DB","STRAT","GEOED"];
   const epilog = "\n;globalThis.__T={" +
     namen.map(n => `${n}: (typeof ${n}!=="undefined"?${n}:undefined)`).join(",") + "};";
   vm.runInContext(code + epilog, ctx, { timeout: 20000 });
@@ -1940,10 +1940,26 @@ group("Caddy-Modus — safe/bal/aggr müssen sich unterscheiden");
       ok("und sicher strenger als offensiv",
          SW && SW.safe.lie.pen > SW.bal.lie.pen && SW.bal.lie.pen > SW.aggr.lie.pen,
          SW && [SW.safe.lie.pen,SW.bal.lie.pen,SW.aggr.lie.pen].join(" > "));
-      /* Der Erwartungswert bleibt in allen Modi derselbe — nur die
-         Risikogewichtung verschiebt sich. */
-      ok("Erwartungswert selbst ist modusunabhängig",
-         Math.abs(ev.safe.best.es-ev.aggr.best.es)<0.001);
+      /* Der Erwartungswert einer OPTION haengt nicht vom Modus ab — nur ihre
+         Bewertung. Seit v3.15 (eigene Rough-Tabelle) waehlen die Modi hier
+         verschiedene Schlaeger, was genau der Zweck des Umschalters ist;
+         verglichen wird deshalb DIESELBE Option in beiden Modi. */
+      {
+        const gleich = ["safe","aggr"].map(m => (ev[m]._top||[]).slice());
+        const namen = a => (a||[]).map(o => (o.club && o.club.name) || o.club);
+        const gemeinsam = namen(gleich[0]).find(n => namen(gleich[1]).indexOf(n) >= 0);
+        if (gemeinsam) {
+          const f = (a) => (a||[]).find(o => ((o.club && o.club.name) || o.club) === gemeinsam);
+          const a1 = f(gleich[0]), a2 = f(gleich[1]);
+          ok("Erwartungswert derselben Option ist modusunabhängig",
+             a1 && a2 && Math.abs(a1.es - a2.es) < 0.001,
+             a1 && a2 ? `${gemeinsam}: ${a1.es.toFixed(3)} vs ${a2.es.toFixed(3)}` : "keine gemeinsame Option");
+        }
+        /* Und der Modus muss die WAHL verschieben duerfen — sonst waere der
+           Umschalter Zierde. */
+        ok("sicher wählt nicht zwingend dasselbe wie offensiv", true,
+           `${(ev.safe.best.club&&ev.safe.best.club.name)||ev.safe.best.club} vs ${(ev.aggr.best.club&&ev.aggr.best.club.name)||ev.aggr.best.club}`);
+      }
     }
     DB.courses=[]; DB.clubDistances=[];
   }
@@ -4545,7 +4561,11 @@ group("Caddy — immer von hier, nie vom gespeicherten Tee");
      und empfahl für ein kürzeres Loch. Bei 30 m kippt die Schlägerwahl. */
   ok("tee() nimmt einen Startpunkt", /tee\(geo,courseName,holeNo,mode,hcp,von\)\{/.test(src));
   ok("ohne Angabe wie bisher der gespeicherte", /const teeP = von \|\| teeGespeichert;/.test(src));
-  ok("Caddy-Zeile gibt die Position mit", /_aimTeeEv\(geo,h,_caddyVon\(\)\)/.test(src));
+  /* Seit v3.18 ist die Position ein PARAMETER (`caddyFuerPunkt`) — die
+     Caddy-Zeile ruft sie mit der eigenen, der Live-Zeiger mit der der Uhr. */
+  ok("Caddy rechnet für einen übergebenen Punkt", /function caddyFuerPunkt\(pos, ovalSetzen\)/.test(src));
+  ok("Tee-Bewertung bekommt die gerundete Position", /ev=_aimTeeEv\(geo,h,rund\)/.test(src));
+  ok("die Anzeige nutzt dieselbe Funktion", /function playCaddyNow\(\)\{\s*\n\s*return caddyFuerPunkt\(PLAY\.here, true\);/.test(src));
   ok("aufgeklappter Caddy ebenso", /STRAT\.tee\(geo,PLAY\.course,h\.hole,caddyMode\(\),null,_caddyVon\(\)\)/.test(src));
 
   /* Der Zwischenspeicher MUSS die Position enthalten — sonst bliebe die erste
@@ -4799,6 +4819,103 @@ group("Scorekarte — das gewohnte Raster");
   ok("Ziffern in gleicher Breite", /font-variant-numeric:tabular-nums/.test(src));
 }
 
+/* ============ 24cy. Empfehlung zieht von selbst nach ============ */
+group("Caddy-Takt — ohne Eingabe passiert auch etwas");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+  /* Der Live-Zeiger entstand NUR bei einer Eingabe. Wer geht, tippt nichts —
+     die Uhr bekam die Empfehlung des letzten Eintrags, gerechnet für einen
+     Punkt, an dem man nicht mehr steht. Auf dem Weg zum Ball ist das der
+     ganze Weg. */
+  ok("eigener Takt während der Runde", /_caddyPushTimer=setInterval\(caddyLivePush, 10000\)/.test(src));
+  ok("startet mit dem Runden-Sync", /function playStartSync\(\)\{[\s\S]{0,120}caddyLiveStart\(\);/.test(src));
+  ok("und endet mit ihm", /caddyLiveStop\(\); \}/.test(src));
+  /* Geschickt wird NUR bei Änderung — sonst Dauerfeuer auf eine Datei, die
+     ohnehin jede Sekunde gelesen wird. */
+  ok("schickt nur bei Änderung", /if\(marke===_caddyLetzte\) return;/.test(src));
+  ok("Marke enthält Loch, Schläger, Rest und Ort", /const marke=\[lv\.hole, c\.club/.test(src));
+  /* Rest auf 10 m gerundet: Ein Meter Unterschied ändert die Schlägerwahl
+     nicht, würde aber jede Sekunde eine Meldung auslösen. */
+  ok("Rest grob gerundet", /Math\.round\(c\.rest\/10\)/.test(src));
+}
+
+/* ============ 24cx. Uhr-Position, Handy-Rechnung ============ */
+group("Caddy — beste Rechnung am richtigen Ort");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+  const C = G("caddyFuerPunkt"), W = G("_watchPos"), DB0 = G("DB");
+
+  /* Das Handy ist führend, rechnete aber mit SEINER Position — und liegt oft
+     im Trolley, während man am Ball steht. Zwanzig Meter sind ein halber
+     Schläger. Die Uhr meldet den Ort, das Handy rechnet dafür. */
+  ok("Position ist ein Parameter", typeof C === "function");
+  ok("Live-Zeiger nutzt die Uhr-Position", /const wp=_watchPos\(\);[\s\S]{0,120}const punkt=wp\|\|PLAY\.here;/.test(src));
+  ok("und vermerkt, für wen gerechnet wurde", /fuer:\(wp\?"watch":"phone"\)/.test(src));
+  /* Die Streuung auf der Handy-Karte gehört zur Handy-Position — sonst zeigt
+     das Oval an einem Ort, an dem das Handy gar nicht ist. */
+  ok("kein Oval für die fremde Position", /caddyFuerPunkt\(punkt, false\)/.test(src));
+
+  if (typeof W === "function" && DB0) {
+    const sicher = DB0._draftRound;
+    const jetzt = new Date().toISOString();
+    const alt = new Date(Date.now() - 5 * 60000).toISOString();
+    DB0._draftRound = { live: { src: "watch", at: jetzt, pos: { src: "watch", lat: 54.0, lng: 10.7, at: jetzt } } };
+    ok("frische Uhr-Position wird genommen", Array.isArray(W()) && W()[0] === 54.0);
+    /* Eine VERALTETE Position ist schlimmer als keine: Sie sieht gleich aus,
+       führt aber zu einer Empfehlung für einen Ort, an dem niemand steht. */
+    DB0._draftRound = { live: { src: "watch", at: alt, pos: { src: "watch", lat: 54.0, lng: 10.7, at: alt } } };
+    ok("veraltete Position wird verworfen", W() === null);
+    DB0._draftRound = { live: { src: "phone", at: jetzt } };
+    ok("ohne Positionsmeldung nichts", W() === null);
+    DB0._draftRound = sicher;
+  }
+}
+
+/* ============ 24cw. Erwartungstabellen: Rough und Reichweite ============ */
+group("Erwartungswerte — Rough und die Grenzen der Tabelle");
+{
+  const S = G("STRAT"), src = fs.readFileSync(FILE, "utf8");
+
+  if (S && S.ES_BASE) {
+    ok("Rough hat eigene Stützstellen", Array.isArray(S.ES_BASE.rough) && S.ES_BASE.rough.length >= 8);
+    /* Rough muss auf JEDER Distanz teurer sein als Fairway — sonst wäre es
+       ein Vorteil, ins Rough zu spielen. */
+    const f = d => S.lookup(d, "fairway", 20), r = d => S.lookup(d, "rough", 20);
+    [20, 60, 100, 150, 200].forEach(d =>
+      ok("Rough teurer als Fairway bei " + d + " m", r(d) > f(d), (r(d) - f(d)).toFixed(3)));
+    /* Und der Aufschlag muss dem gemessenen Verlauf folgen: klein bei 20 m,
+       größer im mittleren Bereich — die alte lineare Näherung unterschätzte
+       ihn genau dort, wo die Layup-Entscheidung fällt. */
+    ok("Aufschlag bei 20 m kleiner als bei 120 m", (r(20) - f(20)) < (r(120) - f(120)),
+      `${(r(20)-f(20)).toFixed(2)} < ${(r(120)-f(120)).toFixed(2)}`);
+    /* Gegen die TABELLE prüfen, nicht gegen `lookup` — dort kommt der
+       handicap- und lie-abhängige `esOffset` obendrauf, der die reine
+       Rough-Differenz überlagert. */
+    const rt = d => S._interp(S.ES_BASE.rough, d) - S._interp(S.ES_BASE.fairway, d);
+    ok("Aufschlag in der Tabelle bei 120 m um 0,3", Math.abs(rt(120) - 0.30) < 0.06, rt(120).toFixed(3));
+    ok("und bei 20 m deutlich kleiner", rt(20) < rt(120), `${rt(20).toFixed(2)} < ${rt(120).toFixed(2)}`);
+    /* Hohes Gras ist nicht dasselbe wie Rough. */
+    ok("Hohes Gras teurer als Rough", S.lookup(100, "highrough", 20) > r(100));
+
+    /* Die Tabellen müssen den Bereich abdecken, in dem gespielt wird — sonst
+       wird extrapoliert: Ein Par 5 mit 240 m Rest lag außerhalb. */
+    const letzte = a => a[a.length - 1][0];
+    ok("Fairway reicht über 210 m hinaus", letzte(S.ES_BASE.fairway) >= 240, String(letzte(S.ES_BASE.fairway)));
+    ok("Sand reicht über 100 m hinaus", letzte(S.ES_BASE.sand) >= 140, String(letzte(S.ES_BASE.sand)));
+    ok("Rough deckt denselben Bereich ab wie Fairway",
+      letzte(S.ES_BASE.rough) >= letzte(S.ES_BASE.fairway));
+    /* Monoton steigend — weiter weg darf nie billiger sein. */
+    ["fairway", "rough", "sand", "tee"].forEach(k => {
+      const t2 = S.ES_BASE[k];
+      ok("steigt monoton: " + k, t2.every((p, i) => i === 0 || p[1] > t2[i - 1][1]));
+    });
+  }
+  /* Die Herkunft der Zahlen gehört in den Code — sonst weiß in einem Jahr
+     niemand, warum dort 3,09 steht. */
+  ok("Quelle vermerkt", /Broadie/.test(src));
+  ok("Einheiten-Vorbehalt vermerkt", /Broadies Tabellen sind in\s*\n\s*Yards/.test(src));
+}
+
 /* ============ 24cv. Ausrüstung ============ */
 group("Ausrüstung — womit, und seit wann");
 {
@@ -4827,6 +4944,27 @@ group("Ausrüstung — womit, und seit wann");
     S("ball", "text", "");
     ok("leeren entfernt das Datum", !A().ball.seit);
     DB0.equipment = sicher;
+  }
+  /* DEUTSCHES DATUM (v3.19): Gespeichert wird ISO — nur so lässt sich
+     sortieren. Eingegeben und angezeigt wird TT.MM.JJJJ. */
+  {
+    const D = G("deDatumZuIso"), I = G("isoZuDeDatum");
+    if (typeof D === "function") {
+      eq("kurze Schreibweise", D("5.3.26"), "2026-03-05");
+      eq("mit führenden Nullen", D("05.03.2026"), "2026-03-05");
+      eq("ISO bleibt ISO", D("2026-03-05"), "2026-03-05");
+      eq("leer bleibt leer", D(""), "");
+      /* Unerkanntes gibt null — der Aufrufer lässt es dann stehen, statt es
+         still wegzuräumen. Ein Datum, das beim Tippen verschwindet, ist
+         ärgerlicher als ein falsches. */
+      eq("Unsinn wird nicht geraten", D("irgendwas"), null);
+      eq("den 31. Februar gibt es nicht", D("31.2.2026"), null);
+      eq("Monat 13 auch nicht", D("1.13.2026"), null);
+    }
+    if (typeof I === "function") {
+      eq("Anzeige deutsch", I("2026-03-05"), "05.03.2026");
+      eq("ohne Datum nichts", I(""), "");
+    }
   }
   if (typeof H === "function") {
     const h = H();
