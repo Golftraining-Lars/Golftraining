@@ -175,7 +175,7 @@ try {
                  "holeGir","holeUpDown","holeSandSave","platzAnalyse","taskFortschritt",
                  "warmupSchedule","warmupKorrektiv","WARMUP_PLANS","medianSplit","pearson",
                  "rKrit","gpKey","gpLabel","gpTotalES","pickClub","_aimClub","_aimLerp",
-                 "geoEdSelHat","geoEdVertHandles","snapshot","_nearest","_reaching","pfWizHtml","heuteJetzt","dispOvalFrom","dispChipHtml","dispRingPath","pathTopPoint","dispHitShare","dispText","dispSchemaSvg","dispSigmaFor","_erf","gpClubFracs","measureOrigin","geoEdMinW","editMinW","vegMask","maskMorph","maskBlobs","blobRing","ringSimplify","detectVeg","gpFingerprint","gpStale","_hash32","vegOn","viewBoxFor","troubleFeatures","geoEdPunktVon","_mergeCourses","snapBehalten","playVecKey","syncFinger","courseSVG","mergeDB","mergeDraft","watchPayload","shotZaehlt","playTouchHole","watchGeo","probeFrage","probePlan","cardBlock","equipSet","equipAll","equipHtml","ensureSeedTests","SEED","wikiRelated","wikiToc","wikiTocId","wikiForSG","wikiTagsShow","SAT_SRC","satSrcFor","satTileUrl","satTileKey","DB","STRAT","GEOED"];
+                 "geoEdSelHat","geoEdVertHandles","snapshot","_nearest","_reaching","pfWizHtml","heuteJetzt","dispOvalFrom","dispChipHtml","dispRingPath","pathTopPoint","dispHitShare","dispText","dispSchemaSvg","dispSigmaFor","_erf","gpClubFracs","measureOrigin","geoEdMinW","editMinW","vegMask","maskMorph","maskBlobs","blobRing","ringSimplify","detectVeg","gpFingerprint","gpStale","_hash32","vegOn","viewBoxFor","troubleFeatures","geoEdPunktVon","_mergeCourses","snapBehalten","playVecKey","syncFinger","courseSVG","mergeDB","mergeDraft","watchPayload","shotZaehlt","playTouchHole","watchGeo","probeFrage","probePlan","cardBlock","istAchtzehn","equipSet","equipAll","equipHtml","ensureSeedTests","SEED","wikiRelated","wikiToc","wikiTocId","wikiForSG","wikiTagsShow","SAT_SRC","satSrcFor","satTileUrl","satTileKey","DB","STRAT","GEOED"];
   const epilog = "\n;globalThis.__T={" +
     namen.map(n => `${n}: (typeof ${n}!=="undefined"?${n}:undefined)`).join(",") + "};";
   vm.runInContext(code + epilog, ctx, { timeout: 20000 });
@@ -4699,6 +4699,70 @@ group("Bibliothek — Verweise, Inhalt, Brücke zum Spiel");
   ok("nur einmal", /if\(DB\.ui && DB\.ui\.wikiCatsMigriert\) return;/.test(src));
   ok("Brücke nur ohne aktiven Filter",
     /if\(!WIKI\.q && !WIKI\.cat && !WIKI\.grp && !WIKI\.tags\.length && !WIKI\.onlyFav\) h\+=wikiSGHtml\(\);/.test(src));
+}
+
+/* ============ 24cw. Abgebrochene Runden ============ */
+group("Unvollständige Runden — zählen, ohne zu verfälschen");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+  const C = G("computeRound"), DB0 = G("DB");
+
+  /* GEFUNDEN: `toPar` war `gross - PAR` mit dem Par der GANZEN Seite. Sieben
+     Löcher in je Par+1 ergaben -37 statt +7 — und dieser Wert ging in
+     Rundenliste, Verlaufskurve, Korrelation und Scoring-Average. Eine
+     abgebrochene Trainingsrunde sah dort aus wie die Runde des Jahres. */
+  if (typeof C === "function" && DB0) {
+    const sicherC = DB0.courses, sicherR = DB0.rounds;
+    const holes18 = []; for (let i = 1; i <= 18; i++) holes18.push({ hole: i, par: 4, si: i, len: 350 });
+    DB0.courses = [{ name: "T", tees: { Gelb: { cr18: 71.2, slope18: 130, par18: 72, holes: holes18 } } }];
+    const mach = (n, side) => ({ id: "x", date: "2026-08-16", course: "T", tee: "Gelb", side: side || "18 Loch",
+      holes: Array.from({ length: n }, (_, i) => ({ hole: i + 1, par: 4, score: 5, putts: 2 })) });
+
+    const teil = C(mach(7));
+    eq("gespielte Löcher gezählt", teil.counted, 7);
+    ok("als unvollständig erkannt", teil.voll === false);
+    eq("durchgespielt ist richtig", teil.toParThrough, 7);
+    eq("toPar bleibt leer statt falsch", teil.toPar, null);
+
+    const ganz = C(mach(18));
+    ok("vollständige Runde erkannt", ganz.voll === true);
+    eq("toPar der vollen Runde", ganz.toPar, 18);
+    eq("und stimmt mit durchgespielt überein", ganz.toParThrough, 18);
+
+    /* Eine gespielte NEUN ist vollständig — nicht jede Runde hat 18 Löcher. */
+    const neun = C(mach(9, "Front 9"));
+    ok("Front 9 gilt als vollständig", neun.voll === true, "counted=" + neun.counted);
+    eq("erwartete Löcher der Seite", neun.erwartet, 9);
+    /* Vier von neun sind es nicht. */
+    ok("halbe Neun ist unvollständig", C(mach(4, "Front 9")).voll === false);
+
+    DB0.courses = sicherC; DB0.rounds = sicherR;
+  }
+
+  /* Und die Auswerter müssen es beachten. */
+  /* v3.14 verschärft: `voll` genügt nicht — eine vollständige NEUN ist
+     vollständig, ihre SUMMEN sind aber nicht mit 18 Löchern vergleichbar. */
+  ok("Bestenliste nur mit 18-Loch-Runden", /x\.e\.toPar!=null&&istAchtzehn\(x\.e\)/.test(src));
+  ok("18er-Schnitt aus dem Durchgespielten", /x\.e\.toParThrough\*18\/x\.e\.counted/.test(src));
+  ok("und erst ab neun Löchern", /x\.e\.counted>=9/.test(src));
+  /* `e.putts` ist die SUMME der Runde — eine Teilrunde in einer Verteilung von
+     18-Loch-Runden sähe aus wie eine Sternstunde am Grün. */
+  ok("Putt-Verteilung nur mit 18 Löchern", /if\(e\.putts!=null && istAchtzehn\(e\)\) putts\.push/.test(src));
+  ok("GIR-Rekord nur mit 18 Löchern", /x\.e\.gir!=null&&istAchtzehn\(x\.e\)/.test(src));
+  ok("Korrelation nur mit 18 Löchern", /const rounds=alleR\.filter\(x=>istAchtzehn\(x\.e\)\)/.test(src));
+  ok("und sagt, wie viele draußen bleiben", /kürzere Runde/.test(src));
+  {
+    const I = G("istAchtzehn");
+    if (typeof I === "function") {
+      ok("18 gespielt zählt", I({ voll: true, counted: 18 }));
+      ok("vollständige Neun zählt NICHT", !I({ voll: true, counted: 9 }));
+      ok("abgebrochene 18 zählt nicht", !I({ voll: false, counted: 14 }));
+      ok("ohne Angabe nichts", !I(null));
+    }
+  }
+  /* Anzeigen zeigen den durchgespielten Stand MIT Hinweis — verschweigen wäre
+     schlimmer als eine Zahl mit Fußnote. */
+  ok("Rundenliste kennzeichnet Teilrunden", /durch "\+e\.counted/.test(src));
 }
 
 /* ============ 24cu. Scorekarte wie auf Papier ============ */
