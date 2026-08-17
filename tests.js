@@ -175,7 +175,7 @@ try {
                  "holeGir","holeUpDown","holeSandSave","platzAnalyse","taskFortschritt",
                  "warmupSchedule","warmupKorrektiv","WARMUP_PLANS","medianSplit","pearson",
                  "rKrit","gpKey","gpLabel","gpTotalES","pickClub","_aimClub","_aimLerp",
-                 "geoEdSelHat","geoEdVertHandles","snapshot","_nearest","_reaching","heuteJetzt","dispOvalFrom","dispChipHtml","dispRingPath","pathTopPoint","dispHitShare","dispText","dispSchemaSvg","dispSigmaFor","_erf","gpClubFracs","measureOrigin","geoEdMinW","editMinW","vegMask","maskMorph","maskBlobs","blobRing","ringSimplify","detectVeg","gpFingerprint","gpStale","_hash32","vegOn","viewBoxFor","troubleFeatures","geoEdPunktVon","_mergeCourses","snapBehalten","playVecKey","syncFinger","courseSVG","mergeDB","mergeDraft","watchPayload","shotZaehlt","playTouchHole","watchGeo","probeFrage","probePlan","cardBlock","playCardHtml","playAutoView","playBegin","pfCaddyKurz","playAimChain","holeRef","geoDist","playMapInitView","heuteTests","heuteSport","caddyFuerPunkt","_watchPos","istAchtzehn","equipSet","equipAll","equipHtml","deDatumZuIso","isoZuDeDatum","ensureSeedTests","SEED","logWarn","logWarnEinmal","ERRLOG","condZeile","caddyClubs","clubPick","gearHat","gearSeed","gearAll","progVerfuegbar","GOLF_PROG","dauerUebungHtml","fitplanIdx","fitplanAll","fitplanSet","fitplanHeute","fitplanWocheGeschafft","wikiRelated","wikiToc","wikiTocId","wikiForSG","wikiTagsShow","SAT_SRC","satSrcFor","satTileUrl","satTileKey","DB","STRAT","GEOED"];
+                 "geoEdSelHat","geoEdVertHandles","snapshot","_nearest","_reaching","heuteJetzt","dispOvalFrom","dispChipHtml","dispRingPath","pathTopPoint","dispHitShare","dispText","dispSchemaSvg","dispSigmaFor","_erf","gpClubFracs","measureOrigin","geoEdMinW","editMinW","vegMask","maskMorph","maskBlobs","blobRing","ringSimplify","detectVeg","gpFingerprint","gpStale","_hash32","vegOn","viewBoxFor","troubleFeatures","geoEdPunktVon","_mergeCourses","snapBehalten","playVecKey","syncFinger","courseSVG","mergeDB","mergeDraft","watchPayload","shotZaehlt","playTouchHole","watchGeo","probeFrage","probePlan","cardBlock","playCardHtml","playAutoView","playBegin","pfCaddyKurz","modiZeile","SPIELWEISE","playAimChain","holeRef","geoDist","playMapInitView","heuteTests","heuteSport","caddyFuerPunkt","_watchPos","istAchtzehn","equipSet","equipAll","equipHtml","deDatumZuIso","isoZuDeDatum","ensureSeedTests","SEED","logWarn","logWarnEinmal","ERRLOG","condZeile","caddyClubs","clubPick","gearHat","gearSeed","gearAll","progVerfuegbar","GOLF_PROG","dauerUebungHtml","fitplanIdx","fitplanAll","fitplanSet","fitplanHeute","fitplanWocheGeschafft","wikiRelated","wikiToc","wikiTocId","wikiForSG","wikiTagsShow","SAT_SRC","satSrcFor","satTileUrl","satTileKey","DB","STRAT","GEOED"];
   const epilog = "\n;globalThis.__T={" +
     namen.map(n => `${n}: (typeof ${n}!=="undefined"?${n}:undefined)`).join(",") + "};";
   vm.runInContext(code + epilog, ctx, { timeout: 20000 });
@@ -5048,6 +5048,81 @@ group("Schlagfolge — der letzte Punkt IST das Grün");
       DB0.courses = sicher.c; DB0.clubDistances = sicher.cl; PLAY0.holes = sicher.holes;
       PLAY0.course = sicher.course; PLAY0.tee = sicher.tee; PLAY0.side = sicher.side;
       PLAY0.idx = sicher.idx; PLAY0.active = sicher.act; PLAY0.here = sicher.here;
+    }
+  }
+}
+
+/* ============ 24ds. Spielweisen — wirken sie, und sagen sie es? ============ */
+group("Spielweise — der Schalter muss wirken oder sich erklären");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+  const SW = G("SPIELWEISE"), MZ = G("modiZeile"), S = G("STRAT"), DB0 = G("DB"), PLAY0 = G("PLAY");
+
+  /* `lie.rough` ist ein ZUSATZgewicht — die echten Kosten stecken in den
+     Erwartungstabellen (nach Broadie rund 0,25 Schläge bei 150 m). Mit 0,12
+     lag der Zuschlag unter der HÄLFTE davon, und ein Schläger mit 25 m mehr
+     Länge gewann immer, auch bei 45 % Fairwayquote. */
+  if (SW) {
+    ok("sicher wertet Rough nahe den echten Kosten", SW.safe.lie.rough >= 0.2,
+      String(SW.safe.lie.rough));
+    ok("offensiv trägt es nicht extra", SW.aggr.lie.rough === 0);
+    ok("Reihenfolge bleibt stimmig",
+      SW.safe.lie.rough > SW.bal.lie.rough && SW.bal.lie.rough > SW.aggr.lie.rough);
+    ok("Strafgebiete zuerst", SW.safe.lie.pen > SW.safe.lie.sand * 3);
+  }
+
+  /* DIE EIGENTLICHE ANTWORT auf „der Schalter tut nichts": Oft ist das
+     richtig — auf einem langen Par 4 ohne Wasser gewinnt der längste sichere
+     Schläger in jeder Spielweise, weil die Meter fehlen. Ein Schalter, der
+     schweigend nichts tut, sieht aber kaputt aus. */
+  ok("Vergleich der Spielweisen vorhanden", typeof MZ === "function");
+  ok("Einigkeit wird ausgesprochen", /Alle Spielweisen empfehlen/.test(src));
+  ok("und begründet", /nichts abzuwägen/.test(src));
+  ok("Unterschiede werden aufgezählt", /namen\[m\]\} <b>\$\{esc\(_short\(wahl\[m\]\)\)/.test(src));
+
+  if (typeof MZ === "function" && S && DB0 && PLAY0) {
+    const sicher = { c: DB0.courses, cl: DB0.clubDistances, holes: PLAY0.holes,
+      course: PLAY0.course, tee: PLAY0.tee, idx: PLAY0.idx, act: PLAY0.active, here: PLAY0.here };
+    try {
+      const mLat = 110540, mLng = 111320 * Math.cos(54 * Math.PI / 180);
+      const at = (n, e) => [54.0 + n / mLat, 10.77 + (e || 0) / mLng];
+      const ring = (n, e, r) => [at(n - r, e - r), at(n - r, e + r), at(n + r, e + r), at(n + r, e - r)];
+      const t2 = at(0), g = at(387);
+      const geo = { holes: { 5: { tee: t2, green: g, line: [t2, g], distM: 387 } },
+        features: [{ kind: "green", ring: ring(387, 0, 14) }] };
+      DB0.courses = [{ name: "SW-Test", tees: { Gelb: { holes: [{ hole: 5, par: 4, si: 3, len: 387 }] } }, geo }];
+      DB0.clubDistances = [{ club: "Driver", carry: 211, reach: 225 },
+        { club: "3 Wood", carry: 196, reach: 213 }, { club: "5 Iron", carry: 168, reach: 174 }];
+      /* Eine LAUFENDE Runde aus einer vorigen Gruppe verhindert den Start —
+          schuetzt sie zurecht. Deshalb erst beenden. */
+      PLAY0.active = false;
+      const PB2 = G("playBegin");
+      if (typeof PB2 === "function") PB2("SW-Test", "Gelb", 0);
+      PLAY0.idx = 0; PLAY0.here = t2;
+      /* Falls `playBegin` nicht greift (z. B. weil eine andere Gruppe Zustand
+         hinterlassen hat), den Spielzustand von Hand setzen — geprüft wird die
+         ZEILE, nicht der Rundenstart. */
+      if (!(PLAY0.holes || []).length || PLAY0.course !== "SW-Test") {
+        PLAY0.course = "SW-Test"; PLAY0.tee = "Gelb"; PLAY0.active = true;
+        PLAY0.holes = [{ hole: 5, par: 4, si: 3, len: 387 }];
+      }
+      const z = MZ(geo, PLAY0.holes[0], t2);
+      /* Ob EINIG oder VERSCHIEDEN haengt vom Loch ab — beides ist richtig.
+         Geprueft wird nur, dass die Zeile ueberhaupt eine Auskunft gibt. */
+      ok("Zeile gibt eine Auskunft", z.length > 20 &&
+        (/Alle Spielweisen empfehlen/.test(z) || /sicher <b>/.test(z)), z.slice(0, 90));
+      /* Und die drei Bewertungen sind wirklich getrennt gerechnet — gleiche
+         EMPFEHLUNG heißt nicht gleiche Rechnung. */
+      const sc = ["safe", "bal", "aggr"].map(m => {
+        const ev = S.tee(geo, "SW-Test", 5, m, 20, null);
+        return ev && ev.best ? +ev.best.score.toFixed(3) : null;
+      });
+      ok("die Bewertungen unterscheiden sich", new Set(sc).size === 3, sc.join(" / "));
+      ok("sicher bewertet am strengsten", sc[0] > sc[1] && sc[1] > sc[2], sc.join(" > "));
+    } finally {
+      DB0.courses = sicher.c; DB0.clubDistances = sicher.cl; PLAY0.holes = sicher.holes;
+      PLAY0.course = sicher.course; PLAY0.tee = sicher.tee; PLAY0.idx = sicher.idx;
+      PLAY0.active = sicher.act; PLAY0.here = sicher.here;
     }
   }
 }
