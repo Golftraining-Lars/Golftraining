@@ -5080,6 +5080,17 @@ group("Doku — die drei Prüfebenen sind beschrieben");
      zuerst, und nur was dort steht, wird auch gemacht. */
   ok("Pflicht: beide Skripte", /`node tests\.js` UND `node runde-simulation\.js`/.test(doc));
   ok("Verweis auf 7a–7c", /Details in Abschnitt 7a–7c/.test(doc));
+  /* Die Prüfwerkzeuge gehören ins Repo — sonst passen sie nicht zur Fassung,
+     die sie prüfen, und sind nach der Sitzung weg. Die Doku sagte zuerst das
+     Gegenteil; dass sie es jetzt richtig sagt, wird geprüft. */
+  ok("Auslieferung nennt beide Skripte",
+    /\| `runde-simulation\.js` \|/.test(doc) && /\| `runde-harness\.js` \|/.test(doc));
+  ok("Roh-URLs vorhanden", /refs\/heads\/main\/runde-simulation\.js/.test(doc) &&
+    /refs\/heads\/main\/runde-harness\.js/.test(doc));
+  ok("Begründung steht dabei", /muessen zur Fassung passen, die sie pruefen/.test(doc));
+  ok("kein „nicht ins Repo“ mehr", !/Gehoeren NICHT ins Repo/.test(doc));
+  /* Der Pfad ist Teil der Antwort: gleicher Ordner, kein Unterordner. */
+  ok("Ordner-Erwartung dokumentiert", /im selben Ordner/.test(doc));
 }
 
 /* ============ 24du. Simulationsmodus ============ */
