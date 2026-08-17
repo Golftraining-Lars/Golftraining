@@ -5104,6 +5104,23 @@ group("Simulation — Platz prüfen, ohne auf dem Platz zu sein");
      Streuungsoval, Zielkette und der Push zur Uhr lesen alle daraus. Wer diese
      eine Größe setzen kann, hat den Platz simuliert. */
   ok("Modus vorhanden", typeof SA === "function" && typeof ST === "function");
+
+  /* DER SCHALTER MUSS IM SPIELMODUS SEIN: Er stand unter Mehr → Daten — und
+     aus einer laufenden Runde kommt man dort nicht hin, ohne sie zu verlassen.
+     Ein Werkzeug für den Spielmodus, das man nur außerhalb erreicht, ist keins. */
+  ok("Schalter in der Kartenleiste", /onclick="simFrage\(\)"/.test(src));
+  ok("nicht mehr unter Daten", !/id="cfgSim"/.test(src));
+  ok("Kartenleiste rendert ihn", /function playMapCtrlsHtml\(\)\{[\s\S]{0,3000}simFrage\(\)/.test(src));
+  /* RÜCKFRAGE beim Start: Der Knopf sitzt zwischen zehn Schaltern, die man im
+     Spiel dauernd antippt. Ein Fehltipp würde die echte Ortung stillstellen —
+     mitten auf der Bahn fällt das erst auf, wenn die Distanzen nicht mehr
+     wandern. */
+  ok("Rückfrage vor dem Start", /function simFrage\(\)\{[\s\S]{0,200}confirm\(/.test(src));
+  ok("Rückfrage nennt die Folgen", /Es wird NICHTS gespeichert/.test(src) &&
+    /echte Ortung ist bis zum Beenden ausgesetzt/.test(src));
+  /* BEIM BEENDEN KEINE Rückfrage: Zurück in den Normalbetrieb ist immer richtig
+     und muss sofort gehen. */
+  ok("Beenden ohne Rückfrage", /if\(simAktiv\(\)\)\{ simStop\(\); return; \}/.test(src));
   ok("Tipp setzt die Position statt zu messen",
     /if\(simAktiv\(\)\)\{ const ll=mapLL\(PLAY\.mapM,vx,vy\); if\(ll\) simSetzePosition\(ll\); \}/.test(src));
 
