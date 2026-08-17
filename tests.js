@@ -4457,13 +4457,17 @@ group("Caddy — Bezugspunkt ist der Standort, nie das Tee");
   const src = fs.readFileSync(FILE, "utf8");
   /* Die Kette baut `_aimBuild`; `playAimChain` ist nur der Zwischenspeicher. */
   const ac = src.slice(src.indexOf("function _aimBuild(strategic)"),
-                       src.indexOf("function _aimBuild(strategic)") + 3000);
+                       src.indexOf("function _aimBuild(strategic)") + 4200);
 
   /* Welchen Abschlag man benutzt, entscheidet die Tee-Farbe — der Kartenpunkt
      liegt oft zwanzig Meter daneben. Wer vom gelben Tee spielt und die Karte
      kennt nur das weiße, bekam alle Entfernungen und die Ziellinie um diesen
      Versatz verschoben, ausgerechnet beim längsten Schlag des Lochs. */
-  ok("Startpunkt ist der Standort", /const start = PLAY\.here \|\| hr\.tee \|\| hr\.green;/.test(ac));
+  /* Seit v3.42 mit EINER Ausnahme: Ist man zu weit weg, plant die App „wie am
+     Abschlag" — dann muss sie auch AM ABSCHLAG anfangen. Vorher blieb der
+     Startpunkt die eigene Position, und aus 3,2 km Entfernung entstand ein
+     zweiter Schlag über 2694 m. */
+  ok("Startpunkt ist der Standort", /const start = amTee \? \(hr\.tee \|\| hr\.green\) : \(PLAY\.here \|\| hr\.tee \|\| hr\.green\);/.test(ac));
   ok("keine 30-m-Regel mehr für den Startpunkt",
     /const amTee = zuWeit \|\| \(!PLAY\.here\);/.test(ac));
   /* Die beiden Fälle, die bleiben, heißen beide „ich bin gar nicht auf der
@@ -5010,7 +5014,25 @@ group("Schlagfolge — der letzte Punkt IST das Grün");
       const n0 = LOG ? LOG.length : 0;
       const k = AC(true);
       ok("Kette gebaut", !!(k && k.pts && k.pts.length > 1), k ? String(k.pts.length) : "-");
-      if (k && k.pts && k.pts.length > 1) {
+        /* AUS GROSSER ENTFERNUNG (v3.42): „wie am Abschlag planen" heißt auch
+         „am Abschlag anfangen". Vorher blieb der Startpunkt die eigene
+         Position — aus 3,2 km wurde ein zweiter Schlag über 2694 m, und die
+         Zielpunkte lagen entsprechend neben dem Grün. */
+      PLAY0.here = [54.0 - 2900 / mLat, 10.77];
+      const kFern = AC(true);
+      if (kFern && kFern.pts && kFern.pts.length > 1) {
+        ok("aus der Ferne startet die Kette am Tee", GD(t2, kFern.pts[0]) < 5,
+          GD(t2, kFern.pts[0]).toFixed(0) + " m");
+        ok("und endet trotzdem auf dem Grün",
+          GD(HR(geo, 5).green, kFern.pts[kFern.pts.length - 1]) < 5);
+        /* Kein Schlag darf länger sein als der längste Schläger — genau daran
+           erkannte man den Fehler im Plan. */
+        const maxLeg = Math.max(...kFern.pts.slice(1).map((p, i) => GD(kFern.pts[i], p)));
+        ok("kein Schlag über 260 m", maxLeg < 260, maxLeg.toFixed(0) + " m");
+      }
+      PLAY0.here = t2;
+
+    if (k && k.pts && k.pts.length > 1) {
         const letzt = k.pts[k.pts.length - 1];
         const ab = GD(HR(geo, 5).green, letzt);
         /* DAS ist die Kernaussage: Der letzte Zielpunkt liegt auf dem Grün,
@@ -5028,6 +5050,29 @@ group("Schlagfolge — der letzte Punkt IST das Grün");
       PLAY0.idx = sicher.idx; PLAY0.active = sicher.act; PLAY0.here = sicher.here;
     }
   }
+}
+
+/* ============ 24dl. Knopfleiste und Caddy-Abstand ============ */
+group("Spielmodus — Knopfleiste, Abstand, aufgeklappter Caddy");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+  const css = (src.match(/<style[^>]*>([\s\S]*?)<\/style>/g) || []).join("\n");
+
+  /* Die Messung stand nur in `pfRender` — sie fehlte damit, wenn sich die
+     Kopfzeile ohne Neuzeichnen ändert: Drehung, Schriftgröße, ein längerer
+     Platzname beim Lochwechsel. Dann galt der Ausweichwert von 58 px, und die
+     Knopfspalte lag wieder über dem Score-Kasten. */
+  ok("Messung als eigene Funktion", /function pfTopMessen\(\)\{/.test(src));
+  ok("auch beim Kartenwechsel", /playAimDraw\(\); pfTopMessen\(\); \}/.test(src));
+  /* Der Abstand zur Kopfzeile war zu groß — 2 px statt 6. */
+  ok("Caddy sitzt dicht darunter", /\.pf-caddy\{[^}]*var\(--pf-top-h, 58px\) \+ 2px\)/.test(css));
+  ok("Knopfleiste bleibt bei 6 px", /\.play-map-ctrls\{[^}]*var\(--pf-top-h, 58px\) \+ 6px\)/.test(css));
+  /* Aufgeklappt hat der Caddy Vorfahrt: Die Spalte lag über drei Zeilen. */
+  ok("Knopfleiste weicht dem offenen Caddy", /body\.caddy-offen \.play-map-ctrls\{display:none\}/.test(css));
+  ok("Klasse wird gesetzt", /classList\.toggle\("caddy-offen", !!PLAY\.pfInfoOpen\)/.test(src));
+  /* Klasse am body statt Geschwister-Wahl: Beide Elemente stehen nicht
+     zwingend nebeneinander im Dokument. */
+  ok("keine Geschwister-Wahl", !/\.pf-caddy\.open ~ \.play-map-ctrls/.test(css));
 }
 
 /* ============ 24dj. Vorgabenzeile und Überlappung ============ */
