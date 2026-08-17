@@ -5052,6 +5052,37 @@ group("Schlagfolge — der letzte Punkt IST das Grün");
   }
 }
 
+/* ============ 24dr. Ein Maßstab für Karte und Zielkette ============ */
+group("Spielkarte — beide Aufbauwege müssen denselben Ausschnitt einpassen");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+
+  /* ES GIBT ZWEI AUFRUFE, die dieselbe Spielkarte bauen: der volle Aufbau und
+     der fürs Neuzeichnen. Beide setzen `PLAY.mapM` — die Projektion, mit der
+     die orange Zielkette in die Overlay-Ebene gezeichnet wird.
+     Stand ein Einpassungs-Parameter nur in EINEM, lagen Luftbild und Kette in
+     zwei Maßstäben. Der Fehler wächst mit der Entfernung: am Abschlag fast
+     stimmig, am Grün 60 m daneben. Von außen sah das aus wie „der Caddy zielt
+     falsch" UND „die Linie startet nicht am Tee" — dieselbe Verschiebung, nur
+     am kurzen und am langen Ende gemessen. */
+  const aufrufe = [...src.matchAll(/const sv=courseSVG\(geo,\{([^\n]*)\}\);/g)].map(m => m[1]);
+  ok("zwei Aufbauwege gefunden", aufrufe.length === 2, String(aufrufe.length));
+  if (aufrufe.length === 2) {
+    /* Verglichen werden NUR die Parameter, die die Einpassung bestimmen —
+       `sat`, `veg` oder `dynOnly` dürfen sich unterscheiden, sie ändern den
+       Ausschnitt nicht. */
+    const fitKeys = ["w", "hole", "fitHere", "rotate", "tight", "corridor", "bufTopM"];
+    const lesen = p => fitKeys.map(k => {
+      const m = p.match(new RegExp("(?:^|,)\\s*" + k + ":([^,]+)"));
+      return k + "=" + (m ? m[1].trim() : "FEHLT");
+    }).join(" ");
+    eq("identische Einpassung", lesen(aufrufe[0]), lesen(aufrufe[1]));
+    /* Und der Zuschlag muss in BEIDEN stehen — er ist der Parameter, der den
+       Maßstab um 18 % verändert. */
+    ok("Kopfraum in beiden", /bufTopM:20/.test(aufrufe[0]) && /bufTopM:20/.test(aufrufe[1]));
+  }
+}
+
 /* ============ 24dq. Das Oval gehört zum aktuellen Zustand ============ */
 group("Streuungsoval — kein Rest vom vorigen Loch");
 {
