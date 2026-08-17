@@ -5149,13 +5149,23 @@ group("Spielmodus — Knopfleiste, Abstand, aufgeklappter Caddy");
   /* Der Caddy zieht ab: `.pf-top` hat 8 px Innenabstand unten, die gemessene
      Höhe enthält sie — ohne Abzug klafft eine Lücke. */
   ok("Caddy sitzt dicht darunter", /\.pf-caddy\{[^}]*var\(--pf-top-h, 96px\) - 6px\)/.test(css));
-  ok("Knopfleiste darunter", /\.play-map-ctrls\{[^}]*var\(--pf-top-h, 96px\) \+ 4px\)/.test(css));
+  /* DIE ECHTE Leiste heißt `#pfCtrls` — `.play-map-ctrls` gehört zum alten
+     Blatt-Layout. Drei Fassungen lang lief die Korrektur ins Leere, weil sie
+     an der falschen Klasse hing; auf dem Gerät änderte sich nichts, und das
+     war richtig so. */
+  ok("Knopfleiste darunter", /#pfCtrls\{[^}]*var\(--pf-top-h, 96px\) \+ 4px\)/.test(css));
+  ok("nicht mehr feste 58 px", !/#pfCtrls\{position:absolute;top:58px/.test(css));
+  ok("liegt unter dem Caddy", /#pfCtrls\{[^}]*z-index:4\}/.test(css));
   /* Aufgeklappt hat der Caddy Vorfahrt: Die Spalte lag über drei Zeilen. */
-  ok("Knopfleiste weicht dem offenen Caddy", /body\.caddy-offen \.play-map-ctrls\{display:none\}/.test(css));
+  ok("Knopfleiste weicht dem offenen Caddy", /body\.caddy-offen #pfCtrls\{display:none\}/.test(css));
   ok("Klasse wird gesetzt", /classList\.toggle\("caddy-offen", !!PLAY\.pfInfoOpen\)/.test(src));
   /* Klasse am body statt Geschwister-Wahl: Beide Elemente stehen nicht
      zwingend nebeneinander im Dokument. */
-  ok("keine Geschwister-Wahl", !/\.pf-caddy\.open ~ \.play-map-ctrls/.test(css));
+  ok("keine Geschwister-Wahl", !/\.pf-caddy\.open ~ #pfCtrls/.test(css));
+  /* „Grün 0 %" bei vorhandener Grünfläche ist ein Befund, kein Ergebnis:
+     Bei 100 m mit einem Wedge treffen nicht null von tausend Bällen. */
+  ok("Null-Prozent wird untersucht", /„Grün 0 %“ — Ziel \$\{ab\} m vom Grünpunkt/.test(src));
+  ok("beide Abstände im Protokoll", /m vom Mittelpunkt der Grünfläche/.test(src));
 }
 
 /* ============ 24dj. Vorgabenzeile und Überlappung ============ */
