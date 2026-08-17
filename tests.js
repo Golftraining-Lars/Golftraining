@@ -5052,6 +5052,32 @@ group("Schlagfolge — der letzte Punkt IST das Grün");
   }
 }
 
+/* ============ 24dm. Ein Kilometer, und der Grünpunkt ============ */
+group("Caddy — feste Kilometergrenze, Grünpunkt geprüft");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+
+  /* Die Grenze hing an der Lochlänge (`len + 150`, mindestens 650) — gut
+     gemeint, aber unvorhersehbar: Auf einem Par 3 kippte die Rechnung bei
+     650 m, auf einem langen Par 5 bei 670, und dazwischen wusste niemand mehr,
+     was gerade gerechnet wird. */
+  ok("feste Grenze als Konstante", /const CADDY_TEE_AB_M = 1000;/.test(src));
+  ok("und sie wird benutzt", /return d>CADDY_TEE_AB_M \? d : null;/.test(src));
+  ok("keine Längenabhängigkeit mehr", !/const grenze=\(h\.len>0\?h\.len:500\)\+150;/.test(src));
+  /* `holeRef` statt Rohzugriff: sonst greift die Tee/Grün-Vertauschung nicht. */
+  ok("liest über holeRef", /function playTooFar\(\)\{[\s\S]{0,300}holeRef\(geo,h\.hole\)/.test(src));
+
+  /* Bleibt eine Erklärung, warum das Oval neben dem Grün liegt, obwohl die
+     Kette den gespeicherten Punkt auf den Meter trifft: Der PUNKT stimmt nicht
+     mit der FLÄCHE überein. Beim OSM-Import endet die Lochlinie regelmäßig
+     hinter dem Grün — dann ist alles verschoben, aber in sich stimmig, und
+     beim Rechnen fällt es nicht auf. */
+  ok("Grünpunkt gegen Grünfläche geprüft", /gespeicherter Grünpunkt liegt \$\{ab\} m neben der Grünfläche/.test(src));
+  ok("nur bei echtem Versatz", /if\(ab>25\) logWarnEinmal\("gruenVersatz:/.test(src));
+  /* Nur die Fläche DIESES Lochs: Ein Grün 300 m weiter gehört zu einem anderen. */
+  ok("Fläche muss in der Nähe liegen", /geoDist\(ringCentroid\(f\.ring\), hrP\.green\)<120/.test(src));
+}
+
 /* ============ 24dl. Knopfleiste und Caddy-Abstand ============ */
 group("Spielmodus — Knopfleiste, Abstand, aufgeklappter Caddy");
 {
@@ -5065,8 +5091,15 @@ group("Spielmodus — Knopfleiste, Abstand, aufgeklappter Caddy");
   ok("Messung als eigene Funktion", /function pfTopMessen\(\)\{/.test(src));
   ok("auch beim Kartenwechsel", /playAimDraw\(\); pfTopMessen\(\); \}/.test(src));
   /* Der Abstand zur Kopfzeile war zu groß — 2 px statt 6. */
-  ok("Caddy sitzt dicht darunter", /\.pf-caddy\{[^}]*var\(--pf-top-h, 58px\) \+ 2px\)/.test(css));
-  ok("Knopfleiste bleibt bei 6 px", /\.play-map-ctrls\{[^}]*var\(--pf-top-h, 58px\) \+ 6px\)/.test(css));
+  /* Der Ausweichwert muss den HÄUFIGEN Fall treffen: Die Kopfzeile bricht auf
+     dem Gerät um und ist dann rund 90 px hoch. Mit 58 px lag die Knopfspalte
+     mitten im Score-Kasten, sobald die Messung einmal nicht griff. */
+  ok("Ausweichwert für zwei Zeilen", /var\(--pf-top-h, 96px\)/.test(css));
+  ok("kein alter 58er-Wert mehr", !/var\(--pf-top-h, 58px\)/.test(css));
+  /* Der Caddy zieht ab: `.pf-top` hat 8 px Innenabstand unten, die gemessene
+     Höhe enthält sie — ohne Abzug klafft eine Lücke. */
+  ok("Caddy sitzt dicht darunter", /\.pf-caddy\{[^}]*var\(--pf-top-h, 96px\) - 6px\)/.test(css));
+  ok("Knopfleiste darunter", /\.play-map-ctrls\{[^}]*var\(--pf-top-h, 96px\) \+ 4px\)/.test(css));
   /* Aufgeklappt hat der Caddy Vorfahrt: Die Spalte lag über drei Zeilen. */
   ok("Knopfleiste weicht dem offenen Caddy", /body\.caddy-offen \.play-map-ctrls\{display:none\}/.test(css));
   ok("Klasse wird gesetzt", /classList\.toggle\("caddy-offen", !!PLAY\.pfInfoOpen\)/.test(src));
@@ -5096,7 +5129,7 @@ group("Spielmodus — verständliche Vorgabenzeile, keine Überlappung");
   /* Die Überlappung: 58 px waren richtig, solange die Kopfzeile einzeilig
      bleibt. Bricht sie um (schmales Gerät, große Schrift, langer Text), schob
      sich der Caddy-Kasten darüber. */
-  ok("Abstand kommt aus einer Variablen", /top:calc\(var\(--pf-top-h, 58px\) \+ 6px\)/.test(src));
+  ok("Abstand kommt aus einer Variablen", /top:calc\(var\(--pf-top-h, 96px\)/.test(src));
   ok("Höhe wird gemessen", /top\.getBoundingClientRect\(\)\.height/.test(src));
   /* Nach `innerHTML` misst man die VORIGE Höhe — der Umbruch steht erst im
      nächsten Bild fest. */
