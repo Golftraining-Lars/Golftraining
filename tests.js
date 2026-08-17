@@ -175,7 +175,7 @@ try {
                  "holeGir","holeUpDown","holeSandSave","platzAnalyse","taskFortschritt",
                  "warmupSchedule","warmupKorrektiv","WARMUP_PLANS","medianSplit","pearson",
                  "rKrit","gpKey","gpLabel","gpTotalES","pickClub","_aimClub","_aimLerp",
-                 "geoEdSelHat","geoEdVertHandles","snapshot","_nearest","_reaching","heuteJetzt","dispOvalFrom","dispChipHtml","dispRingPath","pathTopPoint","dispHitShare","dispText","dispSchemaSvg","dispSigmaFor","_erf","gpClubFracs","measureOrigin","geoEdMinW","editMinW","vegMask","maskMorph","maskBlobs","blobRing","ringSimplify","detectVeg","gpFingerprint","gpStale","_hash32","vegOn","viewBoxFor","troubleFeatures","geoEdPunktVon","_mergeCourses","snapBehalten","playVecKey","syncFinger","courseSVG","mergeDB","mergeDraft","watchPayload","shotZaehlt","playTouchHole","watchGeo","probeFrage","probePlan","cardBlock","playCardHtml","playAutoView","playBegin","pfCaddyKurz","modiZeile","SPIELWEISE","WEDGE_ZONE","playAimChain","holeRef","geoDist","playMapInitView","heuteTests","heuteSport","caddyFuerPunkt","_watchPos","istAchtzehn","equipSet","equipAll","equipHtml","deDatumZuIso","isoZuDeDatum","ensureSeedTests","SEED","logWarn","logWarnEinmal","ERRLOG","condZeile","caddyClubs","clubPick","gearHat","gearSeed","gearAll","progVerfuegbar","GOLF_PROG","dauerUebungHtml","fitplanIdx","fitplanAll","fitplanSet","fitplanHeute","fitplanWocheGeschafft","wikiRelated","wikiToc","wikiTocId","wikiForSG","wikiTagsShow","SAT_SRC","satSrcFor","satTileUrl","satTileKey","DB","STRAT","GEOED"];
+                 "geoEdSelHat","geoEdVertHandles","snapshot","_nearest","_reaching","heuteJetzt","dispOvalFrom","dispChipHtml","dispRingPath","pathTopPoint","dispHitShare","dispText","dispSchemaSvg","dispSigmaFor","_erf","gpClubFracs","measureOrigin","geoEdMinW","editMinW","vegMask","maskMorph","maskBlobs","blobRing","ringSimplify","detectVeg","gpFingerprint","gpStale","_hash32","vegOn","viewBoxFor","troubleFeatures","geoEdPunktVon","_mergeCourses","snapBehalten","playVecKey","syncFinger","courseSVG","mergeDB","mergeDraft","watchPayload","shotZaehlt","playTouchHole","watchGeo","probeFrage","probePlan","cardBlock","playCardHtml","playAutoView","playBegin","pfCaddyKurz","simAktiv","simStart","simStop","simSetzePosition","modiZeile","SPIELWEISE","WEDGE_ZONE","playAimChain","holeRef","geoDist","playMapInitView","heuteTests","heuteSport","caddyFuerPunkt","_watchPos","istAchtzehn","equipSet","equipAll","equipHtml","deDatumZuIso","isoZuDeDatum","ensureSeedTests","SEED","logWarn","logWarnEinmal","ERRLOG","condZeile","caddyClubs","clubPick","gearHat","gearSeed","gearAll","progVerfuegbar","GOLF_PROG","dauerUebungHtml","fitplanIdx","fitplanAll","fitplanSet","fitplanHeute","fitplanWocheGeschafft","wikiRelated","wikiToc","wikiTocId","wikiForSG","wikiTagsShow","SAT_SRC","satSrcFor","satTileUrl","satTileKey","DB","STRAT","GEOED"];
   const epilog = "\n;globalThis.__T={" +
     namen.map(n => `${n}: (typeof ${n}!=="undefined"?${n}:undefined)`).join(",") + "};";
   vm.runInContext(code + epilog, ctx, { timeout: 20000 });
@@ -5050,6 +5050,82 @@ group("Schlagfolge — der letzte Punkt IST das Grün");
       PLAY0.idx = sicher.idx; PLAY0.active = sicher.act; PLAY0.here = sicher.here;
     }
   }
+}
+
+/* ============ 24dv. Doku über die Prüfebenen ============ */
+group("Doku — die drei Prüfebenen sind beschrieben");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+  const doc = (src.match(/<script[^>]*devdocs[^>]*>([\s\S]*?)<\/script>/) || [])[1] || "";
+
+  /* Eine Prüfebene, die niemand kennt, wird beim nächsten Umbau nicht benutzt —
+     und dann findet sie nichts mehr. Deshalb steht sie in der Doku, und deshalb
+     prüft der Prüfstand, dass sie dort steht. */
+  ok("Abschnitt über die Prüfebenen", /### 7a\. Die drei Pruefebenen/.test(doc));
+  ok("Rundenlauf erklärt", /### 7b\. `runde-simulation\.js`/.test(doc));
+  ok("Simulationsmodus erklärt", /### 7c\. Simulationsmodus in der App/.test(doc));
+  /* Die sieben Invarianten müssen aufgezählt sein — sie sind der Inhalt des
+     Durchlaufs, nicht seine Nebensache. */
+  ok("Invarianten aufgezählt", (doc.match(/Zielkette endet auf dem Gruen/) || []).length > 0 &&
+    /Restdistanz nimmt entlang der Kette ab/.test(doc));
+  ok("Zählweise erklärt (pro Regel)", /Gezaehlt wird pro REGEL, nicht pro Fall/.test(doc));
+  /* Die Falle, die mich dreimal Zeit gekostet hat, gehört ausdrücklich hin. */
+  ok("Sandkasten-Falle dokumentiert", /liefert nicht in jedem/.test(doc) &&
+    /gehoeren in `runde-simulation\.js`/.test(doc));
+  ok("playBegin ersetzt PLAY steht dabei", /ersetzt .{0,20}playBegin.{0,30}die Variable/.test(doc.replace(/\n/g," ")));
+  /* Und die drei Eigenschaften des Simulationsmodus, die erhalten bleiben müssen. */
+  ok("Schreibsperre dokumentiert", /Er schreibt nichts/.test(doc));
+  ok("Hinweis für neue Schreibwege", /Wer einen neuen Schreibweg baut, prueft `simAktiv\(\)` mit/.test(doc));
+  /* Der Pflichtteil oben muss auf beide Skripte verweisen — dort schaut man
+     zuerst, und nur was dort steht, wird auch gemacht. */
+  ok("Pflicht: beide Skripte", /`node tests\.js` UND `node runde-simulation\.js`/.test(doc));
+  ok("Verweis auf 7a–7c", /Details in Abschnitt 7a–7c/.test(doc));
+}
+
+/* ============ 24du. Simulationsmodus ============ */
+group("Simulation — Platz prüfen, ohne auf dem Platz zu sein");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+  const SA = G("simAktiv"), ST = G("simStart"), SP = G("simStop"), SS = G("simSetzePosition"),
+        GD = G("geoDist"), DB0 = G("DB"), PLAY0 = G("PLAY");
+
+  /* `PLAY.here` ist die EINZIGE Quelle für die Position — Caddy, F/M/B,
+     Streuungsoval, Zielkette und der Push zur Uhr lesen alle daraus. Wer diese
+     eine Größe setzen kann, hat den Platz simuliert. */
+  ok("Modus vorhanden", typeof SA === "function" && typeof ST === "function");
+  ok("Tipp setzt die Position statt zu messen",
+    /if\(simAktiv\(\)\)\{ const ll=mapLL\(PLAY\.mapM,vx,vy\); if\(ll\) simSetzePosition\(ll\); \}/.test(src));
+
+  /* REGEL 1: Er schreibt nichts. Sonst landet eine Fingerübung in den
+     Statistiken oder als laufende Runde auf dem Handgelenk. */
+  ok("kein Push zur Uhr", /async function draftPush\(\)\{[\s\S]{0,400}if\(simAktiv\(\)\) return false;/.test(src));
+  ok("kein Entwurf", /function playSaveDraft\(\)\{\s*\n\s*if\(simAktiv\(\)\) return;/.test(src));
+  ok("kein Caddy-Takt", /function caddyLivePush\(\)\{[\s\S]{0,80}if\(simAktiv\(\)\) return;/.test(src));
+  /* Und die echte Ortung darf den angetippten Punkt nicht überschreiben —
+     sonst wirkt der Modus kaputt. */
+  ok("Ortung wird verworfen, nicht angehalten", /SIMULATION HAT VORRANG[\s\S]{0,320}if\(simAktiv\(\)\) return;/.test(src));
+
+  /* REGEL 2: unübersehbar. Ein Testmodus, den man für den Normalbetrieb hält,
+     ist schlimmer als keiner. */
+  ok("Streifen über der Kopfzeile", /class="sim-bar" onclick="simStop\(\)"/.test(src));
+  ok("Streifen nennt den Ausweg", /<u>beenden<\/u>/.test(src));
+
+  /* REGEL 3: endet beim Rundenstart. */
+  /* Regel 3 gilt OHNE eigene Zeile: `playBegin` baut `PLAY` komplett aus
+     `playDefaults()` neu, und dort steht `simMode:false`. Ein Riegel, der die
+     alte Instanz ändert, wäre wirkungslos — sie wird ersetzt. Der Zustand IST
+     der Riegel, und deshalb muss das Feld dort ausdrücklich stehen. */
+  ok("Voreinstellung ist aus", /simMode:false \}; \}/.test(src));
+  ok("Rundenstart baut PLAY neu", /PLAY=Object\.assign\(playDefaults\(\), \{active:true/.test(src));
+  ok("und der Grund steht dabei", /Der Zustand IST der Riegel/.test(src));
+
+  /* KEIN Laufzeittest hier: `G("PLAY")` liefert im Prüfstand nicht immer
+     dasselbe Objekt wie der Sandkasten — Zuweisungen daran wirken dann ins
+     Leere, und die Prüfung misst sich selbst statt der App. Genau daran ist
+     dieser Test beim ersten Anlauf gescheitert (PLAY.here blieb null, obwohl
+     `simAktiv()` true meldete).
+     Der laufende Nachweis steht in `runde-simulation.js`, wo alles über `R()`
+     IM Sandkasten läuft. */
 }
 
 /* ============ 24dt. Layup muss einen spielbaren Rest lassen ============ */
