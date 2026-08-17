@@ -175,7 +175,7 @@ try {
                  "holeGir","holeUpDown","holeSandSave","platzAnalyse","taskFortschritt",
                  "warmupSchedule","warmupKorrektiv","WARMUP_PLANS","medianSplit","pearson",
                  "rKrit","gpKey","gpLabel","gpTotalES","pickClub","_aimClub","_aimLerp",
-                 "geoEdSelHat","geoEdVertHandles","snapshot","_nearest","_reaching","heuteJetzt","dispOvalFrom","dispChipHtml","dispRingPath","pathTopPoint","dispHitShare","dispText","dispSchemaSvg","dispSigmaFor","_erf","gpClubFracs","measureOrigin","geoEdMinW","editMinW","vegMask","maskMorph","maskBlobs","blobRing","ringSimplify","detectVeg","gpFingerprint","gpStale","_hash32","vegOn","viewBoxFor","troubleFeatures","geoEdPunktVon","_mergeCourses","snapBehalten","playVecKey","syncFinger","courseSVG","mergeDB","mergeDraft","watchPayload","shotZaehlt","playTouchHole","watchGeo","probeFrage","probePlan","cardBlock","playCardHtml","playAutoView","playBegin","pfCaddyKurz","modiZeile","SPIELWEISE","playAimChain","holeRef","geoDist","playMapInitView","heuteTests","heuteSport","caddyFuerPunkt","_watchPos","istAchtzehn","equipSet","equipAll","equipHtml","deDatumZuIso","isoZuDeDatum","ensureSeedTests","SEED","logWarn","logWarnEinmal","ERRLOG","condZeile","caddyClubs","clubPick","gearHat","gearSeed","gearAll","progVerfuegbar","GOLF_PROG","dauerUebungHtml","fitplanIdx","fitplanAll","fitplanSet","fitplanHeute","fitplanWocheGeschafft","wikiRelated","wikiToc","wikiTocId","wikiForSG","wikiTagsShow","SAT_SRC","satSrcFor","satTileUrl","satTileKey","DB","STRAT","GEOED"];
+                 "geoEdSelHat","geoEdVertHandles","snapshot","_nearest","_reaching","heuteJetzt","dispOvalFrom","dispChipHtml","dispRingPath","pathTopPoint","dispHitShare","dispText","dispSchemaSvg","dispSigmaFor","_erf","gpClubFracs","measureOrigin","geoEdMinW","editMinW","vegMask","maskMorph","maskBlobs","blobRing","ringSimplify","detectVeg","gpFingerprint","gpStale","_hash32","vegOn","viewBoxFor","troubleFeatures","geoEdPunktVon","_mergeCourses","snapBehalten","playVecKey","syncFinger","courseSVG","mergeDB","mergeDraft","watchPayload","shotZaehlt","playTouchHole","watchGeo","probeFrage","probePlan","cardBlock","playCardHtml","playAutoView","playBegin","pfCaddyKurz","modiZeile","SPIELWEISE","WEDGE_ZONE","playAimChain","holeRef","geoDist","playMapInitView","heuteTests","heuteSport","caddyFuerPunkt","_watchPos","istAchtzehn","equipSet","equipAll","equipHtml","deDatumZuIso","isoZuDeDatum","ensureSeedTests","SEED","logWarn","logWarnEinmal","ERRLOG","condZeile","caddyClubs","clubPick","gearHat","gearSeed","gearAll","progVerfuegbar","GOLF_PROG","dauerUebungHtml","fitplanIdx","fitplanAll","fitplanSet","fitplanHeute","fitplanWocheGeschafft","wikiRelated","wikiToc","wikiTocId","wikiForSG","wikiTagsShow","SAT_SRC","satSrcFor","satTileUrl","satTileKey","DB","STRAT","GEOED"];
   const epilog = "\n;globalThis.__T={" +
     namen.map(n => `${n}: (typeof ${n}!=="undefined"?${n}:undefined)`).join(",") + "};";
   vm.runInContext(code + epilog, ctx, { timeout: 20000 });
@@ -5048,6 +5048,71 @@ group("Schlagfolge — der letzte Punkt IST das Grün");
       DB0.courses = sicher.c; DB0.clubDistances = sicher.cl; PLAY0.holes = sicher.holes;
       PLAY0.course = sicher.course; PLAY0.tee = sicher.tee; PLAY0.side = sicher.side;
       PLAY0.idx = sicher.idx; PLAY0.active = sicher.act; PLAY0.here = sicher.here;
+    }
+  }
+}
+
+/* ============ 24dt. Layup muss einen spielbaren Rest lassen ============ */
+group("Par 5 — der Layup darf nicht 13 m vor dem Grün enden");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+  const AC = G("playAimChain"), HR = G("holeRef"), GD = G("geoDist"),
+        WZ = G("WEDGE_ZONE"), DB0 = G("DB"), PLAY0 = G("PLAY");
+
+  /* Der HEURISTISCHE Caddy legt seit je auf „~100 m Rest" (`layP5`). Die
+     EV-Kette kannte diese Regel nicht: Sie nimmt je Schlag den erwartungsbesten
+     Punkt, und weil „näher ist besser" in den Tabellen steht, legte sie so weit
+     wie möglich. Gemeldeter Fall: Driver 237 m · „Layup" 3 Wood 213 m · LW 19 m
+     — auf einem 463-m-Loch endet der Layup damit 13 m VOR dem Grün. Das ist
+     kein Layup, sondern ein Angriff mit dem zweitlängsten Schläger. */
+  ok("Regel in der EV-Kette", /LAYUP MUSS EINEN SPIELBAREN REST LASSEN/.test(src));
+  ok("Zielrest nach Spielweise", /\{safe:110, bal:105, aggr:95\}/.test(src));
+  ok("nur der Stumpf-Fall wird korrigiert", /if\(restNach>=WEDGE_ZONE\.von\) continue;/.test(src));
+  ok("von Hand gesetzte Punkte bleiben", /if\(ov\[k\]!=null\) continue;/.test(src));
+  /* Der Riegel gegen „letzten Schlag" hat die Korrektur beim ersten Anlauf
+     genau dort verhindert, wo sie gebraucht wurde — das Grün wird erst NACH
+     der Schleife angehängt. */
+  ok("kein falscher Riegel mehr", !/if\(k\+2>pts\.length-1\) continue;/.test(src));
+
+  if (typeof AC === "function" && DB0 && PLAY0) {
+    const sicher = { c: DB0.courses, cl: DB0.clubDistances, holes: PLAY0.holes,
+      course: PLAY0.course, tee: PLAY0.tee, idx: PLAY0.idx, act: PLAY0.active,
+      here: PLAY0.here, ck: PLAY0.aimChainKey };
+    try {
+      const mLat = 110540, mLng = 111320 * Math.cos(54 * Math.PI / 180);
+      const at = (n, e) => [54.0 + n / mLat, 10.77 + (e || 0) / mLng];
+      const ring = (n, e, r) => [at(n - r, e - r), at(n - r, e + r), at(n + r, e + r), at(n + r, e - r)];
+      const t2 = at(0), g = at(463);
+      const geo = { holes: { 8: { tee: t2, green: g, line: [t2, g], distM: 463 } },
+        features: [{ kind: "green", ring: ring(463, 0, 15) }, { kind: "fairway", ring: ring(250, 0, 26) }] };
+      DB0.courses = [{ name: "P5-Test", tees: { Gelb: { holes: [{ hole: 8, par: 5, si: 15, len: 463 }] } }, geo }];
+      DB0.clubDistances = [{ club: "Driver", carry: 225, reach: 237 }, { club: "3 Wood", carry: 200, reach: 213 },
+        { club: "5 Iron", carry: 168, reach: 174 }, { club: "8 Iron", carry: 132, reach: 136 },
+        { club: "PW", carry: 105, reach: 107 }, { club: "LW", carry: 60, reach: 61 }];
+      PLAY0.active = false;
+      const PB = G("playBegin"); if (typeof PB === "function") PB("P5-Test", "Gelb", 0);
+      if (!(PLAY0.holes || []).length || PLAY0.course !== "P5-Test") {
+        PLAY0.course = "P5-Test"; PLAY0.tee = "Gelb"; PLAY0.active = true;
+        PLAY0.holes = [{ hole: 8, par: 5, si: 15, len: 463 }];
+      }
+      PLAY0.idx = 0; PLAY0.here = t2; PLAY0.aimChainKey = null;
+      const k = AC(true);
+      if (k && k.legs && k.legs.length >= 3) {
+        const gr = HR(geo, 8).green;
+        const restNachLayup = GD(k.legs[1].to, gr);
+        /* DAS ist die Kernaussage: Nach dem Layup bleibt ein VOLLER Wedge. */
+        ok("Rest nach dem Layup liegt in der Wedge-Zone",
+          restNachLayup >= WZ.von && restNachLayup <= WZ.bis + 15, Math.round(restNachLayup) + " m");
+        ok("und nicht mehr ein Stummel", restNachLayup > 60, Math.round(restNachLayup) + " m");
+        /* Und der Layup ist kürzer als der Abschlag — sonst wäre es keiner. */
+        ok("Layup kürzer als der Abschlag", k.legs[1].dist < k.legs[0].dist,
+          k.legs[1].dist + " < " + k.legs[0].dist);
+        ok("drei Schläge auf einem Par 5", k.legs.length === 3, String(k.legs.length));
+      } else ok("Kette mit drei Schlägen gebaut", false, k ? String((k.legs || []).length) : "-");
+    } finally {
+      DB0.courses = sicher.c; DB0.clubDistances = sicher.cl; PLAY0.holes = sicher.holes;
+      PLAY0.course = sicher.course; PLAY0.tee = sicher.tee; PLAY0.idx = sicher.idx;
+      PLAY0.active = sicher.act; PLAY0.here = sicher.here; PLAY0.aimChainKey = sicher.ck;
     }
   }
 }
