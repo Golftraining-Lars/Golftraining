@@ -175,7 +175,7 @@ try {
                  "holeGir","holeUpDown","holeSandSave","platzAnalyse","taskFortschritt",
                  "warmupSchedule","warmupKorrektiv","WARMUP_PLANS","medianSplit","pearson",
                  "rKrit","gpKey","gpLabel","gpTotalES","pickClub","_aimClub","_aimLerp",
-                 "geoEdSelHat","geoEdVertHandles","snapshot","_nearest","_reaching","heuteJetzt","dispOvalFrom","dispChipHtml","dispRingPath","pathTopPoint","dispHitShare","dispText","dispSchemaSvg","dispSigmaFor","_erf","gpClubFracs","measureOrigin","geoEdMinW","editMinW","vegMask","maskMorph","maskBlobs","blobRing","ringSimplify","detectVeg","gpFingerprint","gpStale","_hash32","vegOn","viewBoxFor","troubleFeatures","geoEdPunktVon","_mergeCourses","snapBehalten","playVecKey","syncFinger","courseSVG","mergeDB","mergeDraft","watchPayload","shotZaehlt","playTouchHole","watchGeo","probeFrage","probePlan","cardBlock","playCardHtml","playAutoView","playBegin","playAimChain","holeRef","geoDist","playMapInitView","heuteTests","heuteSport","caddyFuerPunkt","_watchPos","istAchtzehn","equipSet","equipAll","equipHtml","deDatumZuIso","isoZuDeDatum","ensureSeedTests","SEED","logWarn","logWarnEinmal","ERRLOG","condZeile","caddyClubs","clubPick","gearHat","gearSeed","gearAll","progVerfuegbar","GOLF_PROG","fitplanIdx","fitplanAll","fitplanSet","fitplanHeute","fitplanWocheGeschafft","wikiRelated","wikiToc","wikiTocId","wikiForSG","wikiTagsShow","SAT_SRC","satSrcFor","satTileUrl","satTileKey","DB","STRAT","GEOED"];
+                 "geoEdSelHat","geoEdVertHandles","snapshot","_nearest","_reaching","heuteJetzt","dispOvalFrom","dispChipHtml","dispRingPath","pathTopPoint","dispHitShare","dispText","dispSchemaSvg","dispSigmaFor","_erf","gpClubFracs","measureOrigin","geoEdMinW","editMinW","vegMask","maskMorph","maskBlobs","blobRing","ringSimplify","detectVeg","gpFingerprint","gpStale","_hash32","vegOn","viewBoxFor","troubleFeatures","geoEdPunktVon","_mergeCourses","snapBehalten","playVecKey","syncFinger","courseSVG","mergeDB","mergeDraft","watchPayload","shotZaehlt","playTouchHole","watchGeo","probeFrage","probePlan","cardBlock","playCardHtml","playAutoView","playBegin","playAimChain","holeRef","geoDist","playMapInitView","heuteTests","heuteSport","caddyFuerPunkt","_watchPos","istAchtzehn","equipSet","equipAll","equipHtml","deDatumZuIso","isoZuDeDatum","ensureSeedTests","SEED","logWarn","logWarnEinmal","ERRLOG","condZeile","caddyClubs","clubPick","gearHat","gearSeed","gearAll","progVerfuegbar","GOLF_PROG","dauerUebungHtml","fitplanIdx","fitplanAll","fitplanSet","fitplanHeute","fitplanWocheGeschafft","wikiRelated","wikiToc","wikiTocId","wikiForSG","wikiTagsShow","SAT_SRC","satSrcFor","satTileUrl","satTileKey","DB","STRAT","GEOED"];
   const epilog = "\n;globalThis.__T={" +
     namen.map(n => `${n}: (typeof ${n}!=="undefined"?${n}:undefined)`).join(",") + "};";
   vm.runInContext(code + epilog, ctx, { timeout: 20000 });
@@ -5049,6 +5049,56 @@ group("Schlagfolge — der letzte Punkt IST das Grün");
       PLAY0.course = sicher.course; PLAY0.tee = sicher.tee; PLAY0.side = sicher.side;
       PLAY0.idx = sicher.idx; PLAY0.active = sicher.act; PLAY0.here = sicher.here;
     }
+  }
+}
+
+/* ============ 24dn. Tyler Twist ============ */
+group("Tyler Twist — Behandlung statt Trainingseinheit");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+  const PROG = G("GOLF_PROG"), PV = G("progVerfuegbar"), DU = G("dauerUebungHtml"), DB0 = G("DB");
+
+  if (Array.isArray(PROG)) {
+    const b = PROG.find(e => e.id === "B");
+    const t2 = b && b.uebungen.find(u => /Tyler/.test(u.n));
+    ok("in der Beweglichkeits-Einheit", !!t2);
+    if (t2) {
+      /* Die ANLEITUNG ist hier kein Beiwerk: Wer die Übung ohne sie macht,
+         macht die entscheidende Richtung falsch — gearbeitet wird nur in der
+         NACHGEBENDEN Phase. */
+      ok("mit Anleitung", (t2.wie || "").length > 100);
+      ok("nachgebende Phase betont", /LANGSAM zurückdrehen/.test(t2.wie || ""));
+      ok("die andere Hand ist keine Übung", /das ist keine Übung/.test(t2.wie || ""));
+      /* Und mit Dosierung: „mehr hilft mehr" ist hier falsch, „gar nicht weh"
+         aber auch. */
+      ok("mit Dosierung", (t2.dosis || "").length > 60);
+      ok("Schmerzgrenze benannt", /4 von 10/.test(t2.dosis || ""));
+      ok("Geduld benannt", /4–6 Wochen/.test(t2.dosis || ""));
+      ok("Häufigkeit im Umfang", /täglich/.test(t2.s));
+      /* Ohne FlexBar erscheint sie nicht — eine Übung, die man nicht
+         ausführen kann, ist kein Plan. */
+      if (typeof PV === "function" && DB0) {
+        const sicher = DB0.gear;
+        DB0.gear = [{ id: "x", name: "Blackroll", kat: "Mobilität", aktiv: true }];
+        ok("ohne FlexBar ausgeblendet", !PV(t2));
+        DB0.gear = [{ id: "x", name: "Theraband FlexBar", kat: "Bänder", aktiv: true }];
+        ok("mit FlexBar sichtbar", PV(t2));
+        DB0.gear = sicher;
+      }
+    }
+  }
+  /* Auf der Heute-Seite, weil es eine BEHANDLUNG ist: Der Tennisarm heilt
+     durch dosierte Belastung über Wochen, nicht durch zweimal die Woche. */
+  ok("steht auf der Heute-Seite", /\$\{dauerUebungHtml\(\)\}/.test(src));
+  if (typeof DU === "function" && DB0) {
+    const sicher = DB0.gear;
+    DB0.gear = [{ id: "x", name: "Theraband FlexBar", kat: "Bänder", aktiv: true }];
+    ok("mit Gerät erscheint sie", DU().length > 0);
+    /* Abgewählt heißt weg: Eine tägliche Erinnerung an etwas, das man nicht
+       ausführen kann, schaltet man nach drei Tagen ab. */
+    DB0.gear = [{ id: "x", name: "Theraband FlexBar", kat: "Bänder", aktiv: false }];
+    eq("abgewählt verschwindet sie", DU(), "");
+    DB0.gear = sicher;
   }
 }
 
