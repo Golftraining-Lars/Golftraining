@@ -5052,6 +5052,37 @@ group("Schlagfolge — der letzte Punkt IST das Grün");
   }
 }
 
+/* ============ 24do. Nur eine Fahne ============ */
+group("Karte — nur das gespielte Loch bekommt eine Fahne");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+  const CS = G("courseSVG");
+
+  /* Die Bedingung lautete `opt.flag && opt.hole` — also „Spielmodus", nicht
+     „dieses Loch". Gezeichnet wird aber über ALLE Löcher. Auf einer Bahn neben
+     einer anderen standen damit zwei Fahnen im Bild, und die nähere gehörte
+     oft zum Nachbarloch. Genau daraus entsteht der Eindruck, der Caddy ziele
+     „50 m hinter das Grün": Die Kette endet korrekt auf dem EIGENEN Grün, das
+     Auge nimmt die falsche Fahne als Bezug. */
+  ok("Fahne nur beim eigenen Loch", /opt\.flag && opt\.hole && eigenes\) body\+=_flagSvg\(q\)/.test(src));
+  ok("eigenes Loch wird bestimmt", /const eigenes = String\(opt\.hole\)===String\(n\);/.test(src));
+
+  if (typeof CS === "function") {
+    const mLat = 110540;
+    const geo = { holes: {
+      2: { tee: [54.0, 10.77], green: [54.0 + 499 / mLat, 10.77],
+           line: [[54.0, 10.77], [54.0 + 499 / mLat, 10.77]], distM: 499 },
+      3: { tee: [54.0 + 520 / mLat, 10.771], green: [54.0 + 430 / mLat, 10.7715],
+           line: [[54.0 + 520 / mLat, 10.771], [54.0 + 430 / mLat, 10.7715]], distM: 120 }
+    }, features: [] };
+    const svg = CS(geo, { w: 660, hole: 2, rotate: true, tight: true, flag: true }).svg;
+    eq("genau eine Fahne", (svg.match(/class="pinflag"/g) || []).length, 1);
+    /* Fremde Grüns bleiben sichtbar — als Punkt. Sie ganz wegzulassen nähme
+       die Orientierung, eine Fahne dort führt in die Irre. */
+    ok("Nachbargrün bleibt als Punkt", (svg.match(/fill="#3f8f4f"/g) || []).length >= 1);
+  }
+}
+
 /* ============ 24dn. Tyler Twist ============ */
 group("Tyler Twist — Behandlung statt Trainingseinheit");
 {
@@ -7178,7 +7209,7 @@ group("Karteneditor — Objekte hängen nicht mehr am Finger");
 group("Karteneditor — durch den Wald hindurchsehen");
 {
   const src = fs.readFileSync(FILE, "utf8");
-  const cs = src.slice(src.indexOf("const vegFaint"), src.indexOf("const vegFaint") + 9000);
+  const cs = src.slice(src.indexOf("const vegFaint"), src.indexOf("const vegFaint") + 11000);
 
   /* Nach einer Erkennung liegen hundert gefüllte Kreise über der Bahn — man
      korrigiert dann blind, weil das Luftbild darunter verschwindet. `vegFaint`
