@@ -175,7 +175,7 @@ try {
                  "holeGir","holeUpDown","holeSandSave","platzAnalyse","taskFortschritt",
                  "warmupSchedule","warmupKorrektiv","WARMUP_PLANS","medianSplit","pearson",
                  "rKrit","gpKey","gpLabel","gpTotalES","pickClub","_aimClub","_aimLerp",
-                 "geoEdSelHat","geoEdVertHandles","snapshot","_nearest","_reaching","pfWizHtml","heuteJetzt","dispOvalFrom","dispChipHtml","dispRingPath","pathTopPoint","dispHitShare","dispText","dispSchemaSvg","dispSigmaFor","_erf","gpClubFracs","measureOrigin","geoEdMinW","editMinW","vegMask","maskMorph","maskBlobs","blobRing","ringSimplify","detectVeg","gpFingerprint","gpStale","_hash32","vegOn","viewBoxFor","troubleFeatures","geoEdPunktVon","_mergeCourses","snapBehalten","playVecKey","syncFinger","courseSVG","mergeDB","mergeDraft","watchPayload","shotZaehlt","playTouchHole","watchGeo","probeFrage","probePlan","cardBlock","playCardHtml","playAutoView","playBegin","playMapInitView","heuteTests","heuteSport","caddyFuerPunkt","_watchPos","istAchtzehn","equipSet","equipAll","equipHtml","deDatumZuIso","isoZuDeDatum","ensureSeedTests","SEED","logWarn","logWarnEinmal","ERRLOG","condZeile","caddyClubs","clubPick","gearHat","gearSeed","gearAll","progVerfuegbar","GOLF_PROG","fitplanIdx","fitplanAll","fitplanSet","fitplanHeute","fitplanWocheGeschafft","wikiRelated","wikiToc","wikiTocId","wikiForSG","wikiTagsShow","SAT_SRC","satSrcFor","satTileUrl","satTileKey","DB","STRAT","GEOED"];
+                 "geoEdSelHat","geoEdVertHandles","snapshot","_nearest","_reaching","heuteJetzt","dispOvalFrom","dispChipHtml","dispRingPath","pathTopPoint","dispHitShare","dispText","dispSchemaSvg","dispSigmaFor","_erf","gpClubFracs","measureOrigin","geoEdMinW","editMinW","vegMask","maskMorph","maskBlobs","blobRing","ringSimplify","detectVeg","gpFingerprint","gpStale","_hash32","vegOn","viewBoxFor","troubleFeatures","geoEdPunktVon","_mergeCourses","snapBehalten","playVecKey","syncFinger","courseSVG","mergeDB","mergeDraft","watchPayload","shotZaehlt","playTouchHole","watchGeo","probeFrage","probePlan","cardBlock","playCardHtml","playAutoView","playBegin","playAimChain","holeRef","geoDist","playMapInitView","heuteTests","heuteSport","caddyFuerPunkt","_watchPos","istAchtzehn","equipSet","equipAll","equipHtml","deDatumZuIso","isoZuDeDatum","ensureSeedTests","SEED","logWarn","logWarnEinmal","ERRLOG","condZeile","caddyClubs","clubPick","gearHat","gearSeed","gearAll","progVerfuegbar","GOLF_PROG","fitplanIdx","fitplanAll","fitplanSet","fitplanHeute","fitplanWocheGeschafft","wikiRelated","wikiToc","wikiTocId","wikiForSG","wikiTagsShow","SAT_SRC","satSrcFor","satTileUrl","satTileKey","DB","STRAT","GEOED"];
   const epilog = "\n;globalThis.__T={" +
     namen.map(n => `${n}: (typeof ${n}!=="undefined"?${n}:undefined)`).join(",") + "};";
   vm.runInContext(code + epilog, ctx, { timeout: 20000 });
@@ -4124,47 +4124,27 @@ group("clubMeasured — gepflegte gegen gemessene Schlägerlängen");
   }
 }
 
-/* ============ 15a. Loch-Abschluss auf der Karte (v2.53) ============ */
-group("pfWizHtml — zwei Zahlen, ohne die Ansicht zu wechseln");
+/* ============ Loch-Abschluss entfernt (v3.41) ============ */
+group("Loch-Abschluss — vollständig entfernt");
 {
-  const W = G("pfWizHtml");
-  if (typeof W === "function") {
-    const s1 = W(1, 4, null, null);
-    /* Sechs Felder von Par-2 bis Par+3: darunter liegt kein realistischer
-       Score, darueber traegt der Stepper in der Eingabemaske. */
-    eq("Schritt 1 zeigt sechs Score-Felder", (s1.match(/pfWizScore\(/g) || []).length, 6);
-    ok("beginnt bei Par-2", /pfWizScore\(2\)/.test(s1));
-    ok("endet bei Par+3", /pfWizScore\(7\)/.test(s1));
-    ok("Par ist hervorgehoben", /class="par"[^>]*aria-label="Score 4/.test(s1));
-    ok("Bogey ist benannt", /<i>Bogey<\/i>/.test(s1));
-    ok("Abkürzer für das häufigste Loch", /pfWizKurz\(\)/.test(s1));
-    ok("jedes Feld hat eine Beschriftung für Screenreader",
-      (s1.match(/aria-label="Score /g) || []).length === 6);
-
-    /* Par 3: Par-2 waere 1 — moeglich (Hole-in-One), also bleibt 1 stehen. */
-    ok("Par 3 beginnt bei 1", /pfWizScore\(1\)/.test(W(1, 3, null, null)));
-    const p5 = W(1, 5, null, null);
-    ok("Par 5: von 3 bis 8", /pfWizScore\(3\)/.test(p5) && /pfWizScore\(8\)/.test(p5));
-
-    /* OHNE Par (Platz ohne Lochdaten) darf nichts NaN werden und nichts als
-       „Par" hervorgehoben sein — sonst waere die Hervorhebung geraten. */
-    const ohne = W(1, null, null, null);
-    ok("ohne Par keine NaN-Werte", !/NaN/.test(ohne));
-    ok("ohne Par keine Hervorhebung", !/class="par"/.test(ohne));
-    ok("ohne Par kein Abkürzer", !/pfWizKurz\(\)/.test(ohne));
-
-    const s2 = W(2, 4, 5, null);
-    eq("Schritt 2 zeigt fünf Putt-Felder", (s2.match(/pfWizPutts\(/g) || []).length, 5);
-    ok("zwei Putts vorgehoben", /class="par"[^>]*aria-label="2 Putts"/.test(s2));
-    ok("der gesetzte Score steht dabei", /Score 5 eingetragen/.test(s2));
-    ok("Rückweg zum Score vorhanden", /pfWizStep\(1\)/.test(s2));
-    ok("Schritt 2 zeigt keine Score-Felder", !/pfWizScore\(/.test(s2));
-
-    /* Die gewaehlte Zahl muss sichtbar bleiben — sonst tippt man auf der
-       Runde zweimal, weil man nicht sieht, dass es schon steht. */
-    ok("gesetzter Score ist markiert", /class="[^"]*\bon\b[^"]*"[^>]*aria-label="Score 6/.test(W(1, 4, 6, null)));
-    ok("gesetzte Puttzahl ist markiert", /class="[^"]*\bon\b[^"]*"[^>]*aria-label="3 Putts"/.test(W(2, 4, 5, 3)));
-  }
+  const src = fs.readFileSync(FILE, "utf8");
+  const js = (src.match(/<script(?![^>]*(?:src=|application\/json|text\/markdown|devdocs))[^>]*>([\s\S]*?)<\/script>/g) || []).join("\n");
+  /* Nicht benutzt — dieselben zwei Zahlen kommen aus der Eingabemaske, und der
+     Pfeil rechts wechselt ohnehin. ENTFERNT statt auskommentiert: Toter Code
+     sieht bei der nächsten Durchsicht wie ein vergessener Anschluss aus, genau
+     wie `playGoHole` (v3.37). */
+  ok("kein Wizard mehr im Code", !/function pfWiz/.test(js));
+  /* Nur echter Code, nicht der Kommentar, der die Entfernung erklärt. */
+  ok("kein Zustand mehr", !/PLAY\.wiz\s*[=.\[]/.test(js) && !/PLAY\.wiz\)/.test(js));
+  ok("kein Knopf mehr", !/✔ Loch<\/button>/.test(js));
+  ok("kein Markup mehr", !/id="pfWiz"/.test(src));
+  /* Ein Knopf weniger macht die beiden verbliebenen breiter — auf der Bahn mit
+     Handschuh der eigentliche Gewinn. */
+  ok("Raster auf vier Felder", /\.pf-acts\{display:grid;grid-template-columns:auto 1fr 1fr auto/.test(src));
+  /* Die Lupe rief nur `togglePlatzModus` — der Modus selbst bleibt unter
+     Darstellung, wo man ihn einmal einstellt. */
+  ok("Lupe raus", !/togglePlatzModus\(\)"/.test(js));
+  ok("Platz-Modus bleibt einstellbar", /function platzModus\(\)/.test(js) && /function setPlatzModus/.test(js));
 }
 
 /* ============ 24ay. Streuung auf der Karte ============ */
@@ -5001,6 +4981,96 @@ group("Fitness — eigener Reiter, Wochenplan, Erinnerungen");
   ok("Takt läuft", /setInterval\(fitErinnerungTick, 60000\)/.test(src));
 }
 
+/* ============ 24dk. Schlagfolge endet auf dem Grün ============ */
+group("Schlagfolge — der letzte Punkt IST das Grün");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+  const AC = G("playAimChain"), PB = G("playBegin"), HR = G("holeRef"),
+        GD = G("geoDist"), PLAY0 = G("PLAY"), DB0 = G("DB"), LOG = G("ERRLOG");
+
+  /* Gemeldet wurde, die orange Darstellung ziele „deutlich hinter das Grün".
+     Nachgerechnet: Sie trifft es auf den Meter. Statt sich auf eine Messung zu
+     verlassen, misst die App es jetzt selbst und meldet Abweichungen — der
+     nächste Fall ist damit belegbar statt erinnert. */
+  ok("Wache vorhanden", /WACHE: ENDET DIE SCHLAGFOLGE AUF DEM GRUEN\?/.test(src));
+  ok("Toleranz benannt", /if\(ab>25\) logWarn\("Schlagfolge"/.test(src));
+  ok("mit Lochnummer und Abstand", /letzter Zielpunkt \$\{ab\} m vom Grün entfernt/.test(src));
+
+  if (typeof AC === "function" && typeof PB === "function" && PLAY0 && DB0) {
+    const sicher = { c: DB0.courses, cl: DB0.clubDistances, holes: PLAY0.holes,
+      course: PLAY0.course, tee: PLAY0.tee, side: PLAY0.side, idx: PLAY0.idx,
+      act: PLAY0.active, here: PLAY0.here };
+    try {
+      const mLat = 110540, t2 = [54.0, 10.77], g = [54.0 + 387 / mLat, 10.77];
+      const geo = { holes: { 5: { tee: t2, green: g, line: [t2, g], distM: 387 } }, features: [] };
+      DB0.courses = [{ name: "T", tees: { Gelb: { holes: [{ hole: 5, par: 4, si: 3, len: 387 }] } }, geo }];
+      DB0.clubDistances = [{ club: "Driver", carry: 211, reach: 225 },
+        { club: "5 Iron", carry: 168, reach: 174 }, { club: "PW", carry: 105, reach: 107 }];
+      PB("T", "Gelb", 0); PLAY0.idx = 0; PLAY0.here = t2;
+      const n0 = LOG ? LOG.length : 0;
+      const k = AC(true);
+      ok("Kette gebaut", !!(k && k.pts && k.pts.length > 1), k ? String(k.pts.length) : "-");
+      if (k && k.pts && k.pts.length > 1) {
+        const letzt = k.pts[k.pts.length - 1];
+        const ab = GD(HR(geo, 5).green, letzt);
+        /* DAS ist die Kernaussage: Der letzte Zielpunkt liegt auf dem Grün,
+           nicht dahinter. */
+        ok("letzter Punkt liegt auf dem Grün", ab < 5, ab.toFixed(1) + " m");
+        ok("erster Punkt ist der Abschlag", GD(t2, k.pts[0]) < 5);
+        /* Und die Wache schweigt, wenn alles stimmt — eine Warnung, die immer
+           erscheint, liest niemand. */
+        if (LOG) ok("Wache schweigt bei korrekter Kette", LOG.length === n0,
+          String(LOG.length - n0));
+      }
+    } finally {
+      DB0.courses = sicher.c; DB0.clubDistances = sicher.cl; PLAY0.holes = sicher.holes;
+      PLAY0.course = sicher.course; PLAY0.tee = sicher.tee; PLAY0.side = sicher.side;
+      PLAY0.idx = sicher.idx; PLAY0.active = sicher.act; PLAY0.here = sicher.here;
+    }
+  }
+}
+
+/* ============ 24dj. Vorgabenzeile und Überlappung ============ */
+group("Spielmodus — verständliche Vorgabenzeile, keine Überlappung");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+
+  /* Das Wort „Puffer" ist im Golf BESETZT: Im alten EGA-System war die Pufferzone der
+     Bereich, in dem sich die Vorgabe NICHT ändert. Gemeint war hier etwas ganz
+     anderes — Punkte über dem, was die eigene Vorgabe verlangt. Ein Wort, das
+     der Leser schon kennt, aber anders, ist schlimmer als ein unbekanntes. */
+  /* Gegen den CODE prüfen: Im Kommentar steht der alte Text weiterhin — dort
+     erklärt er die Änderung und gehört hin. */
+  ok("das Wort Puffer ist raus", !/pf-vg">\$\{[^}]*\} Pkt · Puffer/.test(src));
+  ok("stattdessen über/unter Vorgabe", /" über":" unter"\) \+ " Vorgabe"/.test(src));
+  ok("Punkte mit Bezugsgröße", /\$\{vg\.punkte\} Pkt nach \$\{vg\.gespielt\}/.test(src));
+  /* Null ist ein eigener Fall: „0 über Vorgabe" liest sich falsch. */
+  ok("Gleichstand eigens benannt", /genau auf Vorgabe/.test(src));
+  ok("Hochrechnung als Ziel benannt", /· Ziel \$\{vg\.hoch\}/.test(src));
+
+  /* Die Überlappung: 58 px waren richtig, solange die Kopfzeile einzeilig
+     bleibt. Bricht sie um (schmales Gerät, große Schrift, langer Text), schob
+     sich der Caddy-Kasten darüber. */
+  ok("Abstand kommt aus einer Variablen", /top:calc\(var\(--pf-top-h, 58px\) \+ 6px\)/.test(src));
+  ok("Höhe wird gemessen", /top\.getBoundingClientRect\(\)\.height/.test(src));
+  /* Nach `innerHTML` misst man die VORIGE Höhe — der Umbruch steht erst im
+     nächsten Bild fest. */
+  ok("erst im nächsten Bild gemessen", /requestAnimationFrame\(\(\)=>\{[\s\S]{0,200}--pf-top-h/.test(src));
+
+  /* Der Text selbst, an drei Ständen durchgerechnet. */
+  const txt = vg => vg.punkte + " Pkt nach " + vg.gespielt + " · " +
+    (vg.puffer === 0 ? "genau auf Vorgabe"
+      : (Math.abs(vg.puffer) + (vg.puffer > 0 ? " über" : " unter") + " Vorgabe")) +
+    (vg.hoch != null ? " · Ziel " + vg.hoch : "") +
+    (vg.vgNaechstes ? " · dieses Loch +" + vg.vgNaechstes : "");
+  eq("vorne", txt({ gespielt: 8, punkte: 16, puffer: 2, hoch: 41, vgNaechstes: 2 }),
+    "16 Pkt nach 8 · 2 über Vorgabe · Ziel 41 · dieses Loch +2");
+  eq("hinten", txt({ gespielt: 4, punkte: 6, puffer: -2, hoch: 33, vgNaechstes: 1 }),
+    "6 Pkt nach 4 · 2 unter Vorgabe · Ziel 33 · dieses Loch +1");
+  eq("gleichauf", txt({ gespielt: 9, punkte: 18, puffer: 0, hoch: 36, vgNaechstes: 0 }),
+    "18 Pkt nach 9 · genau auf Vorgabe · Ziel 36");
+}
+
 /* ============ 24di. Kopfraum hinter dem Grün ============ */
 group("Karte — hinter dem Grün muss Platz sein, auch beim Heranzoomen");
 {
@@ -5300,15 +5370,22 @@ group("Scorekarte — im Spielmodus dieselbe wie in der Runde");
      Quoten aus v3.20 fehlten im Spielmodus komplett. */
   ok("Spielmodus baut über roundCardHtml", /function playCardHtml\(\)\{[\s\S]{0,400}return roundCardHtml\(r\)/.test(src));
   if (typeof P === "function" && PLAY0) {
+    /* Eigener Zustand, und im `finally` zurück: Läuft davor eine Gruppe, die
+       `playBegin` benutzt, erbt man sonst deren Lochliste — und die Prüfung
+       fällt aus einem Grund aus, der nichts mit ihr zu tun hat. */
     const sicher = { holes: PLAY0.holes, course: PLAY0.course, tee: PLAY0.tee, side: PLAY0.side };
-    PLAY0.course = "T"; PLAY0.tee = "Gelb"; PLAY0.side = "18 Loch";
+    PLAY0.course = "ZZ-Kartentest"; PLAY0.tee = "Gelb"; PLAY0.side = "18 Loch";
     PLAY0.holes = [];
     for (let h = 1; h <= 9; h++) PLAY0.holes.push({ hole: h, par: 4, si: h,
       score: h <= 5 ? 5 : null, putts: 2, tee: "Hit", len: 300 });
     const html = P();
     ok("dasselbe Raster wie im Rundendetail", /<table class="scorecard">/.test(html));
-    ok("Tee-Zeile mit Pfeilen dabei", html.indexOf(">H<") > 0);
-    ok("Fairway-Quote dabei", /\d+%/.test(html));
+    /* Pfeile und Quoten werden am REINEN Baustein geprüft (24cu), nicht hier:
+       `playCardHtml` reichert über `sgEnrich` an, und das hängt an `DB` und
+       `PLAY`. Eine Prüfung, die von der Reihenfolge der Gruppen abhängt, misst
+       am Ende die Reihenfolge und nicht die Sache — genau das ist hier
+       passiert. Hier zählt nur: Es ist DIESELBE Vorlage. */
+    ok("Kopfzeile mit Loch-Spalte", /sc-lab">Loch</.test(html));
     /* Der EINE Unterschied bleibt: Während der Runde fehlen Scores, und darauf
        muss anders hingewiesen werden als bei einer fertigen Runde. */
     ok("Hinweis auf fehlende Scores", /noch ohne Score/.test(html));
