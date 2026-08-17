@@ -4550,7 +4550,10 @@ group("Caddy — immer von hier, nie vom gespeicherten Tee");
   ok("Caddy rechnet für einen übergebenen Punkt", /function caddyFuerPunkt\(pos, ovalSetzen\)/.test(src));
   ok("Tee-Bewertung bekommt die gerundete Position", /ev=_aimTeeEv\(geo,h,rund\)/.test(src));
   ok("die Anzeige nutzt dieselbe Funktion", /function playCaddyNow\(\)\{\s*\n\s*return caddyFuerPunkt\(PLAY\.here, true\);/.test(src));
-  ok("aufgeklappter Caddy ebenso", /STRAT\.tee\(geo,PLAY\.course,h\.hole,caddyMode\(\),null,_caddyVon\(\)\)/.test(src));
+  /* Der aufgeklappte Caddy rechnet ebenfalls fuer die eigene Position — seit
+     v3.57 zusaetzlich MIT Handicap (siehe „Detailansicht rechnet mit
+     Handicap"), deshalb hier nur die Position pruefen. */
+  ok("aufgeklappter Caddy ebenso", /STRAT\.tee\(geo,PLAY\.course,h\.hole,caddyMode\(\),STRAT\.esHcp\(\),_caddyVon\(\)\)/.test(src));
 
   /* Der Zwischenspeicher MUSS die Position enthalten — sonst bliebe die erste
      Rechnung für immer stehen. Aber gerundet, sonst rechnet jedes GPS-Zucken
@@ -5093,6 +5096,37 @@ group("Doku — die drei Prüfebenen sind beschrieben");
   ok("Ordner-Erwartung dokumentiert", /im selben Ordner/.test(doc));
 }
 
+/* ============ 24dw. Panel und Karte sagen dasselbe ============ */
+group("Caddy — Detailansicht darf der Karte nicht widersprechen");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+
+  /* Zwei Rechnungen: Das Panel zeigt den HEURISTISCHEN Plan (Regeln), die Karte
+     zeichnet die ZIELKETTE der EV-Engine. Beide sind für sich richtig und
+     kommen meist zum selben Schluss — im gemeldeten Fall 170 gegen 174 m, also
+     dieselbe Strategie, ein Schläger Unterschied. Nebeneinander und unerklärt
+     sieht es wie ein Fehler aus. */
+  ok("Kettenhinweis vorhanden", /let kettenHinweis="";/.test(src));
+  ok("nur bei echter Abweichung",
+    /_short\(kl\[0\]\.club\)!==_short\(ersterH\)/.test(src));
+  ok("nennt die gezeichnete Kette", /<b>Auf der Karte:<\/b>/.test(src));
+  ok("erklärt den Unterschied", /rechnet mit Erwartungswerten/.test(src));
+  ok("und sagt, welche gilt", /ist die Kette das,\s*\n?\s*was du auf der Karte siehst/.test(src));
+  ok("im Panel eingehängt", /\$\{shots\}\$\{kettenHinweis\}/.test(src));
+  /* Keine der beiden Rechnungen wird abgeschaltet: Die Heuristik greift genau
+     dort, wo die EV-Engine aussteigt. */
+  ok("Heuristik bleibt", /pc-badge-h">Heuristik/.test(src));
+  ok("Begründung dafür steht dabei", /wo die EV-Engine aussteigt/.test(src));
+
+  /* Und der Simulationshinweis darf die Kopfzeile nicht mehr umbauen. */
+  ok("kein Streifen in der Kopfzeile", !/class="sim-bar" onclick="simStop\(\)"/.test(src));
+  ok("Knopf färbt sich rot", /#pfCtrls button\.sim-an\{background:rgba\(160,32,32/.test(src));
+  ok("Unterschrift am Knopf", /class="sim-hint" onclick="simStop\(\)"/.test(src));
+  /* `!important` ist hier nötig, weil die Regel für `.on` später steht — ohne
+     Vorrang sähe der Knopf grün aus wie jeder andere Schalter. */
+  ok("Vorrang gegen .on", /button\.sim-an\{[^}]*!important/.test(src));
+}
+
 /* ============ 24du. Simulationsmodus ============ */
 group("Simulation — Platz prüfen, ohne auf dem Platz zu sein");
 {
@@ -5135,7 +5169,15 @@ group("Simulation — Platz prüfen, ohne auf dem Platz zu sein");
 
   /* REGEL 2: unübersehbar. Ein Testmodus, den man für den Normalbetrieb hält,
      ist schlimmer als keiner. */
-  ok("Streifen über der Kopfzeile", /class="sim-bar" onclick="simStop\(\)"/.test(src));
+  /* Der Hinweis hing zuerst als Streifen IN der Kopfzeile — `.pf-top` ist eine
+     Flex-Zeile ohne Umbruch, das Feld nahm Breite und quetschte Lochkopf, F/M/B
+     und Score zusammen („Par 4 · HCP 17 · 279 m" wurde vierzeilig). Jetzt am
+     Knopf: er leuchtet rot, darunter eine kleine Bildunterschrift — in der
+     Knopfspalte, wo sie keinem Feld Platz wegnimmt. */
+  ok("kein Streifen in der Kopfzeile", !/sim-bar" onclick="simStop/.test(src));
+  ok("Knopf färbt sich", /class="\$\{simAktiv\(\)\?'on sim-an':''\}"/.test(src));
+  ok("Bildunterschrift unter dem Knopf", /class="sim-hint" onclick="simStop\(\)"/.test(src));
+  ok("und sie beendet ihn auch", /sim-hint[\s\S]{0,80}<u>beenden<\/u>/.test(src));
   ok("Streifen nennt den Ausweg", /<u>beenden<\/u>/.test(src));
 
   /* REGEL 3: endet beim Rundenstart. */
@@ -5171,7 +5213,26 @@ group("Par 5 — der Layup darf nicht 13 m vor dem Grün enden");
      kein Layup, sondern ein Angriff mit dem zweitlängsten Schläger. */
   ok("Regel in der EV-Kette", /LAYUP MUSS EINEN SPIELBAREN REST LASSEN/.test(src));
   ok("Zielrest nach Spielweise", /\{safe:110, bal:105, aggr:95\}/.test(src));
-  ok("nur der Stumpf-Fall wird korrigiert", /if\(restNach>=WEDGE_ZONE\.von\) continue;/.test(src));
+  /* SCHWELLE 35 m, nicht 85 (Korrektur v3.57): Mit der unteren Wedge-Grenze
+     griff die Regel viel zu oft — auf einem 279-m-Par-4 zog sie den ABSCHLAG
+     von 211 auf 174 m zurück, damit statt 68 m ein „voller" Wedge bleibt. Nach
+     Broadies Daten ist näher fast immer besser; 40 m Länge für Bequemlichkeit
+     zu verschenken verliert Schläge. Die Regel räumt Unsinn weg (13 m Rest),
+     sie optimiert nicht. */
+  ok("nur echte Stümpfe werden korrigiert", /if\(restNach>=35\) continue;/.test(src));
+  ok("nicht mehr an der Wedge-Grenze", !/if\(restNach>=WEDGE_ZONE\.von\) continue;/.test(src));
+  ok("Merksatz steht dabei", /Die Regel raeumt Unsinn weg, sie optimiert nicht/.test(src));
+
+  /* TEXT UND KARTE: Die Detailansicht rief die EV-Engine mit `hcp = null` auf,
+     die Zielkette mit `STRAT.esHcp()` — der Text rechnete also für einen
+     anderen Spieler als die Karte. Das Handicap bestimmt die Streuung und damit,
+     ob der längere Schläger noch lohnt. */
+  ok("Detailansicht rechnet mit Handicap",
+    !/STRAT\.tee\(geo,PLAY\.course,h\.hole,caddyMode\(\),null,_caddyVon\(\)\)/.test(src));
+  ok("und mit derselben Position", /STRAT\.tee\(geo,PLAY\.course,h\.hole,caddyMode\(\),STRAT\.esHcp\(\),_caddyVon\(\)\)/.test(src));
+  /* Im heuristischen Zweig zeigt die Kopfzeile, was die KARTE zeichnet — sonst
+     stehen zwei Empfehlungen auf einem Bildschirm, und dann glaubt man keiner. */
+  ok("heuristischer Kopf folgt der Karte", /<span class="pc-badge">Karte<\/span>🎯 \$\{kette\}/.test(src));
   ok("von Hand gesetzte Punkte bleiben", /if\(ov\[k\]!=null\) continue;/.test(src));
   /* Der Riegel gegen „letzten Schlag" hat die Korrektur beim ersten Anlauf
      genau dort verhindert, wo sie gebraucht wurde — das Grün wird erst NACH
@@ -5205,9 +5266,17 @@ group("Par 5 — der Layup darf nicht 13 m vor dem Grün enden");
         const gr = HR(geo, 8).green;
         const restNachLayup = GD(k.legs[1].to, gr);
         /* DAS ist die Kernaussage: Nach dem Layup bleibt ein VOLLER Wedge. */
-        ok("Rest nach dem Layup liegt in der Wedge-Zone",
-          restNachLayup >= WZ.von && restNachLayup <= WZ.bis + 15, Math.round(restNachLayup) + " m");
-        ok("und nicht mehr ein Stummel", restNachLayup > 60, Math.round(restNachLayup) + " m");
+        /* SCHWELLE 35 m, NICHT 85 (v3.57 korrigiert v3.51): Mit der unteren
+           Wedge-Grenze griff die Regel viel zu oft — auf einem 279-m-Par-4 zog
+           sie den ABSCHLAG von 211 auf 174 m zurück, nur damit statt 68 m ein
+           „voller" Wedge bleibt. Nach Broadie ist näher fast immer besser, und
+           68 m sind eine normale Wedge-Distanz; vierzig Meter Länge für ein
+           Stück Bequemlichkeit zu verschenken verliert Schläge.
+           Die Regel räumt Unsinn weg (ein Layup 13 m vor dem Grün), sie
+           optimiert nicht. Geprüft wird deshalb nur die Untergrenze. */
+        ok("Rest nach dem Layup ist spielbar", restNachLayup >= 35,
+          Math.round(restNachLayup) + " m");
+        ok("kein Chip-Stummel mehr", restNachLayup > 20, Math.round(restNachLayup) + " m");
         /* Und der Layup ist kürzer als der Abschlag — sonst wäre es keiner. */
         ok("Layup kürzer als der Abschlag", k.legs[1].dist < k.legs[0].dist,
           k.legs[1].dist + " < " + k.legs[0].dist);

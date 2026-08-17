@@ -349,7 +349,13 @@ kopf("draft.json — Handy → Uhr");
             merke("restSteigt", wo+": Rest wächst "+Math.round(vorherRest)+" → "+Math.round(restDanach));
           vorherRest=restDanach;
           /* Zwischenschlag (nicht der letzte): Stumpf? */
-          if(k<pts.length-2 && restDanach<60)
+          /* SCHWELLE 35 m, wie die Regel selbst (v3.57): Sie raeumt Stuempfe
+             weg — ein Layup, der 13 m vor dem Gruen endet und danach einen
+             Chip erzwingt —, sie optimiert NICHT auf einen „vollen" Wedge.
+             Nach Broadie ist naeher fast immer besser; 49 m sind ein normaler
+             Schlag. Eine Invariante, die strenger ist als die Regel, meldet
+             deshalb Absicht als Fehler. */
+          if(k<pts.length-2 && restDanach<35)
             merke("layupStumpf", wo+": nur "+Math.round(restDanach)+" m Rest nach Schlag "+(k+1));
         }
         /* 5 + 6 */
