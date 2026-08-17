@@ -171,7 +171,7 @@ try {
                  "caddyClubs","clubNorm","clubRename","bagFreiName","bagMessSpalte",
                  "tombAdd","tombClear","tombDel","MERGE_KEY","_mergeTomb","_tombFor",
                  "playCaddyNow","playTooFar","playAimChain","playMapSlot","playFocusDefault",
-                 "hcpGap","whsPool","courseStats","nassFaktor","errZeit","todayISO","puttDiagnose","sgHole","verlaesslich","testFaellig","stretchToggle","STRETCH_DONE","MALASKA_DYN","MALASKA_STAT","MALASKA_SVG","malaskaBild","POST_ROUND","POST_SVG","malaskaVideo","wxStunden","wxStundenHtml","WEATHER","lmAktiveShots","lmToggleAus","computeRound","_computeRoundRoh","playVorgabe","playRueckschlag","PLAY","testEmpfehlung","SG_ZU_TESTKAT","miniStat","caddyPlan","caddyClubs","SPIELWEISE","spielweise","inWedgeZone","WEDGE_ZONE","warmToggle","warmReset","WARM_DONE","WARMUP_PLANS","WU","prepHeute","LOGO512","LOGO192","LOGO64","clubNorm","_clubNormRoh","shotsProKlasse","crCacheClear","sgVerlauf","logoSetzen","strkMove","gpsPush","gpsBest","gpsGewicht","GPS_BUF","GPS_MAX_ACC","accClass","lmTestsSync","lmSmashTag","lmSpeedTag","lmTage","lmMittel","testsFor","lmAus","clubNorm","defFor","uebText","benchHcp","benchRest","benchValue","testVerlauf","testFelderDelta","testVerlaufHtml","stamp","mergeDB","_mergeTs","tierIndex","lvlLabel","lvlColor","ladderPos","prepLog","prepHeute","prepQuote","todayISO","sgSummary","sortedRounds","sgWeakest","crCacheClear","_crCache","lmAlleAn","lmAus","postBild","postToggle","POST_DONE","WARMUP_PLANS","openPostStretchSheet","openStretchSheet","fmtN","fmtDate","fmtDT","fmtDur","zielPrognose","indexTempo","trainingsEmpfehlung","fitnessWirkung","stratRueckschau","sgHoleShots","sgVerlauf",
+                 "hcpGap","whsPool","courseStats","nassFaktor","errZeit","todayISO","puttDiagnose","sgHole","verlaesslich","testFaellig","stretchToggle","STRETCH_DONE","MALASKA_DYN","MALASKA_STAT","MALASKA_SVG","malaskaBild","POST_ROUND","POST_SVG","malaskaVideo","wxStunden","wxStundenHtml","WEATHER","lmAktiveShots","lmToggleAus","computeRound","_computeRoundRoh","playVorgabe","playRueckschlag","PLAY","testEmpfehlung","SG_ZU_TESTKAT","miniStat","caddyPlan","caddyClubs","SPIELWEISE","spielweise","inWedgeZone","WEDGE_ZONE","leitplanken","LEITPLANKEN","warmToggle","warmReset","WARM_DONE","WARMUP_PLANS","WU","prepHeute","LOGO512","LOGO192","LOGO64","clubNorm","_clubNormRoh","shotsProKlasse","crCacheClear","sgVerlauf","logoSetzen","strkMove","gpsPush","gpsBest","gpsGewicht","GPS_BUF","GPS_MAX_ACC","accClass","lmTestsSync","lmSmashTag","lmSpeedTag","lmTage","lmMittel","testsFor","lmAus","clubNorm","defFor","uebText","benchHcp","benchRest","benchValue","testVerlauf","testFelderDelta","testVerlaufHtml","stamp","mergeDB","_mergeTs","tierIndex","lvlLabel","lvlColor","ladderPos","prepLog","prepHeute","prepQuote","todayISO","sgSummary","sortedRounds","sgWeakest","crCacheClear","_crCache","lmAlleAn","lmAus","postBild","postToggle","POST_DONE","WARMUP_PLANS","openPostStretchSheet","openStretchSheet","fmtN","fmtDate","fmtDT","fmtDur","zielPrognose","indexTempo","trainingsEmpfehlung","fitnessWirkung","stratRueckschau","sgHoleShots","sgVerlauf",
                  "holeGir","holeUpDown","holeSandSave","platzAnalyse","taskFortschritt",
                  "warmupSchedule","warmupKorrektiv","WARMUP_PLANS","medianSplit","pearson",
                  "rKrit","gpKey","gpLabel","gpTotalES","pickClub","_aimClub","_aimLerp",
@@ -3166,8 +3166,13 @@ group("SPIELWEISE — Caddy und Ziellinie können nicht mehr auseinanderlaufen")
   }
 
   /* nextShot muss Sand, Rough UND den Wedge-Bonus verrechnen. */
-  const ns=src.slice(src.indexOf("nextShot(geo,courseName,holeNo,from,mode,hcp)"),
-                     src.indexOf("nextShot(geo,courseName,holeNo,from,mode,hcp)")+4200);
+  /* Signatur hat seit v3.60 einen Parameter mehr (`nurClub`) — daher ohne die
+     schliessende Klammer suchen, sonst findet man die Funktion nicht mehr und
+     alle folgenden Prüfungen schlagen aus dem falschen Grund fehl. */
+  const nsAb=src.indexOf("nextShot(geo,courseName,holeNo,from,mode,hcp");
+  /* Fenster vergroessert (v3.62): Die Leitplanken stehen vor der Bewertung,
+     die Bewertung ist damit weiter hinten in der Funktion. */
+  const ns=src.slice(nsAb, nsAb+7000);
   ok("nextShot verrechnet Sand", /w\.sand\*sandQ/.test(ns));
   ok("nextShot verrechnet Rough", /w\.rough\*roughQ/.test(ns));
   ok("nextShot belohnt die Wedge-Zone", /inWedgeZone\(restNach\)/.test(ns));
@@ -3190,8 +3195,8 @@ group("STRAT.tee — vertauschte Tee/Grün-Punkte und Modus-Reaktion");
      Der Fehler war nur auf Löchern mit `swap` sichtbar. Deshalb betraf er
      Loch 1 des Nordplatzes und sonst nichts, und deshalb war er so schwer zu
      finden. */
-  const teeFn=src.slice(src.indexOf("  tee(geo,courseName,holeNo,mode,hcp,von){"),
-                        src.indexOf("  tee(geo,courseName,holeNo,mode,hcp,von){")+1400);
+  const teeFn=src.slice(src.indexOf("  tee(geo,courseName,holeNo,mode,hcp,von,nurClub){"),
+                        src.indexOf("  tee(geo,courseName,holeNo,mode,hcp,von,nurClub){")+1400);
   ok("STRAT.tee nutzt holeRef", /holeRef\(geo,holeNo\)/.test(teeFn));
   ok("und bevorzugt dessen Tee-Punkt", /\(hr&&hr\.tee\)/.test(teeFn));
   ok("Begründung dokumentiert", /swap/.test(teeFn));
@@ -4543,7 +4548,7 @@ group("Caddy — immer von hier, nie vom gespeicherten Tee");
   /* Der gespeicherte Abschlag ist EIN Tee, meist das gelbe. Wer von Weiß oder
      Blau spielt, steht 20–40 m dahinter — die Rechnung unterschlug diese Meter
      und empfahl für ein kürzeres Loch. Bei 30 m kippt die Schlägerwahl. */
-  ok("tee() nimmt einen Startpunkt", /tee\(geo,courseName,holeNo,mode,hcp,von\)\{/.test(src));
+  ok("tee() nimmt einen Startpunkt", /tee\(geo,courseName,holeNo,mode,hcp,von(?:,nurClub)?\)\{/.test(src));
   ok("ohne Angabe wie bisher der gespeicherte", /const teeP = von \|\| teeGespeichert;/.test(src));
   /* Seit v3.18 ist die Position ein PARAMETER (`caddyFuerPunkt`) — die
      Caddy-Zeile ruft sie mit der eigenen, der Live-Zeiger mit der der Uhr. */
@@ -5094,6 +5099,177 @@ group("Doku — die drei Prüfebenen sind beschrieben");
   ok("kein „nicht ins Repo“ mehr", !/Gehoeren NICHT ins Repo/.test(doc));
   /* Der Pfad ist Teil der Antwort: gleicher Ordner, kein Unterordner. */
   ok("Ordner-Erwartung dokumentiert", /im selben Ordner/.test(doc));
+}
+
+/* ============ 24dx. „Warum nicht …?" ============ */
+group("Caddy befragen — „warum nicht X?“ mit echten Zahlen");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+  const S = G("STRAT");
+
+  /* Eine Empfehlung ohne Begründung muss man glauben. Auf der Bahn hat man aber
+     eine konkrete Gegenfrage — „warum nicht das 2 Driving Iron?" Wer darauf
+     keine Antwort bekommt, folgt der Empfehlung blind oder gar nicht. */
+  ok("Frage-Funktion vorhanden", /function caddyWarumNicht\(clubName\)\{/.test(src));
+  ok("Anzeige dazu", /function warumNichtHtml\(\)\{/.test(src));
+  ok("im Panel eingehängt", (src.match(/\$\{warumNichtHtml\(\)\}/g) || []).length >= 2);
+
+  /* DIE ENTSCHEIDENDE EIGENSCHAFT: Die Alternative wird mit DERSELBEN Rechnung
+     bewertet — gleiche Stichproben, gleiche Gefahrenkarte, gleiche Streuung.
+     Ein zweiter, eigener Rechenweg wäre schnell gebaut und lieferte Zahlen, die
+     man nicht vergleichen kann. Deshalb ein Parameter, keine zweite Funktion. */
+  ok("ein Parameter statt zweiter Funktion",
+    /tee\(geo,courseName,holeNo,mode,hcp,von,nurClub\)\{/.test(src));
+  ok("Filter auf genau einen Schläger", /clubs=caddyClubs\(null, true\)\.filter\(c=>c\.name===nurClub\)/.test(src));
+  /* Beim gezielten Vergleich darf die 140-m-Vorauswahl NICHT greifen: Gefragt
+     wird nach einem bestimmten Schläger, auch wenn er kürzer ist. */
+  ok("Vorauswahl beim Vergleich aus", /Beim gezielten Vergleich NICHT die Vorauswahl/.test(src));
+
+  /* Die Antwort muss benennen, WAS entscheidet — und „knapp" ist ein eigener
+     Fall, der wichtiger ist als eine Scheingenauigkeit. */
+  ok("Gleichwertigkeit wird gesagt", /praktisch gleichwertig/.test(src));
+  ok("Strafrisiko als Grund", /höheres Strafrisiko/.test(src));
+  ok("Rest als Grund", /der längere Rest zum Grün/.test(src));
+  ok("Fairwayquote als Grund", /schlechtere Trefferquote aufs Fairway/.test(src));
+  /* Ein Caddy, der nie zugibt, dass die Gegenfrage recht hat, ist keiner. */
+  ok("Alternative darf gewinnen", /er ist hier tatsächlich die bessere Wahl/.test(src));
+  ok("und wird dann markiert", /a\.besser\?"👍 ":""/.test(src));
+  /* Nur vom Abschlag: Für Folgeschläge fehlt die Vergleichsgrundlage — dann
+     wird ehrlich nichts behauptet. */
+  /* SEIT v3.60 AUCH FÜR FOLGESCHLÄGE: Vorher gab es die Antwort nur am
+     Abschlag, weil `nextShot()` keinen Schlägerfilter kannte. Das war ehrlich,
+     aber unbefriedigend — am zweiten Schlag stellt man die Frage häufiger als
+     am Tee. Beide Seiten des Vergleichs entstehen mit DERSELBEN Rechnung; ein
+     Vergleich zwischen zwei Verfahren wäre wertlos. */
+  ok("nextShot kennt nurClub", /nextShot\(geo,courseName,holeNo,from,mode,hcp,nurClub\)/.test(src));
+  /* DIE FRAGE „zählt der Folgeschlag mit?" hat zwei Antworten. Erstens: `es`
+     ist die erwartete Zahl der Schläge BIS INS LOCH ab dem Landepunkt — der
+     ganze Rest steckt drin, generisch aus der Tabelle. Zweitens: Am Abschlag
+     rechnet `tee()` eine ZWEITE EBENE, die den nächsten Schlag wirklich
+     durchspielt (`_ply2`) und die Differenz zur Tabelle als `ply2` aufschlägt
+     (`score2`).
+     Die Gegenrechnung verglich `score` statt `score2` — also ohne genau den
+     Teil, nach dem gefragt war. Und schlimmer: Sie verglich eine ANDERE Zahl
+     als die, nach der die Engine ihre Empfehlung sortiert. */
+  ok("Vergleich nutzt die zweite Ebene", /const sc=x=>\(x\.score2!=null\?x\.score2:x\.score\);/.test(src));
+  ok("Differenz daraus", /const diff=\+\(sc\(B\)-sc\(A\)\)\.toFixed\(2\);/.test(src));
+  ok("Folgeschläger wird mitgegeben", /next:e\.best\.next\|\|null,/.test(src));
+  ok("Folgeschlag als eigener Grund", /der FOLGESCHLAG: von dort aus wird es/.test(src));
+  ok("Folgeschläger wird angezeigt", /Danach:/.test(src));
+  /* Und wo die zweite Ebene fehlt (Folgeschläge), wird keine Genauigkeit
+     vorgegeben, die die Rechnung nicht hat. */
+  ok("Grenze wird benannt", /ein eigener Durchlauf des nächsten Schlags gibt es nur\s*\n?\s*vom Abschlag/.test(src));
+  ok("eine Rechenfunktion für beide Seiten", /const rechne=\(nur\)=> amTee/.test(src));
+  ok("Lage wird mitgegeben, nicht behauptet", /return \{amTee:amTee, rest:/.test(src));
+  ok("Anzeige nennt die Lage", /a\.amTee\?"vom Abschlag":`aus \$\{a\.rest\} m`/.test(src));
+  /* „Kommt nicht in Frage" ist selbst eine Antwort — und der GRUND unterscheidet
+     sich: Länge ist eine Rechnung, „nur vom Abschlag" eine Regel. */
+  ok("unspielbar wird gemeldet", /return \{unspielbar:true, club:clubName, nurVomTee:nurVomTee\};/.test(src));
+  ok("Regel vom Rechenfall getrennt", /nur für den Abschlag vorgesehen/.test(src));
+
+  /* Gerechnet: Der Vergleich muss beide Seiten füllen und sich unterscheiden. */
+  if (S && typeof S.tee === "function") {
+    const mLat = 110540, mLng = 111320 * Math.cos(54 * Math.PI / 180);
+    const at = (n, e) => [54.0 + n / mLat, 10.77 + (e || 0) / mLng];
+    const ring = (n, e, r) => [at(n - r, e - r), at(n - r, e + r), at(n + r, e + r), at(n + r, e - r)];
+    const t2 = at(0), g = at(387);
+    const geo = { holes: { 5: { tee: t2, green: g, line: [t2, g], distM: 387 } },
+      features: [{ kind: "green", ring: ring(387, 0, 14) }, { kind: "fairway", ring: ring(215, 0, 22) }] };
+    const DB0 = G("DB"); const sicher = { c: DB0.courses, cl: DB0.clubDistances };
+    try {
+      DB0.courses = [{ name: "W-Test", tees: { Gelb: { holes: [{ hole: 5, par: 4, si: 3, len: 387 }] } }, geo }];
+      DB0.clubDistances = [{ club: "Driver", carry: 211, reach: 225 },
+        { club: "2 Driving Iron", carry: 180, reach: 196 }, { club: "5 Iron", carry: 168, reach: 174 }];
+      const emp = S.tee(geo, "W-Test", 5, "bal", 20, null);
+      const alt = S.tee(geo, "W-Test", 5, "bal", 20, null, "2 Driving Iron");
+      ok("Empfehlung wird gerechnet", !!(emp && emp.best));
+      ok("Alternative wird gerechnet", !!(alt && alt.best));
+      if (alt && alt.best) eq("und zwar der gefragte Schläger", alt.best.club.name, "2 Driving Iron");
+      /* Der kürzere Schläger muss teurer sein — sonst stimmt die Rechnung nicht
+         mit dem Golfverstand überein. */
+      if (emp && emp.best && alt && alt.best)
+        ok("kürzerer Schläger kostet hier mehr", alt.best.score > emp.best.score,
+          alt.best.score.toFixed(2) + " > " + emp.best.score.toFixed(2));
+    } finally { DB0.courses = sicher.c; DB0.clubDistances = sicher.cl; }
+  }
+}
+
+/* ============ 24dx. Leitplanken ============ */
+group("Leitplanken — Regeln INNERHALB der Rechnung");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+  const LP = G("leitplanken"), TAB = G("LEITPLANKEN"), WZ = G("WEDGE_ZONE");
+
+  /* DIE ARCHITEKTUR-ENTSCHEIDUNG: Eine Regel ist keine zweite Meinung, sondern
+     dieselbe Rechnung in Kurzform — so beschreibt Fawcett (DECADE) seine
+     Heuristiken ausdrücklich: ein Stellvertreter für die Erwartungswert-
+     Rechnung, weil ein Mensch auf der Bahn keine Tabellen mitschleppt. Wir
+     haben den Rechner, also schränken Regeln die Auswahl ein statt sie zu
+     ersetzen. Ergebnis: EINE Zahl, EINE Empfehlung. */
+  ok("Tabelle vorhanden", Array.isArray(TAB) && TAB.length >= 2);
+  ok("Funktion ist rein", typeof LP === "function");
+  if (Array.isArray(TAB)) {
+    /* Jede Regel braucht einen nachlesbaren Grund — eine Regel ohne Grund ist
+       eine Behauptung, und in einem Jahr weiß niemand mehr, warum sie da ist. */
+    ok("jede Regel hat einen Grund", TAB.every(r => (r.grund || "").length > 15),
+      TAB.filter(r => !(r.grund || "").length).map(r => r.id).join(",") || "alle");
+    ok("jede Regel hat eine Wirkung", TAB.every(r => r.wirkung === "aus" || r.wirkung > 0));
+    ok("jede Regel hat eine Bedingung", TAB.every(r => typeof r.gilt === "function"));
+  }
+
+  if (typeof LP === "function" && WZ) {
+    /* MIT `dist` (Gesamtweite), nicht nur `carry` (v3.64): Die Regel rechnet
+       seit der Korrektur mit Carry PLUS Auslauf, und `STRAT.rollFor` leitet den
+       Auslauf aus der Differenz beider Werte ab — fehlt `dist`, ist der Auslauf
+       0 und die Regel misst etwas anderes als die Engine. Die App liefert immer
+       beide Werte; Prüfdaten, die das nicht tun, prüfen einen Fall, den es
+       nicht gibt. */
+    const clubs = [{ name: "Driver", carry: 211, dist: 225 },
+      { name: "2 Driving Iron", carry: 180, dist: 196 },
+      { name: "7 Wood", carry: 169, dist: 174 }, { name: "PW", carry: 100, dist: 102 }];
+
+    /* HARTE REGEL: Vom Boden fällt das Driving Iron weg — das steckt in keiner
+       Zahl, weil die gemessene Streuung fast immer von Abschlägen stammt. */
+    const boden = LP(clubs, { vomTee: false, rest: 400, weitererSchlagFolgt: true });
+    ok("vom Boden ohne Driving Iron", !boden.clubs.some(c => /Driving Iron/.test(c.name)));
+    ok("und mit Begründung", (boden.gestrichen[0] || {}).grund && boden.gestrichen[0].regel === "teeOnly");
+    const tee = LP(clubs, { vomTee: true, rest: 400, weitererSchlagFolgt: true });
+    ok("vom Abschlag erlaubt", tee.clubs.some(c => /Driving Iron/.test(c.name)));
+
+    /* WEICHE REGEL: Aufschlag in SCHLÄGEN — dieselbe Einheit wie alles andere,
+       deshalb darf er dazugezählt werden und das Ergebnis bleibt eine Zahl. */
+    /* 240 m, nicht 260 (v3.64): Die Regel misst seit der Korrektur mit
+       CARRY + AUSLAUF — dieselbe Größe wie die Engine, die den Rest vom
+       RUHEPUNKT nimmt. Ein Driver mit 211 m Carry rollt rund 14 m aus, kommt
+       also auf ~225 m; aus 240 m Rest bleiben damit 15 m — ein abgebrochener
+       Annäherungsschlag. Mit 260 m blieben 35 m, und das ist ein normaler
+       Pitch, den die Regel zurecht in Ruhe lässt. */
+    const stummel = LP(clubs, { vomTee: false, rest: 240, weitererSchlagFolgt: true });
+    ok("Stummel-Layup kostet Aufschlag", (stummel.aufschlag["Driver"] || 0) > 0,
+      String(stummel.aufschlag["Driver"]));
+    ok("mit nachlesbarem Grund", (stummel.gruende["Driver"] || []).length > 0);
+    /* Und NICHT, wenn das Grün erreichbar ist — dann ist der kurze Rest der
+       Annäherungsschlag selbst, kein Stummel. */
+    const erreichbar = LP(clubs, { vomTee: false, rest: 260, weitererSchlagFolgt: false });
+    eq("kein Aufschlag, wenn kein Schlag folgt", erreichbar.aufschlag["Driver"], undefined);
+
+    /* DIE WICHTIGSTE SCHUTZREGEL: Eine Regel, die alles streicht, macht die App
+       stumm. Dann gilt die Rechnung allein — ehrlicher als keine Empfehlung. */
+    const nurEisen = LP([{ name: "2 Driving Iron", carry: 180 }],
+      { vomTee: false, rest: 400, weitererSchlagFolgt: true });
+    eq("Beutel wird nie geleert", nurEisen.clubs.length, 1);
+
+    /* Rein: dieselbe Eingabe, dasselbe Ergebnis, und die Eingabe bleibt
+       unverändert. */
+    const vorher = JSON.stringify(clubs);
+    LP(clubs, { vomTee: false, rest: 260, weitererSchlagFolgt: true });
+    eq("Eingabe unverändert", JSON.stringify(clubs), vorher);
+  }
+
+  /* Eingehängt in die Bewertung, nicht daneben. */
+  ok("Aufschlag geht in den score", /\+ blk \+ lpAuf;/.test(src));
+  ok("vor nurClub angewandt", /const _lp=leitplanken\(clubs,[\s\S]{0,200}if\(nurClub\)/.test(src));
+  ok("Gestrichene werden mitgegeben", /leitplanken:_lp\.gestrichen,/.test(src));
 }
 
 /* ============ 24dw. Panel und Karte sagen dasselbe ============ */
@@ -8040,8 +8216,8 @@ group("Caddy — zweiter Zug und die Gewichte, die ihn tragen");
 
     /* --- (b) Zweiter Zug --- */
     ok("_ply2 existiert", typeof S._ply2 === "function");
-    const te = src.slice(src.indexOf("  tee(geo,courseName,holeNo,mode,hcp,von)"),
-                         src.indexOf("  tee(geo,courseName,holeNo,mode,hcp,von)") + 7500);
+    const te = src.slice(src.indexOf("  tee(geo,courseName,holeNo,mode,hcp,von,nurClub)"),
+                         src.indexOf("  tee(geo,courseName,holeNo,mode,hcp,von,nurClub)") + 7500);
     ok("zweite Ebene nur für die Spitze", /Math\.min\(5,cands\.length\)/.test(te));
     ok("Korrektur gedämpft (Mittelpunkt statt Verteilung)", /0\.7\s*\*\s*c\.ply2/.test(te));
     ok("Korrektur ist Gelände minus Tabelle", /p2\.sc\s*-\s*generisch/.test(te));

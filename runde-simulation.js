@@ -413,6 +413,76 @@ kopf("draft.json — Handy → Uhr");
     pruef(RG[k], n===0, n?`${n}× verletzt · zuerst: ${durchlauf.erste[k]}`:"");
   });
 
+  /* ---------- Leitplanken: wirken sie auf echten Lagen? ---------- */
+  kopf("Leitplanken über den ganzen Platz");
+  const lp = JSON.parse(R(`(function(){
+    var geo=playGeo(), kippt=0, faelle=0, teeIron=0, aufschlaege=0, liste=[];
+    for(var i=0;i<PLAY.holes.length;i++){
+      PLAY.idx=i;
+      var h=PLAY.holes[i], hr=holeRef(geo,h.hole);
+      if(!hr||!hr.tee||!hr.green) continue;
+      var gesamt=geoDist(hr.tee,hr.green);
+      /* Lagen, aus denen das Gruen NICHT erreichbar ist — dort entscheidet die
+         Layup-Regel. */
+      [0.35,0.5].forEach(function(a){
+        var p=_aimLerp(hr.tee,hr.green,gesamt*a);
+        if(!p) return;
+        var rest=geoDist(p,hr.green);
+        var ev=null;
+        try{ ev=STRAT.nextShot(geo,PLAY.course,h.hole,p,'safe',20); }catch(e){ return; }
+        if(!ev||!ev.best) return;
+        faelle++;
+        if(ev.best.lpAuf) aufschlaege++;
+        /* Ein Reststummel darf nicht mehr gewinnen, wenn das Gruen ausser
+           Reichweite liegt. */
+        var maxC=0; (DB.clubDistances||[]).forEach(function(c){ var d=(c.carry!=null?c.carry:c.reach)||0; if(d>maxC) maxC=d; });
+        /* 25 m, nicht 60 (v3.63): Zwischen 25 und 85 m entscheidet die RECHNUNG —
+           naeher ist dort messbar besser. Nur der abgebrochene
+           Annaeherungsschlag unter 25 m ist unsinnig. */
+        /* KIPPT der Aufschlag eine klare Rechnung? Das waere der Fehler:
+           Ein Kandidat, der OHNE Leitplanke deutlich besser ist (mehr als
+           0,20 Schlaege), darf nicht durch einen Aufschlag verlieren. */
+        if(ev._top && ev._top.length>1){
+          const roh=ev._top.slice().sort((a,b)=>(a.score-(a.lpAuf||0))-(b.score-(b.lpAuf||0)));
+          const bestRoh=roh[0];
+          if(bestRoh && bestRoh.club.name!==ev.best.club.name){
+            const dRoh=(ev.best.score-(ev.best.lpAuf||0))-(bestRoh.score-(bestRoh.lpAuf||0));
+            if(dRoh>0.20){ kippt++;
+              liste.push("Loch "+h.hole+": "+bestRoh.club.name+" war roh um "+
+                dRoh.toFixed(2)+" besser, verlor gegen "+ev.best.club.name); }
+          }
+        }
+        /* Und vom Boden nie ein Driving Iron. */
+        if(/driving[\\s-]?iron|2[\\s-]?(iron|eisen)/i.test(ev.best.club.name||"")) teeIron++;
+      });
+    }
+    return JSON.stringify({faelle:faelle, kippt:kippt, teeIron:teeIron, aufschlaege:aufschlaege, liste:liste});
+  })()`));
+  pruef("Lagen ohne Grün-Reichweite geprüft", lp.faelle>=20, lp.faelle+" Fälle");
+  /* DIE REGEL, DIE DEN AUSSCHLAG GAB: Vorher gewann aus 240 m der 3 Wood mit
+     41 m Reststummel; jetzt das 8 Iron mit 109 m Rest. */
+  /* ==========================================================================
+     DIESE PRUEFUNG WAR FALSCH GESTELLT (v3.64)
+     --------------------------------------------------------------------------
+     Sie verlangte, dass NIE ein Schlag mit Reststummel gewinnt — also ein VETO.
+     Die Leitplanke ist aber ausdruecklich ein ANSTOSS: „schwach genug, um eine
+     echte Differenz nie zu kippen" steht in ihrer eigenen Begruendung.
+     Nachgerechnet an den zwei uebrig gebliebenen Faellen:
+       Loch 17, 213 m Rest: 3 Wood laesst 12 m, das 5 Iron ~40 m.
+     Aus 213 m ist das Gruen unerreichbar, also entscheidet, von wo man den
+     naechsten Schlag spielt — und 12 m schlagen 40 m deutlich. Die Rechnung hat
+     recht, meine Trainerregel nicht. Haette ich den Aufschlag erhoeht, bis die
+     Pruefung gruen wird, haette ich eine ausgedachte Zahl gegen eine gemessene
+     durchgesetzt. Genau davor warnt der Kommentar an der Leitplanke.
+     GEPRUEFT WIRD JETZT DIE ARCHITEKTUR, nicht mein Bauchgefuehl:
+       · Der Aufschlag wird ueberhaupt angewandt (sonst ist die Tabelle Zierde).
+       · Er kippt keine deutliche Differenz (sonst waere er ein Veto).
+       · Er traegt einen nachlesbaren Grund. */
+  pruef("Aufschläge werden angewandt", lp.aufschlaege>0, lp.aufschlaege+" Fälle");
+  pruef("Aufschlag kippt keine klare Rechnung", lp.kippt===0,
+    lp.kippt?`${lp.kippt}× · ${(lp.liste||[]).join(" | ")}`:"");
+  pruef("vom Boden nie ein Driving Iron", lp.teeIron===0, String(lp.teeIron));
+
   /* ---------- Verwerfen wirkt auf beiden Seiten ---------- */
   kopf("Runde verwerfen");
   R(`draftFinalize(); "ok"`);
