@@ -5052,6 +5052,21 @@ group("Schlagfolge — der letzte Punkt IST das Grün");
   }
 }
 
+/* ============ 24dp. Nachbargrün melden ============ */
+group("Karte — Nachbargrün in Sichtweite");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+  /* Liegt das Grün eines ANDEREN Lochs näher am eigenen Zielpunkt als das
+     eigene, sieht die Zielkette falsch aus, obwohl sie stimmt. Bis v3.45 stand
+     dort sogar eine Fahne — die Verwechslung war praktisch erzwungen. Die
+     Fahne ist weg, der Fall bleibt verwirrend; deshalb ins Protokoll. */
+  ok("Nachbargrün wird gemeldet", /das Grün von Loch \$\{nr\} liegt nur \$\{ab\} m entfernt/.test(src));
+  ok("Schwelle 80 m", /if\(ab<80\) logWarnEinmal\("nachbargruen:/.test(src));
+  /* Einmal je Lochpaar, sonst füllt es das Protokoll bei jedem Zeichnen. */
+  ok("je Lochpaar nur einmal", /"nachbargruen:"\+hN\.hole\+":"\+nr/.test(src));
+  ok("das eigene Loch zählt nicht", /if\(String\(nr\)===String\(hN\.hole\)\) return;/.test(src));
+}
+
 /* ============ 24do. Nur eine Fahne ============ */
 group("Karte — nur das gespielte Loch bekommt eine Fahne");
 {
