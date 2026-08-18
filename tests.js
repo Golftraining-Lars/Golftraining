@@ -59,9 +59,9 @@ const COVERAGE_BASELINE_FUNCS = (
     "liveStart llFromVB lmBuildRecs lmCarryStrip lmDiagScatter lmDispersion lmGet lmPct" +" "+
     "lmPearson lmStatObj lvlChip macroFind manualTipHtml mapLL mdToHtml mdToHtmlWiki mkLink" +" "+
     "nearestHole normalizeClub noteCat noteDaysLeft noteDropVideos noteTouch" +" "+
-    "openFitnessDetail parseGeoJSONCourse parseOverpassCourse pfWizScore pfWizStep pill" +" "+
+    "openFitnessDetail parseGeoJSONCourse parseOverpassCourse pill" +" "+
     "placeSub playAimHit" +" "+
-    "playAimMoveTo playCaddyHtml playField playGoHole playMapBind playMapClamp playMapZoom" +" "+
+    "playAimMoveTo playCaddyHtml playField playMapBind playMapClamp playMapZoom" +" "+
     "playNum playSel playTooFarHtml qaExpand qaFold qaSearch qaSections qaStem rateAbs" +" "+
     "rateR rateSmash rateStd refreshRepoSection roundCardHtml roundKPIs roundLL" +" "+
     "roundShareText roundWeatherHtml satCourseDelete satCoursePlan satCourseSrc" +" "+
@@ -5413,6 +5413,82 @@ group("Abgleich — eine gelöschte Linie darf nicht zurückkommen");
   }
 }
 
+/* ============ 24eb. Linien sind Gefahren ============ */
+group("Regeln — Aus als Grenze, Bach als Band");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+  const S = G("STRAT"), DB0 = G("DB"), PLAY0 = G("PLAY");
+
+  /* DIE REGELN: Aus (18.2) ist eine GRENZE, keine Fläche — alles jenseits der
+     Linie ist Aus, egal wo der Ball genau liegt. Und ein Strafgebiet darf als
+     Linie vorliegen: Ist der Rand nicht markiert, gilt die natürliche Grenze,
+     also das Gewässer selbst. Bis v3.71 zählten nur geschlossene Flächen; ein
+     Platzrand oder ein Bach als Linie war für die Rechnung unsichtbar. */
+  ok("Linien werden übersetzt", /LINIEN SIND GEFAHREN — DIE REGELN SAGEN ES SO/.test(src));
+  ok("Aus wird zur Halbebene", /_linien\.push\(\{kind:"ob", ring:halbebene/.test(src));
+  ok("Strafgebiet wird zum Band", /_linien\.push\(\{kind:"penalty", ring:bandRing/.test(src));
+  ok("Breiten als benannte Werte", /const PA_HALB=8, OB_TIEFE=120;/.test(src));
+  /* Die Seite entscheidet die Spiellinie — der Platz ist immer die Seite, auf
+     der gespielt wird. */
+  ok("Außenseite aus der Spiellinie", /const vz = s>0 \? -1 : 1;/.test(src));
+  /* Und das Raster muss weit genug reichen: Der Ball, der ins Aus fliegt, liegt
+     WEITER draußen als die 45 m, die die Streuung abdecken. */
+  ok("Raster reicht weiter bei Aus", /const M=_hatAus\?110:45;/.test(src));
+
+  if (S && DB0 && PLAY0) {
+    const sicher = { c: DB0.courses, cl: DB0.clubDistances, act: PLAY0.active,
+      holes: PLAY0.holes, course: PLAY0.course, idx: PLAY0.idx };
+    try {
+      const mLat = 110540, mLng = 111320 * Math.cos(54 * Math.PI / 180);
+      const at = (n, e) => [54.0 + n / mLat, 10.77 + (e || 0) / mLng];
+      const ring = (n, e, r) => [at(n - r, e - r), at(n - r, e + r), at(n + r, e + r), at(n + r, e - r)];
+      const t2 = at(0), g = at(300);
+
+      /* (1) AUS als Linie rechts der Bahn. */
+      const geoOb = { holes: { 1: { tee: t2, green: g, line: [t2, g], distM: 300 } },
+        features: [{ kind: "green", ring: ring(300, 0, 14) }, { kind: "fairway", ring: ring(180, 0, 26) },
+          { kind: "ob", line: [at(40, 18), at(140, 18), at(250, 18)] }] };
+      DB0.courses = [{ name: "OB-Test", tees: { Gelb: { holes: [{ hole: 1, par: 4, si: 1, len: 300 }] } }, geo: geoOb }];
+      DB0.clubDistances = [{ club: "Driver", carry: 211, reach: 225 }];
+      PLAY0.active = false;
+      const PB = G("playBegin"); if (typeof PB === "function") PB("OB-Test", "Gelb", 0);
+      PLAY0.idx = 0;
+      const grOb = S.grid(geoOb, "OB-Test", 1);
+      ok("jenseits der Linie ist Aus", S.lieCode(grOb, at(140, 40)[0], at(140, 40)[1]) === S.LIE.ob);
+      ok("diesseits ist es das nicht", S.lieCode(grOb, at(140, 0)[0], at(140, 0)[1]) !== S.LIE.ob);
+      const evOb = S.tee(geoOb, "OB-Test", 1, "bal", 20, t2);
+      /* Der Caddy muss darauf REAGIEREN: entweder Risiko ausweisen oder von der
+         Grenze wegzielen. Beides ist richtig, „gar nichts" ist es nicht. */
+      ok("Aus wirkt auf die Empfehlung", !!evOb && !!evOb.best &&
+        (evOb.best.pen > 0 || evOb.best.lineDeg < 0),
+        evOb && evOb.best ? `pen ${(evOb.best.pen*100).toFixed(1)}% · Linie ${evOb.best.lineDeg}°` : "-");
+
+      /* (2) BACH als Linie QUER über die Bahn bei 200 m. */
+      const geoPa = { holes: { 1: { tee: t2, green: g, line: [t2, g], distM: 300 } },
+        features: [{ kind: "green", ring: ring(300, 0, 14) }, { kind: "fairway", ring: ring(150, 0, 26) },
+          { kind: "penalty", line: [at(200, -60), at(200, 0), at(200, 60)] }] };
+      DB0.courses = [{ name: "PA-Test", tees: { Gelb: { holes: [{ hole: 1, par: 4, si: 1, len: 300 }] } }, geo: geoPa }];
+      DB0.clubDistances = [{ club: "Driver", carry: 211, reach: 225 }, { club: "3 Wood", carry: 196, reach: 213 },
+        { club: "5 Iron", carry: 168, reach: 174 }, { club: "7 Iron", carry: 145, reach: 150 }];
+      if (typeof PB === "function") { PLAY0.active = false; PB("PA-Test", "Gelb", 0); }
+      PLAY0.idx = 0;
+      const grPa = S.grid(geoPa, "PA-Test", 1);
+      ok("auf der Linie ist Strafgebiet", S.lieCode(grPa, at(200, 0)[0], at(200, 0)[1]) === S.LIE.penalty);
+      ok("davor nicht", S.lieCode(grPa, at(185, 0)[0], at(185, 0)[1]) !== S.LIE.penalty);
+      ok("dahinter nicht", S.lieCode(grPa, at(215, 0)[0], at(215, 0)[1]) !== S.LIE.penalty);
+      /* DAS ist die Verhaltensänderung, um die es geht: Vorher wäre der Driver
+         mitten hineingeflogen, weil die Linie unsichtbar war. */
+      const evPa = S.tee(geoPa, "PA-Test", 1, "safe", 20, t2);
+      ok("der Caddy legt vor dem Bach", !!evPa && !!evPa.best &&
+        (evPa.best.club.carry || evPa.best.club.dist) < 190,
+        evPa && evPa.best ? evPa.best.club.name : "-");
+    } finally {
+      DB0.courses = sicher.c; DB0.clubDistances = sicher.cl; PLAY0.active = sicher.act;
+      PLAY0.holes = sicher.holes; PLAY0.course = sicher.course; PLAY0.idx = sicher.idx;
+    }
+  }
+}
+
 /* ============ 24dy. Gefahren ausblenden ============ */
 group("Karte — Strafgebiete und Aus ausblenden, ohne die Rechnung zu ändern");
 {
@@ -5424,7 +5500,14 @@ group("Karte — Strafgebiete und Aus ausblenden, ohne die Rechnung zu ändern")
   ok("wird an courseSVG übergeben", (src.match(/haz:hazOn\(\)/g) || []).length >= 2);
   /* Aus BEIDEN Quellen: importierte Features UND selbst gezeichnete. Wer
      ausblendet, will sie weghaben, nicht die halbe Menge. */
-  ok("greift auch für Selbstgezeichnetes", /geo\.mine\|\|\[\]\)\.forEach\(\(m,mi\)=>\{[^\n]*istHaz\(m\.kind\)/.test(src));
+  /* ZWEI Durchläufe über dieselbe Liste: Flächen und Linien werden getrennt
+     gezeichnet. Der Filter stand zuerst nur am ersten — der Knopf blendete
+     Wasserflächen aus, die selbst gezeichneten OB- und Penalty-LINIEN aber
+     nicht, und von außen sah es aus, als täte er nichts (v3.71).
+     Dieselbe Fehlerklasse wie „eine Regel an zwei Orten". */
+  ok("greift für eigene Flächen", /geo\.mine\|\|\[\]\)\.forEach\(\(m,mi\)=>\{[^\n]*istHaz\(m\.kind\)/.test(src));
+  eq("und für eigene Linien — beide Durchläufe",
+    (src.match(/if\(!zeigHaz && istHaz\(m\.kind\)\) return;/g) || []).length, 2);
 
   if (typeof CS === "function") {
     const mLat = 110540, mLng = 111320 * Math.cos(54 * Math.PI / 180);
@@ -5435,6 +5518,19 @@ group("Karte — Strafgebiete und Aus ausblenden, ohne die Rechnung zu ändern")
       mine: [{ kind: "penalty", ring: ring(200, 0, 18) }, { kind: "ob", ring: ring(230, 40, 15) }] };
     const pfade = h => (CS(geo, { w: 660, hole: 1, rotate: true, tight: true, osm: true, haz: h })
       .svg.match(/<path/g) || []).length;
+    /* Auch mit LINIEN prüfen, nicht nur mit Flächen — der Fehler steckte
+       genau dort. Die Hecke ist keine Gefahr und muss bleiben. */
+    const geoL = { holes: { 1: { tee: at(0), green: at(300), line: [at(0), at(300)], distM: 300 } },
+      features: [], mine: [{ kind: "ob", line: [at(100, 30), at(200, 30)], own: true },
+        { kind: "penalty", line: [at(120, -30), at(220, -30)], own: true },
+        { kind: "hedge", line: [at(140, 50), at(240, 50)], own: true }] };
+    const farb = (h, f) => (CS(geoL, { w: 660, hole: 1, rotate: true, tight: true, osm: true, haz: h })
+      .svg.match(new RegExp(f, "g")) || []).length;
+    ok("OB-Linie sichtbar mit Gefahren", farb(true, "#d0433a") === 1);
+    eq("OB-Linie verschwindet ohne", farb(false, "#d0433a"), 0);
+    eq("Penalty-Linie verschwindet ohne", farb(false, "#e0663a"), 0);
+    eq("die Hecke bleibt — sie ist keine Gefahr", farb(false, "#6a9e4e"), 1);
+
     const mit = pfade(true), ohne = pfade(false);
     ok("mit Gefahren mehr im Bild", mit > ohne, mit + " gegen " + ohne);
     ok("ohne Gefahren bleibt das Grün", ohne >= 1, String(ohne));
@@ -5457,6 +5553,18 @@ group("Karte — Strafgebiete und Aus ausblenden, ohne die Rechnung zu ändern")
   /* Und der Hinweistext sagt es dazu — sonst nimmt jeder an, der Caddy rechne
      jetzt ohne sie. */
   ok("Toast erklärt die Grenze", /Gefahren ausgeblendet · Caddy rechnet weiter damit/.test(src));
+
+  /* GEFAHREN ALS LINIE ZÄHLEN NICHT. Die Risikorechnung fragt, ob ein
+     simulierter Ball INNERHALB einer Fläche liegt — eine Linie hat kein Innen.
+     Nachgerechnet an einem 300-m-Loch mit Strafgebiet quer bei 200 m: als
+     zwei Linien empfiehlt der Caddy den Driver mitten hinein, als Fläche legt
+     er mit dem 7 Iron davor. Das ist der Unterschied zwischen einer Warnung
+     und einem Strafschlag. */
+  ok("Linien-Gefahren werden gemeldet", /als LINIE gezeichnet — der Caddy wertet nur Flächen aus/.test(src));
+  ok("mit klarer Abhilfe", /Als geschlossene Fläche neu zeichnen/.test(src));
+  ok("nur Strafgebiet und Aus", /f\.kind==="penalty"\|\|f\.kind==="ob"/.test(src));
+  /* Einmal je Loch: Es ist eine Eigenschaft der Karte, keine der Lage. */
+  ok("einmal je Loch", /logWarnEinmal\("gefahrLinie:"\+hL\.hole/.test(src));
 }
 
 /* ============ 24dx. Prozentzahlen im Plan erklären sich ============ */
@@ -7973,7 +8081,9 @@ group("Karteneditor — Objekte hängen nicht mehr am Finger");
 group("Karteneditor — durch den Wald hindurchsehen");
 {
   const src = fs.readFileSync(FILE, "utf8");
-  const cs = src.slice(src.indexOf("const vegFaint"), src.indexOf("const vegFaint") + 11000);
+  /* Fenster vergrößert (v3.71) — siehe oben: Der Gefahren-Filter hat den Block
+     verlängert. */
+  const cs = src.slice(src.indexOf("const vegFaint"), src.indexOf("const vegFaint") + 14000);
 
   /* Nach einer Erkennung liegen hundert gefüllte Kreise über der Bahn — man
      korrigiert dann blind, weil das Luftbild darunter verschwindet. `vegFaint`
@@ -8114,7 +8224,10 @@ group("Vegetation ausblenden — Anzeige, nicht Bewertung");
 
   /* BEIDE Quellen: Wald aus OSM und selbst gezeichneter/erkannter aus `mine`.
      Wer ausblendet, will nicht die halbe Vegetation stehen haben. */
-  const cs = src.slice(src.indexOf("const zeigVeg"), src.indexOf("const zeigVeg") + 6000);
+  /* Fenster vergrößert (v3.71): Der Gefahren-Filter und seine Begründung haben
+     den Block länger gemacht; mit 6000 Zeichen lagen die späteren Prüfungen
+     außerhalb und fielen aus einem Grund aus, der nichts mit ihnen zu tun hat. */
+  const cs = src.slice(src.indexOf("const zeigVeg"), src.indexOf("const zeigVeg") + 9000);
   ok("Flächen aus OSM gefiltert", /if\(!zeigVeg && istVeg\(k\)\) return;/.test(cs));
   ok("Linien aus OSM gefiltert", /if\(!zeigVeg && istVeg\(f\.kind\)\) return;/.test(cs));
   ok("eigene Zeichnungen ebenso", /if\(!zeigVeg && istVeg\(m\.kind\)\) return;/.test(cs));
@@ -8472,8 +8585,10 @@ group("Caddy — zweiter Zug und die Gewichte, die ihn tragen");
     }
 
     /* --- (c) Grünzellen: „Grün 0 %" muss von „kein Grün im Raster" trennbar sein --- */
+    /* Fenster vergrößert (v3.72): Die Übersetzung von Linien in Flächen samt
+       Begründung hat `grid()` deutlich länger gemacht. */
     const gr = src.slice(src.indexOf("  grid(geo,courseName,holeNo)"),
-                         src.indexOf("  grid(geo,courseName,holeNo)") + 5200);
+                         src.indexOf("  grid(geo,courseName,holeNo)") + 11000);
     ok("Raster zählt Grünzellen", /greenCells:gz/.test(gr));
     ok("approach meldet fehlendes Grün", /noGreen:!g\.greenCells/.test(src));
     ok("die Karte schreibt es hin statt 0 %", /kein Grün-Polygon/.test(src));
