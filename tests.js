@@ -5415,6 +5415,55 @@ group("Abgleich — eine gelöschte Linie darf nicht zurückkommen");
   }
 }
 
+/* ============ 24ej. Ein Tipp wählt auch Importiertes ============ */
+group("Karteneditor — der Tipp im Auswahl-Modus");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+
+  /* v3.75 hat die AUSWAHL für importierte Objekte geöffnet — aber nur das
+     Rechteck. Der einzelne Tipp suchte weiter ausschließlich nach `data-drag`,
+     und dieses Kennzeichen tragen nur selbst gezeichnete Objekte. Man tippt auf
+     einen Bunker aus OSM, nichts passiert, der Modus wirkt kaputt.
+     Eine HALBE Fähigkeit ist schlimmer als keine: Man sieht die Ursache nicht,
+     weil das Rechteck ja funktioniert. */
+  ok("Tipp findet importierte Objekte", /const gf=evt\.target\.closest && evt\.target\.closest\("\[data-feat\]"\);/.test(src));
+  ok("und sonst über die Geometrie", /toast\("Nichts getroffen — Rechteck ziehen wählt mehrere"\)/.test(src));
+  ok("Fläche vor Linie vor Punkt", /f\.ring && pointInRing\(pt,f\.ring\)\) fi=i;[\s\S]{0,400}f\.line\|\|f\.ring[\s\S]{0,400}!f\.pt\) return;/.test(src));
+  ok("Lochlinien bleiben tabu", /if\(!f \|\| f\.kind==="hole" \|\| !f\.pt\) return;/.test(src));
+
+  /* ZWEITER FEHLER im selben Zweig: Übergeben wurde die rohe Zahl, obwohl
+     `geoEdSelToggle` seit v3.75 Schlüssel erwartet. Bei eigenen Objekten fand
+     `indexOf` deshalb nie einen Treffer — Abwählen war unmöglich, und die
+     Auswahl wuchs immer weiter. */
+  ok("eigene Objekte mit Schlüssel", /geoEdSelToggle\(geoEdSelKey\("m", \+spec\.split\(":"\)\[1\]\)\)/.test(src));
+  ok("keine rohe Zahl mehr", !/geoEdSelToggle\(\+spec\.split\(":"\)\[1\]\)/.test(src));
+  /* Und sichtbar wird die Auswahl nur mit dem Kennzeichen im SVG. */
+  ok("Editor zeichnet mit edit:true", /courseSVG\(geo,\{w:660,hole:hole\|\|null,edit:true/.test(src));
+  ok("Markierung greift auf data-feat", /svg\.querySelector\(`\[data-feat="\$\{p\.i\}"\]`\)/.test(src));
+}
+
+/* ============ 24ej. Löschen ohne Treffer erklärt sich ============ */
+group("Karteneditor — „Nichts in der Nähe“ muss sagen, was es geprüft hat");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+
+  /* „Nichts in der Nähe" ist die unbrauchbarste Auskunft, die ein Werkzeug
+     geben kann: Sie sagt nicht, ob nichts DA war, ob es zu weit weg lag oder ob
+     gar nicht gesucht wurde. Dreimal wurde gemeldet, dass sich importierte
+     Objekte nicht löschen lassen — und dreimal blieb nur, den Quelltext zu
+     lesen und zu hoffen. */
+  ok("Meldung nennt den nächsten Treffer", /nächstes importiertes Objekt: „\$\{nah\.kind\|\|"\?"\}“ in \$\{Math\.round\(nahD\)\} m/.test(src));
+  ok("und den Fall ohne jedes Objekt", /keine importierten Objekte auf diesem Platz/.test(src));
+  ok("Zahlen ins Protokoll", /Löschen ohne Treffer · \$\{nM\} eigene, \$\{nF\} importierte Objekte/.test(src));
+  /* Auch der Erfolg gehört ins Protokoll — sonst weiß man nicht, ob der Stift
+     überhaupt gefeuert hat. */
+  ok("Erfolg wird protokolliert", /Importiertes Objekt gelöscht: „\$\{rm\.kind\|\|"\?"\}“ — verbleiben/.test(src));
+  /* Und die Suche selbst muss alle drei Formen abdecken. */
+  ok("Flächen", /if\(fi<0 && f\.ring && pointInRing\(pt,f\.ring\)\) fi=i;/.test(src));
+  ok("Linien", /const pts=f\.line\|\|f\.ring; if\(!pts\|\|pts\.length<2\) return;/.test(src));
+  ok("Punkte", /if\(!f \|\| !f\.pt\) return;/.test(src));
+}
+
 /* ============ 24ei. Gefahr im Spiel? · Punkte löschen ============ */
 group("Caddy — eine Gefahr, die jeder Schläger überfliegt, ist keine");
 {
