@@ -5413,6 +5413,39 @@ group("Abgleich — eine gelöschte Linie darf nicht zurückkommen");
   }
 }
 
+/* ============ 24ec. Caddy-Regelwerk in der Doku ============ */
+group("Doku — das Caddy-Regelwerk an einer Stelle");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+  const doc = (src.match(/<script[^>]*devdocs[^>]*>([\s\S]*?)<\/script>/) || [])[1] || "";
+  const S = G("STRAT");
+
+  /* Die Regeln lagen über STRAT, caddyPlan, LEITPLANKEN und SPIELWEISE
+     verteilt. Wer prüfen wollte, ob eine Golfregel abgebildet ist, musste vier
+     Stellen lesen — und übersah dabei jahrelang, dass Linien gar nicht zählten. */
+  ok("Abschnitt vorhanden", /## 23b\. CADDY-REGELWERK/.test(doc));
+  ok("Wald ist aufgeführt", /Wald, Gebaeude, Gestruepp/.test(doc));
+  ok("Aus mit Regelnummer", /Regel 18\.2/.test(doc));
+  ok("Strafgebiet mit Regelnummer", /Regel 17/.test(doc));
+  /* DIE LÜCKENLISTE ist genauso wichtig wie die Fähigkeitsliste: Sie
+     verhindert, dass jemand eine Genauigkeit annimmt, die es nicht gibt. */
+  ok("Lückenliste vorhanden", /Was der Caddy NICHT kennt/.test(doc));
+  ok("Rot/Gelb als Lücke benannt", /Rot gegen Gelb/.test(doc));
+  ok("Aus-Näherung offengelegt", /Aus wird vereinfacht/.test(doc));
+  ok("verlorener Ball als Lücke", /Ball verloren ausserhalb eines Strafgebiets/.test(doc));
+  ok("Trennung Messung/Vorliebe", /Erwartungswerte sind die MESSUNG/.test(doc));
+
+  /* Und die Behauptung über Wald muss stimmen — eine Doku, die etwas anderes
+     sagt als der Code, ist schlimmer als keine. */
+  if (S && typeof S.lookup === "function") {
+    const fw = S.lookup(150, "fairway", 20), rec = S.lookup(150, "recovery", 20);
+    ok("Wald kostet wirklich rund einen Schlag", rec - fw > 0.8 && rec - fw < 1.2,
+      (rec - fw).toFixed(2) + " Schläge");
+    ok("und die Doku nennt dieselbe Zahl", /\*\*4,39\*\* statt 3,40/.test(doc),
+      rec.toFixed(2) + " / " + fw.toFixed(2));
+  }
+}
+
 /* ============ 24eb. Linien sind Gefahren ============ */
 group("Regeln — Aus als Grenze, Bach als Band");
 {
