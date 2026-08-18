@@ -175,7 +175,7 @@ try {
                  "holeGir","holeUpDown","holeSandSave","platzAnalyse","taskFortschritt",
                  "warmupSchedule","warmupKorrektiv","WARMUP_PLANS","medianSplit","pearson",
                  "rKrit","gpKey","gpLabel","gpTotalES","pickClub","_aimClub","_aimLerp",
-                 "geoEdSelHat","geoEdVertHandles","snapshot","_nearest","_reaching","heuteJetzt","dispOvalFrom","dispChipHtml","dispRingPath","pathTopPoint","dispHitShare","dispText","dispSchemaSvg","dispSigmaFor","_erf","gpClubFracs","measureOrigin","geoEdMinW","editMinW","vegMask","maskMorph","maskBlobs","blobRing","ringSimplify","detectVeg","gpFingerprint","gpStale","_hash32","vegOn","viewBoxFor","troubleFeatures","geoEdPunktVon","_mergeCourses","snapBehalten","playVecKey","syncFinger","courseSVG","mergeDB","mergeDraft","watchPayload","shotZaehlt","playTouchHole","watchGeo","probeFrage","probePlan","cardBlock","playCardHtml","playAutoView","playBegin","pfCaddyKurz","_mergeCourses","_mergeCourses","ringFlaecheM2","geoEdSelKey","geoEdSelParse","geoEdSelObj","hazOn","toggleHaz","simAktiv","simStart","simStop","simSetzePosition","modiZeile","SPIELWEISE","WEDGE_ZONE","playAimChain","holeRef","geoDist","playMapInitView","heuteTests","heuteSport","caddyFuerPunkt","_watchPos","istAchtzehn","equipSet","equipAll","equipHtml","deDatumZuIso","isoZuDeDatum","ensureSeedTests","SEED","logWarn","logWarnEinmal","ERRLOG","condZeile","caddyClubs","clubPick","gearHat","gearSeed","gearAll","progVerfuegbar","GOLF_PROG","dauerUebungHtml","fitplanIdx","fitplanAll","fitplanSet","fitplanHeute","fitplanWocheGeschafft","wikiRelated","wikiToc","wikiTocId","wikiForSG","wikiTagsShow","SAT_SRC","satSrcFor","satTileUrl","satTileKey","DB","STRAT","GEOED"];
+                 "geoEdSelHat","geoEdVertHandles","snapshot","_nearest","_reaching","heuteJetzt","dispOvalFrom","dispChipHtml","dispRingPath","pathTopPoint","dispHitShare","dispText","dispSchemaSvg","dispSigmaFor","_erf","gpClubFracs","measureOrigin","geoEdMinW","editMinW","vegMask","maskMorph","maskBlobs","blobRing","ringSimplify","detectVeg","gpFingerprint","gpStale","_hash32","vegOn","viewBoxFor","troubleFeatures","geoEdPunktVon","_mergeCourses","snapBehalten","playVecKey","syncFinger","courseSVG","mergeDB","mergeDraft","watchPayload","shotZaehlt","playTouchHole","watchGeo","probeFrage","probePlan","cardBlock","playCardHtml","playAutoView","playBegin","pfCaddyKurz","_mergeCourses","_mergeCourses","caddyPositionPlan","geoEdPunktVon","gpTotalN","ringFlaecheM2","geoEdSelKey","geoEdSelParse","geoEdSelObj","hazOn","toggleHaz","simAktiv","simStart","simStop","simSetzePosition","modiZeile","SPIELWEISE","WEDGE_ZONE","playAimChain","holeRef","geoDist","playMapInitView","heuteTests","heuteSport","caddyFuerPunkt","_watchPos","istAchtzehn","equipSet","equipAll","equipHtml","deDatumZuIso","isoZuDeDatum","ensureSeedTests","SEED","logWarn","logWarnEinmal","ERRLOG","condZeile","caddyClubs","clubPick","gearHat","gearSeed","gearAll","progVerfuegbar","GOLF_PROG","dauerUebungHtml","fitplanIdx","fitplanAll","fitplanSet","fitplanHeute","fitplanWocheGeschafft","wikiRelated","wikiToc","wikiTocId","wikiForSG","wikiTagsShow","SAT_SRC","satSrcFor","satTileUrl","satTileKey","DB","STRAT","GEOED"];
   const epilog = "\n;globalThis.__T={" +
     namen.map(n => `${n}: (typeof ${n}!=="undefined"?${n}:undefined)`).join(",") + "};";
   vm.runInContext(code + epilog, ctx, { timeout: 20000 });
@@ -5412,6 +5412,122 @@ group("Abgleich — eine gelöschte Linie darf nicht zurückkommen");
     const q = (ohne || []).find(x => x && x.name === "Q");
     ok("ohne Stempel gewinnt weiter der vollständigere", !!(q && q.geo &&
       (q.geo.features || []).length === 1));
+  }
+}
+
+/* ============ 24ei. Gefahr im Spiel? · Punkte löschen ============ */
+group("Caddy — eine Gefahr, die jeder Schläger überfliegt, ist keine");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+  const P = G("caddyPositionPlan"), PV = G("geoEdPunktVon");
+
+  /* GEMELDET: Aus 421 m empfahl der Caddy in „sicher" ein LOB WEDGE — weil
+     Wasser bei 12–32 m quert und die Regel „davor ablegen" lautete. Vor einem
+     Hindernis abzulegen, dessen ferne Kante bei 32 m liegt, ist unmöglich: Der
+     kürzeste Schläger im Bag trägt weiter.
+     URSACHE: `goForIt` war in „sicher" NIE wahr — die Spielweise entschied über
+     den Angriff, bevor jemand gefragt hatte, ob es etwas zu entscheiden gibt.
+     Vorsicht ist kein Selbstzweck; sie greift nur, wo ein echtes Risiko steht. */
+  ok("Relevanz wird geprüft", /IST DIE GEFAHR UEBERHAUPT IM SPIEL\?/.test(src));
+  ok("trivialer Carry erkannt", /if\(kw >= carry\.far\+6\) return false;/.test(src));
+  ok("unmögliches Layup erkannt", /if\(\(carry\.near-MP\.margin\) < kw\) return false;/.test(src));
+
+  if (typeof P === "function") {
+    const clubs = [{ name: "Driver", carry: 211, dist: 225 }, { name: "3 Wood", carry: 196, dist: 213 },
+      { name: "5 Iron", carry: 168, dist: 174 }, { name: "PW", carry: 100, dist: 107 },
+      { name: "LW", carry: 60, dist: 62 }];
+    const plan = (hz, mode) => P({ remaining: 421, par: 5, lie: "fairway", mode,
+      ctx: { clubs, hcp: 20 }, hazards: hz });
+
+    /* (a) Wasser bei 12–32 m: nicht relevant — jeder Schläger fliegt darüber. */
+    const nah = plan([{ kind: "water", near: 12, far: 32 }], "safe");
+    const nahClubs = (nah && nah.shots || []).map(s => s.club);
+    ok("kein Wedge mehr aus 421 m", nahClubs.indexOf("LW") < 0, nahClubs.join(" → "));
+    ok("sondern der volle Plan", (nah && nah.shots || []).length >= 2 &&
+      /Wood|Iron/.test(nahClubs[0] || ""), nahClubs.join(" → "));
+
+    /* (b) Wasser bei 170–205 m: sehr wohl relevant — hier MUSS gelegt werden. */
+    const echt = plan([{ kind: "water", near: 170, far: 205 }], "safe");
+    const echtRollen = (echt && echt.shots || []).map(s => s.role);
+    ok("echtes Querhindernis wird beachtet", echtRollen.indexOf("Layup") >= 0,
+      echtRollen.join(" → "));
+  }
+
+  /* PUNKT-OBJEKTE (Teebox, Einzelbaum, Schild) kamen aus OSM, ließen sich aber
+     nicht antippen: „Nichts in der Nähe", obwohl man genau darauf zeigte. */
+  ok("Löschstift findet Punkte", /if\(!f \|\| !f\.pt\) return;\s*\n\s*const d=geoDist\(pt, f\.pt\)/.test(src));
+  ok("Punkte zuletzt geprüft", /PUNKT-OBJEKTE ZULETZT/.test(src));
+  ok("Radius benannt", /d<pd && d<20\)\{ pd=d; fi=i; \}/.test(src));
+  if (typeof PV === "function") {
+    const pt = [54.0001, 10.77];
+    eq("Auswahl löst Punkte auf", JSON.stringify(PV({ kind: "tee", pt })), JSON.stringify(pt));
+  }
+}
+
+/* ============ 24eh. Gameplan: Modi vergleichbar machen ============ */
+group("Gameplan — der Modus-Vergleich stand auf verschiedenen Grundlagen");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+  const N = G("gpTotalN"), S = G("STRAT");
+
+  /* GEMELDET: „sicher 76,0 · normal 76,7 (+0,8) · offensiv 76,0 (+0,0)".
+     Zwei Modi exakt gleich, der mittlere schlechter als beide Ränder — das
+     passt zu keiner Strategie.
+     URSACHE: Nur der ANGEZEIGTE Modus wird voll gerechnet, die anderen beiden
+     nur bis zur Abschlagsebene. Und die grobe Rechnung lässt die PAR-3-LÖCHER
+     weg — dort entsteht der Erwartungswert erst in der vollen Rechnung.
+     Verglichen wurden also 14 Löcher gegen 18, und die Klammer behauptete,
+     Vorsicht koste 0,8 Schläge. */
+  ok("Lochzahl wird gezählt", typeof N === "function");
+  ok("gemeinsame Grundlage gebildet", /const _basis=\(\(\)=>\{/.test(src));
+  ok("Schnittmenge über alle Modi", /g=new Set\(\[\.\.\.g\]\.filter\(h=>s2\.has\(h\)\)\)/.test(src));
+  /* Lieber keine Zahl als eine falsche — derselbe Grundsatz wie beim
+     Fehlerprotokoll. */
+  ok("ohne Grundlage kein Vergleich", /Vergleich der Spielweisen ist\s*\n?\s*für diesen Platz nicht möglich/.test(src));
+  ok("Lochzahl steht in der Überschrift", /Erwartete Schläge\$\{_basisN\?` über \$\{_basisN\} Loch`/.test(src));
+  ok("Unterschied wird erklärt", /zusätzlichen Löcher zählen\s*\n?\s*deshalb nicht in den Vergleich/.test(src));
+
+  if (typeof N === "function") {
+    eq("ohne Plan null", N(null), 0);
+    eq("zählt nur Löcher mit Wert",
+      N({ holes: [{ hole: 1, es: 4.2 }, { hole: 2 }, { hole: 3, es: 5.1 }] }), 2);
+  }
+
+  /* Und der Grund dafür, dass die groben Pläne Par 3 weglassen, muss belegt
+     sein — sonst ist die ganze Erklärung geraten. */
+  if (S && typeof S.planCourse === "function") {
+    const mLat = 110540, mLng = 111320 * Math.cos(54 * Math.PI / 180);
+    const at = (n, e) => [54.0 + n / mLat, 10.77 + (e || 0) / mLng];
+    const ring = (n, e, r) => [at(n - r, e - r), at(n - r, e + r), at(n + r, e + r), at(n + r, e - r)];
+    const DB0 = G("DB");
+    if (DB0) {
+      const sicher = { c: DB0.courses, cl: DB0.clubDistances, st: DB0.strat };
+      try {
+        const holes = {}, feats = [], tees = [];
+        let off = 0;
+        [4, 3, 5].forEach((p, i) => {
+          const len = p === 3 ? 150 : (p === 4 ? 340 : 480);
+          const t2 = at(off, 0), g = at(off + len, 0);
+          holes[i + 1] = { tee: t2, green: g, line: [t2, g], distM: len };
+          feats.push({ kind: "green", ring: ring(off + len, 0, 14) });
+          feats.push({ kind: "fairway", ring: ring(off + len * 0.6, 0, 26) });
+          tees.push({ hole: i + 1, par: p, si: i + 1, len });
+          off += len + 60;
+        });
+        const geo = { holes, features: feats };
+        DB0.courses = [{ name: "GP-Test", tees: { Gelb: { holes: tees } }, geo }];
+        DB0.clubDistances = [{ club: "Driver", carry: 211, reach: 225 },
+          { club: "5 Iron", carry: 168, reach: 174 }, { club: "7 Iron", carry: 145, reach: 150 },
+          { club: "PW", carry: 100, reach: 107 }];
+        DB0.strat = Object.assign({}, DB0.strat || {}, { gameplans: {} });
+        const grob = S.planCourse(geo, "GP-Test", "Gelb", tees, "safe", false);
+        const voll = S.planCourse(geo, "GP-Test", "Gelb", tees, "safe", true);
+        ok("grober Plan lässt Par 3 ohne Wert", N(grob) < N(voll),
+          N(grob) + " gegen " + N(voll));
+      } finally {
+        DB0.courses = sicher.c; DB0.clubDistances = sicher.cl; DB0.strat = sicher.st;
+      }
+    }
   }
 }
 
