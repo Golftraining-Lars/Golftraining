@@ -5442,6 +5442,26 @@ group("Karteneditor — der Tipp im Auswahl-Modus");
   ok("Markierung greift auf data-feat", /svg\.querySelector\(`\[data-feat="\$\{p\.i\}"\]`\)/.test(src));
 }
 
+/* ============ 24ek. Eingabemaske: Reihenfolge und Namen ============ */
+group("Eingabemaske — Putten vor den Details");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+
+  /* Die Reihenfolge soll dem ABLAUF folgen: Nach der Annäherung wird geputtet.
+     Strafschläge, Bunkeranzahl und Shortsided trägt man nach, wenn überhaupt.
+     Wer von oben nach unten ausfüllt, kommt so ohne Sprung durch. */
+  ok("Putten steht an dritter Stelle", /\+ ph\(3,"Putten"/.test(src));
+  ok("Details an vierter", /\+ ph\(4,"Details"/.test(src));
+  /* „Kurzes Spiel" war der falsche Name: Er bezeichnet im Golf die Schläge um
+     das Grün (Chip, Pitch, Bunker) — im Abschnitt stehen aber Strafschläge und
+     Zusatzangaben. Ein Name, der etwas anderes meint als das, was der Leser
+     kennt, ist schlimmer als ein farbloser (wie „Puffer" in v3.40). */
+  ok("kein irreführendes „Kurzes Spiel“ mehr", !/ph\(\d,"Kurzes Spiel"/.test(src));
+  /* Die Felder selbst bleiben, wo sie waren — nur die Blöcke tauschen. */
+  ok("Putt-Felder im Putt-Block", /\+ ph\(3,"Putten"[\s\S]{0,260}firstPutt/.test(src));
+  ok("Strafschläge im Detail-Block", /\+ ph\(4,"Details"[\s\S]{0,120}penN/.test(src));
+}
+
 /* ============ 24ej. Löschen ohne Treffer erklärt sich ============ */
 group("Karteneditor — „Nichts in der Nähe“ muss sagen, was es geprüft hat");
 {
@@ -6681,7 +6701,14 @@ group("Caddy — vollständig sichtbar, Bedingungen, 2 Iron nur vom Tee");
   /* Wind/Temperatur wurden längst gerechnet, aber nur im heuristischen Zweig
      angezeigt — am Abschlag übernimmt die EV-Engine, und deren Anzeige kannte
      die Bedingungen gar nicht. */
-  ok("Bedingungen auch im EV-Zweig", /\$\{condZeile\(PLAY\.here, ev\.target\|\|_hrC\.green\)\}/.test(src));
+  /* Seit v3.83 steht die Zeile VOR der Empfehlung — sie ist die Zahl, mit der
+     man den Schläger wählt, und stand vorher unter Streubildern, Alternativen
+     und Planzeile, also dort, wo man auf der Bahn nicht mehr hinsieht. */
+  ok("Bedingungen auch im EV-Zweig", /const spieltWie=condZeile\(PLAY\.here, ev\.target\|\|_hrC\.green\);/.test(src));
+  ok("und zwar ganz oben", /<div class="play-caddy">\$\{spieltWie\}<div class="pc-head">/.test(src));
+  /* Beide Zweige gleich aufgebaut — sonst sucht man die Zahl je nach Lage an
+     zwei verschiedenen Stellen. */
+  ok("im Regel-Zweig ebenso", /<div class="play-caddy">\$\{weatherEffectHtml\(bearing,mid\)\}<div class="pc-head">/.test(src));
   if (typeof CZ === "function") {
     eq("ohne Punkte keine Zeile", CZ(null, null), "");
     /* Unter drei Metern schweigt sie: Eine Zeile, die bei jedem Loch „±1 m"
