@@ -5342,6 +5342,34 @@ group("Abgleich — eine Löschung in der Karte überlebt den Merge");
   }
 }
 
+/* ============ 24ea. Erfolge sind keine Fehler ============ */
+group("Protokoll — kein Erfolg unter den Fehlern");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+  const js = (src.match(/<script(?![^>]*(?:src=|application\/json|text\/markdown|devdocs))[^>]*>([\s\S]*?)<\/script>/g) || []).join("\n");
+
+  /* Im Protokoll standen vier ERFOLGE mit ✕ und Aufrufstapel neben echten
+     Abstürzen — gemeldet über `logErr` mit einem eigens gebauten `new Error`.
+     Das ist genau das Rauschen, das ein Protokoll unbrauchbar macht: Wer
+     zwischen fünf gemeldeten „Fehlern" erst prüfen muss, welche überhaupt
+     welche sind, sieht beim sechsten Mal gar nicht mehr hin. */
+  ok("Gameplan-Erneuerung ist eine Info", /logWarn\("Gameplan", "Plan neu berechnet: "/.test(js));
+  ok("Umkategorisierung ist eine Info", /logWarn\("Wissensdatenbank"/.test(js));
+  ok("ergänzte Tests sind eine Info", /logWarn\("Tests",/.test(js));
+  ok("Schwung-Umstellung ist eine Info", /logWarn\("Schwungdaten"/.test(js));
+  ok("Merksatz steht bei logWarn", /`logErr` ist fuer FEHLER da/.test(js));
+
+  /* Gegenprobe: Was WIRKLICH fehlgeschlagen ist, bleibt ein Fehler — auch
+     wenn ein Wiederholungsversuch folgt. */
+  ok("HTTP-Fehlschlag bleibt ein Fehler", /logErr\("draftPush", new Error\("HTTP /.test(js));
+  /* Und es bleiben nur noch echte Fehlerfälle mit erzeugtem Error übrig. */
+  /* Nur AUFRUFE zählen, keine Doku: Der Changelog-Eintrag beschreibt die
+     Änderung im Fließtext („statt `logErr(new Error(...))`") und wurde
+     mitgezählt — die Prüfung schlug damit gegen ihre eigene Beschreibung an. */
+  const kuenstlich = (js.match(/logErr\(\s*"[^"]+",\s*new Error\(/g) || []).length;
+  ok("nur noch echte Fehlerfälle", kuenstlich <= 3, kuenstlich + " Stellen");
+}
+
 /* ============ 24dz. Gelöschtes bleibt gelöscht ============ */
 group("Abgleich — eine gelöschte Linie darf nicht zurückkommen");
 {
@@ -8142,8 +8170,11 @@ group("Gameplan hält sich selbst frisch");
   }
 
   /* Der teure Teil gehört NICHT in die Runde und nicht in Serie. */
+  /* Fenster vergrößert (v3.69): Der Kommentar zur Protokollstufe hat die
+     Funktion länger gemacht; mit 1400 Zeichen lag das "return" außerhalb, und
+     die Prüfung fiel aus einem Grund aus, der nichts mit ihr zu tun hat. */
   const ar = src.slice(src.indexOf("function gpAutoRefresh()"),
-                       src.indexOf("function gpAutoRefresh()") + 1400);
+                       src.indexOf("function gpAutoRefresh()") + 2200);
   ok("niemals während einer Runde", /PLAY\.active\) return;/.test(ar));
   ok("höchstens ein Plan je Durchgang", /\n      return;\s*\/\/ einer pro Durchgang/.test(ar));
   ok("Abdruck wird mitgeschrieben", /p\.fp=fp; p\.ts=new Date\(\)\.toISOString\(\)/.test(ar));
