@@ -175,7 +175,7 @@ try {
                  "holeGir","holeUpDown","holeSandSave","platzAnalyse","taskFortschritt",
                  "warmupSchedule","warmupKorrektiv","WARMUP_PLANS","medianSplit","pearson",
                  "rKrit","gpKey","gpLabel","gpTotalES","pickClub","_aimClub","_aimLerp",
-                 "geoEdSelHat","geoEdVertHandles","snapshot","_nearest","_reaching","heuteJetzt","dispOvalFrom","dispChipHtml","dispRingPath","pathTopPoint","dispHitShare","dispText","dispSchemaSvg","dispSigmaFor","_erf","gpClubFracs","measureOrigin","geoEdMinW","editMinW","vegMask","maskMorph","maskBlobs","blobRing","ringSimplify","detectVeg","gpFingerprint","gpStale","_hash32","vegOn","viewBoxFor","troubleFeatures","geoEdPunktVon","_mergeCourses","snapBehalten","playVecKey","syncFinger","courseSVG","mergeDB","mergeDraft","watchPayload","shotZaehlt","playTouchHole","watchGeo","probeFrage","probePlan","cardBlock","playCardHtml","playAutoView","playBegin","pfCaddyKurz","_mergeCourses","_mergeCourses","hazOn","toggleHaz","simAktiv","simStart","simStop","simSetzePosition","modiZeile","SPIELWEISE","WEDGE_ZONE","playAimChain","holeRef","geoDist","playMapInitView","heuteTests","heuteSport","caddyFuerPunkt","_watchPos","istAchtzehn","equipSet","equipAll","equipHtml","deDatumZuIso","isoZuDeDatum","ensureSeedTests","SEED","logWarn","logWarnEinmal","ERRLOG","condZeile","caddyClubs","clubPick","gearHat","gearSeed","gearAll","progVerfuegbar","GOLF_PROG","dauerUebungHtml","fitplanIdx","fitplanAll","fitplanSet","fitplanHeute","fitplanWocheGeschafft","wikiRelated","wikiToc","wikiTocId","wikiForSG","wikiTagsShow","SAT_SRC","satSrcFor","satTileUrl","satTileKey","DB","STRAT","GEOED"];
+                 "geoEdSelHat","geoEdVertHandles","snapshot","_nearest","_reaching","heuteJetzt","dispOvalFrom","dispChipHtml","dispRingPath","pathTopPoint","dispHitShare","dispText","dispSchemaSvg","dispSigmaFor","_erf","gpClubFracs","measureOrigin","geoEdMinW","editMinW","vegMask","maskMorph","maskBlobs","blobRing","ringSimplify","detectVeg","gpFingerprint","gpStale","_hash32","vegOn","viewBoxFor","troubleFeatures","geoEdPunktVon","_mergeCourses","snapBehalten","playVecKey","syncFinger","courseSVG","mergeDB","mergeDraft","watchPayload","shotZaehlt","playTouchHole","watchGeo","probeFrage","probePlan","cardBlock","playCardHtml","playAutoView","playBegin","pfCaddyKurz","_mergeCourses","_mergeCourses","geoEdSelKey","geoEdSelParse","geoEdSelObj","hazOn","toggleHaz","simAktiv","simStart","simStop","simSetzePosition","modiZeile","SPIELWEISE","WEDGE_ZONE","playAimChain","holeRef","geoDist","playMapInitView","heuteTests","heuteSport","caddyFuerPunkt","_watchPos","istAchtzehn","equipSet","equipAll","equipHtml","deDatumZuIso","isoZuDeDatum","ensureSeedTests","SEED","logWarn","logWarnEinmal","ERRLOG","condZeile","caddyClubs","clubPick","gearHat","gearSeed","gearAll","progVerfuegbar","GOLF_PROG","dauerUebungHtml","fitplanIdx","fitplanAll","fitplanSet","fitplanHeute","fitplanWocheGeschafft","wikiRelated","wikiToc","wikiTocId","wikiForSG","wikiTagsShow","SAT_SRC","satSrcFor","satTileUrl","satTileKey","DB","STRAT","GEOED"];
   const epilog = "\n;globalThis.__T={" +
     namen.map(n => `${n}: (typeof ${n}!=="undefined"?${n}:undefined)`).join(",") + "};";
   vm.runInContext(code + epilog, ctx, { timeout: 20000 });
@@ -3172,7 +3172,9 @@ group("SPIELWEISE — Caddy und Ziellinie können nicht mehr auseinanderlaufen")
   const nsAb=src.indexOf("nextShot(geo,courseName,holeNo,from,mode,hcp");
   /* Fenster vergroessert (v3.62): Die Leitplanken stehen vor der Bewertung,
      die Bewertung ist damit weiter hinten in der Funktion. */
-  const ns=src.slice(nsAb, nsAb+7000);
+  /* Nochmals vergroessert (v3.76): Wetter- und Lage-Umrechnung stehen vor der
+     Bewertung. */
+  const ns=src.slice(nsAb, nsAb+9000);
   ok("nextShot verrechnet Sand", /w\.sand\*sandQ/.test(ns));
   ok("nextShot verrechnet Rough", /w\.rough\*roughQ/.test(ns));
   ok("nextShot belohnt die Wedge-Zone", /inWedgeZone\(restNach\)/.test(ns));
@@ -5413,6 +5415,102 @@ group("Abgleich — eine gelöschte Linie darf nicht zurückkommen");
   }
 }
 
+/* ============ 24ef. Vier Lücken der Caddy-Logik ============ */
+group("Caddy — Wetter, eigene Lage, verlorener Ball, Dogleg");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+  const S = G("STRAT");
+
+  /* (1) WETTER UND HÖHE: `playsLike()` gab es lange, aber nur der heuristische
+     Caddy benutzte es. Die EV-Kette rechnete mit roher Traglänge — auf dem
+     Schirm stand „spielt wie 281 m" über einer Kette, die mit 274 m plante.
+     Wieder zwei Rechnungen für dieselbe Sache. */
+  ok("Umrechnung vorhanden", /wetterCarry\(carry, brg, von, ziel\)/.test(src));
+  ok("am Abschlag angewandt", /const carry=this\.wetterCarry\(carryRoh, brg, teeP, g\.green\)/.test(src));
+  ok("bei Folgeschlägen ebenso", /this\.wetterCarry\(carryRoh, brg, from, g\.green\) \* _lageF/.test(src));
+  ok("Deckel gegen Unsinn", /carry\*0\.75, Math\.min\(carry\*1\.25/.test(src));
+
+  if (S && typeof S.wetterCarry === "function") {
+    const W = G("WEATHER");
+    /* Ohne Wetter darf sich NICHTS ändern — sonst wäre die Änderung ein
+       Risiko für jeden, der offline spielt. */
+    eq("ohne Wetter unverändert", Math.round(S.wetterCarry(211, 0, null, null)), 211);
+  }
+
+  /* (2) EIGENE LAGE: Aus dem Rough plante die Engine mit voller Länge — der
+     häufigste Fall einer Runde. Keine neue Eingabe nötig: Die App weiß über
+     `lieCode`, wo man steht. */
+  ok("Lagefaktor vorhanden", /lageFaktor\(g, von\)/.test(src));
+  ok("Werte benannt", /LAGE_FAKTOR:\{ 1:1\.00, 4:1\.00, 2:0\.90, 7:0\.80, 3:0\.75/.test(src));
+  ok("einmal je Standort, nicht je Schläger", /const _lageF=this\.lageFaktor\(g, from\);/.test(src));
+  if (S && S.LAGE_FAKTOR) {
+    ok("Fairway voll", S.LAGE_FAKTOR[S.LIE.fairway] === 1);
+    ok("Rough kostet", S.LAGE_FAKTOR[S.LIE.rough] < 1);
+    ok("Bunker kostet mehr als Rough", S.LAGE_FAKTOR[S.LIE.sand] < S.LAGE_FAKTOR[S.LIE.rough]);
+  }
+
+  /* (4) VERLORENER BALL: Im dichten Wald gilt Schlag und Distanz wie beim Aus —
+     die Recovery-Kurve allein ist zu günstig. */
+  ok("verlorener Ball modelliert", /VERLORENER BALL IM WALD/.test(src));
+  ok("Wahrscheinlichkeit benannt", /VERLOREN_P:0\.25/.test(src));
+  ok("wie Aus gerechnet", /const verloren=this\.lookup\(rest,"fairway",hcp\)\+2;/.test(src));
+  if (S && typeof S.lookup === "function") {
+    const fw = S.lookup(150, "fairway", 20), rec = S.lookup(150, "recovery", 20);
+    const erwartet = rec + S.VERLOREN_P * ((fw + 2) - rec);
+    ok("Wald kostet jetzt mehr als die reine Kurve", erwartet > rec, erwartet.toFixed(2));
+    /* Aber nicht so viel, dass jeder Wald zur Sperrzone wird — sonst empfiehlt
+       der Caddy Umwege, die kein Mensch spielt. */
+    ok("und weniger als Aus", erwartet < fw + 2, erwartet.toFixed(2));
+  }
+
+  /* (5) DOGLEG: Die Richtung zeigte auf `line[1]` — bei OSM-Bahnen oft ein
+     Stützpunkt 30 m vor dem Abschlag. Dann zielte die ganze Bewertung entlang
+     der Tee-Box statt die Bahn hinunter. */
+  ok("Knick wird gesucht", /DOGLEG: DEN RICHTIGEN KNICK NEHMEN/.test(src));
+  ok("Schwelle benannt", /DOGLEG_AB:120/.test(src));
+  ok("erster Punkt in Schlagweite", /if\(geoDist\(teeP, L\[i\]\) > this\.DOGLEG_AB\) return L\[i\];/.test(src));
+}
+
+/* ============ 24ee. Auswahl kennt beide Quellen ============ */
+group("Karteneditor — Auswahl auch für importierte Objekte");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+  const K = G("geoEdSelKey"), P = G("geoEdSelParse"), O = G("geoEdSelObj");
+
+  /* Auswahl und Löschen waren auf `geo.mine` beschränkt — also auf selbst
+     Gezeichnetes. Man zieht ein Rechteck über falsche OSM-Objekte, es passiert
+     nichts, und man hält den Editor für kaputt. Dieselbe Lücke wie beim
+     Löschen-Stift (v3.68), nur an der zweiten Stelle. */
+  ok("Schlüssel statt Index", typeof K === "function" && typeof P === "function");
+  if (typeof K === "function" && typeof P === "function") {
+    eq("eigenes Objekt", K("m", 3), "m3");
+    eq("importiertes Objekt", K("f", 12), "f12");
+    eq("zurück gelesen", JSON.stringify(P("f12")), JSON.stringify({ quelle: "f", i: 12 }));
+    eq("Voreinstellung ist mine", P("7").quelle, "m");
+    /* DER GRUND für den Buchstaben: Zwei Zahlenräume in einer Liste wären ohne
+       Kennzeichen nicht auseinanderzuhalten — und ein falsch aufgelöster Index
+       löscht das falsche Objekt. */
+    ok("m7 und f7 sind verschieden", K("m", 7) !== K("f", 7));
+  }
+  if (typeof O === "function") {
+    const geo = { mine: [{ kind: "wood" }, { kind: "bunker" }], features: [{ kind: "water" }] };
+    eq("löst mine auf", O(geo, "m1").kind, "bunker");
+    eq("löst features auf", O(geo, "f0").kind, "water");
+    eq("außerhalb nichts", O(geo, "f9"), null);
+  }
+  ok("Rechteck fasst beide Quellen", /geo\.features\|\|\[\]\)\.forEach\(\(f,i\)=>\{[\s\S]{0,200}geoEdSelKey\("f",i\)/.test(src));
+  /* Lochlinien bleiben tabu: Wer ein Rechteck über eine Bahn zieht, will Bäume
+     und Bunker treffen, nicht das Loch selbst löschen. */
+  ok("Lochlinien ausgenommen", /if\(!f \|\| f\.kind==="hole"\) return;\s*\n\s*const p=geoEdPunktVon/.test(src));
+  /* Je Quelle absteigend löschen — eine gemeinsame Sortierung wäre falsch,
+     weil `m7` und `f7` verschiedene Listen meinen. */
+  ok("je Quelle sortiert", /mi\.sort\(\(a,b\)=>b-a\)[\s\S]{0,120}fi\.sort\(\(a,b\)=>b-a\)/.test(src));
+  ok("Hinweis auf den Import", /ein neuer Import bringt sie zurück/.test(src));
+  /* Sichtbar machen geht nur mit einem Kennzeichen im SVG — und das gehört
+     NUR in den Editor, damit die Spielkarte unverändert bleibt. */
+  ok("Kennzeichen nur im Editor", /const featAttr = opt\.edit \? ` data-feat="\$\{_fi\}"` : "";/.test(src));
+}
+
 /* ============ 24ed. Flugkurve über Hindernisse ============ */
 group("Flugkurve — kommt der Schläger über den Baum?");
 {
@@ -5508,7 +5606,11 @@ group("Doku — das Caddy-Regelwerk an einer Stelle");
   ok("Lückenliste vorhanden", /Was der Caddy NICHT kennt/.test(doc));
   ok("Rot/Gelb als Lücke benannt", /Rot gegen Gelb/.test(doc));
   ok("Aus-Näherung offengelegt", /Aus wird vereinfacht/.test(doc));
-  ok("verlorener Ball als Lücke", /Ball verloren ausserhalb eines Strafgebiets/.test(doc));
+  /* Seit v3.76 im dichten Bewuchs modelliert — die verbliebene Lücke ist das
+     hohe Rough. Die Doku muss beides auseinanderhalten, sonst hält man für
+     erledigt, was noch offen ist. */
+  ok("verbliebene Lücke benannt", /Ball verloren im hohen Rough/.test(doc));
+  ok("und das Modellierte steht in der Fähigkeitsliste", /Verlorener Ball im Wald/.test(doc));
   ok("Trennung Messung/Vorliebe", /Erwartungswerte sind die MESSUNG/.test(doc));
 
   /* Und die Behauptung über Wald muss stimmen — eine Doku, die etwas anderes
@@ -7837,8 +7939,11 @@ group("Karteneditor — Erkennung nachbessern");
 
   /* Indizes sind heikel: `mine` ist ein Array, Löschen verschiebt alles
      dahinter. Absteigend löschen, und die Auswahl bei JEDER Änderung leeren. */
+  /* Fenster vergrößert (v3.75): Das Löschen trennt jetzt nach Quelle
+     (`mine` und `features`) und begründet warum — die Funktion ist dadurch
+     länger geworden. */
   const del = src.slice(src.indexOf("function geoEdSelDelete()"),
-                        src.indexOf("function geoEdSelDelete()") + 700);
+                        src.indexOf("function geoEdSelDelete()") + 1400);
   ok("absteigend löschen", /sort\(\(a,b\)=>b-a\)/.test(del));
   ok("Auswahl danach leer", /geoEdSelClear\(\)/.test(del));
   ok("Rückfrage ab sechs Objekten", /sel\.length>5 && !confirm/.test(del));
@@ -8650,8 +8755,10 @@ group("Caddy — zweiter Zug und die Gewichte, die ihn tragen");
 
     /* --- (b) Zweiter Zug --- */
     ok("_ply2 existiert", typeof S._ply2 === "function");
+    /* Fenster vergroessert (v3.76): Dogleg-Knick und Wetter-Umrechnung stehen
+       vor der zweiten Ebene. */
     const te = src.slice(src.indexOf("  tee(geo,courseName,holeNo,mode,hcp,von,nurClub)"),
-                         src.indexOf("  tee(geo,courseName,holeNo,mode,hcp,von,nurClub)") + 7500);
+                         src.indexOf("  tee(geo,courseName,holeNo,mode,hcp,von,nurClub)") + 10500);
     ok("zweite Ebene nur für die Spitze", /Math\.min\(5,cands\.length\)/.test(te));
     ok("Korrektur gedämpft (Mittelpunkt statt Verteilung)", /0\.7\s*\*\s*c\.ply2/.test(te));
     ok("Korrektur ist Gelände minus Tabelle", /p2\.sc\s*-\s*generisch/.test(te));
