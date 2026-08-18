@@ -175,7 +175,7 @@ try {
                  "holeGir","holeUpDown","holeSandSave","platzAnalyse","taskFortschritt",
                  "warmupSchedule","warmupKorrektiv","WARMUP_PLANS","medianSplit","pearson",
                  "rKrit","gpKey","gpLabel","gpTotalES","pickClub","_aimClub","_aimLerp",
-                 "geoEdSelHat","geoEdVertHandles","snapshot","_nearest","_reaching","heuteJetzt","dispOvalFrom","dispChipHtml","dispRingPath","pathTopPoint","dispHitShare","dispText","dispSchemaSvg","dispSigmaFor","_erf","gpClubFracs","measureOrigin","geoEdMinW","editMinW","vegMask","maskMorph","maskBlobs","blobRing","ringSimplify","detectVeg","gpFingerprint","gpStale","_hash32","vegOn","viewBoxFor","troubleFeatures","geoEdPunktVon","_mergeCourses","snapBehalten","playVecKey","syncFinger","courseSVG","mergeDB","mergeDraft","watchPayload","shotZaehlt","playTouchHole","watchGeo","probeFrage","probePlan","cardBlock","playCardHtml","playAutoView","playBegin","pfCaddyKurz","_mergeCourses","_mergeCourses","geoEdSelKey","geoEdSelParse","geoEdSelObj","hazOn","toggleHaz","simAktiv","simStart","simStop","simSetzePosition","modiZeile","SPIELWEISE","WEDGE_ZONE","playAimChain","holeRef","geoDist","playMapInitView","heuteTests","heuteSport","caddyFuerPunkt","_watchPos","istAchtzehn","equipSet","equipAll","equipHtml","deDatumZuIso","isoZuDeDatum","ensureSeedTests","SEED","logWarn","logWarnEinmal","ERRLOG","condZeile","caddyClubs","clubPick","gearHat","gearSeed","gearAll","progVerfuegbar","GOLF_PROG","dauerUebungHtml","fitplanIdx","fitplanAll","fitplanSet","fitplanHeute","fitplanWocheGeschafft","wikiRelated","wikiToc","wikiTocId","wikiForSG","wikiTagsShow","SAT_SRC","satSrcFor","satTileUrl","satTileKey","DB","STRAT","GEOED"];
+                 "geoEdSelHat","geoEdVertHandles","snapshot","_nearest","_reaching","heuteJetzt","dispOvalFrom","dispChipHtml","dispRingPath","pathTopPoint","dispHitShare","dispText","dispSchemaSvg","dispSigmaFor","_erf","gpClubFracs","measureOrigin","geoEdMinW","editMinW","vegMask","maskMorph","maskBlobs","blobRing","ringSimplify","detectVeg","gpFingerprint","gpStale","_hash32","vegOn","viewBoxFor","troubleFeatures","geoEdPunktVon","_mergeCourses","snapBehalten","playVecKey","syncFinger","courseSVG","mergeDB","mergeDraft","watchPayload","shotZaehlt","playTouchHole","watchGeo","probeFrage","probePlan","cardBlock","playCardHtml","playAutoView","playBegin","pfCaddyKurz","_mergeCourses","_mergeCourses","ringFlaecheM2","geoEdSelKey","geoEdSelParse","geoEdSelObj","hazOn","toggleHaz","simAktiv","simStart","simStop","simSetzePosition","modiZeile","SPIELWEISE","WEDGE_ZONE","playAimChain","holeRef","geoDist","playMapInitView","heuteTests","heuteSport","caddyFuerPunkt","_watchPos","istAchtzehn","equipSet","equipAll","equipHtml","deDatumZuIso","isoZuDeDatum","ensureSeedTests","SEED","logWarn","logWarnEinmal","ERRLOG","condZeile","caddyClubs","clubPick","gearHat","gearSeed","gearAll","progVerfuegbar","GOLF_PROG","dauerUebungHtml","fitplanIdx","fitplanAll","fitplanSet","fitplanHeute","fitplanWocheGeschafft","wikiRelated","wikiToc","wikiTocId","wikiForSG","wikiTagsShow","SAT_SRC","satSrcFor","satTileUrl","satTileKey","DB","STRAT","GEOED"];
   const epilog = "\n;globalThis.__T={" +
     namen.map(n => `${n}: (typeof ${n}!=="undefined"?${n}:undefined)`).join(",") + "};";
   vm.runInContext(code + epilog, ctx, { timeout: 20000 });
@@ -5415,6 +5415,34 @@ group("Abgleich — eine gelöschte Linie darf nicht zurückkommen");
   }
 }
 
+/* ============ 24eg. Grünfläche: Größe als Diagnose ============ */
+group("Platzkarte — ein zu klein gezeichnetes Grün erklärt „Grün 0 %“");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+  const A = G("ringFlaecheM2");
+
+  /* Im Protokoll stand: Ziel 0 m vom Grünpunkt, 1 m vom Mittelpunkt der
+     Grünfläche — und trotzdem „Grün 0 %". Wenn das Ziel mitten auf dem Grün
+     liegt und die Quote null ist, bleibt als Erklärung nur, dass die FLÄCHE zu
+     klein gezeichnet ist. Ohne diese Zahl rät man weiter. */
+  ok("Flächenrechnung vorhanden", typeof A === "function");
+  if (typeof A === "function") {
+    const mLat = 110540, mLng = 111320 * Math.cos(54 * Math.PI / 180);
+    const at = (n, e) => [54.0 + n / mLat, 10.77 + (e || 0) / mLng];
+    const ring = r => [at(279 - r, -r), at(279 - r, r), at(279 + r, r), at(279 + r, -r)];
+    /* 14 m Halbmesser ≈ 784 m² — die Größenordnung eines echten Grüns. */
+    const gross = A(ring(14)), klein = A(ring(5));
+    ok("normales Grün 400–900 m²", gross > 400 && gross < 900, Math.round(gross) + " m²");
+    ok("kleines Grün wird als klein erkannt", klein < 150, Math.round(klein) + " m²");
+    eq("ohne Ring null", A(null), 0);
+    eq("mit zwei Punkten null", A([[0, 0], [1, 1]]), 0);
+  }
+  ok("Größe wird gemeldet", /Grünfläche nur \$\{a\} m² — ein Grün hat 400–800 m²/.test(src));
+  ok("und in der Null-Prozent-Meldung genannt", /Grünfläche \$\{flaeche\} m²/.test(src));
+  /* Die Schwelle muss benannt sein, sonst ist sie eine Zahl aus dem Nichts. */
+  ok("Schwelle 150 m²", /a>0 && a<150/.test(src));
+}
+
 /* ============ 24ef. Vier Lücken der Caddy-Logik ============ */
 group("Caddy — Wetter, eigene Lage, verlorener Ball, Dogleg");
 {
@@ -5771,11 +5799,15 @@ group("Karte — Strafgebiete und Aus ausblenden, ohne die Rechnung zu ändern")
      zwei Linien empfiehlt der Caddy den Driver mitten hinein, als Fläche legt
      er mit dem 7 Iron davor. Das ist der Unterschied zwischen einer Warnung
      und einem Strafschlag. */
-  ok("Linien-Gefahren werden gemeldet", /als LINIE gezeichnet — der Caddy wertet nur Flächen aus/.test(src));
-  ok("mit klarer Abhilfe", /Als geschlossene Fläche neu zeichnen/.test(src));
-  ok("nur Strafgebiet und Aus", /f\.kind==="penalty"\|\|f\.kind==="ob"/.test(src));
-  /* Einmal je Loch: Es ist eine Eigenschaft der Karte, keine der Lage. */
-  ok("einmal je Loch", /logWarnEinmal\("gefahrLinie:"\+hL\.hole/.test(src));
+  /* DIESE WARNUNG IST ENTFALLEN (v3.77). Sie stimmte bis v3.71 und wurde mit
+     v3.72 falsch: Aus-Linien werden seither in eine Halbebene übersetzt,
+     Strafgebiets-Linien in ein Band — beide gehen in die Bewertung ein. Die
+     Warnung riet dazu, etwas neu zu zeichnen, das längst wirkt.
+     Eine falsche Warnung ist schlimmer als keine: Sie kostet Arbeit und
+     Vertrauen. Wer eine Fähigkeit nachrüstet, muss die Warnung mitnehmen, die
+     ihr Fehlen erklärt hat. */
+  ok("keine falsche Linien-Warnung mehr", !/als LINIE gezeichnet — der Caddy wertet nur Flächen aus/.test(src));
+  ok("Streichung ist begründet", /DIESE WARNUNG IST ENTFALLEN \(v3\.77\)/.test(src));
 }
 
 /* ============ 24dx. Prozentzahlen im Plan erklären sich ============ */
