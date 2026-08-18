@@ -5413,6 +5413,82 @@ group("Abgleich — eine gelöschte Linie darf nicht zurückkommen");
   }
 }
 
+/* ============ 24ed. Flugkurve über Hindernisse ============ */
+group("Flugkurve — kommt der Schläger über den Baum?");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+  const S = G("STRAT"), DB0 = G("DB"), PLAY0 = G("PLAY");
+
+  /* GEMELDET: Der Caddy empfahl ein 2er Eisen über einen Wald. Die Länge
+     reicht, die HÖHE nicht. `blocked()` prüfte bis v3.73 nur, ob etwas IN DER
+     LINIE steht — ob der Ball DARÜBER fliegt, war nie eine Frage.
+     Die Datenlage: Auf der Tour liegen die Scheitelhöhen aller Schläger dicht
+     beieinander. Das gilt aber nur bei Tour-Geschwindigkeit; bei langsamerem
+     Schlägerkopf fliegen niedrig geloftete Schläger deutlich flacher. */
+  ok("Flugkurve vorhanden", /FLUGKURVE — FLIEGT DER BALL UEBERHAUPT DRUEBER\?/.test(src));
+  ok("Scheitel je Loftklasse", /APEX_ANTEIL:\{ driver:0\.11/.test(src));
+  ok("Sicherheitszuschlag benannt", /flugHoehe\(club, dist\) >= hoehe \+ 2/.test(src));
+  ok("Schläger wird durchgereicht", /this\.blocked\(g,teeP,aim,cl\)/.test(src));
+
+  if (S && typeof S.apexKlasse === "function") {
+    /* Die Einordnung entscheidet alles — und „2 Driving Iron" fiel beim ersten
+       Anlauf durch, weil zwischen Ziffer und „iron" ein Wort steht. Er wurde
+       als Mitteleisen geführt und kam damit auf 27 m Scheitel statt 16. */
+    eq("Driver", S.apexKlasse("Driver"), "driver");
+    eq("2 Driving Iron ist ein langes Eisen", S.apexKlasse("2 Driving Iron"), "langeisen");
+    eq("3 Eisen ebenso", S.apexKlasse("3 Eisen"), "langeisen");
+    eq("7 Iron ist ein Mitteleisen", S.apexKlasse("7 Iron"), "mitteleisen");
+    eq("PW ist ein Wedge", S.apexKlasse("PW"), "wedge");
+    eq("Hybrid eigen", S.apexKlasse("4-Hybrid"), "hybrid");
+
+    /* Das VERHÄLTNIS ist die Aussage: langes Eisen flacher als Driver, trotz
+       weniger Länge. */
+    const h2 = S.apexHoehe({ name: "2 Driving Iron", carry: 180 });
+    const hD = S.apexHoehe({ name: "Driver", carry: 211 });
+    const h7 = S.apexHoehe({ name: "7 Iron", carry: 145 });
+    ok("langes Eisen fliegt flacher als der Driver", h2 < hD, h2.toFixed(1) + " < " + hD.toFixed(1));
+    ok("und flacher als ein Mitteleisen", h2 < h7, h2.toFixed(1) + " < " + h7.toFixed(1));
+    /* Und die Kurve muss am Anfang steigen, am Ende fallen. */
+    const c = { name: "7 Iron", carry: 145 };
+    ok("Kurve steigt anfangs", S.flugHoehe(c, 40) < S.flugHoehe(c, 70));
+    ok("und fällt zum Ende", S.flugHoehe(c, 140) < S.flugHoehe(c, 100));
+    eq("hinter der Traglänge null", S.flugHoehe(c, 200), 0);
+
+    /* DER GEMELDETE FALL: 15-m-Wald in 80 m. */
+    ok("2er Eisen kommt nicht über einen 15-m-Wald in 80 m",
+      S.fliegtDrueber({ name: "2 Driving Iron", carry: 180 }, 80, 15) === false);
+    ok("der Driver schon",
+      S.fliegtDrueber({ name: "Driver", carry: 211 }, 80, 15) === true);
+  }
+
+  if (S && DB0 && PLAY0 && typeof S.blocked === "function") {
+    const sicher = { c: DB0.courses, act: PLAY0.active, holes: PLAY0.holes,
+      course: PLAY0.course, idx: PLAY0.idx };
+    try {
+      const mLat = 110540, mLng = 111320 * Math.cos(54 * Math.PI / 180);
+      const at = (n, e) => [54.0 + n / mLat, 10.77 + (e || 0) / mLng];
+      const t2 = at(0), g = at(300);
+      const geo = { holes: { 1: { tee: t2, green: g, line: [t2, g], distM: 300 } },
+        features: [{ kind: "tree", pt: at(60, 0) }, { kind: "tree", pt: at(60, 5) },
+          { kind: "tree", pt: at(60, -5) }] };
+      DB0.courses = [{ name: "Baum-Test", tees: { Gelb: { holes: [{ hole: 1, par: 4, si: 1, len: 300 }] } }, geo }];
+      PLAY0.active = false;
+      const PB = G("playBegin"); if (typeof PB === "function") PB("Baum-Test", "Gelb", 0);
+      PLAY0.idx = 0;
+      const gr = S.grid(geo, "Baum-Test", 1), ziel = at(160);
+      /* Ohne Schläger bleibt der reine Linien-Test — alte Aufrufe dürfen nicht
+         still ausfallen. */
+      ok("ohne Schläger weiterhin geblockt", S.blocked(gr, t2, ziel) > 0);
+      ok("2er Eisen bleibt geblockt", S.blocked(gr, t2, ziel, { name: "2 Driving Iron", carry: 180 }) > 0);
+      eq("Driver fliegt darüber", S.blocked(gr, t2, ziel, { name: "Driver", carry: 211 }), 0);
+      eq("7 Iron ebenso", S.blocked(gr, t2, ziel, { name: "7 Iron", carry: 145 }), 0);
+    } finally {
+      DB0.courses = sicher.c; PLAY0.active = sicher.act; PLAY0.holes = sicher.holes;
+      PLAY0.course = sicher.course; PLAY0.idx = sicher.idx;
+    }
+  }
+}
+
 /* ============ 24ec. Caddy-Regelwerk in der Doku ============ */
 group("Doku — das Caddy-Regelwerk an einer Stelle");
 {
