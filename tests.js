@@ -175,7 +175,7 @@ try {
                  "holeGir","holeUpDown","holeSandSave","platzAnalyse","taskFortschritt",
                  "warmupSchedule","warmupKorrektiv","WARMUP_PLANS","medianSplit","pearson",
                  "rKrit","gpKey","gpLabel","gpTotalES","pickClub","_aimClub","_aimLerp",
-                 "geoEdSelHat","geoEdVertHandles","snapshot","_nearest","_reaching","heuteJetzt","dispOvalFrom","dispChipHtml","dispRingPath","pathTopPoint","dispHitShare","dispText","dispSchemaSvg","dispSigmaFor","_erf","gpClubFracs","measureOrigin","geoEdMinW","editMinW","vegMask","maskMorph","maskBlobs","blobRing","ringSimplify","detectVeg","gpFingerprint","gpStale","_hash32","vegOn","viewBoxFor","troubleFeatures","geoEdPunktVon","_mergeCourses","snapBehalten","playVecKey","syncFinger","courseSVG","mergeDB","mergeDraft","watchPayload","shotZaehlt","playTouchHole","watchGeo","probeFrage","probePlan","cardBlock","playCardHtml","playAutoView","playBegin","pfCaddyKurz","simAktiv","simStart","simStop","simSetzePosition","modiZeile","SPIELWEISE","WEDGE_ZONE","playAimChain","holeRef","geoDist","playMapInitView","heuteTests","heuteSport","caddyFuerPunkt","_watchPos","istAchtzehn","equipSet","equipAll","equipHtml","deDatumZuIso","isoZuDeDatum","ensureSeedTests","SEED","logWarn","logWarnEinmal","ERRLOG","condZeile","caddyClubs","clubPick","gearHat","gearSeed","gearAll","progVerfuegbar","GOLF_PROG","dauerUebungHtml","fitplanIdx","fitplanAll","fitplanSet","fitplanHeute","fitplanWocheGeschafft","wikiRelated","wikiToc","wikiTocId","wikiForSG","wikiTagsShow","SAT_SRC","satSrcFor","satTileUrl","satTileKey","DB","STRAT","GEOED"];
+                 "geoEdSelHat","geoEdVertHandles","snapshot","_nearest","_reaching","heuteJetzt","dispOvalFrom","dispChipHtml","dispRingPath","pathTopPoint","dispHitShare","dispText","dispSchemaSvg","dispSigmaFor","_erf","gpClubFracs","measureOrigin","geoEdMinW","editMinW","vegMask","maskMorph","maskBlobs","blobRing","ringSimplify","detectVeg","gpFingerprint","gpStale","_hash32","vegOn","viewBoxFor","troubleFeatures","geoEdPunktVon","_mergeCourses","snapBehalten","playVecKey","syncFinger","courseSVG","mergeDB","mergeDraft","watchPayload","shotZaehlt","playTouchHole","watchGeo","probeFrage","probePlan","cardBlock","playCardHtml","playAutoView","playBegin","pfCaddyKurz","_mergeCourses","_mergeCourses","hazOn","toggleHaz","simAktiv","simStart","simStop","simSetzePosition","modiZeile","SPIELWEISE","WEDGE_ZONE","playAimChain","holeRef","geoDist","playMapInitView","heuteTests","heuteSport","caddyFuerPunkt","_watchPos","istAchtzehn","equipSet","equipAll","equipHtml","deDatumZuIso","isoZuDeDatum","ensureSeedTests","SEED","logWarn","logWarnEinmal","ERRLOG","condZeile","caddyClubs","clubPick","gearHat","gearSeed","gearAll","progVerfuegbar","GOLF_PROG","dauerUebungHtml","fitplanIdx","fitplanAll","fitplanSet","fitplanHeute","fitplanWocheGeschafft","wikiRelated","wikiToc","wikiTocId","wikiForSG","wikiTagsShow","SAT_SRC","satSrcFor","satTileUrl","satTileKey","DB","STRAT","GEOED"];
   const epilog = "\n;globalThis.__T={" +
     namen.map(n => `${n}: (typeof ${n}!=="undefined"?${n}:undefined)`).join(",") + "};";
   vm.runInContext(code + epilog, ctx, { timeout: 20000 });
@@ -5272,6 +5272,189 @@ group("Leitplanken — Regeln INNERHALB der Rechnung");
   ok("Gestrichene werden mitgegeben", /leitplanken:_lp\.gestrichen,/.test(src));
 }
 
+/* ============ 24dz. Importiertes löschen ============ */
+group("Karteneditor — auch importierte Objekte lassen sich löschen");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+
+  /* Der Löschen-Stift durchsuchte NUR `geo.mine`. Alles aus dem OSM-Import war
+     unlöschbar: Man tippt darauf, bekommt „Nichts in der Nähe" — und die Linie
+     steht beim nächsten Zeichnen wieder da. Von außen sieht das aus, als käme
+     sie zurück; gemeldet wurde es als Sync-Problem, es war eine fehlende
+     Fähigkeit.
+     Typischer Fall: ein Fluss, den OSM als ZWEI Uferlinien liefert. Für die
+     Rechnung sind Linien ohnehin unsichtbar — sie prüft `ring`, also
+     geschlossene Flächen. Man will sie also löschen und durch EINE Fläche
+     ersetzen. */
+  ok("Import wird durchsucht", /\(geo\.features\|\|\[\]\)\.forEach\(\(f,i\)=>\{ if\(fi<0 && f\.ring/.test(src));
+  ok("auch Linien, nicht nur Flächen", /const pts=f\.line\|\|f\.ring;/.test(src));
+  ok("wird wirklich entfernt", /geo\.features\.splice\(fi,1\)\[0\]/.test(src));
+  /* Selbstgezeichnetes zuerst: Wer eigene Arbeit anfasst, meint meistens die
+     eigene. Der Import-Zweig steht deshalb NACH allen `geo.mine`-Zweigen. */
+  ok("Selbstgezeichnetes hat Vorrang",
+    src.indexOf("geo.mine.splice(bi,1)[0]") < src.indexOf("geo.features.splice(fi,1)[0]"));
+  /* Die Grün-Zuordnung wird zwischengespeichert — nach dem Löschen einer
+     Fläche wäre sie veraltet. */
+  ok("Grün-Zuordnung wird verworfen", /PLAY\.greenRing=\{\};\s*\/\/ Zuordnung neu/.test(src));
+  /* Und der Hinweis sagt die Grenze: Ein neuer Import bringt es zurück. Das
+     muss man wissen, BEVOR man neu importiert. */
+  ok("Grenze steht im Hinweis", /ein neuer Import bringt es zurück/.test(src));
+}
+
+/* ============ 24dz. Gelöschte Kartenobjekte bleiben gelöscht ============ */
+group("Abgleich — eine Löschung in der Karte überlebt den Merge");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+  const MC = G("_mergeCourses");
+
+  /* GEMELDET: Zwei Uferlinien eines Flusses kamen nach dem Löschen immer
+     wieder. Es sah nach einem Anzeigefehler aus — es war der Abgleich.
+     Ein Platz trägt keinen eigenen Zeitstempel, also fällt `_mergeArr` auf
+     „der VOLLSTÄNDIGERE Eintrag gewinnt" zurück. Wer ein Objekt aus der Karte
+     löscht, macht seinen Eintrag KÜRZER — und verliert zuverlässig gegen die
+     Fassung im Repo. Derselbe Fehler wie v2.84, nur eine Ebene tiefer: dort
+     die ganze Karte, hier einzelne Objekte darin. */
+  ok("jüngere Karte gewinnt", /const jung = \(lAt>rAt\) \? l : r;/.test(src));
+  ok("nur bei unterschiedlichen Stempeln", /if\(l && r && lAt && rAt && lAt!==rAt\)/.test(src));
+  /* Die Worker-Kopie muss mitziehen — sonst räumt sie im ALT-Modus wieder ein. */
+  ok("im Worker gespiegelt", /gespiegelt aus der App: Die JUENGERE Karte gewinnt/.test(src));
+
+  if (typeof MC === "function") {
+    const geoMit = { holes: {}, features: [
+      { kind: "penalty", line: [[54, 10], [54.001, 10]] },
+      { kind: "penalty", line: [[54, 10.001], [54.001, 10.001]] },
+      { kind: "green", ring: [[54, 10], [54, 10.001], [54.001, 10.001]] }] };
+    const geoOhne = { holes: {}, features: [
+      { kind: "green", ring: [[54, 10], [54, 10.001], [54.001, 10.001]] }] };
+    const repo = { name: "P", geoAt: "2026-08-18T06:00:00Z", geo: geoMit };
+    const lokal = { name: "P", geoAt: "2026-08-18T07:00:00Z", geo: geoOhne };
+
+    const m = MC([lokal], [repo], null);
+    eq("Löschung überlebt", (m[0].geo.features || []).filter(f => f.kind === "penalty").length, 0);
+    /* Und die Gegenrichtung: Ist die REPO-Fassung jünger, gewinnt sie — sonst
+       verlöre man Arbeit vom anderen Gerät. */
+    const m2 = MC([Object.assign({}, lokal, { geoAt: "2026-08-18T05:00:00Z" })], [repo], null);
+    eq("jüngere Repo-Karte gewinnt", (m2[0].geo.features || []).length, 3);
+    /* Ohne Stempel bleibt die alte Heuristik — sie schützt vor Datenverlust,
+       wenn eine Seite nie bearbeitet wurde. */
+    const m3 = MC([{ name: "P", geo: geoOhne }], [{ name: "P", geo: geoMit }], null);
+    ok("ohne Stempel gewinnt der vollständigere", (m3[0].geo.features || []).length === 3);
+  }
+}
+
+/* ============ 24dz. Gelöschtes bleibt gelöscht ============ */
+group("Abgleich — eine gelöschte Linie darf nicht zurückkommen");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+  const MC = G("_mergeCourses");
+
+  /* GEMELDET: Zwei Uferlinien eines Flusses kamen nach dem Löschen immer
+     wieder. Es sah nach einem Anzeigefehler aus — es war der Abgleich.
+     URSACHE: Ein Platz trug für die Karte keinen Zeitstempel, also fiel der
+     Merge auf „der VOLLSTÄNDIGERE Eintrag gewinnt" zurück (eine Heuristik
+     gegen Datenverlust). Wer ein Objekt löscht, macht seinen Eintrag KÜRZER —
+     und verliert damit zuverlässig gegen die Fassung im Repo.
+     Derselbe Fehler wie in v2.84, nur eine Ebene tiefer: dort die ganze Karte,
+     hier einzelne Objekte darin. */
+  ok("jüngere Karte gewinnt", /DIE JUENGERE KARTE GEWINNT — NICHT DIE LAENGERE/.test(src));
+  ok("nur bei unterschiedlichen Stempeln", /if\(l && r && lAt && rAt && lAt!==rAt\)/.test(src));
+  ok("jede Bearbeitung stempelt", /DB\.courses\[GEOED\.idx\]\.geoAt=new Date\(\)\.toISOString\(\)/.test(src));
+
+  if (typeof MC === "function") {
+    const ring = [[54, 10], [54, 10.001], [54.001, 10.001], [54.001, 10]];
+    /* Lokal: eine Linie gelöscht (also WENIGER Objekte), aber jünger gestempelt.
+       Repo: noch beide. Ohne den Fix gewinnt das Repo, weil es „mehr" hat. */
+    const lokal = [{ name: "P", geoAt: "2026-08-18T10:00:00.000Z",
+      geo: { holes: {}, features: [{ kind: "water", ring }] } }];
+    const repo = [{ name: "P", geoAt: "2026-08-17T10:00:00.000Z",
+      geo: { holes: {}, features: [{ kind: "water", ring }, { kind: "penalty", line: [[54, 10], [54, 10.002]] }] } }];
+    const m = MC(lokal, repo, null);
+    const c = (m || []).find(x => x && x.name === "P");
+    ok("Ergebnis vorhanden", !!(c && c.geo));
+    if (c && c.geo) {
+      eq("die gelöschte Linie bleibt weg", (c.geo.features || []).length, 1);
+      ok("und zwar die jüngere Fassung", (c.geo.features || [])[0].kind === "water");
+    }
+    /* Gegenprobe: Ohne Stempel bleibt die alte Heuristik — sie schützt vor
+       Datenverlust, wenn eine Seite nie bearbeitet wurde. */
+    const ohne = MC([{ name: "Q", geo: { holes: {}, features: [] } }],
+      [{ name: "Q", geo: { holes: {}, features: [{ kind: "water", ring }] } }], null);
+    const q = (ohne || []).find(x => x && x.name === "Q");
+    ok("ohne Stempel gewinnt weiter der vollständigere", !!(q && q.geo &&
+      (q.geo.features || []).length === 1));
+  }
+}
+
+/* ============ 24dy. Gefahren ausblenden ============ */
+group("Karte — Strafgebiete und Aus ausblenden, ohne die Rechnung zu ändern");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+  const CS = G("courseSVG"), S = G("STRAT"), DB0 = G("DB");
+
+  ok("Schalter vorhanden", /function hazOn\(\)/.test(src) && /function toggleHaz\(\)/.test(src));
+  ok("Knopf in der Kartenleiste", /onclick="toggleHaz\(\);playMapRedraw\(\)"/.test(src));
+  ok("wird an courseSVG übergeben", (src.match(/haz:hazOn\(\)/g) || []).length >= 2);
+  /* Aus BEIDEN Quellen: importierte Features UND selbst gezeichnete. Wer
+     ausblendet, will sie weghaben, nicht die halbe Menge. */
+  ok("greift auch für Selbstgezeichnetes", /geo\.mine\|\|\[\]\)\.forEach\(\(m,mi\)=>\{[^\n]*istHaz\(m\.kind\)/.test(src));
+
+  if (typeof CS === "function") {
+    const mLat = 110540, mLng = 111320 * Math.cos(54 * Math.PI / 180);
+    const at = (n, e) => [54.0 + n / mLat, 10.77 + (e || 0) / mLng];
+    const ring = (n, e, r) => [at(n - r, e - r), at(n - r, e + r), at(n + r, e + r), at(n + r, e - r)];
+    const geo = { holes: { 1: { tee: at(0), green: at(300), line: [at(0), at(300)], distM: 300 } },
+      features: [{ kind: "green", ring: ring(300, 0, 14) }, { kind: "water", ring: ring(150, 0, 20) }],
+      mine: [{ kind: "penalty", ring: ring(200, 0, 18) }, { kind: "ob", ring: ring(230, 40, 15) }] };
+    const pfade = h => (CS(geo, { w: 660, hole: 1, rotate: true, tight: true, osm: true, haz: h })
+      .svg.match(/<path/g) || []).length;
+    const mit = pfade(true), ohne = pfade(false);
+    ok("mit Gefahren mehr im Bild", mit > ohne, mit + " gegen " + ohne);
+    ok("ohne Gefahren bleibt das Grün", ohne >= 1, String(ohne));
+
+    /* DER KERN: Ein Schalter, der die Bewertung mitveränderte, wäre ein
+       Kartenfehler mit Ansage — man blendet etwas aus, um besser zu sehen, und
+       bekommt stillschweigend eine andere Empfehlung. */
+    if (S && DB0) {
+      const sicher = DB0.ui;
+      DB0.ui = Object.assign({}, DB0.ui || {}, { mapHaz: true });
+      const a = S.tee(geo, "HAZ-Test", 1, "safe", 20, at(0));
+      DB0.ui = Object.assign({}, DB0.ui || {}, { mapHaz: false });
+      const b = S.tee(geo, "HAZ-Test", 1, "safe", 20, at(0));
+      DB0.ui = sicher;
+      if (a && a.best && b && b.best)
+        eq("Rechnung bleibt gleich", a.best.score.toFixed(4), b.best.score.toFixed(4));
+      else ok("Rechnung bleibt gleich", !a === !b, "beide ohne Ergebnis");
+    }
+  }
+  /* Und der Hinweistext sagt es dazu — sonst nimmt jeder an, der Caddy rechne
+     jetzt ohne sie. */
+  ok("Toast erklärt die Grenze", /Gefahren ausgeblendet · Caddy rechnet weiter damit/.test(src));
+}
+
+/* ============ 24dx. Prozentzahlen im Plan erklären sich ============ */
+group("Plan vom Abschlag — die Prozentzahl braucht eine Überschrift");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+
+  /* „FW 49 %" und „Grün 75 %" standen ohne Erklärung da. Beide sind
+     TREFFERQUOTEN aus der Simulation. Ohne Auskunft liest man sie leicht als
+     „zu 49 % der richtige Schläger" — also als Vertrauen in die Empfehlung
+     statt als Ergebnis des Schlags. Der Unterschied ist groß: 49 % Fairway
+     ist für einen Driver ein normaler Wert, kein Warnzeichen. */
+  ok("Spaltenüberschrift vorhanden", /Schläger · Weite · Trefferquote/.test(src));
+  ok("FW wird erklärt", /<b>FW<\/b> = trifft das Fairway/.test(src));
+  ok("Grün wird erklärt", /<b>Grün<\/b> = trifft das Grün/.test(src));
+  ok("Bezugsgröße genannt", /von 1000 simulierten Bällen mit deiner Streuung/.test(src));
+  /* Die Einordnung ist der eigentliche Wert der Legende — eine Zahl ohne
+     Maßstab beunruhigt nur. */
+  ok("und eingeordnet", /49 % Fairway\s*\n?\s*ist normal, kein Warnzeichen/.test(src));
+  /* Nur die Spalten nennen, die auch vorkommen: Auf einem Par 3 gibt es keine
+     Fairwayquote, und eine Überschrift für eine leere Spalte verwirrt. */
+  ok("Legende nur für vorhandene Spalten", /const hatFw=ch\.legs\.some/.test(src) &&
+    /const hatGr=ch\.legs\.some/.test(src));
+  ok("einmal über der Liste, nicht je Zeile", /class="pc-plan-kopf r-s"/.test(src));
+}
+
 /* ============ 24dw. Panel und Karte sagen dasselbe ============ */
 group("Caddy — Detailansicht darf der Karte nicht widersprechen");
 {
@@ -5387,33 +5570,20 @@ group("Par 5 — der Layup darf nicht 13 m vor dem Grün enden");
      wie möglich. Gemeldeter Fall: Driver 237 m · „Layup" 3 Wood 213 m · LW 19 m
      — auf einem 463-m-Loch endet der Layup damit 13 m VOR dem Grün. Das ist
      kein Layup, sondern ein Angriff mit dem zweitlängsten Schläger. */
-  ok("Regel in der EV-Kette", /LAYUP MUSS EINEN SPIELBAREN REST LASSEN/.test(src));
-  ok("Zielrest nach Spielweise", /\{safe:110, bal:105, aggr:95\}/.test(src));
-  /* SCHWELLE 35 m, nicht 85 (Korrektur v3.57): Mit der unteren Wedge-Grenze
-     griff die Regel viel zu oft — auf einem 279-m-Par-4 zog sie den ABSCHLAG
-     von 211 auf 174 m zurück, damit statt 68 m ein „voller" Wedge bleibt. Nach
-     Broadies Daten ist näher fast immer besser; 40 m Länge für Bequemlichkeit
-     zu verschenken verliert Schläge. Die Regel räumt Unsinn weg (13 m Rest),
-     sie optimiert nicht. */
-  ok("nur echte Stümpfe werden korrigiert", /if\(restNach>=35\) continue;/.test(src));
-  ok("nicht mehr an der Wedge-Grenze", !/if\(restNach>=WEDGE_ZONE\.von\) continue;/.test(src));
-  ok("Merksatz steht dabei", /Die Regel raeumt Unsinn weg, sie optimiert nicht/.test(src));
-
-  /* TEXT UND KARTE: Die Detailansicht rief die EV-Engine mit `hcp = null` auf,
-     die Zielkette mit `STRAT.esHcp()` — der Text rechnete also für einen
-     anderen Spieler als die Karte. Das Handicap bestimmt die Streuung und damit,
-     ob der längere Schläger noch lohnt. */
-  ok("Detailansicht rechnet mit Handicap",
-    !/STRAT\.tee\(geo,PLAY\.course,h\.hole,caddyMode\(\),null,_caddyVon\(\)\)/.test(src));
-  ok("und mit derselben Position", /STRAT\.tee\(geo,PLAY\.course,h\.hole,caddyMode\(\),STRAT\.esHcp\(\),_caddyVon\(\)\)/.test(src));
-  /* Im heuristischen Zweig zeigt die Kopfzeile, was die KARTE zeichnet — sonst
-     stehen zwei Empfehlungen auf einem Bildschirm, und dann glaubt man keiner. */
-  ok("heuristischer Kopf folgt der Karte", /<span class="pc-badge">Karte<\/span>🎯 \$\{kette\}/.test(src));
-  ok("von Hand gesetzte Punkte bleiben", /if\(ov\[k\]!=null\) continue;/.test(src));
-  /* Der Riegel gegen „letzten Schlag" hat die Korrektur beim ersten Anlauf
-     genau dort verhindert, wo sie gebraucht wurde — das Grün wird erst NACH
-     der Schleife angehängt. */
-  ok("kein falscher Riegel mehr", !/if\(k\+2>pts\.length-1\) continue;/.test(src));
+  /* DIE REGEL STEHT JETZT NUR NOCH AN EINER STELLE (v3.66). Bis v3.65 gab es
+     zusätzlich eine Rücknahme in `_aimBuild`, die den Zielpunkt bis auf ~105 m
+     Rest zurückzog. Zwei Gründe für die Streichung:
+     1. Zweite Regelstelle — genau davor warnt Abschnitt 0a: Caddy und Gameplan
+        müssen dieselbe Antwort geben, also darf eine Regel nur einmal stehen.
+        `nextShot()` wendet die Leitplanken an, und die Kette rechnet darüber.
+     2. Sie korrigierte zu weit. Der Platz-Durchlauf zeigte in v3.64, dass
+        „näher ist besser" zwischen 25 und 85 m messbar stimmt — die Rücknahme
+        auf 105 m setzte eine gesetzte Zahl gegen eine gemessene. Im Protokoll
+        stand das als „Layup ließ nur 9 m übrig — auf 112 m zurückgenommen",
+        gleich auf mehreren Löchern. */
+  ok("keine zweite Layup-Regel mehr", !/logWarnEinmal\("layupStumpf:/.test(src));
+  ok("Streichung ist begründet", /SIE WAR EINE ZWEITE REGELSTELLE|ES WAR EINE ZWEITE REGELSTELLE/.test(src));
+  ok("Leitplanke deckt den Fall ab", /id:"wedgeZone"/.test(src));
 
   if (typeof AC === "function" && DB0 && PLAY0) {
     const sicher = { c: DB0.courses, cl: DB0.clubDistances, holes: PLAY0.holes,
@@ -5708,10 +5878,21 @@ group("Caddy — feste Kilometergrenze, Grünpunkt geprüft");
      mit der FLÄCHE überein. Beim OSM-Import endet die Lochlinie regelmäßig
      hinter dem Grün — dann ist alles verschoben, aber in sich stimmig, und
      beim Rechnen fällt es nicht auf. */
-  ok("Grünpunkt gegen Grünfläche geprüft", /gespeicherter Grünpunkt liegt \$\{ab\} m neben der Grünfläche/.test(src));
-  ok("nur bei echtem Versatz", /if\(ab>25\) logWarnEinmal\("gruenVersatz:/.test(src));
-  /* Nur die Fläche DIESES Lochs: Ein Grün 300 m weiter gehört zu einem anderen. */
-  ok("Fläche muss in der Nähe liegen", /geoDist\(ringCentroid\(f\.ring\), hrP\.green\)<120/.test(src));
+  /* MEINE ERSTE FASSUNG WAR FALSCH (v3.66): Sie suchte die nächstgelegene
+     Grünfläche im Umkreis von 120 m. Auf einem verschachtelten Platz ist das
+     oft die des NACHBARLOCHS — im Protokoll standen deshalb Meldungen wie
+     „Loch 9: Grünpunkt liegt 116 m neben der Grünfläche", während zeitgleich
+     „das Grün von Loch 18 liegt nur 72 m entfernt" gemeldet wurde. Beide
+     Zahlen beschrieben dasselbe: ein fremdes Grün.
+     `greenRingFor()` ordnet streng zu — die Fläche, die den Punkt ENTHÄLT,
+     sonst die nächste innerhalb von 30 m, sonst keine. */
+  ok("strenge Zuordnung statt eigener Suche", /greenRingFor\(gF,hF\.hole\)/.test(src));
+  ok("keine 120-m-Suche mehr", !/geoDist\(ringCentroid\(f\.ring\), hrP\.green\)<120/.test(src));
+  /* Gemeldet wird jetzt das FEHLEN einer Zuordnung — genau der Fall
+     „Grün 0 %" — statt eines Versatzes, den es bei strenger Zuordnung
+     praktisch nicht gibt. */
+  ok("fehlende Fläche wird gemeldet", /keine Grünfläche zugeordnet/.test(src));
+  ok("nur wenn es überhaupt Flächen gibt", /if\(!ring && hatFlaechen\)/.test(src));
 }
 
 /* ============ 24dl. Knopfleiste und Caddy-Abstand ============ */
