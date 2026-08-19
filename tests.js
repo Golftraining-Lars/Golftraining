@@ -175,7 +175,7 @@ try {
                  "holeGir","holeUpDown","holeSandSave","platzAnalyse","taskFortschritt",
                  "warmupSchedule","warmupKorrektiv","WARMUP_PLANS","medianSplit","pearson",
                  "rKrit","gpKey","gpLabel","gpTotalES","pickClub","_aimClub","_aimLerp",
-                 "geoEdSelHat","geoEdVertHandles","snapshot","_nearest","_reaching","heuteJetzt","dispOvalFrom","dispChipHtml","dispRingPath","pathTopPoint","dispHitShare","dispText","dispSchemaSvg","dispSigmaFor","_erf","gpClubFracs","measureOrigin","geoEdMinW","editMinW","vegMask","maskMorph","maskBlobs","blobRing","ringSimplify","detectVeg","gpFingerprint","gpStale","_hash32","vegOn","viewBoxFor","troubleFeatures","geoEdPunktVon","_mergeCourses","snapBehalten","playVecKey","syncFinger","courseSVG","mergeDB","mergeDraft","watchPayload","shotZaehlt","playTouchHole","watchGeo","probeFrage","probePlan","cardBlock","playCardHtml","playAutoView","playBegin","pfCaddyKurz","_mergeCourses","_mergeCourses","caddyPositionPlan","geoEdPunktVon","gpTotalN","ringFlaecheM2","geoEdSelKey","geoEdSelParse","geoEdSelObj","hazOn","toggleHaz","simAktiv","simStart","simStop","simSetzePosition","modiZeile","SPIELWEISE","WEDGE_ZONE","playAimChain","holeRef","geoDist","playMapInitView","heuteTests","heuteSport","caddyFuerPunkt","_watchPos","istAchtzehn","equipSet","equipAll","equipHtml","deDatumZuIso","isoZuDeDatum","ensureSeedTests","SEED","logWarn","logWarnEinmal","ERRLOG","condZeile","caddyClubs","clubPick","gearHat","gearSeed","gearAll","progVerfuegbar","GOLF_PROG","dauerUebungHtml","fitplanIdx","fitplanAll","fitplanSet","fitplanHeute","fitplanWocheGeschafft","wikiRelated","wikiToc","wikiTocId","wikiForSG","wikiTagsShow","SAT_SRC","satSrcFor","satTileUrl","satTileKey","DB","STRAT","GEOED"];
+                 "geoEdSelHat","geoEdVertHandles","snapshot","_nearest","_reaching","heuteJetzt","dispOvalFrom","dispChipHtml","dispRingPath","pathTopPoint","dispHitShare","dispText","dispSchemaSvg","dispSigmaFor","_erf","gpClubFracs","measureOrigin","geoEdMinW","editMinW","vegMask","maskMorph","maskBlobs","blobRing","ringSimplify","detectVeg","gpFingerprint","gpStale","_hash32","vegOn","viewBoxFor","troubleFeatures","geoEdPunktVon","_mergeCourses","snapBehalten","playVecKey","syncFinger","courseSVG","mergeDB","mergeDraft","watchPayload","shotZaehlt","playTouchHole","watchGeo","probeFrage","probePlan","cardBlock","playCardHtml","playAutoView","playBegin","pfCaddyKurz","_mergeCourses","_mergeCourses","caddyPositionPlan","geoEdPunktVon","gpTotalN","pinFuer","pinPunkt","pinZeile","pinSetz","greenDims","applyGeoOverrides","ringFlaecheM2","geoEdSelKey","geoEdSelParse","geoEdSelObj","hazOn","toggleHaz","simAktiv","simStart","simStop","simSetzePosition","modiZeile","SPIELWEISE","WEDGE_ZONE","playAimChain","holeRef","geoDist","playMapInitView","heuteTests","heuteSport","caddyFuerPunkt","_watchPos","istAchtzehn","equipSet","equipAll","equipHtml","deDatumZuIso","isoZuDeDatum","ensureSeedTests","SEED","logWarn","logWarnEinmal","ERRLOG","condZeile","caddyClubs","clubPick","gearHat","gearSeed","gearAll","progVerfuegbar","GOLF_PROG","dauerUebungHtml","fitplanIdx","fitplanAll","fitplanSet","fitplanHeute","fitplanWocheGeschafft","wikiRelated","wikiToc","wikiTocId","wikiForSG","wikiTagsShow","SAT_SRC","satSrcFor","satTileUrl","satTileKey","DB","STRAT","GEOED"];
   const epilog = "\n;globalThis.__T={" +
     namen.map(n => `${n}: (typeof ${n}!=="undefined"?${n}:undefined)`).join(",") + "};";
   vm.runInContext(code + epilog, ctx, { timeout: 20000 });
@@ -4384,7 +4384,17 @@ group("Karteneditor — die Karte steht oben");
      Vegetations-Karte davor — über 400 Bildpunkte auf dem Telefon. */
   ok("Loch-Auswahl vor der Karte", ui.indexOf('class="mchips geoed-head') < ui.indexOf('id="geoedSvg"'));
   ok("Karte vor den Werkzeugen", ui.indexOf('id="geoedSvg"') < ui.indexOf('class="geoed-bar"'));
-  ok("Werkzeuge kleben unten", /\.geoed-bar\{position:sticky;bottom:0/.test(src));
+  /* NICHT MEHR KLEBEND (v3.86). Gedacht war es als Hilfe — „der einzige Teil,
+     den man ständig braucht". Seit die Karte 46 % der Bildschirmhöhe einnimmt
+     (v3.84), verdeckte die klebende Leiste aber dauerhaft deren unteres
+     Drittel: ausgerechnet den Teil, auf dem man arbeitet, wenn man nach unten
+     scrollt. Zwei Maßnahmen, die einander bedingt haben, hoben sich auf.
+     MERKSATZ: Ein Element, das etwas anderes überdeckt, muss sich
+     rechtfertigen können — und „man braucht es oft" reicht nicht, wenn das
+     Verdeckte das Werkstück ist. */
+  ok("Werkzeuge kleben NICHT mehr", /\.geoed-bar\{position:static/.test(src));
+  ok("kein sticky-Rest", !/\.geoed-bar\{position:sticky/.test(src));
+  ok("Streichung ist begründet", /DIE WERKZEUGLEISTE KLEBT NICHT MEHR \(v3\.86\)/.test(src));
 
   /* Seltenes gehört in Klappen, nicht zwischen Karte und Werkzeug. */
   ok("Vegetation in einer Klappe", /<details class="descbox"[^>]*>\s*<summary><span>🌲 Wald/.test(ui));
@@ -5440,6 +5450,150 @@ group("Karteneditor — der Tipp im Auswahl-Modus");
   /* Und sichtbar wird die Auswahl nur mit dem Kennzeichen im SVG. */
   ok("Editor zeichnet mit edit:true", /courseSVG\(geo,\{w:660,hole:hole\|\|null,edit:true/.test(src));
   ok("Markierung greift auf data-feat", /svg\.querySelector\(`\[data-feat="\$\{p\.i\}"\]`\)/.test(src));
+}
+
+/* ============ 24en. Fahnenposition ============ */
+group("Caddy — die Fahne, nicht immer die Grünmitte");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+  const PF = G("pinFuer"), PP = G("pinPunkt"), PZ = G("pinZeile"),
+        GD = G("greenDims"), DB0 = G("DB"), PLAY0 = G("PLAY");
+
+  /* Front, Mitte und Back stehen seit je in der Kopfzeile, aber der Caddy
+     zielte IMMER auf die Grünmitte: `const F=null` mit dem Vermerk
+     „Fahnensteuerung entfernt, v1.90". `STRAT.approach()` kann eine Fahne
+     seitdem verarbeiten — sie wurde nur nie übergeben.
+     Bei einer Fahne vorn über Wasser ist die Mitte die falsche Antwort, bei
+     einer hinten lässt sie einen langen Putt übrig. Das sind die Löcher, auf
+     denen ein Score entsteht. */
+  ok("Fahne wird übergeben", /const F=pinPunkt\(geo,h\.hole\);/.test(src));
+  ok("kein festes null mehr", !/const F=null;\s*\/\/ Gruenmitte/.test(src));
+  /* Der Zwischenspeicher muss die Fahne kennen, sonst zeigt die Kette nach dem
+     Umschalten das alte Ergebnis. */
+  ok("Fahne im Cache-Schlüssel", /caddyMode\(\)\+"\|"\+pinFuer\(h\.hole\)/.test(src));
+  /* JE LOCH, nicht global: Eine Fahnenposition ist eine Eigenschaft DIESES
+     Grüns an DIESEM Tag. Ein globaler Schalter wäre nach dem dritten Loch
+     falsch und würde still weiterwirken. */
+  ok("je Loch gemerkt", /PLAY\.pins\[String\(n\)\]/.test(src));
+  ok("Rand benannt", /const PIN_RAND=4;/.test(src));
+
+  /* `pinFuer` liest den LAUFENDEN Zustand und ist vom Prüfstand aus nicht
+     erreichbar (siehe unten). Geprüft wird deshalb die Zuordnungsregel am
+     Quelltext: nur „front"/„back" gelten, alles andere ist Mitte — damit ein
+     verirrter Wert nie eine Fahne erfindet. */
+  ok("nur zwei gültige Werte", /return \(p==="front"\|\|p==="back"\)\?p:"mitte";/.test(src));
+  ok("Mitte löscht den Eintrag", /if\(v==="mitte"\) delete PLAY\.pins\[String\(n\)\]/.test(src));
+  /* Und die Zielkette muss nach dem Umschalten neu rechnen. */
+  ok("Zwischenspeicher wird geleert", /_aimCache=\{\};\s*\/\/ Zielkette neu rechnen/.test(src));
+
+  if (typeof PP === "function" && typeof GD === "function" && DB0 && PLAY0) {
+    const sicher = { c: DB0.courses, act: PLAY0.active, holes: PLAY0.holes,
+      course: PLAY0.course, idx: PLAY0.idx, pins: PLAY0.pins };
+    try {
+      const mLat = 110540, mLng = 111320 * Math.cos(54 * Math.PI / 180);
+      const at = (n, e) => [54.0 + n / mLat, 10.77 + (e || 0) / mLng];
+      const ring = (n, e, r) => [at(n - r, e - r), at(n - r, e + r), at(n + r, e + r), at(n + r, e - r)];
+      const t2 = at(0);
+      const geo = { holes: { 1: { tee: t2, green: at(300), line: [t2, at(300)], distM: 300 },
+          2: { tee: at(400), green: at(520), line: [at(400), at(520)], distM: 120 } },
+        features: [{ kind: "green", ring: ring(300, 0, 15) }, { kind: "green", ring: ring(520, 0, 4) }] };
+      DB0.courses = [{ name: "Pin-Test", tees: { Gelb: { holes: [
+        { hole: 1, par: 4, si: 1, len: 300 }, { hole: 2, par: 3, si: 9, len: 120 }] } }, geo }];
+      /* FAHNE ALS ARGUMENT statt über den Zustand: An den laufenden `PLAY`-Stand
+         kommt der Prüfstand nicht heran — `playBegin` ersetzt das Objekt, und
+         die Prüftabelle hält eine Momentaufnahme vom Ladezeitpunkt. Genau
+         darüber bin ich beim Schreiben gestolpert. Statt die Prüfung zu
+         verbiegen, nimmt `pinPunkt` die Fahne jetzt optional entgegen und ist
+         damit reine Geometrie. */
+      PLAY0.course = "Pin-Test"; PLAY0.tee = "Gelb"; PLAY0.idx = 0;
+      PLAY0.holes = [{ hole: 1, par: 4 }, { hole: 2, par: 3 }];
+      PLAY0.greenRing = {};
+
+      eq("Mitte gibt keinen Versatz", PP(geo, 1, "mitte"), null);
+      const v = PP(geo, 1, "front"), h = PP(geo, 1, "back");
+      const dV = Math.round((v[0] - 54) * mLat), dH = Math.round((h[0] - 54) * mLat);
+      ok("vorn liegt vor der Mitte", dV < 300, dV + " m");
+      ok("hinten dahinter", dH > 300, dH + " m");
+      /* Symmetrisch um die Mitte — sonst wäre eine der beiden Seiten
+         systematisch bevorzugt. */
+      ok("symmetrisch", Math.abs((300 - dV) - (dH - 300)) <= 1, dV + "/" + dH);
+
+      /* Winziges Grün: kein Versatz, egal was gewählt ist. */
+      eq("winziges Grün bleibt Mitte", PP(geo, 2, "front"), null);
+    } finally {
+      DB0.courses = sicher.c; PLAY0.active = sicher.act; PLAY0.holes = sicher.holes;
+      PLAY0.course = sicher.course; PLAY0.idx = sicher.idx; PLAY0.pins = sicher.pins;
+    }
+  }
+}
+
+/* ============ 24em. Abschlag ist ziehbar ============ */
+group("Karteneditor — auch der Abschlag lässt sich verschieben");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+  const CS = G("courseSVG"), AG = G("applyGeoOverrides");
+
+  /* Das Grün hatte seit je einen Griff, der Abschlag nur einen gezeichneten
+     Punkt. Beide sehen gleich aus, man fasst beide an — und nur einer bewegt
+     sich. Ein Bedienelement, das aussieht wie ein anderes und sich anders
+     verhält, ist schlimmer als eines, das offensichtlich fehlt.
+     Dabei ist der Abschlag die WICHTIGERE Angabe: Von ihm hängen alle
+     Distanzen und der ganze Lochplan ab. */
+  ok("Griff wird gezeichnet", /data-drag="tee:\$\{n\}"/.test(src));
+  ok("Trefferfläche wie beim Grün", /data-drag="tee:\$\{n\}"[\s\S]{0,140}r="15" fill="transparent"/.test(src));
+  ok("Verschieben greift für beide", /else if\(kind==="green"\|\|kind==="tee"\)/.test(src));
+  /* Der alte Zweig setzte `{green:nll}` und löschte damit eine zuvor gesetzte
+     Tee-Korrektur gleich mit. Bei nur einem Punkt fiel das nie auf. */
+  ok("bestehende Korrektur bleibt", /Object\.assign\(\{\}, vor, kind==="green"\?\{green:nll\}:\{tee:nll\}\)/.test(src));
+
+  if (typeof CS === "function") {
+    const mLat = 110540;
+    const at = n => [54.0 + n / mLat, 10.77];
+    const geo = { holes: { 1: { tee: at(0), green: at(300), line: [at(0), at(300)], distM: 300 } }, features: [] };
+    const imEditor = CS(geo, { w: 660, hole: 1, rotate: true, tight: true, edit: true }).svg;
+    const imSpiel = CS(geo, { w: 660, hole: 1, rotate: true, tight: true }).svg;
+    ok("Abschlag-Griff im Editor", /data-drag="tee:1"/.test(imEditor));
+    ok("Grün-Griff weiterhin", /data-drag="green:1"/.test(imEditor));
+    /* Auf der Spielkarte hat ein Griff nichts zu suchen — dort verschiebt man
+       nichts, und ein Element mit „grab"-Zeiger lädt zum Ziehen ein. */
+    ok("keine Griffe auf der Spielkarte", !/data-drag=/.test(imSpiel));
+  }
+
+  if (typeof AG === "function") {
+    const mLat = 110540;
+    const at = n => [54.0 + n / mLat, 10.77];
+    const geo = { holes: { 1: { tee: at(0), green: at(300), line: [at(0), at(300)], distM: 300 } },
+      overrides: { holes: { 1: { green: at(305), tee: at(6) } } } };
+    AG(geo);
+    eq("Grün-Korrektur wirkt", Math.round((geo.holes[1].green[0] - 54) * mLat), 305);
+    eq("Tee-Korrektur wirkt", Math.round((geo.holes[1].tee[0] - 54) * mLat), 6);
+  }
+}
+
+/* ============ 24el. Karteneditor auf dem Telefon ============ */
+group("Karteneditor — die Karte ist das Werkstück, nicht die Beigabe");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+  const css = (src.match(/<style[^>]*>([\s\S]*?)<\/style>/g) || []).join("\n");
+
+  /* Nachgemessen: 18 Loch-Chips umbrechen auf DREI Zeilen, die Werkzeuge
+     belegen zwei Reihen plus Hinweis — der Karte bleibt gut ein Drittel des
+     Schirms. Der Kommentar an `renderGeoEditor` warnt genau davor („über 400
+     Bildpunkte, bevor die Arbeitsfläche anfing"), aber die Lochauswahl ist
+     seither gewachsen. Eine Regel, die nur zum Zeitpunkt des Schreibens
+     stimmt, hält nicht — deshalb steht sie jetzt als Prüfung da. */
+  ok("Regel für schmale Schirme", /@media \(max-width:720px\)\{[\s\S]{0,900}#geoedSvg\{min-height:46vh\}/.test(css));
+  ok("Lochauswahl in einer Zeile", /\.geoed-head\{flex-wrap:nowrap;overflow-x:auto/.test(css));
+  ok("Chips schrumpfen nicht", /\.geoed-head \.mchip\{flex:0 0 auto\}/.test(css));
+  ok("Werkzeuge in einer Reihe", /\.geoed-tools\{display:flex;gap:6px;overflow-x:auto/.test(css));
+  ok("Werkzeuge flacher", /\.geoed-tool\{flex:0 0 auto;min-width:74px;min-height:46px/.test(css));
+  ok("Hinweis bleibt einzeilig", /\.geoed-tip\{white-space:nowrap/.test(css));
+  /* Und die Begründung muss dabeistehen, sonst wird die Höhe beim nächsten
+     Umbau als willkürliche Zahl gestrichen. */
+  ok("46 % begründet", /Sie ist das Werkstueck; alles andere ist Werkzeug/.test(css));
+  /* Auf breiten Schirmen bleibt das Raster — dort ist Platz genug, und acht
+     nebeneinander wären dort schlechter zu treffen. */
+  ok("Raster bleibt für breite Schirme", /\.geoed-tools\{display:grid;grid-template-columns:repeat\(4,1fr\)/.test(css));
 }
 
 /* ============ 24ek. Eingabemaske: Reihenfolge und Namen ============ */
@@ -6705,10 +6859,10 @@ group("Caddy — vollständig sichtbar, Bedingungen, 2 Iron nur vom Tee");
      man den Schläger wählt, und stand vorher unter Streubildern, Alternativen
      und Planzeile, also dort, wo man auf der Bahn nicht mehr hinsieht. */
   ok("Bedingungen auch im EV-Zweig", /const spieltWie=condZeile\(PLAY\.here, ev\.target\|\|_hrC\.green\);/.test(src));
-  ok("und zwar ganz oben", /<div class="play-caddy">\$\{spieltWie\}<div class="pc-head">/.test(src));
+  ok("und zwar ganz oben", /<div class="play-caddy">\$\{spieltWie\}\$\{fahne\}<div class="pc-head">/.test(src));
   /* Beide Zweige gleich aufgebaut — sonst sucht man die Zahl je nach Lage an
      zwei verschiedenen Stellen. */
-  ok("im Regel-Zweig ebenso", /<div class="play-caddy">\$\{weatherEffectHtml\(bearing,mid\)\}<div class="pc-head">/.test(src));
+  ok("im Regel-Zweig ebenso", /<div class="play-caddy">\$\{weatherEffectHtml\(bearing,mid\)\}\$\{pinZeile\(h\.hole\)\}<div class="pc-head">/.test(src));
   if (typeof CZ === "function") {
     eq("ohne Punkte keine Zeile", CZ(null, null), "");
     /* Unter drei Metern schweigt sie: Eine Zeile, die bei jedem Loch „±1 m"
