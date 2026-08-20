@@ -175,7 +175,7 @@ try {
                  "holeGir","holeUpDown","holeSandSave","platzAnalyse","taskFortschritt",
                  "warmupSchedule","warmupKorrektiv","WARMUP_PLANS","medianSplit","pearson",
                  "rKrit","gpKey","gpLabel","gpTotalES","pickClub","_aimClub","_aimLerp",
-                 "geoEdSelHat","geoEdVertHandles","snapshot","_nearest","_reaching","heuteJetzt","dispOvalFrom","dispChipHtml","dispRingPath","pathTopPoint","dispHitShare","dispText","dispSchemaSvg","dispSigmaFor","_erf","gpClubFracs","measureOrigin","geoEdMinW","editMinW","vegMask","maskMorph","maskBlobs","blobRing","ringSimplify","detectVeg","gpFingerprint","gpStale","_hash32","vegOn","viewBoxFor","troubleFeatures","geoEdPunktVon","_mergeCourses","snapBehalten","playVecKey","syncFinger","courseSVG","mergeDB","mergeDraft","watchPayload","shotZaehlt","playTouchHole","watchGeo","probeFrage","probePlan","cardBlock","playCardHtml","playAutoView","playBegin","pfCaddyKurz","_mergeCourses","_mergeCourses","caddyPositionPlan","geoEdPunktVon","gpTotalN","pinFuer","pinPunkt","pinZeile","pinSetz","greenDims","applyGeoOverrides","ringFlaecheM2","geoEdSelKey","geoEdSelParse","geoEdSelObj","hazOn","toggleHaz","simAktiv","simStart","simStop","simSetzePosition","modiZeile","SPIELWEISE","WEDGE_ZONE","playAimChain","holeRef","geoDist","playMapInitView","heuteTests","heuteSport","caddyFuerPunkt","_watchPos","istAchtzehn","equipSet","equipAll","equipHtml","deDatumZuIso","isoZuDeDatum","ensureSeedTests","SEED","logWarn","logWarnEinmal","ERRLOG","condZeile","caddyClubs","clubPick","gearHat","gearSeed","gearAll","progVerfuegbar","GOLF_PROG","dauerUebungHtml","fitplanIdx","fitplanAll","fitplanSet","fitplanHeute","fitplanWocheGeschafft","wikiRelated","wikiToc","wikiTocId","wikiForSG","wikiTagsShow","SAT_SRC","satSrcFor","satTileUrl","satTileKey","DB","STRAT","GEOED"];
+                 "geoEdSelHat","geoEdVertHandles","snapshot","_nearest","_reaching","heuteJetzt","dispOvalFrom","dispChipHtml","dispRingPath","pathTopPoint","dispHitShare","dispText","dispSchemaSvg","dispSigmaFor","_erf","gpClubFracs","measureOrigin","geoEdMinW","editMinW","vegMask","maskMorph","maskBlobs","blobRing","ringSimplify","detectVeg","gpFingerprint","gpStale","_hash32","vegOn","viewBoxFor","troubleFeatures","geoEdPunktVon","_mergeCourses","snapBehalten","playVecKey","syncFinger","courseSVG","mergeDB","mergeDraft","watchPayload","shotZaehlt","playTouchHole","watchGeo","probeFrage","probePlan","cardBlock","playCardHtml","playAutoView","playBegin","pfCaddyKurz","_mergeCourses","_mergeCourses","caddyPositionPlan","geoEdPunktVon","gpTotalN","geoEdKeinMenu","pinFuer","pinPunkt","pinZeile","pinSetz","greenDims","applyGeoOverrides","ringFlaecheM2","geoEdSelKey","geoEdSelParse","geoEdSelObj","hazOn","toggleHaz","simAktiv","simStart","simStop","simSetzePosition","modiZeile","SPIELWEISE","WEDGE_ZONE","playAimChain","holeRef","geoDist","playMapInitView","heuteTests","heuteSport","caddyFuerPunkt","_watchPos","istAchtzehn","equipSet","equipAll","equipHtml","deDatumZuIso","isoZuDeDatum","ensureSeedTests","SEED","logWarn","logWarnEinmal","ERRLOG","condZeile","caddyClubs","clubPick","gearHat","gearSeed","gearAll","progVerfuegbar","GOLF_PROG","dauerUebungHtml","fitplanIdx","fitplanAll","fitplanSet","fitplanHeute","fitplanWocheGeschafft","wikiRelated","wikiToc","wikiTocId","wikiForSG","wikiTagsShow","SAT_SRC","satSrcFor","satTileUrl","satTileKey","DB","STRAT","GEOED"];
   const epilog = "\n;globalThis.__T={" +
     namen.map(n => `${n}: (typeof ${n}!=="undefined"?${n}:undefined)`).join(",") + "};";
   vm.runInContext(code + epilog, ctx, { timeout: 20000 });
@@ -5450,6 +5450,43 @@ group("Karteneditor — der Tipp im Auswahl-Modus");
   /* Und sichtbar wird die Auswahl nur mit dem Kennzeichen im SVG. */
   ok("Editor zeichnet mit edit:true", /courseSVG\(geo,\{w:660,hole:hole\|\|null,edit:true/.test(src));
   ok("Markierung greift auf data-feat", /svg\.querySelector\(`\[data-feat="\$\{p\.i\}"\]`\)/.test(src));
+}
+
+/* ============ 24eo. Kein Browser-Menü auf der Editorkarte ============ */
+group("Karteneditor — das Langdrück-Menü blockiert die Bearbeitung");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+  const KM = G("geoEdKeinMenu");
+
+  /* GEMELDET: Beim Bearbeiten öffnet ständig „Bild kopieren / herunterladen /
+     teilen". Das ist das Langdrück-Menü des Browsers für Bilder — und
+     Langdrücken ist ausgerechnet die Geste zum Verschieben. Das Satellitenbild
+     liegt eingebettet in der Karte, also greift der Browser zu, bevor der
+     Editor die Geste überhaupt sieht. */
+  ok("Menü im Markup unterbunden", /oncontextmenu="return geoEdKeinMenu\(event\)"/.test(src));
+  ok("Callout per CSS aus", /#geoedSvg,#geoedSvg \*\{-webkit-touch-callout:none/.test(src));
+  ok("Auswahl gesperrt", /-webkit-user-select:none;\s*\n?\s*-ms-user-select:none;user-select:none\}/.test(src));
+  /* Das eingebettete Bild darf keine Zeigerereignisse fangen — sonst landet
+     jeder Tipp beim Bild statt beim Editor. */
+  ok("Bild fängt keine Berührung", /#geoedSvg img,#geoedSvg image\{pointer-events:none\}/.test(src));
+  /* WARUM DIE ALTE REGEL NICHT REICHTE: Sie deckte seit v2.60.1 `#geoedSvg`
+     und `#geoedSvg svg` ab — aber NICHT die Elemente DARIN. Das Satellitenbild
+     liegt als `<image>` im SVG, und genau darauf drückt man beim Verschieben.
+     Der Browser fragt das gedrückte Element, nicht dessen Vorfahren. */
+  ok("Regel gilt auch für Kinder", /#geoedSvg,#geoedSvg \*\{/.test(src));
+  /* Und die Spielkarte hatte längst einen contextmenu-Abfangjäger — der
+     Editor nicht. Zwei Karten, eine Geste, nur eine geschützt. */
+  ok("Spielkarte hatte den Schutz schon", /svg\.addEventListener\("contextmenu", e=>e\.preventDefault\(\)\)/.test(src));
+
+  if (typeof KM === "function") {
+    let verhindert = false;
+    eq("gibt false zurück", KM({ preventDefault: () => { verhindert = true; } }), false);
+    ok("und verhindert das Menü", verhindert);
+    /* Ohne Ereignis darf sie nicht werfen — sonst reißt ein Randfall die
+       ganze Bearbeitung mit. */
+    eq("ohne Ereignis stabil", KM(null), false);
+    eq("mit leerem Ereignis stabil", KM({}), false);
+  }
 }
 
 /* ============ 24en. Fahnenposition ============ */
