@@ -5452,6 +5452,51 @@ group("Karteneditor — der Tipp im Auswahl-Modus");
   ok("Markierung greift auf data-feat", /svg\.querySelector\(`\[data-feat="\$\{p\.i\}"\]`\)/.test(src));
 }
 
+/* ============ 24ep. Eckpunkt-Griffe: kein toter Name ============ */
+group("Karteneditor — der Absturz, der wie „geht nicht auswählen“ aussah");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+  const js = (src.match(/<script(?![^>]*(?:src=|application\/json|text\/markdown|devdocs))[^>]*>([\s\S]*?)<\/script>/g) || []).join("\n");
+  const vh = js.slice(js.indexOf("function geoEdVertHandles"),
+                      js.indexOf("function geoEdVertHandles") + 2500);
+
+  /* IM PROTOKOLL: `ReferenceError: mi is not defined` bei jeder Einzelauswahl.
+     In v3.75 wurde `const mi=sel[0], m=(geo.mine||[])[mi]` durch
+     `geoEdSelObj(geo, sel[0])` ersetzt — und `mi` weiter unten stehen gelassen.
+     Weil der Fehler in `renderGeoEditor` hochschlägt, brach das Neuzeichnen ab;
+     der Editor reagierte danach auf nichts mehr. Von außen sah es aus, als
+     ließen sich Objekte „nicht auswählen".
+     Der Prüflauf hat es nicht gefunden, weil er den Quelltext liest und diese
+     Funktion ein DOM braucht — deshalb prüft er jetzt den Quelltext auf tote
+     Namen, was ohne DOM geht. */
+  const ohneKommentare = vh.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/[^\n]*/g, "");
+  ok("kein toter Name mehr", !/\bmi\b/.test(ohneKommentare));
+  ok("Schlüssel wird gemerkt", /const selKey=sel\[0\];/.test(vh));
+  ok("Griffe tragen den Schlüssel", /data-drag="vert:\$\{selKey\}:\$\{i\}"/.test(vh));
+  ok("Zwischenpunkte ebenso", /data-vadd="\$\{selKey\}:\$\{i\}"/.test(vh));
+
+  /* Und die Gegenstellen müssen den Schlüssel auch VERSTEHEN — sonst trifft
+     ein Eckpunkt einer importierten Fläche das gleichnamige eigene Objekt. */
+  ok("Verschieben löst den Schlüssel auf", /if\(kind==="vert"\)\{ const m=geoEdSelObj\(geo, key\)/.test(js));
+  ok("Hinzufügen nimmt den Schlüssel", /function geoEdVertAdd\(schluessel, i\)/.test(js));
+  ok("Löschen ebenso", /function geoEdVertDel\(schluessel, i\)/.test(js));
+  ok("Aufrufer geben keinen Zahlenwert mehr", /geoEdVertAdd\(p\[0\], \+p\[1\]\)/.test(js) &&
+    /geoEdVertDel\(p\[1\], \+p\[2\]\)/.test(js));
+
+  /* GENERELL: Nach jedem Umbenennen bleibt gern ein Name stehen. Geprüft wird
+     deshalb, dass `mi` im Editorteil nur dort vorkommt, wo es AUCH DEKLARIERT
+     ist — in `geoEdSelDelete` als eigene Liste (`const mi=[], fi=[]`). Ein
+     Vorkommen ohne Deklaration ist genau der Fehler von v3.75.
+     Eine Prüfung, die jedes `mi` verbietet, wäre falsch: Sie würde einen
+     korrekten Namen verbieten und beim nächsten Mal einfach gestrichen. */
+  const editorTeil = js.slice(js.indexOf("function geoEdSelKey"), js.indexOf("function geoEdSelKey") + 20000)
+    .replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/[^\n]*/g, "");
+  const funktionen = editorTeil.split(/\nfunction /);
+  const ohneDeklaration = funktionen.filter(f =>
+    /\bmi\b/.test(f) && !/(const|let|var)\s+mi\b|\(\s*m\s*,\s*mi\s*\)/.test(f));
+  eq("kein `mi` ohne Deklaration", ohneDeklaration.length, 0);
+}
+
 /* ============ 24eo. Kein Browser-Menü auf der Editorkarte ============ */
 group("Karteneditor — das Langdrück-Menü blockiert die Bearbeitung");
 {
@@ -5663,6 +5708,13 @@ group("Karteneditor — „Nichts in der Nähe“ muss sagen, was es geprüft ha
      gar nicht gesucht wurde. Dreimal wurde gemeldet, dass sich importierte
      Objekte nicht löschen lassen — und dreimal blieb nur, den Quelltext zu
      lesen und zu hoffen. */
+  /* ABSCHLAG UND GRÜNMITTE sind nicht löschbar — sie DEFINIEREN das Loch.
+     Bisher bekam man darauf dieselbe nichtssagende Antwort wie auf jeden
+     Fehlgriff: „Nichts in der Nähe". Wer zweimal danebentippt, hält das
+     Werkzeug für kaputt und sucht den Fehler bei sich. */
+  ok("Lochpunkte werden erkannt", /er gehört zum Loch und lässt sich nicht löschen/.test(src));
+  ok("und der Weg genannt", /mit ✋ Verschieben bewegen/.test(src));
+  ok("beide Punkte geprüft", /nah\.push\(\{was:"Abschlag"[\s\S]{0,120}was:"Grünmitte"/.test(src));
   ok("Meldung nennt den nächsten Treffer", /nächstes importiertes Objekt: „\$\{nah\.kind\|\|"\?"\}“ in \$\{Math\.round\(nahD\)\} m/.test(src));
   ok("und den Fall ohne jedes Objekt", /keine importierten Objekte auf diesem Platz/.test(src));
   ok("Zahlen ins Protokoll", /Löschen ohne Treffer · \$\{nM\} eigene, \$\{nF\} importierte Objekte/.test(src));
