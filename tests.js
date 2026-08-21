@@ -36,6 +36,16 @@ const path = require("path");
 const vm = require("vm");
 
 const FILE = path.join(__dirname, "index.html");
+
+/* Der Doku-Block ZITIERT falschen Code, um zu erklaeren, warum er falsch war.
+   Regelpruefungen gegen den Quelltext muessen ihn deshalb ausblenden. */
+function codeOhneDoku(src){
+  const dv=src.indexOf('id="devdocs"'); if(dv<0) return src;
+  const cl=src.indexOf("## Changelog", dv); if(cl<0) return src;
+  const end=src.indexOf("</script>", cl); if(end<0) return src;
+  return src.slice(0,dv)+src.slice(end);
+}
+
 /* ---------------------------------------------------------------------------
    ABDECKUNGS-SPERRKLINKE
    Damit dieser Pruefstand nicht wieder veraltet: die unten aufgelisteten reinen
@@ -3321,6 +3331,51 @@ group("Tee/Grün-Tausch — stempeln, ausdrücken, nicht überschreiben");
      /geoAt[\s\S]{0,300}geoFetchOSM/.test(doc));
 }
 
+/* ============ 24bm3. Layup-Stumpf: die Leitplanke muss ihn sehen ============ */
+group("wedgeZone — der abgebrochene Annäherungsschlag");
+{
+  const TAB = G("LEITPLANKEN"), LP = G("leitplanken"), T = G("STRAT");
+  const R = (TAB||[]).find(x => x.id === "wedgeZone");
+  ok("Regel vorhanden", !!R);
+  if (R && typeof LP === "function" && T && T._interp) {
+    /* Die drei gemeldeten Fälle vom 21.08.2026, nachgerechnet.
+       Loch  8: 463 m, Driver 237 + 3 Wood 213 -> 13 m Rest
+       Loch 15: 440 m, 3 Wood 213 + 3 Wood 213 -> 14 m Rest
+       Loch 11: 482 m, Driver 237 + 3 Wood 213 -> 32 m Rest (lag AUSSERHALB
+                des alten 5–25-m-Fensters — die Regel sah ihn gar nicht) */
+    const club = { name: "3 Wood", carry: 213, dist: 213 };
+    const auf = (rest) => {
+      const r = LP([club], { rest: 213 + rest, weitererSchlagFolgt: true, vomTee: false });
+      return r.aufschlag[club.name] || 0;
+    };
+    ok("Loch 8 (13 m Rest) wird bestraft",  auf(13) > 0.3, String(auf(13)));
+    ok("Loch 15 (14 m Rest) wird bestraft", auf(14) > 0.3, String(auf(14)));
+    ok("Loch 11 (32 m Rest) wird bestraft", auf(32) > 0.2, String(auf(32)));
+
+    /* NICHT ueberstimmen, nur ausgleichen: Der Aufschlag ist genau der
+       Vorsprung, den die Tabelle der Naehe gegenueber 100 m einraeumt. */
+    const soll = (rest) => T._interp(T.ES_BASE.fairway, 100) - T._interp(T.ES_BASE.fairway, rest);
+    [13, 20, 32, 40].forEach(r =>
+      ok("Aufschlag " + r + " m = Tabellenvorsprung", Math.abs(auf(r) - soll(r)) < 0.01,
+         auf(r) + " statt " + soll(r).toFixed(3)));
+
+    /* Was der Platz-Durchlauf gemessen hat, bleibt unangetastet: zwischen
+       50 und 85 m stimmt „näher ist besser" und die Regel schweigt. */
+    [50, 62, 85, 120].forEach(r => eq("bei " + r + " m schweigt die Regel", auf(r), 0));
+    eq("am Grün (3 m) ebenfalls — das ist der Annäherungsschlag selbst", auf(3), 0);
+
+    /* Ohne Folgeschlag ist es kein Zwischenschlag. */
+    const ohne = LP([club], { rest: 226, weitererSchlagFolgt: false, vomTee: false });
+    eq("ohne weiteren Schlag kein Aufschlag", ohne.aufschlag[club.name] || 0, 0);
+
+    /* Invariante 4 des Platz-Durchlaufs in Kurzform: Der Aufschlag muss
+       gross genug sein, um den Tabellenvorsprung eines Stumpfes gegen einen
+       vollen Wedge aufzuwiegen — sonst gewinnt der Stumpf wieder. */
+    ok("stark genug gegen den 14-m-Stumpf",
+       auf(14) >= T._interp(T.ES_BASE.fairway, 100) - T._interp(T.ES_BASE.fairway, 14) - 0.01);
+  }
+}
+
 /* ============ 24bl. Caddy-Plan: Einheiten und Plausibilität ============ */
 group("caddyPlan — kein Wedge vom Abschlag, Einheiten beschriftet");
 {
@@ -5317,7 +5372,11 @@ group("Leitplanken — Regeln INNERHALB der Rechnung");
        eine Behauptung, und in einem Jahr weiß niemand mehr, warum sie da ist. */
     ok("jede Regel hat einen Grund", TAB.every(r => (r.grund || "").length > 15),
       TAB.filter(r => !(r.grund || "").length).map(r => r.id).join(",") || "alle");
-    ok("jede Regel hat eine Wirkung", TAB.every(r => r.wirkung === "aus" || r.wirkung > 0));
+    /* Eine Wirkung darf seit v3.93 auch GERECHNET werden (`wedgeZone` leitet
+       ihren Aufschlag aus der Erwartungstabelle ab). Verlangt bleibt, dass
+       ueberhaupt eine da ist — eine Regel ohne Wirkung ist Zierde. */
+    ok("jede Regel hat eine Wirkung",
+       TAB.every(r => r.wirkung === "aus" || r.wirkung > 0 || typeof r.wirkung === "function"));
     ok("jede Regel hat eine Bedingung", TAB.every(r => typeof r.gilt === "function"));
   }
 
@@ -5707,7 +5766,13 @@ group("Caddy — die Fahne, nicht immer die Grünmitte");
   ok("nur zwei gültige Werte", /return \(p==="front"\|\|p==="back"\)\?p:"mitte";/.test(src));
   ok("Mitte löscht den Eintrag", /if\(v==="mitte"\) delete PLAY\.pins\[String\(n\)\]/.test(src));
   /* Und die Zielkette muss nach dem Umschalten neu rechnen. */
-  ok("Zwischenspeicher wird geleert", /_aimCache=\{\};\s*\/\/ Zielkette neu rechnen/.test(src));
+  /* NICHT per Zuweisung (v3.93): `_aimCache` ist `const`, `_aimCache={}` warf
+     `TypeError: Assignment to constant variable` und brach `pinSetz` ab, bevor
+     gespeichert wurde. Geprueft wird jetzt beides — dass geleert wird UND dass
+     es nicht wieder ueber eine Zuweisung geschieht. */
+  ok("Zwischenspeicher wird geleert", /delete _aimCache\[k\]/.test(src));
+  ok("und nicht per Zuweisung auf die Konstante",
+     !/(?<!const |let |var )(?<![.\w])_aimCache\s*=\s*\{\}/.test(codeOhneDoku(src)));
 
   if (typeof PP === "function" && typeof GD === "function" && DB0 && PLAY0) {
     const sicher = { c: DB0.courses, act: PLAY0.active, holes: PLAY0.holes,
