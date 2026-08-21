@@ -3508,6 +3508,19 @@ group("DGM1 — Raster, Neigung und die Grenze zwischen zwei Quellen");
   ok("elevDelta verweigert gemischte Paare", /dA!=null \|\| dB!=null\) return null/.test(ed));
   ok("feinere Rauschsperre bei DGM", /Math\.abs\(d\)<0\.3/.test(ed));
   ok("grobe Sperre bleibt für die Online-Quelle", /Math\.abs\(d\)<1\.5/.test(ed));
+  /* BEIDE BEDIENWEGE muessen dieselbe Ablage benutzen — sonst zeigt die eine
+     Ansicht „vollstaendig" und die andere „nicht geladen", und beide haetten
+     recht. Und `DGMDL` muss geteilt sein, sonst holen zwei parallele Laeufe
+     dieselben Punkte doppelt und verheizen das Stundenlimit. */
+  ok("Kartenansicht hat einen Ladeknopf", /id="mDgmGo"/.test(src));
+  ok("Kartenansicht zeigt den Bestand", /id="mDgmStat"/.test(src));
+  ok("Kartenansicht kann loeschen", /id="mDgmClr"/.test(src));
+  ok("Hoehenraster haengt NICHT am Satellitenbild",
+     src.indexOf('id="mDgmGo"') > src.indexOf('id="mSatClr"'));
+  ok("beide Wege teilen sich die Laufsperre",
+     (src.match(/DGMDL\[/g) || []).length >= 6, String((src.match(/DGMDL\[/g) || []).length));
+  ok("beide Wege lesen denselben Schluessel",
+     (src.match(/dgmKey\(/g) || []).length >= 4);
   ok("elevGet fragt DGM zuerst",
      /function elevGet[\s\S]{0,900}?dgmHoehe\(la,lo\)[\s\S]{0,80}?ELEV\[elevKey/.test(src));
 }
