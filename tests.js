@@ -168,7 +168,7 @@ try {
   /* WICHTIG: bei vm.runInContext landen nur `var` und `function` am Kontext —
      `const STRAT = {...}` bleibt im Blockscope unsichtbar. Deshalb ein Epilog,
      der die benoetigten Namen aktiv herausreicht. */
-  const namen = ["elevQuelle","elevQuelleText","dgmRahmen","dgmIdx","dgmZelleMitte","dgmZellen","dgmHoehe","dgmNeigung","dgmKey",
+  const namen = ["dgmSetzen","elevQuelle","elevQuelleText","dgmRahmen","dgmIdx","dgmZelleMitte","dgmZellen","dgmHoehe","dgmNeigung","dgmKey",
                  "STRAT","clubPick","playsLike","pinPoint","geoDist","playMapBox",
                  "selfCheck","PLAY","escShort","_short","clubShort","windRel","tempFactor","DB",
                  "courseTee","activeHoles","roundDurationMin","mergeDB","_mergeArr","_mergeTs",
@@ -3525,6 +3525,193 @@ group("DGM1 — Raster, Neigung und die Grenze zwischen zwei Quellen");
      /function elevGet[\s\S]{0,900}?dgmHoehe\(la,lo\)[\s\S]{0,80}?ELEV\[elevKey/.test(src));
 }
 
+/* ============ 24bm6. Hanglage erreicht den Gameplan ============ */
+group("Hanglage — im Plan, nicht nur im Spielmodus");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+  /* DER FEHLER (v3.98): v3.95 baute den Neigungsterm nur in `tee()` ein, und
+     `dgmNeigung()` liest die Modulvariable `DGM`, die nur `dgmAktiv()` füllt —
+     gerufen ausschließlich beim Rundenstart. Jede Planrechnung außerhalb einer
+     Runde sah `DGM === null` und legte einen Hang-Term von 0 an. Die Hanglage
+     wirkte im Spielmodus und im vorberechneten Plan NICHT, bei identischer
+     Oberfläche. Geprüft wird deshalb die ganze Kette, nicht ein Term. */
+
+  ok("nextShot hat einen Hang-Term",
+     /nextShot[\s\S]{0,9000}?const hangZ=\(hangN && restNach>5\)/.test(src));
+  ok("und wiegt schwerer als am Abschlag",
+     /1\.5\*\(SW\.hang\|\|0\)/.test(src));
+  ok("nur wenn ein Schlag folgt", /restNach>5/.test(src));
+  ok("ohne Raster kein Ersatzwert",
+     (src.match(/hangN \? \(w\.hang\|\|0\)|hangN && restNach>5/g) || []).length >= 2);
+
+  /* Der Abdruck ist die einzige Stelle, an der „Eingaben geändert" entschieden
+     wird. Eine neue Datenquelle IST eine geänderte Eingabe. */
+  ok("Höhenraster steht im Fingerabdruck", /DGM\.course\+":"\+DGM\.h\.length/.test(src));
+  const fpFn = src.slice(src.indexOf("function gpFingerprint"), src.indexOf("function _hash32"));
+  ok("und wird in die Rückgabe gehängt", /_hash32\(dg\)/.test(fpFn));
+
+  /* Reihenfolge: Raster holen, DANN vergleichen — sonst meldet der Abdruck
+     jede Stunde eine Änderung und der Plan wird endlos neu gerechnet. */
+  const ar = src.slice(src.indexOf("async function gpAutoRefresh"), src.indexOf("function gpPlan("));
+  ok("Auffrischung holt das Raster", /await gpRasterBereit\(course\)/.test(ar));
+  ok("und zwar VOR dem Abdruck",
+     ar.indexOf("await gpRasterBereit(course)") < ar.indexOf("const fp=gpFingerprint"));
+  ok("gpAutoRefresh ist dafür async", /async function gpAutoRefresh/.test(src));
+
+  /* `gpPlan` ist synchron und darf nicht warten — es stößt an und hält fest,
+     womit gerechnet wurde. Die Selbstheilung macht der Abdruck. */
+  const gp = src.slice(src.indexOf("function gpPlan("), src.indexOf("function gpTotalES"));
+  ok("gpPlan stößt das Laden an", /gpRasterBereit\(course\)/.test(gp));
+  ok("gpPlan hält fest, ob mit Raster gerechnet wurde", /p\.dgm=!!/.test(gp));
+  ok("gpPlan bleibt synchron", !/async function gpPlan/.test(src));
+
+  /* Und die Reichweite: `wetterCarry` bringt die Höhe in BEIDE Rechnungen —
+     das lief schon vor v3.98 und muss so bleiben. */
+  ok("wetterCarry im Abschlag", /this\.wetterCarry\(carryRoh, brg, teeP/.test(src));
+  ok("wetterCarry im Folgeschlag", /this\.wetterCarry\(carryRoh, brg, from/.test(src));
+  ok("wetterCarry liest die Höhe", /wetterCarry[\s\S]{0,2200}?elevDelta\(von,\s*lp\)/.test(src));
+  ok("und zwar am Landepunkt, nicht am Grün",
+     /const lp=this\._off\(von, brg, boden, 0, g\.mLat, g\.mLng\);[\s\S]{0,120}?elevDelta\(von, lp\)/.test(src));
+  ok("Henne-und-Ei in zwei Durchgängen gelöst",
+     /for\(let i=0;i<2;i\+\+\)[\s\S]{0,300}?boden=rechne\(dEl\)/.test(src));
+  ok("Rückfall auf das Ziel, wenn kein Raster greift",
+     /if\(!amLandepunkt\)[\s\S]{0,160}?elevDelta\(von,ziel\)/.test(src));
+}
+
+/* ============ 24bm7. wetterCarry: Höhe am Landepunkt ============ */
+group("wetterCarry — die Senke vor dem Grün");
+{
+  const S = G("STRAT");
+  if (S && S.wetterCarry && S._off) {
+    /* DER FEHLER (v3.99): Gemessen wurde bis zum GRÜN. Auf einer Bahn, die
+       erst FÄLLT und dann zum Grün STEIGT, hat das oft das falsche Vorzeichen:
+       Der Abschlag geht bergab — der Schläger deckt mehr Boden —, gerechnet
+       wurde bergauf. Hier nachgestellt mit einem gebauten Gelände. */
+    const von = [54.0000, 10.7000];
+    const R = { mLat: 110540, mLng: 111320 * Math.cos(54 * Math.PI / 180) };
+
+    /* Ein Raster, das bei 0 m auf 100 liegt, bei 200 m auf 90 (Senke) und
+       beim Grün (300 m) wieder auf 105. */
+    const gitter = 5, nx = 9, ny = 81;
+    const rec = { course: "T", la0: von[0] - 40 / R.mLat, lo0: von[1] - 20 / R.mLng,
+                  dLa: gitter / R.mLat, dLo: gitter / R.mLng,
+                  mLat: R.mLat, mLng: R.mLng, nx, ny,
+                  h: new Int16Array(nx * ny) };
+    for (let y = 0; y < ny; y++) {
+      const m = y * gitter - 40;                       // Meter nach Norden ab `von`
+      const hh = m < 200 ? 100 - (m / 200) * 10 : 90 + ((m - 200) / 100) * 15;
+      for (let x = 0; x < nx; x++) rec.h[y * nx + x] = Math.round(hh * 10);
+    }
+    /* Das Raster muss aktiv sein, damit `elevDelta` es sieht. */
+    const setze = G("dgmSetzen");
+    /* `let DGM` auf oberster Ebene ist im Sandkasten KEINE Kontext-Eigenschaft
+       — `ctx.DGM = …` hätte nur eine Namensvetterin gesetzt, während das Modul
+       weiter seine eigene liest. Deshalb der Setzer aus v3.99. */
+    const vorher = setze ? undefined : null;
+    if (setze) setze(rec);
+    try {
+      const gruen = [von[0] + 300 / R.mLat, von[1]];
+      const hoehe = G("dgmHoehe"), delta = G("elevDelta");
+      ok("Gelände gebaut: Senke bei 200 m",
+         Math.abs(hoehe(von[0] + 200 / R.mLat, von[1], rec) - 90) < 0.6);
+      const dGruen = delta(von, gruen), dLand = delta(von, [von[0] + 200 / R.mLat, von[1]]);
+      ok("zum Grün geht es HINAUF", dGruen > 3, String(dGruen));
+      ok("zum Landepunkt geht es HINUNTER", dLand < -3, String(dLand));
+      ok("die beiden haben verschiedene Vorzeichen", dGruen * dLand < 0);
+
+      /* Ohne Raster-Argument: alter Weg über das Grün -> bergauf -> kürzer.
+         Mit Raster-Argument: Landepunkt -> bergab -> weiter. */
+      const ohne = S.wetterCarry(200, 0, von, gruen);
+      const mit  = S.wetterCarry(200, 0, von, gruen, { mLat: R.mLat, mLng: R.mLng });
+      ok("alter Weg verkürzt den Schläger", ohne < 200, String(Math.round(ohne)));
+      ok("neuer Weg verlängert ihn", mit > 200, String(Math.round(mit)));
+      ok("der Unterschied ist spürbar", Math.abs(mit - ohne) > 5,
+         Math.round(ohne) + " gegen " + Math.round(mit));
+
+      /* Ebenes Gelände darf nichts verändern — sonst rechnet die Korrektur
+         auch dort, wo es nichts zu korrigieren gibt. */
+      const eben = { ...rec, h: new Int16Array(nx * ny).fill(1000) };
+      if (setze) setze(eben);
+      const flach = S.wetterCarry(200, 0, von, gruen, { mLat: R.mLat, mLng: R.mLng });
+      ok("ebenes Gelände lässt den Schläger in Ruhe", Math.abs(flach - 200) < 1.5,
+         String(Math.round(flach)));
+
+      /* Ohne Raster und ohne Wetter passiert gar nichts. */
+      if (setze) setze(null);
+      eq("ohne Daten unverändert", S.wetterCarry(200, 0, von, gruen, { mLat: R.mLat, mLng: R.mLng }), 200);
+
+      /* Der Deckel muss halten, auch am Landepunkt. */
+      if (setze) setze(rec);
+      const arg = { mLat: R.mLat, mLng: R.mLng };
+      [80, 150, 200, 250].forEach(c => {
+        const v = S.wetterCarry(c, 0, von, gruen, arg);
+        ok("Deckel hält bei " + c + " m", v >= c * 0.75 && v <= c * 1.25, String(Math.round(v)));
+      });
+    } finally { if (setze) setze(null); }
+  }
+}
+
+/* ============ 24bm8. Aus dem Hang schlägt man anders ============ */
+group("sigmaHang — die eigene Lage, nicht das Ziel");
+{
+  const S = G("STRAT");
+  if (S && S.sigmaHang) {
+    const sg = { sigL: 10, sigD: 12, biasL: 0, src: "Heuristik" };
+
+    eq("ohne Neigung unverändert", S.sigmaHang(sg, null, 200), sg);
+    eq("ohne Streuung unverändert", S.sigmaHang(null, { laengs: .1, quer: 0, betrag: .1 }, 200), null);
+    /* Unter 2 % steht man eben — sonst rechnet das Modell auf jedem Fairway
+       an Zahlen herum, die unter der Messgenauigkeit der Quelle liegen. */
+    eq("unter 2 % passiert nichts", S.sigmaHang(sg, { laengs: .01, quer: .005, betrag: .011 }, 200), sg);
+
+    /* --- LÄNGE: bergauf kürzer, bergab länger --- */
+    const auf = S.sigmaHang(sg, { laengs: .10, quer: 0, betrag: .10 }, 200);
+    const ab  = S.sigmaHang(sg, { laengs: -.10, quer: 0, betrag: .10 }, 200);
+    ok("bergauf verkürzt", auf.fCarry < 1, String(auf.fCarry));
+    ok("bergab verlängert", ab.fCarry > 1, String(ab.fCarry));
+    ok("10 % ergibt rund einen halben Schläger", Math.abs(200 * (1 - auf.fCarry) - 14) < 3,
+       String(Math.round(200 * (1 - auf.fCarry))) + " m");
+
+    /* --- SEITE: der Ball geht dorthin, wo der Boden FÄLLT --- */
+    const rechtsHoch = S.sigmaHang(sg, { laengs: 0, quer: .10, betrag: .10 }, 200);
+    const linksHoch  = S.sigmaHang(sg, { laengs: 0, quer: -.10, betrag: .10 }, 200);
+    ok("steigt es nach rechts, zieht es nach links", rechtsHoch.biasL < 0, String(rechtsHoch.biasL));
+    ok("steigt es nach links, schiebt es nach rechts", linksHoch.biasL > 0, String(linksHoch.biasL));
+    ok("die beiden sind spiegelbildlich", Math.abs(rechtsHoch.biasL + linksHoch.biasL) < 1e-9);
+    ok("10 % Querneigung ergibt rund 8 m", Math.abs(Math.abs(rechtsHoch.biasL) - 8) < 2,
+       String(Math.round(Math.abs(rechtsHoch.biasL))) + " m");
+
+    /* --- STREUUNG: jede Schräglage vergrößert beide, bergab längs mehr --- */
+    ok("quer wächst", rechtsHoch.sigL > sg.sigL);
+    ok("längs wächst", rechtsHoch.sigD > sg.sigD);
+    ok("bergab streut längs stärker als bergauf", ab.sigD > auf.sigD, ab.sigD + " gegen " + auf.sigD);
+    ok("bergauf und bergab streuen quer gleich", Math.abs(ab.sigL - auf.sigL) < 1e-9);
+
+    /* --- Deckel: eine 60-%-Böschung darf die Rechnung nicht sprengen --- */
+    const steil = S.sigmaHang(sg, { laengs: .60, quer: .60, betrag: .85 }, 200);
+    const grenz = S.sigmaHang(sg, { laengs: .20, quer: .20, betrag: .28 }, 200);
+    eq("über dem Deckel ändert sich nichts mehr (Länge)", steil.fCarry, grenz.fCarry);
+    eq("über dem Deckel ändert sich nichts mehr (Seite)", steil.biasL, grenz.biasL);
+    ok("Streuung bleibt endlich", steil.sigL < sg.sigL * 2 && steil.sigD < sg.sigD * 2.5,
+       steil.sigL + " / " + steil.sigD);
+
+    /* --- Herkunft bleibt lesbar: der σ-Chip soll es sagen können --- */
+    ok("Quelle wird benannt", /Hanglage/.test(rechtsHoch.src));
+    ok("und die alte Quelle bleibt stehen", /Heuristik/.test(rechtsHoch.src));
+
+    /* --- Die eigene Lage ist NICHT das Ziel: nextShot muss von `from` lesen --- */
+    const src = fs.readFileSync(FILE, "utf8");
+    ok("nextShot misst die Neigung an der eigenen Position",
+       /const hangVon=\(typeof dgmNeigung==="function"\)\?dgmNeigung\(from, brg\)/.test(src));
+    ok("und den Aufschlag weiterhin am Zielpunkt",
+       /const hangN=\(typeof dgmNeigung==="function"\)\?dgmNeigung\(aim,brg\)/.test(src));
+    ok("gestreut wird mit der angepassten Streuung",
+       /S\[i\]\[1\]\*sgH\.sigD, side=sgH\.biasL\+S\[i\]\[0\]\*sgH\.sigL/.test(src));
+    ok("der Abschlag bleibt außen vor — vom Tee steht man eben",
+       !/tee[\s\S]{0,4000}?sigmaHang/.test(src.slice(src.indexOf("  tee(g,"), src.indexOf("  nextShot("))));
+  }
+}
+
 /* ============ 24bl. Caddy-Plan: Einheiten und Plausibilität ============ */
 group("caddyPlan — kein Wedge vom Abschlag, Einheiten beschriftet");
 {
@@ -5579,7 +5766,11 @@ group("Leitplanken — Regeln INNERHALB der Rechnung");
   }
 
   /* Eingehängt in die Bewertung, nicht daneben. */
-  ok("Aufschlag geht in den score", /\+ blk \+ lpAuf;/.test(src));
+  /* Seit v3.98 folgt der Hang-Term (`hangZ`) — geprüft wird, dass der
+     Leitplanken-Aufschlag WEITERHIN in derselben Summe landet, nicht die
+     genaue Zeilenform. Ein Test, der an der letzten Position klebt, bricht bei
+     jeder Ergänzung und sagt dabei nichts über die Sache. */
+  ok("Aufschlag geht in den score", /\+ blk \+ lpAuf( \+ hangZ)?;/.test(src));
   ok("vor nurClub angewandt", /const _lp=leitplanken\(clubs,[\s\S]{0,200}if\(nurClub\)/.test(src));
   ok("Gestrichene werden mitgegeben", /leitplanken:_lp\.gestrichen,/.test(src));
 }
@@ -6236,9 +6427,12 @@ group("Caddy — Wetter, eigene Lage, verlorener Ball, Dogleg");
      Caddy benutzte es. Die EV-Kette rechnete mit roher Traglänge — auf dem
      Schirm stand „spielt wie 281 m" über einer Kette, die mit 274 m plante.
      Wieder zwei Rechnungen für dieselbe Sache. */
-  ok("Umrechnung vorhanden", /wetterCarry\(carry, brg, von, ziel\)/.test(src));
-  ok("am Abschlag angewandt", /const carry=this\.wetterCarry\(carryRoh, brg, teeP, g\.green\)/.test(src));
-  ok("bei Folgeschlägen ebenso", /this\.wetterCarry\(carryRoh, brg, from, g\.green\) \* _lageF/.test(src));
+  /* Seit v3.99 kommt das Raster als fünftes Argument dazu — der Landepunkt
+     wird daraus selbst bestimmt. Geprüft wird, dass beide Zweige es ÜBERGEBEN;
+     ohne das fiele die Rechnung still auf das Grün zurück. */
+  ok("Umrechnung vorhanden", /wetterCarry\(carry, brg, von, ziel, g\)/.test(src));
+  ok("am Abschlag angewandt", /const carry=this\.wetterCarry\(carryRoh, brg, teeP, g\.green, g\)/.test(src));
+  ok("bei Folgeschlägen ebenso", /this\.wetterCarry\(carryRoh, brg, from, g\.green, g\) \* _lageF/.test(src));
   ok("Deckel gegen Unsinn", /carry\*0\.75, Math\.min\(carry\*1\.25/.test(src));
 
   if (S && typeof S.wetterCarry === "function") {
