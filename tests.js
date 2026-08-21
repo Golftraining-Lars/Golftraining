@@ -168,7 +168,7 @@ try {
   /* WICHTIG: bei vm.runInContext landen nur `var` und `function` am Kontext —
      `const STRAT = {...}` bleibt im Blockscope unsichtbar. Deshalb ein Epilog,
      der die benoetigten Namen aktiv herausreicht. */
-  const namen = ["dgmSetzen","elevQuelle","elevQuelleText","dgmRahmen","dgmIdx","dgmZelleMitte","dgmZellen","dgmHoehe","dgmNeigung","dgmKey",
+  const namen = ["watchElevProfil","dgmSetzen","elevQuelle","elevQuelleText","dgmRahmen","dgmIdx","dgmZelleMitte","dgmZellen","dgmHoehe","dgmNeigung","dgmKey",
                  "STRAT","clubPick","playsLike","pinPoint","geoDist","playMapBox",
                  "selfCheck","PLAY","escShort","_short","clubShort","windRel","tempFactor","DB",
                  "courseTee","activeHoles","roundDurationMin","mergeDB","_mergeArr","_mergeTs",
@@ -3709,6 +3709,59 @@ group("sigmaHang — die eigene Lage, nicht das Ziel");
        /S\[i\]\[1\]\*sgH\.sigD, side=sgH\.biasL\+S\[i\]\[0\]\*sgH\.sigL/.test(src));
     ok("der Abschlag bleibt außen vor — vom Tee steht man eben",
        !/tee[\s\S]{0,4000}?sigmaHang/.test(src.slice(src.indexOf("  tee(g,"), src.indexOf("  nextShot("))));
+  }
+}
+
+/* ============ 24bm9. Höhenprofil für die Uhr ============ */
+group("watchElevProfil — eine Zahl statt eines Rasters");
+{
+  const P = G("watchElevProfil"), setze = G("dgmSetzen"), dist = G("geoDist");
+  if (typeof P === "function" && setze) {
+    const tee = [54.0000, 10.7000], green = [54.00252, 10.7000];   // ~280 m
+    const mLat = 110540, mLng = 111320 * Math.cos(54 * Math.PI / 180);
+    const gitter = 5, nx = 9, ny = 80;
+    const rec = { course: "T", la0: tee[0] - 20 / mLat, lo0: tee[1] - 20 / mLng,
+                  dLa: gitter / mLat, dLo: gitter / mLng, mLat, mLng, nx, ny,
+                  h: new Int16Array(nx * ny) };
+    /* Gelände: gleichmäßig 20 m Anstieg über 280 m. */
+    for (let y = 0; y < ny; y++) for (let x = 0; x < nx; x++)
+      rec.h[y * nx + x] = Math.round((100 + ((y * gitter - 20) / 280) * 20) * 10);
+
+    setze(rec);
+    try {
+      const hr = { tee, green, line: [tee, green] };
+      const p = P(hr);
+      ok("Profil entsteht", !!p);
+      if (p) {
+        ok("Schrittweite um 20 m", Math.abs(p.schritt - 20) <= 3, String(p.schritt));
+        ok("deckt die Bahn ab", p.dm.length * p.schritt >= 270,
+           p.dm.length + " × " + p.schritt + " m");
+        /* RELATIV ZUM ABSCHLAG: der erste Wert MUSS 0 sein — die Uhr rechnet
+           Differenzen, und relative Werte bleiben zweistellig. */
+        eq("erster Wert ist 0 (relativ zum Abschlag)", p.dm[0], 0);
+        ok("in Dezimetern, ganzzahlig", p.dm.every(v => Number.isInteger(v)));
+        ok("steigt monoton wie das Gelände", p.dm.every((v, i) => i === 0 || v >= p.dm[i - 1]));
+        ok("am Grün rund +20 m", Math.abs(p.dm[p.dm.length - 1] / 10 - 20) < 1.5,
+           String(p.dm[p.dm.length - 1] / 10) + " m");
+        /* Größenordnung: das ist der ganze Punkt der Übung. */
+        ok("bleibt winzig", JSON.stringify(p).length < 400, JSON.stringify(p).length + " Zeichen");
+      }
+
+      /* LÜCKENHAFT = GAR NICHT. Ein halbes Profil wäre schlimmer als keines:
+         Die Uhr könnte nicht erkennen, wo es endet, und würde den Rand
+         fortschreiben. */
+      /* Die Lücke muss auf der ABGETASTETEN Linie liegen — das Profil läuft
+         mittig, eine Lücke am Rand träfe es nicht. Deshalb eine ganze Reihe
+         plus die darüber, damit die bilineare Ecke sicher fehlt. */
+      const loch = { ...rec, h: Int16Array.from(rec.h) };
+      for (let x = 0; x < nx; x++) { loch.h[40 * nx + x] = -32768; loch.h[41 * nx + x] = -32768; }
+      setze(loch);
+      eq("Lücke im Raster ergibt kein Profil", P(hr), null);
+
+      setze(null);
+      eq("ohne Raster kein Profil", P(hr), null);
+      eq("ohne Punkte kein Profil", P({ tee: null, green: null }), null);
+    } finally { setze(null); }
   }
 }
 
@@ -7525,13 +7578,36 @@ group("Caddy — vollständig sichtbar, Bedingungen, 2 Iron nur vom Tee");
       ok("DGM wird benannt", /DGM1/.test(EQT("dgm")));
       ok("Online-Quelle wird als grob benannt", /grob/.test(EQT("online")));
       ok("gemischte Bezugsflächen werden erklärt", /Bezugsfläche/.test(EQT("gemischt")));
-      ok("fehlende Daten werden benannt", /keine Höhendaten/.test(EQT(null)));
-      ok("vier unterscheidbare Texte",
-         new Set(["dgm","online","gemischt",null].map(EQT)).size === 4);
+      ok("fehlendes Raster wird benannt", /kein Höhenraster für diesen Platz/.test(EQT(null)));
+      /* ZWEI VERSCHIEDENE „NICHTS" (v4.2): Ein geladenes Raster, dessen
+         Streifen den Punkt nicht abdeckt, ist etwas anderes als gar kein
+         Raster — und schickt bei der Fehlersuche in die andere Richtung. */
+      ok("außerhalb des Streifens wird eigens benannt", /außerhalb des geladenen Streifens/.test(EQT("ausserhalb")));
+      ok("fünf unterscheidbare Texte",
+         new Set(["dgm","online","gemischt","ausserhalb",null].map(EQT)).size === 5);
     }
     if (typeof EQ === "function") eq("ohne Punkte keine Quelle", EQ(null, null), null);
 
-    /* BEIDE ZWEIGE gleich: Der Regel-Zweig (`weatherEffectHtml`) hatte
+    /* --- ALLE DREI Caddy-Zweige zeigen „Spielt wie" und die Fahne (v4.2) ---
+     v3.97 hat zwei repariert; den dritten (Annäherung, 8–200 m) gab es auch,
+     und genau er ist auf einem Par 3 und beim zweiten Schlag zuständig — also
+     dort, wo man am häufigsten hinsieht. */
+  {
+    const zweige = (src.match(/<div class="play-caddy">/g) || []).length;
+    ok("es gibt drei Caddy-Zweige", zweige === 3, String(zweige) + " gefunden");
+    const mitZeile = (src.match(/<div class="play-caddy">\$\{(spieltWie|condZeile\(|weatherEffectHtml\()/g) || []).length;
+    ok("jeder beginnt mit der Bedingungszeile", mitZeile === zweige,
+       mitZeile + " von " + zweige);
+    ok("der Annäherungs-Zweig ruft condZeile",
+       /<div class="play-caddy">\$\{condZeile\(PLAY\.here, \(b&&b\.tgt\)\|\|_hrC\.green\)\}\$\{pinZeile\(h\.hole\)\}/.test(src));
+  }
+
+  /* --- Das Raster muss einen Neustart mitten in der Runde überleben --- */
+  ok("renderPlay holt das Raster", /function renderPlay\(\)\{[\s\S]{0,220}?dgmFuerRunde\(\);/.test(src));
+  ok("und tut es nicht doppelt", /_dgmLaeuft===PLAY\.course\) return;/.test(src));
+  ok("und nicht, wenn es schon da ist", /DGM && DGM\.course===PLAY\.course\) return;/.test(src));
+
+  /* BEIDE ZWEIGE gleich: Der Regel-Zweig (`weatherEffectHtml`) hatte
        dieselbe Lücke wie der EV-Zweig — `if(!WEATHER) return "";`. Wer nur
        einen von beiden repariert, baut genau die Uneinheitlichkeit ein, gegen
        die die Prüfung darüber schon einmal geschrieben wurde. */
