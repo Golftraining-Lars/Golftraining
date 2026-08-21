@@ -168,7 +168,7 @@ try {
   /* WICHTIG: bei vm.runInContext landen nur `var` und `function` am Kontext —
      `const STRAT = {...}` bleibt im Blockscope unsichtbar. Deshalb ein Epilog,
      der die benoetigten Namen aktiv herausreicht. */
-  const namen = ["dgmRahmen","dgmIdx","dgmZelleMitte","dgmZellen","dgmHoehe","dgmNeigung","dgmKey",
+  const namen = ["elevQuelle","elevQuelleText","dgmRahmen","dgmIdx","dgmZelleMitte","dgmZellen","dgmHoehe","dgmNeigung","dgmKey",
                  "STRAT","clubPick","playsLike","pinPoint","geoDist","playMapBox",
                  "selfCheck","PLAY","escShort","_short","clubShort","windRel","tempFactor","DB",
                  "courseTee","activeHoles","roundDurationMin","mergeDB","_mergeArr","_mergeTs",
@@ -7309,9 +7309,47 @@ group("Caddy — vollständig sichtbar, Bedingungen, 2 Iron nur vom Tee");
   ok("im Regel-Zweig ebenso", /<div class="play-caddy">\$\{weatherEffectHtml\(bearing,mid\)\}\$\{pinZeile\(h\.hole\)\}<div class="pc-head">/.test(src));
   if (typeof CZ === "function") {
     eq("ohne Punkte keine Zeile", CZ(null, null), "");
-    /* Unter drei Metern schweigt sie: Eine Zeile, die bei jedem Loch „±1 m"
-       meldet, liest niemand mehr — und sie verdeckt die echten Fälle. */
-    ok("Schwelle vorhanden", /if\(Math\.abs\(diff\)<3 && !\(c\.teile&&c\.teile\.length\)\) return "";/.test(src));
+    /* SCHWELLE ENTFERNT (v3.97). Bis v3.96 schwieg die Zeile unter drei Metern
+       Unterschied — mit der Begründung, eine Zeile, die immer „±1 m" meldet,
+       lese niemand. Die Begründung war falsch: Der Leser kann nicht
+       unterscheiden, ob nichts angezeigt wird, weil nichts ausmacht, oder weil
+       nichts gemessen wurde. Das ist der teurere Fehler, und die Unterdrückung
+       sparte genau eine Zeile.
+       Geprüft wird deshalb jetzt das Gegenteil: Sie schweigt NUR ohne Punkte. */
+    ok("keine Schweigeschwelle mehr",
+       !/Math\.abs\(diff\)<3 && !\(c\.teile&&c\.teile\.length\)\) return ""/.test(src));
+    ok("bei fehlenden Daten steht der Grund da", /wie gemessen — /.test(src));
+    ok("die Höhe steht immer in den Einzelteilen",
+       /teile\.push\("⛰ Höhe unbekannt"\)/.test(src) && /teile\.push\("⛰ eben \(±0 m\)"\)/.test(src));
+    ok("condFaktor steigt nicht mehr ohne Wetter aus",
+       !/if\(!WEATHER && !dElev\) return leer;/.test(src));
+
+    /* Die Herkunft der Höhe muss unterscheidbar bleiben — „unbekannt" und
+       „gemessen, aber eben" sind verschiedene Auskünfte. */
+    const EQ = G("elevQuelle"), EQT = G("elevQuelleText");
+    if (typeof EQT === "function") {
+      ok("DGM wird benannt", /DGM1/.test(EQT("dgm")));
+      ok("Online-Quelle wird als grob benannt", /grob/.test(EQT("online")));
+      ok("gemischte Bezugsflächen werden erklärt", /Bezugsfläche/.test(EQT("gemischt")));
+      ok("fehlende Daten werden benannt", /keine Höhendaten/.test(EQT(null)));
+      ok("vier unterscheidbare Texte",
+         new Set(["dgm","online","gemischt",null].map(EQT)).size === 4);
+    }
+    if (typeof EQ === "function") eq("ohne Punkte keine Quelle", EQ(null, null), null);
+
+    /* BEIDE ZWEIGE gleich: Der Regel-Zweig (`weatherEffectHtml`) hatte
+       dieselbe Lücke wie der EV-Zweig — `if(!WEATHER) return "";`. Wer nur
+       einen von beiden repariert, baut genau die Uneinheitlichkeit ein, gegen
+       die die Prüfung darüber schon einmal geschrieben wurde. */
+    ok("Regel-Zweig schweigt nicht mehr ohne Wetter",
+       !/function weatherEffectHtml\(bearing, dist, dElev\)\{\s*if\(!WEATHER\) return "";/.test(src));
+    ok("und nennt dort, was fehlt", /keine Wetterdaten — Wind und Temperatur fehlen/.test(src));
+    ok("Höhe im Regel-Zweig ohne 2-m-Schwelle",
+       !/dElev!=null&&Math\.abs\(dElev\)>=2/.test(src));
+    /* „eben" und „unbekannt" müssen in BEIDEN Zweigen vorkommen. */
+    ["⛰ Höhe unbekannt", "⛰ eben (±0 m)"].forEach(t =>
+      ok("„" + t + "\" steht in beiden Zweigen", (src.split(t).length - 1) >= 2,
+         String(src.split(t).length - 1) + "×"));
   }
 
   /* 2 IRON NUR VOM TEE: Ein Vorschlag, den man ohnehin nicht ausführt, ist
