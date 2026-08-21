@@ -3229,6 +3229,98 @@ group("STRAT.tee — vertauschte Tee/Grün-Punkte und Modus-Reaktion");
      /_aimChainKey[\s\S]{0,300}caddyMode\(\)/.test(src));
 }
 
+/* ============ 24bm2. Tee/Grün-Tausch überlebt Abgleich und Rückgängig ============ */
+group("Tee/Grün-Tausch — stempeln, ausdrücken, nicht überschreiben");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+  /* DER BUG (v3.91): `geoEdSwapTeeGreen` war die EINZIGE Kartenänderung ohne
+     `geoEdSnapshot()`. Das kostet drei Dinge auf einmal, und das teuerste ist
+     der `geoAt`-Stempel: Ohne ihn sind die Stempel beider Seiten gleich,
+     `_mergeCourses` fällt auf „die längere Fassung gewinnt" zurück, und die
+     Repo-Karte ersetzt die lokale samt Tausch. Genau der v3.68-Fehler, nur
+     umging der Tausch dessen Reparatur.
+     Deshalb wird hier die REGEL geprüft, nicht der Einzelfall: Jede Funktion,
+     die `overrides.holes` schreibt, muss vorher stempeln. */
+  const fn = (name) => {
+    const von = src.indexOf("function " + name + "(");
+    return von < 0 ? "" : src.slice(von, src.indexOf("\n}", von));
+  };
+
+  const swap = fn("geoEdSwapTeeGreen");
+  ok("geoEdSwapTeeGreen existiert", swap.length > 50);
+  ok("stempelt über geoEdSnapshot", /geoEdSnapshot\(/.test(swap));
+  ok("und zwar VOR der Änderung", swap.indexOf("geoEdSnapshot(") < swap.indexOf("h.swap=!h.swap"));
+  ok("legt die Marke in den Korrekturen ab", /o\.swap=true/.test(swap) && /delete o\.swap/.test(swap));
+
+  /* Weg A des Imports muss stempeln wie Weg B — sonst gilt eine frisch
+     geladene Karte als älter als ihre eigene Löschung. */
+  const wegA = fn("geoFetchOSM"), wegB = fn("geoImportText");
+  ["geoAt", "geoDeletedAt", "watchFilePushSoon"].forEach(t => {
+    ok("Weg B kennt " + t, wegB.indexOf(t) >= 0);
+    ok("Weg A kennt " + t + " auch", wegA.indexOf(t) >= 0);
+  });
+
+  /* Korrekturen nie ganz ersetzen: `{green:pt}` löschte Tee-Korrektur UND
+     Tausch-Marke gleich mit. v3.85 hat den Zieh-Pfad repariert, v3.91 das
+     Werkzeug „Grünmitte" — die Prüfung deckt beide und alle künftigen ab. */
+  /* NUR im ausführbaren Block suchen — die Doku ZITIERT den alten Ausdruck,
+     um zu erklären, warum er falsch war. Ein Prüfstand, der über ein Zitat
+     stolpert, erzieht dazu, die Begründung wegzulassen. */
+  /* Ein Tag-Filter taugt hier NICHT: Der Doku-Block enthält selbst die
+     Zeichenfolge `<script src>` als Prosa und reisst jede Tag-Suche auf.
+     Deshalb wird der Block schlicht herausgeschnitten.) */
+  const dv = src.indexOf('id="devdocs"');
+  const codeOnly = dv < 0 ? src
+    : src.slice(0, dv) + src.slice(src.indexOf("</script>", src.indexOf("## Changelog", dv)));
+  const roh = [...codeOnly.matchAll(/overrides\.holes\[[^\]]{1,12}\]\s*=\s*\{/g)].map(m => m[0]);
+  eq("keine Korrektur wird als Ganzes überschrieben", roh.join(" | "), "");
+
+  /* `applyGeoOverrides` muss `swap` in BEIDE Richtungen ausdrücken können —
+     sonst kommt ein aufgehobener Tausch über `geoEdUndo` zurück. */
+  const AGO = G("applyGeoOverrides");
+  if (typeof AGO === "function") {
+    const geo = {
+      holes: { 1: { tee: [54, 10], green: [54.001, 10], line: null, distM: 111 } },
+      overrides: { holes: { 1: { swap: true } } }
+    };
+    AGO(geo);
+    ok("Tausch wird übernommen", geo.holes[1].swap === true);
+    geo.overrides.holes[1] = {};                 // Tausch aufgehoben (geoEdUndo-Fall)
+    AGO(geo);
+    ok("und aufgehoben wieder entfernt", !("swap" in geo.holes[1]));
+  }
+
+  /* DER FEHLER SELBST, nachgestellt: Lars hat auf diesem Platz Bäume gelöscht
+     UND Tee/Grün getauscht. Seine Fassung ist damit KÜRZER als die im Repo.
+     Ohne frischen `geoAt` sind die Stempel gleich, die Längen-Heuristik greift,
+     und die Repo-Karte bringt Bäume wie Tausch zurück. */
+  const MC = G("_mergeCourses");
+  if (typeof MC === "function") {
+    const repoGeo = { holes: { 1: { tee: [54, 10], green: [54.002, 10] } },
+                      mine: [{ kind: "tree" }, { kind: "tree" }, { kind: "tree" }], overrides: { holes: {} } };
+    const meinGeo = { holes: { 1: { tee: [54, 10], green: [54.002, 10], swap: true } },
+                      mine: [], overrides: { holes: { 1: { swap: true } } } };
+    const lauf = (meinAt, repoAt) => MC(
+      [{ name: "Nordplatz", geo: meinGeo, geoAt: meinAt }],
+      [{ name: "Nordplatz", geo: repoGeo, geoAt: repoAt }], null)[0];
+
+    const gleich = lauf("2026-08-20T10:00:00Z", "2026-08-20T10:00:00Z");
+    ok("bei gleichem Stempel gewinnt die längere Repo-Karte — der alte Fehler",
+       !gleich.geo.holes[1].swap && gleich.geo.mine.length === 3);
+
+    const juenger = lauf("2026-08-21T09:00:00Z", "2026-08-20T10:00:00Z");
+    ok("mit frischem geoAt überlebt der Tausch", juenger.geo.holes[1].swap === true);
+    eq("und die Löschung ebenso", juenger.geo.mine.length, 0);
+  }
+
+  /* Die Doku darf den alten, halb wahren Satz nicht mehr allein tragen. */
+  const doc = (src.match(/<script[^>]*devdocs[^>]*>([\s\S]*?)<\/script>/) || [])[1] || "";
+  ok("die drei Pflichten von geoEdSnapshot stehen in der Doku",
+     /geoEdSnapshot[\s\S]{0,400}watchFilePushSoon/.test(doc));
+  ok("und die erlaubten geoAt-Stellen sind benannt",
+     /geoAt[\s\S]{0,300}geoFetchOSM/.test(doc));
+}
+
 /* ============ 24bl. Caddy-Plan: Einheiten und Plausibilität ============ */
 group("caddyPlan — kein Wedge vom Abschlag, Einheiten beschriftet");
 {
