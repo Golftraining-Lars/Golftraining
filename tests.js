@@ -168,7 +168,7 @@ try {
   /* WICHTIG: bei vm.runInContext landen nur `var` und `function` am Kontext —
      `const STRAT = {...}` bleibt im Blockscope unsichtbar. Deshalb ein Epilog,
      der die benoetigten Namen aktiv herausreicht. */
-  const namen = ["watchElevProfil","dgmSetzen","elevQuelle","elevQuelleText","dgmRahmen","dgmIdx","dgmZelleMitte","dgmZellen","dgmHoehe","dgmNeigung","dgmKey",
+  const namen = ["gpFingerprint","_aimApproachEv","watchElevProfil","dgmSetzen","elevQuelle","elevQuelleText","dgmRahmen","dgmIdx","dgmZelleMitte","dgmZellen","dgmHoehe","dgmNeigung","dgmKey",
                  "STRAT","clubPick","playsLike","pinPoint","geoDist","playMapBox",
                  "selfCheck","PLAY","escShort","_short","clubShort","windRel","tempFactor","DB",
                  "courseTee","activeHoles","roundDurationMin","mergeDB","_mergeArr","_mergeTs",
@@ -3456,6 +3456,22 @@ group("DGM1 — Raster, Neigung und die Grenze zwischen zwei Quellen");
   /* Abgetastet wird der Korridor, nicht die ganze Bbox. */
   const Z = zellen(geo, R);
   ok("Korridor abgetastet", Z.length > 200, String(Z.length));
+  /* KORRIDORBREITE (v4.3): ±45 m reichten auf breiten Bahnen und in Doglegs
+     nicht — dann stand „außerhalb des geladenen Streifens", obwohl alles
+     geladen war. Geprüft wird die Breite, nicht die Konstante: Ein Punkt
+     50 m neben der Linie muss im Rahmen liegen. */
+  ok("Streifen ist 120 m breit", /DGM_KORRIDOR=120\b/.test(fs.readFileSync(FILE, "utf8")));
+  const quer = 50 / (111320 * Math.cos(54 * Math.PI / 180));
+  ok("50 m neben der Linie liegt im Rahmen", idx(R, tee[0] + 0.0005, tee[1] + quer) >= 0);
+  /* Der RAHMEN ist absichtlich etwas weiter als der abgetastete Streifen
+     (`DGM_KORRIDOR/2 + DGM_GITTER` Rand), damit die bilineare Ecke am
+     Streifenrand noch vier Nachbarn hat. Geprüft wird deshalb der STREIFEN,
+     nicht der Rahmen: 70 m daneben wird nicht mehr abgetastet. */
+  const ausserhalb = zellen(geo, R).every(i => {
+    const p = mitte(R, i);
+    return Math.abs(p[1] - tee[1]) < quer * 1.35;
+  });
+  ok("70 m daneben wird nicht mehr abgetastet", ausserhalb);
   ok("aber nicht die ganze Bbox", Z.length < R.nx * R.ny, Z.length + " von " + R.nx * R.ny);
   ok("keine Zelle doppelt", new Set(Z).size === Z.length);
 
@@ -3762,6 +3778,94 @@ group("watchElevProfil — eine Zahl statt eines Rasters");
       eq("ohne Raster kein Profil", P(hr), null);
       eq("ohne Punkte kein Profil", P({ tee: null, green: null }), null);
     } finally { setze(null); }
+  }
+}
+
+/* ============ 24bn. Rahmenwechsel wirft keine Punkte weg ============ */
+group("Höhenraster — Umzug in einen neuen Rahmen");
+{
+  const idx = G("dgmIdx"), mitte = G("dgmZelleMitte");
+  if (idx && mitte) {
+    /* DER FEHLER, DEN ES NIE GAB, WEIL ER RECHTZEITIG AUFFIEL (v4.3): Bei
+       einem Rahmenwechsel legte `dgmLadenFuer` schlicht ein leeres Feld an —
+       jede Änderung an Korridorbreite, Maschenweite oder Bahnführung hätte
+       ALLE geladenen Punkte weggeworfen. Bei 18.000 Punkten Stundenlimit
+       macht das solche Änderungen praktisch unmöglich.
+       Hier nachgestellt: derselbe Umzug, den v4.3 selbst auslöst (90 -> 120 m
+       Korridor, also ein um 15 m nach außen gerückter Ursprung). */
+    const mLat = 110540, mLng = 111320 * Math.cos(54 * Math.PI / 180);
+    const g = 5;
+    const alt = { la0: 54.0, lo0: 10.7, dLa: g / mLat, dLo: g / mLng,
+                  mLat, mLng, nx: 20, ny: 40, h: new Int16Array(20 * 40).fill(-32768) };
+    /* Ein paar Werte setzen — mit ihrer geografischen Lage gemerkt. */
+    const gesetzt = [];
+    [0, 37, 199, 400, 799].forEach((i, k) => {
+      alt.h[i] = 1000 + k * 13;
+      gesetzt.push({ pt: mitte(alt, i), v: alt.h[i] });
+    });
+
+    /* Neuer Rahmen: 15 m weiter außen begonnen, entsprechend größer. */
+    const neu = { la0: 54.0 - 15 / mLat, lo0: 10.7 - 15 / mLng, dLa: g / mLat, dLo: g / mLng,
+                  mLat, mLng, nx: 26, ny: 46, h: new Int16Array(26 * 46).fill(-32768) };
+
+    /* Die Übertragung, wie sie im Code steht: über den Mittelpunkt. */
+    let ueber = 0;
+    for (let i = 0; i < alt.h.length; i++) {
+      if (alt.h[i] === -32768) continue;
+      const p = mitte(alt, i), k = idx(neu, p[0], p[1]);
+      if (k >= 0 && neu.h[k] === -32768) { neu.h[k] = alt.h[i]; ueber++; }
+    }
+    eq("alle belegten Zellen ziehen um", ueber, gesetzt.length);
+    gesetzt.forEach((z, n) => {
+      const k = idx(neu, z.pt[0], z.pt[1]);
+      ok("Punkt " + n + " steht an derselben Stelle", k >= 0 && neu.h[k] === z.v);
+      /* Und zwar wirklich an derselben STELLE, nicht nur mit demselben Wert. */
+      if (k >= 0) ok("Punkt " + n + " liegt geografisch richtig",
+                     G("geoDist")(mitte(neu, k), z.pt) < g);
+    });
+
+    /* Der Code darf beim Rahmenwechsel nicht mehr blind leeren. */
+    const src = fs.readFileSync(FILE, "utf8");
+    ok("Umzug statt Neuanlage", /const alt=rec;[\s\S]{0,900}?rec\.h\[k\]=alt\.h\[i\]/.test(src));
+    ok("und es wird gemeldet", /Rahmen geändert — /.test(src));
+    ok("Stand und Quellenangabe ziehen mit",
+       /stand:\(alt&&alt\.stand\)\|\|null, attribution:\(alt&&alt\.attribution\)\|\|""/.test(src));
+  }
+}
+
+/* ============ 24bo. Der Tausch muss überall durchschlagen ============ */
+group("swap — Fingerabdruck und Annäherung");
+{
+  const fp = G("gpFingerprint"), hRef = G("holeRef");
+  const tee = [54.0000, 10.7000], green = [54.00252, 10.7000];
+  const bau = (sw) => ({
+    holes: { 1: sw ? { tee: green, green: tee, swap: true, line: [green, tee] }
+                   : { tee, green, line: [tee, green] } },
+    features: [], mine: [], overrides: { holes: {} } });
+
+  if (typeof fp === "function") {
+    /* DER FEHLER (v4.4): Der Abdruck las `geo.holes[k]` roh und warf beide
+       Punkte in dieselbe SUMME — bei vertauschtem Tee/Grün kam damit
+       zwangsläufig dasselbe heraus. Er konnte einen Tausch grundsätzlich
+       nicht sehen, und der Plan behielt die alte Ausrichtung 30 Tage lang. */
+    const clubs = [{ name: "Driver", carry: 230 }];
+    const a = fp(bau(false), clubs, 20, null);
+    const b = fp(bau(true), clubs, 20, null);
+    ok("ein Tausch ändert den Fingerabdruck", a !== b, a + " / " + b);
+    eq("und ohne Änderung bleibt er gleich", fp(bau(true), clubs, 20, null), b);
+  }
+
+  const AE = G("_aimApproachEv");
+  if (typeof AE === "function" && typeof hRef === "function") {
+    /* Die Annäherungsbewertung hieß ihre Variable `hr` — überall sonst das
+       Ergebnis von `holeRef()` —, las aber roh. Auf einem getauschten Loch
+       zielte sie damit auf den Abschlag. Geprüft wird über die Quelle, weil
+       die Funktion PLAY und STRAT braucht. */
+    const src = fs.readFileSync(FILE, "utf8");
+    const fn = src.slice(src.indexOf("function _aimApproachEv"),
+                         src.indexOf("function _aimApproachEv") + 1400);
+    ok("_aimApproachEv liest durch holeRef", /holeRef\(geo,h\.hole\)/.test(fn));
+    ok("und nicht mehr nur roh", !/const hr=geo\.holes&&geo\.holes\[h\.hole\];/.test(fn));
   }
 }
 
