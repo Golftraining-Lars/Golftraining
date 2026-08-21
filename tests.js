@@ -168,7 +168,7 @@ try {
   /* WICHTIG: bei vm.runInContext landen nur `var` und `function` am Kontext —
      `const STRAT = {...}` bleibt im Blockscope unsichtbar. Deshalb ein Epilog,
      der die benoetigten Namen aktiv herausreicht. */
-  const namen = ["gpFingerprint","_aimApproachEv","watchElevProfil","dgmSetzen","elevQuelle","elevQuelleText","dgmRahmen","dgmIdx","dgmZelleMitte","dgmZellen","dgmHoehe","dgmNeigung","dgmKey",
+  const namen = ["_dgmScheibe","gpFingerprint","_aimApproachEv","watchElevProfil","dgmSetzen","elevQuelle","elevQuelleText","dgmRahmen","dgmIdx","dgmZelleMitte","dgmZellen","dgmHoehe","dgmNeigung","dgmKey",
                  "STRAT","clubPick","playsLike","pinPoint","geoDist","playMapBox",
                  "selfCheck","PLAY","escShort","_short","clubShort","windRel","tempFactor","DB",
                  "courseTee","activeHoles","roundDurationMin","mergeDB","_mergeArr","_mergeTs",
@@ -3461,6 +3461,31 @@ group("DGM1 — Raster, Neigung und die Grenze zwischen zwei Quellen");
      geladen war. Geprüft wird die Breite, nicht die Konstante: Ein Punkt
      50 m neben der Linie muss im Rahmen liegen. */
   ok("Streifen ist 120 m breit", /DGM_KORRIDOR=120\b/.test(fs.readFileSync(FILE, "utf8")));
+
+  /* DIE ENDEN (v4.6) — hier lag der gemeldete Fehler: „Höhe unbekannt" mitten
+     auf dem Fairway, weil das GRÜN fehlte. Eine Bahnlinie aus OSM endet oft am
+     Grünrand; quer abgetastet wurde jenseits des letzten Kettenpunkts nichts
+     mehr, und `dgmHoehe` braucht für die bilineare Ecke ohnehin vier Nachbarn.
+     Geprüft wird die Sache: Abschlag und Grün müssen mit RESERVE drin sein. */
+  const scheibe = G("_dgmScheibe");
+  ok("Scheibenhelfer vorhanden", typeof scheibe === "function");
+  const abgedeckt = new Set(zellen(geo, R));
+  const drin = (p) => abgedeckt.has(idx(R, p[0], p[1]));
+  ok("Abschlag ist abgetastet", drin(tee));
+  ok("Grün ist abgetastet", drin(green));
+  /* Mit Reserve: 20 m JENSEITS des Grüns, sonst reicht es für bilinear nicht. */
+  const weiter = [green[0] + 20 / 110540, green[1]];
+  ok("und 20 m hinter dem Grün auch", drin(weiter));
+  const hinterTee = [tee[0] - 20 / 110540, tee[1]];
+  ok("und 20 m hinter dem Abschlag", drin(hinterTee));
+  /* Die vier bilinearen Nachbarn des Grüns müssen alle da sein — sonst gibt
+     `dgmHoehe` dort weiterhin null, und genau das war der Befund. */
+  const ecken = [[R.dLa, 0], [-R.dLa, 0], [0, R.dLo], [0, -R.dLo]].map(
+    d => [green[0] + d[0], green[1] + d[1]]);
+  ok("alle vier Nachbarzellen des Grüns sind abgetastet", ecken.every(drin));
+  /* Aber nicht die halbe Landschaft. */
+  const weitWeg = [green[0] + 200 / 110540, green[1]];
+  ok("120 m hinter dem Grün nicht mehr", !drin(weitWeg));
   const quer = 50 / (111320 * Math.cos(54 * Math.PI / 180));
   ok("50 m neben der Linie liegt im Rahmen", idx(R, tee[0] + 0.0005, tee[1] + quer) >= 0);
   /* Der RAHMEN ist absichtlich etwas weiter als der abgetastete Streifen
