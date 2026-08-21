@@ -53,7 +53,11 @@ function codeOhneDoku(src){
    reine Funktion auf, die weder hier steht noch in dieser Datei vorkommt,
    schlaegt Abschnitt 16 fehl. Wer Altbestand testet, streicht ihn hier.
    --------------------------------------------------------------------------- */
-const COVERAGE_BASELINE_FUNCS = (
+/* `dgmAktiv` und `dgmStatus` lesen aus IndexedDB und sind damit nicht rein —
+   sie gehoeren nicht in die Abdeckung reiner Funktionen. Die Rechenteile
+   darunter (`dgmRahmen`, `dgmZellen`, `dgmHoehe`, `dgmNeigung`) sind rein und
+   werden geprueft; genau darauf kommt es an. */
+const COVERAGE_BASELINE_FUNCS = ("dgmAktiv dgmStatus " +
     "_aimApproachEv _aimBuild _aimNextEv _aimTeeEv _aimToView _centroid _crKey _distPtSeg" +" "+
     "_distToLine _fitProject _flagSvg _hrCP _linePath _merLat _merLng _merX _merY _mkHoles" +" "+
     "_mkTee _phoneLive _projPerp _ringPath _satTiles _teeSC _tileLat applyGeoOverrides" +" "+
@@ -164,7 +168,8 @@ try {
   /* WICHTIG: bei vm.runInContext landen nur `var` und `function` am Kontext —
      `const STRAT = {...}` bleibt im Blockscope unsichtbar. Deshalb ein Epilog,
      der die benoetigten Namen aktiv herausreicht. */
-  const namen = ["STRAT","clubPick","playsLike","pinPoint","geoDist","playMapBox",
+  const namen = ["dgmRahmen","dgmIdx","dgmZelleMitte","dgmZellen","dgmHoehe","dgmNeigung","dgmKey",
+                 "STRAT","clubPick","playsLike","pinPoint","geoDist","playMapBox",
                  "selfCheck","PLAY","escShort","_short","clubShort","windRel","tempFactor","DB",
                  "courseTee","activeHoles","roundDurationMin","mergeDB","_mergeArr","_mergeTs",
                  "whsIndexOf","classifyProps","holeRefFromTags","bearingDeg","dataScore",
@@ -3374,6 +3379,137 @@ group("wedgeZone — der abgebrochene Annäherungsschlag");
     ok("stark genug gegen den 14-m-Stumpf",
        auf(14) >= T._interp(T.ES_BASE.fairway, 100) - T._interp(T.ES_BASE.fairway, 14) - 0.01);
   }
+}
+
+/* ============ 24bm4. Getauschtes Loch: EINE Geometrie, nicht zwei ============ */
+group("swap — Raster und Abschlag zeigen auf dasselbe Grün");
+{
+  const S = G("STRAT"), hRef = G("holeRef"), dist = G("geoDist");
+  if (S && S.grid && hRef && dist) {
+    /* DER FEHLER (v3.94): `tee()` las den Abschlag korrigiert über `holeRef`,
+       `grid()` las das Grün ROH. Auf einem getauschten Loch zeigten beide auf
+       DENSELBEN Punkt — Abstand 0 m, `holeLen` 0, der Zielfächer drehte ins
+       Nichts. Halb korrigiert war schlimmer als gar nicht korrigiert.
+       Geprüft wird die Sache, nicht die Schreibweise: Selbstprüfung 14 sucht
+       nach `geo.holes[...].green` und übersah den Zugriff, weil eine
+       Zwischenvariable davorstand. */
+    const tee = [54.0000, 10.7000], green = [54.00252, 10.7000];   // ~280 m
+    const bau = (sw) => ({
+      holes: { 1: sw ? { tee: green, green: tee, swap: true, line: [green, tee] }
+                     : { tee: tee, green: green, line: [tee, green] } },
+      features: [], overrides: { holes: {} } });
+
+    [true, false].forEach(sw => {
+      const geo = bau(sw), hr = hRef(geo, 1), g = S.grid(geo, "X", 1);
+      const wie = sw ? "getauscht" : "normal";
+      ok("Raster vorhanden (" + wie + ")", !!g);
+      if (!g) return;
+      eq("grid-Grün = holeRef-Grün (" + wie + ")", Math.round(dist(g.green, hr.green)), 0);
+      ok("Lochlänge stimmt (" + wie + ")",
+         Math.abs(dist(hr.tee, g.green) - 280) < 5, String(Math.round(dist(hr.tee, g.green))));
+      ok("Grün liegt NICHT auf dem Abschlag (" + wie + ")", dist(hr.tee, g.green) > 50);
+    });
+
+    /* Beide Fassungen desselben Lochs müssen dieselbe Geometrie ergeben —
+       der Tausch ist eine Frage der Ablage, nicht der Bahn. */
+    const a = S.grid(bau(true), "X", 1), b = S.grid(bau(false), "X", 1);
+    ok("getauscht und normal liefern dasselbe Grün", Math.round(dist(a.green, b.green)) === 0);
+  }
+}
+
+/* ============ 24bm5. DGM1 — Höhenraster, Neigung, Bezugsflächen ============ */
+group("DGM1 — Raster, Neigung und die Grenze zwischen zwei Quellen");
+{
+  const rahmen = G("dgmRahmen"), idx = G("dgmIdx"), mitte = G("dgmZelleMitte"),
+        zellen = G("dgmZellen"), hoehe = G("dgmHoehe"), neigung = G("dgmNeigung"),
+        key = G("dgmKey");
+  /* Die Konstanten NICHT ueber G(): `const` auf oberster Ebene wird im
+     Sandkasten keine Eigenschaft des Kontexts. Erst hat das die ganze
+     Vorrichtung vergiftet — `GIT` war undefined, das Testgelaende wurde mit
+     NaN gefuellt, und Int16Array machte daraus lauter Nullen. Deshalb hier
+     die Werte, und daneben die Probe, dass sie noch zum Quelltext passen. */
+  const GIT = 5, LEER = -32768;
+  const srcK = fs.readFileSync(FILE, "utf8");
+  ok("DGM_GITTER im Quelltext ist " + GIT, new RegExp("DGM_GITTER=" + GIT + "\\b").test(srcK));
+  ok("DGM_LEER im Quelltext ist " + LEER, new RegExp("DGM_LEER=" + LEER + "\\b").test(srcK));
+
+  eq("Schlüssel je Platz", key("Nordplatz"), "dgm:Nordplatz");
+
+  /* Ein gerades 280-m-Loch, Nord-Süd. */
+  const tee = [54.0000, 10.7000], green = [54.00252, 10.7000];
+  const geo = { holes: { 1: { tee, green, line: [tee, green] } }, features: [], overrides: { holes: {} } };
+  const R = rahmen(geo);
+  ok("Rahmen entsteht", !!R);
+  ok("Maschenweite ~5 m", Math.abs(R.dLa * R.mLat - GIT) < 0.01, String(R.dLa * R.mLat));
+  ok("Rahmen umfasst den Korridor", R.nx > 18 && R.ny > 55, R.nx + "x" + R.ny);
+  ok("kein Rahmen ohne Bahnen", rahmen({ holes: {} }) === null);
+
+  /* Index und Zellmitte müssen zueinander passen — sonst landen die geholten
+     Höhen an der falschen Stelle, und das fällt erst auf dem Platz auf. */
+  const i0 = idx(R, tee[0], tee[1]);
+  ok("Abschlag liegt im Raster", i0 >= 0);
+  const zurueck = mitte(R, i0);
+  ok("Zellmitte trifft zurück (< halbe Masche)",
+     G("geoDist")(zurueck, tee) < GIT, String(Math.round(G("geoDist")(zurueck, tee) * 10) / 10));
+  eq("außerhalb gibt -1", idx(R, 53.0, 9.0), -1);
+
+  /* Abgetastet wird der Korridor, nicht die ganze Bbox. */
+  const Z = zellen(geo, R);
+  ok("Korridor abgetastet", Z.length > 200, String(Z.length));
+  ok("aber nicht die ganze Bbox", Z.length < R.nx * R.ny, Z.length + " von " + R.nx * R.ny);
+  ok("keine Zelle doppelt", new Set(Z).size === Z.length);
+
+  /* --- Höhe und Neigung an einem KONSTRUIERTEN Hang: 4 % nach Norden --- */
+  const rec = { course: "T", la0: R.la0, lo0: R.lo0, dLa: R.dLa, dLo: R.dLo,
+                mLat: R.mLat, mLng: R.mLng, nx: R.nx, ny: R.ny,
+                h: new Int16Array(R.nx * R.ny) };
+  for (let y = 0; y < R.ny; y++) for (let x = 0; x < R.nx; x++)
+    rec.h[y * R.nx + x] = Math.round((100 + y * GIT * 0.04) * 10);   // 4 % Steigung nach Norden
+
+  const hMitte = hoehe(tee[0] + R.dLa * 10, tee[1], rec);
+  ok("Höhe wird interpoliert", hMitte != null && hMitte > 100, String(hMitte));
+
+  const n = neigung([tee[0] + R.dLa * 10, tee[1]], 0, rec);   // Peilung 0° = nach Norden
+  ok("Neigung gemessen", !!n);
+  if (n) {
+    ok("längs ~ +4 %", Math.abs(n.laengs - 0.04) < 0.005, String(n.laengs));
+    ok("quer ~ 0 %", Math.abs(n.quer) < 0.005, String(n.quer));
+    ok("Betrag ~ 4 %", Math.abs(n.betrag - 0.04) < 0.005, String(n.betrag));
+  }
+  /* Nach Süden gepeilt muss dasselbe Gelände bergAB sein — ein Vorzeichenfehler
+     hier würde den Zuschlag auf genau die falschen Landezonen legen. */
+  const nS = neigung([tee[0] + R.dLa * 10, tee[1]], 180, rec);
+  if (n && nS) ok("Gegenrichtung kehrt das Vorzeichen um", Math.abs(nS.laengs + n.laengs) < 0.005);
+
+  /* Ebenes Gelände darf keinen Zuschlag erzeugen. */
+  const eben = { ...rec, h: new Int16Array(R.nx * R.ny).fill(1000) };
+  const nE = neigung([tee[0] + R.dLa * 10, tee[1]], 0, eben);
+  ok("ebenes Gelände = 0 %", nE && nE.betrag < 0.001);
+
+  /* Lücken dürfen NICHT stillschweigend zu 0 werden. */
+  const loch = { ...rec, h: Int16Array.from(rec.h) };
+  loch.h[0] = LEER;
+  ok("fehlende Ecke gibt null, nicht 0", hoehe(R.la0, R.lo0, loch) === null);
+  ok("außerhalb des Rasters gibt null", hoehe(53.0, 9.0, rec) === null);
+  ok("ohne Raster gibt null", hoehe(tee[0], tee[1], null) === null);
+
+  /* --- Die Zuschlagsformel: klein genug, um nie zu überstimmen --- */
+  const SW = G("SPIELWEISE");
+  ["safe", "bal", "aggr"].forEach(m => ok("Modus " + m + " hat ein Hang-Gewicht", SW[m].hang != null));
+  ok("sicher meidet Neigung am stärksten", SW.safe.hang > SW.bal.hang && SW.bal.hang > SW.aggr.hang);
+  const z = (m, s) => SW[m].hang * Math.min(s, 0.15);
+  ok("5 % kostet in sicher unter 0,1 Schlag", z("safe", 0.05) < 0.1, String(z("safe", 0.05)));
+  ok("gedeckelt: 40 % kostet nicht mehr als 15 %", z("safe", 0.40) === z("safe", 0.15));
+  ok("offensiv nimmt Neigung eher in Kauf", z("aggr", 0.10) < z("safe", 0.10));
+
+  /* --- Bezugsflächen dürfen nicht gemischt werden --- */
+  const src = fs.readFileSync(FILE, "utf8");
+  const ed = src.slice(src.indexOf("function elevDelta(from,to)"), src.indexOf("function elevDelta(from,to)") + 1200);
+  ok("elevDelta verweigert gemischte Paare", /dA!=null \|\| dB!=null\) return null/.test(ed));
+  ok("feinere Rauschsperre bei DGM", /Math\.abs\(d\)<0\.3/.test(ed));
+  ok("grobe Sperre bleibt für die Online-Quelle", /Math\.abs\(d\)<1\.5/.test(ed));
+  ok("elevGet fragt DGM zuerst",
+     /function elevGet[\s\S]{0,900}?dgmHoehe\(la,lo\)[\s\S]{0,80}?ELEV\[elevKey/.test(src));
 }
 
 /* ============ 24bl. Caddy-Plan: Einheiten und Plausibilität ============ */
@@ -9476,8 +9612,13 @@ group("Caddy — zweiter Zug und die Gewichte, die ihn tragen");
     /* --- (c) Grünzellen: „Grün 0 %" muss von „kein Grün im Raster" trennbar sein --- */
     /* Fenster vergrößert (v3.72): Die Übersetzung von Linien in Flächen samt
        Begründung hat `grid()` deutlich länger gemacht. */
+    /* Fenster erneut vergrößert (v3.94): `grid()` liest jetzt durch `holeRef`
+       und trägt die Begründung dazu — der feste Ausschnitt reichte nicht mehr
+       bis zu `greenCells`. Ein Zeichenfenster über Quelltext ist ohnehin die
+       schwächste Art zu prüfen; es bleibt hier nur, weil die Zählung selbst
+       tief in einer Schleife sitzt. */
     const gr = src.slice(src.indexOf("  grid(geo,courseName,holeNo)"),
-                         src.indexOf("  grid(geo,courseName,holeNo)") + 11000);
+                         src.indexOf("  grid(geo,courseName,holeNo)") + 14000);
     ok("Raster zählt Grünzellen", /greenCells:gz/.test(gr));
     ok("approach meldet fehlendes Grün", /noGreen:!g\.greenCells/.test(src));
     ok("die Karte schreibt es hin statt 0 %", /kein Grün-Polygon/.test(src));
