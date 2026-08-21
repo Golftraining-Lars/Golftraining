@@ -5452,6 +5452,55 @@ group("Karteneditor — der Tipp im Auswahl-Modus");
   ok("Markierung greift auf data-feat", /svg\.querySelector\(`\[data-feat="\$\{p\.i\}"\]`\)/.test(src));
 }
 
+/* ============ 24eq. „Verschieben“ verschiebt auch Objekte ============ */
+group("Karteneditor — das Handwerkzeug muss Griffe aufnehmen");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+  const CS = G("courseSVG");
+
+  /* DREIMAL GEMELDET: Abschlag und Grünmitte lassen sich nicht verschieben.
+     Ich habe zuletzt sogar geraten, „mit ✋ Verschieben" zu ziehen — und
+     ausgerechnet dieses Werkzeug stieg VOR der Objektsuche aus. Es schob nur
+     das Kartenbild; der Hinweistext sagte es sogar ausdrücklich („Nichts wird
+     gesetzt, gezogen oder gelöscht").
+     Der Grund stand in v2.86: kein versehentliches Aufnehmen, wenn Flächen
+     dicht liegen. Richtig für FLÄCHEN — falsch für HANDGRIFFE, die man nur
+     anfasst, um sie zu bewegen. */
+  ok("Handwerkzeug sucht erst einen Griff", /if\(GEOED\.tool==="pan"\)\{\s*\n\s*const griff = e\.target\.closest && e\.target\.closest\("\[data-drag\]"\);/.test(src));
+  ok("ohne Griff schiebt es die Karte", /if\(!griff\)\{\s*\n\s*GEOED\.pan=\{ x0:e\.clientX/.test(src));
+  /* Die Aufnahme-Logik darf NICHT zweimal dastehen — genau die Doppelung hat
+     diese Woche mehrfach zugeschlagen (Regel an zwei Orten, Filter an zwei
+     Schleifen, Fähigkeit an zwei Stellen). */
+  ok("Aufnahme steht nur einmal", (src.match(/GDRAG=\{spec:g\.dataset\.drag/g) || []).length === 1);
+  /* Und der Hinweistext muss sagen, was das Werkzeug WIRKLICH tut. */
+  ok("Hinweis nennt die Griffe", /auf einem Griff \(Abschlag, Grünmitte, Eckpunkt\) halten und ziehen bewegt DIESEN/.test(src));
+  /* Der alte Satz darf nur noch im Changelog stehen, wo er die Änderung
+     erklärt — nicht mehr als Hinweistext im Werkzeug. */
+  ok("kein falsches Versprechen mehr",
+    !/pan:"[^"]*Nichts wird gesetzt, gezogen oder gelöscht/.test(src));
+
+  /* Gegenprobe am Markup: Beide Griffe müssen mit den Editor-Optionen
+     überhaupt entstehen — sonst wäre der Rest umsonst. */
+  if (typeof CS === "function") {
+    const mLat = 110540;
+    const at = (n) => [54.0 + n / mLat, 10.77];
+    const geo = { holes: { 1: { tee: at(0), green: at(300), line: [at(0), at(300)], distM: 300 } },
+      features: [] };
+    const o = { w: 660, hole: 1, edit: true, sat: false, rotate: true, tight: true,
+      corridor: 46, fitHoles: false, veg: true };
+    const svg = CS(geo, o).svg;
+    ok("Abschlag hat einen Griff", /data-drag="tee:1"/.test(svg));
+    ok("Grünmitte hat einen Griff", /data-drag="green:1"/.test(svg));
+    /* AUCH IN DER GESAMTANSICHT — und zwar BEIDE. Meine erste Fassung
+       verlangte ein gewähltes Loch, das Grün nicht: zwei gleich aussehende
+       Punkte, einer beweglich. Genau der Zustand, den v3.85 beseitigen sollte.
+       In der Gesamtansicht korrigiert man mehrere Löcher hintereinander. */
+    const alle = CS(geo, Object.assign({}, o, { hole: null, rotate: false, tight: false, fitHoles: true })).svg;
+    ok("Grün-Griff auch bei „alle“", /data-drag="green:1"/.test(alle));
+    ok("Abschlag-Griff ebenso", /data-drag="tee:1"/.test(alle));
+  }
+}
+
 /* ============ 24ep. Eckpunkt-Griffe: kein toter Name ============ */
 group("Karteneditor — der Absturz, der wie „geht nicht auswählen“ aussah");
 {
