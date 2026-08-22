@@ -7769,7 +7769,25 @@ group("Caddy — vollständig sichtbar, Bedingungen, 2 Iron nur vom Tee");
   /* Seit v3.83 steht die Zeile VOR der Empfehlung — sie ist die Zahl, mit der
      man den Schläger wählt, und stand vorher unter Streubildern, Alternativen
      und Planzeile, also dort, wo man auf der Bahn nicht mehr hinsieht. */
-  ok("Bedingungen auch im EV-Zweig", /const spieltWie=condZeile\(PLAY\.here, ev\.target\|\|_hrC\.green\);/.test(src));
+  /* Seit v4.9 bekommt `condZeile` den NAMEN des Bezugspunkts mit — der Caddy
+     zielt nicht auf die Grünmitte, sondern auf seinen Zielpunkt, und ohne
+     Beschriftung stehen zwei verschiedene Bezugsgrößen unkommentiert
+     nebeneinander. */
+  ok("Bedingungen auch im EV-Zweig", /const spieltWie=condZeile\(PLAY\.here, ev\.target\|\|_hrC\.green, /.test(src));
+  ok("mit benanntem Bezugspunkt", /ev\.target\?"Ziel":"Grünmitte"/.test(src));
+  ok("die eingeklappte Zeile nennt ihn auch", /bis \$\{esc\(now\.zielName\)\}/.test(src));
+  /* `now.spieltWie` wurde abgefragt, aber nie gesetzt — toter Code. */
+  ok("caddyFuerPunkt liefert spieltWie", /spieltWie: cw&&cw\.plays\?cw\.plays:null/.test(src));
+  /* NAMEN OHNE DEKLARATION — dieselbe Klasse wie v3.91 (`lineDeg`) und v3.98.
+     Beim Bau von v4.9 selbst hineingelaufen: `zielName` in `condZeile`
+     benutzt, aber die Signatur nicht angefasst. Der Prüfstand meldete es
+     nicht, der Platz-Durchlauf schon — weil dort wirklich gerendert wird.
+     Deshalb hier die Nagelprobe auf die Signatur. */
+  ok("condZeile nimmt den Bezugsnamen als Parameter",
+     /function condZeile\(von, ziel, zielName\)/.test(src));
+  ok("und benutzt keinen Namen, den es nicht gibt",
+     !/function condZeile\(von, ziel\)[\s\S]{0,3000}?zielName/.test(src));
+  ok("und den Bezugspunkt dazu", /zielName: zielIstGruen\?"Grünmitte":"Ziel"/.test(src));
   ok("und zwar ganz oben", /<div class="play-caddy">\$\{spieltWie\}\$\{fahne\}<div class="pc-head">/.test(src));
   /* Beide Zweige gleich aufgebaut — sonst sucht man die Zahl je nach Lage an
      zwei verschiedenen Stellen. */
@@ -7819,7 +7837,7 @@ group("Caddy — vollständig sichtbar, Bedingungen, 2 Iron nur vom Tee");
     ok("jeder beginnt mit der Bedingungszeile", mitZeile === zweige,
        mitZeile + " von " + zweige);
     ok("der Annäherungs-Zweig ruft condZeile",
-       /<div class="play-caddy">\$\{condZeile\(PLAY\.here, \(b&&b\.tgt\)\|\|_hrC\.green\)\}\$\{pinZeile\(h\.hole\)\}/.test(src));
+       /<div class="play-caddy">\$\{condZeile\(PLAY\.here, \(b&&b\.tgt\)\|\|_hrC\.green,[\s\S]{0,40}?\}\$\{pinZeile\(h\.hole\)\}/.test(src));
   }
 
   /* --- Das Raster muss einen Neustart mitten in der Runde überleben --- */
