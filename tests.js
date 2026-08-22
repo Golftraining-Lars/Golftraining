@@ -3479,9 +3479,9 @@ group("DGM1 — Raster, Neigung und die Grenze zwischen zwei Quellen");
     const g18 = { holes: h18, features: [], overrides: { holes: {} } };
     const R18 = rahmen(g18), Z18 = zellen(g18, R18);
     ok("18 Löcher passen in einen Ladelauf",
-       Z18.length <= 12000, Z18.length.toLocaleString("de-DE") + " Punkte");
-    ok("und unter zwei Dritteln der Stundenquote",
-       Z18.length <= 12000, Z18.length + " von 18.000/h");
+       Z18.length <= 16000, Z18.length.toLocaleString("de-DE") + " Punkte");
+    ok("und unter das Stundenlimit",
+       Z18.length <= 16000, Z18.length + " von 18.000/h");
     ok("Speicher bleibt klein", R18.nx * R18.ny * 2 < 120 * 1024,
        Math.round(R18.nx * R18.ny * 2 / 1024) + " kB");
   }
@@ -3514,11 +3514,15 @@ group("DGM1 — Raster, Neigung und die Grenze zwischen zwei Quellen");
      (`DGM_KORRIDOR/2 + DGM_GITTER` Rand), damit die bilineare Ecke am
      Streifenrand noch vier Nachbarn hat. Geprüft wird deshalb der STREIFEN,
      nicht der Rahmen: 70 m daneben wird nicht mehr abgetastet. */
+  /* Der abgetastete Streifen ist absichtlich ZWEI Maschen breiter als der
+     versprochene (v4.10) — sonst fehlt am Rand die vierte Ecke für die
+     bilineare Interpolation. Geprüft wird deshalb, dass er nicht UFERLOS
+     wird: 100 m daneben ist nichts mehr. */
   const ausserhalb = zellen(geo, R).every(i => {
     const p = mitte(R, i);
-    return Math.abs(p[1] - tee[1]) < quer * 1.35;
+    return Math.abs(p[1] - tee[1]) < quer * 2.0;
   });
-  ok("70 m daneben wird nicht mehr abgetastet", ausserhalb);
+  ok("100 m daneben wird nicht mehr abgetastet", ausserhalb);
   ok("aber nicht die ganze Bbox", Z.length < R.nx * R.ny, Z.length + " von " + R.nx * R.ny);
   ok("keine Zelle doppelt", new Set(Z).size === Z.length);
 
@@ -3982,6 +3986,67 @@ group("dgmZellen — das Schachbrett auf schrägen Bahnen");
        Math.abs(abst([54.0 + 140 / mLat, 10.7], a, b, mLat, mLng) - 40) < 0.5);
     ok("entartete Strecke stürzt nicht ab",
        Math.abs(abst([54.0 + 10 / mLat, 10.7], a, a, mLat, mLng) - 10) < 0.5);
+  }
+}
+
+/* ============ 24bq. Rahmenversatz und ehrlicher Bestand ============ */
+group("Höhenraster — Rahmenwechsel erkennen, Bestand ehrlich zählen");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+
+  /* (1) DER RAHMEN IST MEHR ALS SEINE GRÖSSE (v4.10).
+     Verglichen wurden nur `nx`/`ny`. Ändert sich der URSPRUNG — und das tut
+     er bei jeder Änderung an der Bahnführung, etwa einem Tee/Grün-Tausch,
+     weil die Bbox aus `holeRef` kommt —, während die Größe zufällig gleich
+     bleibt, schreibt `dgmLadenFuer` neue Höhen mit Indizes des NEUEN Rahmens
+     in ein Feld des ALTEN. Jeder Wert landet verschoben, die verlangten
+     Zellen bleiben leer, und der Zähler hält sie für gefüllt. */
+  ok("Ursprung geht in den Rahmenvergleich ein",
+     /Math\.abs\(\(rec\.la0\|\|0\)-R\.la0\) < R\.dLa\*0\.01/.test(src));
+  ok("Maschenweite ebenso",
+     /Math\.abs\(\(rec\.dLa\|\|0\)-R\.dLa\) < R\.dLa\*0\.001/.test(src));
+  ok("und nicht mehr nur nx/ny",
+     !/if\(!rec \|\| rec\.nx!==R\.nx \|\| rec\.ny!==R\.ny\)\{/.test(src));
+
+  /* (2) BESTAND ÜBER DIE RICHTIGE MENGE.
+     `ist` zählte alle gefüllten Zellen des Feldes und verglich sie mit der
+     Länge der Sollliste — zwei Zahlen über verschiedene Mengen. Ein Raster
+     nach altem Abtastmuster kann MEHR Zellen belegen als die neue Liste
+     verlangt und trotzdem genau die fehlen lassen, auf die es ankommt. Die
+     Anzeige meldete „✓ vollständig", auf der Bahn stand „Höhe unbekannt" —
+     und man klickt nicht auf „Fehlende laden", wenn nichts zu fehlen scheint. */
+  ok("Bestand zählt nur die verlangten Zellen",
+     /liste\.forEach\(i=>\{ if\(rec\.h\[i\]!==DGM_LEER\) ist\+\+; \}\)/.test(src));
+  ok("und meldet zusätzlich, ob der Rahmen passt", /rahmenPasst:passt/.test(src));
+  ok("die Anzeige sagt es auch",
+     /Raster passt nicht mehr zur Bahnführung/.test(src));
+
+  /* (3) EINE MASCHE RESERVE QUER — dieselbe Überlegung wie an den Enden
+     (v4.6): `dgmHoehe` braucht vier Nachbarn, der nutzbare Bereich war
+     deshalb immer eine Masche schmaler als der abgetastete. */
+  ok("Streifen wird um zwei Maschen verbreitert",
+     /const halb=DGM_KORRIDOR\/2\+2\*dgmGitter\(\);/.test(src));
+
+  /* Und die Sache selbst: ein volles Raster muss BIS ZUM RAND des
+     versprochenen Streifens Höhen liefern, nicht nur in der Mitte. */
+  const rahmen = G("dgmRahmen"), zellen = G("dgmZellen"), hoehe = G("dgmHoehe");
+  if (rahmen && zellen && hoehe) {
+    const mLat = 110540, mLng = 111320 * Math.cos(54 * Math.PI / 180);
+    const tee = [54.0, 10.70], b = 33 * Math.PI / 180, L = 380;
+    const green = [tee[0] + Math.cos(b) * L / mLat, tee[1] + Math.sin(b) * L / mLng];
+    const geo = { holes: { 1: { tee, green, line: [tee, green] } }, features: [], overrides: { holes: {} } };
+    const R = rahmen(geo), Z = zellen(geo, R);
+    const rec = { ...R, h: new Int16Array(R.nx * R.ny).fill(-32768) };
+    Z.forEach(i => { rec.h[i] = 1000; });
+    let fehl = 0, ges = 0;
+    const q = b + Math.PI / 2;
+    for (let t = 0.05; t <= 0.95; t += 0.05) for (let d = -58; d <= 58; d += 4) {
+      const p = [tee[0] + (green[0] - tee[0]) * t + Math.cos(q) * d / mLat,
+                 tee[1] + (green[1] - tee[1]) * t + Math.sin(q) * d / mLng];
+      ges++; if (hoehe(p[0], p[1], rec) == null) fehl++;
+    }
+    eq("bis ±58 m quer lückenlos (versprochen sind ±60)", fehl, 0);
+    ok("und der Aufwand bleibt tragbar", Z.length < 3000, Z.length + " Zellen für ein Loch");
   }
 }
 
