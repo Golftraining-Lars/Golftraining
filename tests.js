@@ -7848,10 +7848,18 @@ group("Caddy — vollständig sichtbar, Bedingungen, 2 Iron nur vom Tee");
      benutzt, aber die Signatur nicht angefasst. Der Prüfstand meldete es
      nicht, der Platz-Durchlauf schon — weil dort wirklich gerendert wird.
      Deshalb hier die Nagelprobe auf die Signatur. */
-  ok("condZeile nimmt den Bezugsnamen als Parameter",
-     /function condZeile\(von, ziel, zielName\)/.test(src));
+  ok("condZeile nimmt Bezugsname und Grünmitte als Parameter",
+     /function condZeile\(von, ziel, zielName, gruen\)/.test(src));
   ok("und benutzt keinen Namen, den es nicht gibt",
-     !/function condZeile\(von, ziel\)[\s\S]{0,3000}?zielName/.test(src));
+     !/function condZeile\(von, ziel(, zielName)?\)[\s\S]{0,3000}?gruen/.test(src));
+  /* ZWEI ZIELE, ZWEI ZAHLEN (v4.11): Wer die Grünmitte anspielen WILL, fand
+     die Zahl dafür nirgends — sie fehlte genau dann, wenn man sie braucht,
+     nämlich beim Widerspruch zum Vorschlag. */
+  ok("die Grünmitte wird zusätzlich beziffert", /sw-mitte/.test(src));
+  ok("aber nur, wenn der Caddy woanders hin zielt",
+     /geoDist\(ziel,gruen\)>=3/.test(src));
+  ok("beide Aufrufer geben die Grünmitte mit",
+     (src.match(/condZeile\(PLAY\.here,[^;]{0,90}_hrC\.green\)/g) || []).length === 2);
   ok("und den Bezugspunkt dazu", /zielName: zielIstGruen\?"Grünmitte":"Ziel"/.test(src));
   ok("und zwar ganz oben", /<div class="play-caddy">\$\{spieltWie\}\$\{fahne\}<div class="pc-head">/.test(src));
   /* Beide Zweige gleich aufgebaut — sonst sucht man die Zahl je nach Lage an
@@ -7902,7 +7910,7 @@ group("Caddy — vollständig sichtbar, Bedingungen, 2 Iron nur vom Tee");
     ok("jeder beginnt mit der Bedingungszeile", mitZeile === zweige,
        mitZeile + " von " + zweige);
     ok("der Annäherungs-Zweig ruft condZeile",
-       /<div class="play-caddy">\$\{condZeile\(PLAY\.here, \(b&&b\.tgt\)\|\|_hrC\.green,[\s\S]{0,40}?\}\$\{pinZeile\(h\.hole\)\}/.test(src));
+       /<div class="play-caddy">\$\{condZeile\(PLAY\.here, \(b&&b\.tgt\)\|\|_hrC\.green,[\s\S]{0,70}?\}\$\{pinZeile\(h\.hole\)\}/.test(src));
   }
 
   /* --- Das Raster muss einen Neustart mitten in der Runde überleben --- */
