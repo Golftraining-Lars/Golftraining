@@ -71,6 +71,7 @@ import androidx.wear.compose.foundation.SwipeToDismissValue
 import androidx.wear.compose.foundation.edgeSwipeToDismiss
 import androidx.wear.compose.foundation.rememberSwipeToDismissBoxState
 import androidx.wear.compose.foundation.lazy.ScalingLazyColumn
+import androidx.wear.compose.foundation.lazy.ScalingLazyListScope
 import androidx.wear.compose.foundation.lazy.ScalingLazyListState
 import androidx.wear.compose.foundation.lazy.items
 import androidx.wear.compose.foundation.lazy.rememberScalingLazyListState
@@ -313,6 +314,54 @@ import kotlin.math.sqrt
  *  ------------------------------------------------------------------------
  *  CHANGELOG (neueste zuerst — bei JEDER Änderung ergänzen: Datum · was · wo)
  *  ------------------------------------------------------------------------
+ *  2026-08-22 · STATISCHE DURCHSICHT der Aenderung vom 21.08. (PWA v4.18).
+ *     Uebersetzt werden konnte die Datei bei der Aenderung nicht — kein JDK,
+ *     kein Android-SDK. Deshalb hier nachgeholt, was ohne Compiler moeglich
+ *     ist, damit die offene Baustelle wenigstens vermessen ist:
+ *     · Klammernbilanz mit einem Scanner, der Zeichenketten, Zeichenliterale
+ *       und beide Kommentararten ueberspringt: 1201/1201 geschweift,
+ *       3207/3207 rund, 69/69 eckig.
+ *     · Beide `Caddy.plan`-Aufrufe gegen die Signatur gezaehlt: 10 Parameter,
+ *       10 Argumente, Reihenfolge stimmt (`dElev` steht VOR `lie`).
+ *     · `Locale` ist importiert (Zeile 98) — `elevLabel` nutzt `Locale.US`.
+ *     · `ElevProfil` steht vor `HoleGeo`, `Geo.dist` existiert mit der
+ *       benutzten Signatur.
+ *     KORRIGIERT: In `HoleGeo.dElev` berechnete die innere Funktion `aufAchse`
+ *     die Achsenlaenge ein zweites Mal (`val ax = Geo.dist(t, g)`), obwohl sie
+ *     als `achse` bereits vorlag. Kein Fehler, aber zwei Rechnungen derselben
+ *     Groesse — und genau daraus entstehen spaeter Abweichungen.
+ *     WAS DAS NICHT ERSETZT: Typpruefung, Namensaufloesung, Nullbarkeit. Ein
+ *     `./gradlew assembleDebug` steht weiterhin aus.
+ *  2026-08-21 · HOEHE AUF DER UHR (zu PWA v4.1). `Wx.playsLike` rechnete mit
+ *     Temperatur und Wind, aber OHNE Hoehe und OHNE Regen — die PWA hat beides
+ *     seit langem. Zwei Rechnungen fuer dieselbe Sache: Handy und Uhr nannten
+ *     fuer denselben Schlag verschiedene Zahlen, und am Ende glaubt man keiner
+ *     von beiden. Das ist der Fehler, der sich hier am laengsten gehalten hat.
+ *     Die Uhr hatte nie Hoehendaten; seit PWA v3.95 liegt am Handy ein
+ *     amtliches 1-m-Gelaendemodell (DGM1). Das GANZE Raster mitzuschicken waere
+ *     unsinnig (rund 100 kB je Platz) — und unnoetig: Die Uhr braucht keine
+ *     Neigung, sondern EINE Zahl, naemlich wie viel hoeher das Ziel liegt.
+ *     Deshalb kommt je Bahn ein PROFIL in `watch.json`: alle ~20 m ein Wert,
+ *     in ganzen DEZIMETERN RELATIV ZUM ABSCHLAG. Ein 480-m-Loch sind 25 kleine
+ *     Zahlen, 18 Loecher unter 2 kB.
+ *     · NEU `ElevProfil` (+`beiMeter`) und `HoleGeo.elev`/`HoleGeo.dElev`.
+ *       Beide Punkte werden per Kosinussatz auf die Tee-Gruen-Achse projiziert;
+ *       das Profil kennt nur EINE Dimension, und quer zur Bahn ist der
+ *       Unterschied auf einem Golfplatz klein gegen den entlang.
+ *     · `Wx.playsLike(dist, w, bearing, dElev, nass)` — bergauf voll, bergab
+ *       gedaempft (0,75), Regen 3 %. Wortgleich zur PWA.
+ *     · `Caddy.plan`/`planCore` nehmen `dElev` entgegen; beide Aufrufer holen
+ *       es aus `HoleGeo.dElev(here, target)`.
+ *     · `Wx.elevLabel` und eine Zeile im Plan, die IMMER steht — auch mit 0
+ *       und auch wenn nichts vorliegt („⛰ eben (±0 m)" gegen „⛰ Höhe
+ *       unbekannt"). Wie in der PWA seit v3.97: Wer nichts anzeigt, laesst den
+ *       Leser raten, ob gerechnet wurde. Auf der Uhr wiegt das schwerer — der
+ *       Bildschirm ist klein, man sieht nur die eine Zahl.
+ *     · KEIN ERSATZWERT: Fehlt das Profil, ist `dElev` null und es rechnet wie
+ *       vorher. Ein halbes Profil wird gar nicht erst uebernommen — die Uhr
+ *       koennte nicht erkennen, wo es endet, und wuerde den Rand fortschreiben.
+ *     Rauschsperre 0,3 m statt 1,5 m: Die Quelle ist dezimetergenau; die alte
+ *     Schwelle stammte vom groben globalen Raster.
  *  2026-08-14 (2) · KORREKTUR: Leere/fehlende `draft.json` galt als „keine
  *     Runde" — dadurch stand der Abgleich still, solange die Datei nicht
  *     existierte (also bis zum allerersten Push). Sie ist jetzt nur noch die
@@ -332,6 +381,148 @@ import kotlin.math.sqrt
  *     Caddy-Zeile. Jetzt steht sie am ENDE des scrollenden Inhalts: ein
  *     Kronendreh mehr fuers Aufnehmen, dafuer ein freier Bildschirm fuers
  *     Schauen — und die Seite heisst „schauen", nicht „aufnehmen".
+ *  2026-08-16 (15) · WARNUNGEN NEBEN FEHLERN (`Fehler.warn`, `warnEinmal`):
+ *     Ein Fehler sagt „etwas ist schiefgegangen", eine WARNUNG „es lief, aber
+ *     das Ergebnis kann falsch sein" — auf der Bahn die wichtigere Auskunft.
+ *     Gemeldet werden jetzt: GPS-GENAUIGKEIT schlechter als 25 m (eine Distanz
+ *     aus einer 40-m-Position sieht aus wie eine gute und liegt zwei Schlaeger
+ *     daneben — der haeufigste Grund fuer „die Uhr zeigt Unsinn"), Platz OHNE
+ *     KARTE, LEERER Schlaegerbeutel, VERALTETER Datenstand, GPS stumm,
+ *     Abgleich stumm.
+ *     Im Protokoll drei Stufen: Absturz rot, Warnung gold, Rest ruhig — ohne
+ *     Unterscheidung liest man dreissig gleich aussehende Zeilen und findet die
+ *     eine nicht.
+ *
+ *  2026-08-16 (14) · VIEL MEHR WIRD MITGESCHRIEBEN:
+ *     19 stumme `catch`-Zweige melden jetzt (Karte lesen, draft/probe/watch.json,
+ *     Wetter, Runde laden, Zwischenspeicher, Dienst, GPS starten/stoppen/neu,
+ *     Handy-GPS, Sync, Rundenende). Vorher gaben sie null zurueck und schwiegen.
+ *     Beim LESEN wird der HTTP-Code genannt: Netzausfall, falscher Schluessel
+ *     (401/403) und Worker-Fehler (5xx) sehen sonst gleich aus, brauchen aber
+ *     drei verschiedene Abhilfen.
+ *     Neu ausserdem eine ZUSTANDSWACHE fuer die Stoerungen, die GAR KEINE
+ *     Ausnahme werfen und deshalb wie Normalbetrieb aussehen: GPS liefert seit
+ *     drei Minuten keine Position, der Abgleich hat seit fuenf Minuten nichts
+ *     uebertragen. Gemeldet wird jeweils NUR BEIM WECHSEL des Zustands — im
+ *     Takt waere das Protokoll nach zehn Minuten voll mit derselben Zeile, und
+ *     die eine Meldung, auf die es ankommt, waere verdraengt.
+ *     Dazu: „Runde uebernommen" mit Platz, Umfang, Lochzahl und Startloch.
+ *
+ *  2026-08-16 (13) · FEHLERPROTOKOLL AUSFUEHRLICH UND AUF DEM STARTBILDSCHIRM:
+ *     Der Startbildschirm ist der wichtigere Ort — nach einem Absturz landet
+ *     man dort und will wissen, was war, ohne erst eine Runde zu starten.
+ *     Eine gemeinsame Funktion `fehlerBlock()` fuer beide Stellen (dieselbe
+ *     Sache zweimal gebaut laeuft auseinander).
+ *     AUSFUEHRLICHER: 30 statt 12 Eintraege · Ort (`Fehler.kontext`: Bildschirm,
+ *     Platz, Loch) · Faden-Name · beim Absturz fuenf eigene Stellen mit
+ *     Klassenname, die erste fremde Stelle und die URSACHENKETTE (bei Compose
+ *     steckt der wahre Fehler regelmaessig zwei `cause` tiefer) · Startzeile
+ *     mit Uhr-Fassung, Geraet und Android-Version · keine Kuerzung der Zeilen,
+ *     weil der Aufrufstapel am ENDE steht.
+ *
+ *  2026-08-16 (11) · ABSTUERZE WAEHREND DER RUNDE — DREI URSACHEN:
+ *     (1) `rec!!.start!!` nach `if (rec?.start != null)`. Das sieht sicher aus,
+ *         ist es aber nicht: `rec` ist veraenderlicher Zustand, und seit der
+ *         automatischen Schlagerfassung setzt ihn ein SENSOR-RUECKRUF, also ein
+ *         anderer Faden. Faellt die Erkennung zwischen Pruefung und Zugriff,
+ *         beendet `!!` die App — selten, aber waehrend jeder Runde staendig
+ *         neu, und es sieht nach einem zufaelligen Absturz aus. Jetzt ueber
+ *         eine lokale Groesse, die niemand mehr aendert. Dasselbe bei `picker`.
+ *     (2) `cs.holes[idx]` ohne Pruefung, an zwei Stellen, die bei JEDER
+ *         Neuzeichnung laufen. Wird der Umfang waehrend der Runde auf Front 9
+ *         gestellt (Uebernahme vom Handy), schrumpft die Lochliste auf neun —
+ *         `idx` bleibt aber stehen. Auf Loch 13 ist der naechste Zeichenlauf
+ *         der letzte. Jetzt wird der Zeiger zurechtgerueckt und gemeldet.
+ *     (3) `arr.last()` im zweiten Zweig, ohne eigene Pruefung.
+ *
+ *  2026-08-16 (10) · Das Fehlerprotokoll blieb nach einem ABSTURZ leer, weil
+ *     `apply()` im Hintergrund schreibt — der Prozess stirbt vorher. Der
+ *     Absturzweg schreibt jetzt mit `commit()` (blockierend; der Prozess geht
+ *     ohnehin unter) und notiert bis zu drei eigene Stellen aus dem
+ *     Aufrufstapel statt nur einer.
+ *
+ *  2026-08-16 (9) · DER ABGLEICH RISS NACH WENIGEN LOECHERN AB — LAUTLOS.
+ *     `pushDraftFile` versuchte bei einem Schreibkonflikt (409) GENAU EINMAL
+ *     erneut und gab dann still auf. Solange selten geschrieben wurde, fiel
+ *     das nicht auf; seit das Handy waehrend der Runde alle 10 s schreibt
+ *     (PWA v3.19), kollidiert fast jeder Versuch — und danach lief die Uhr
+ *     fuer den Rest der Runde ohne Abgleich weiter.
+ *     Jetzt vier Versuche mit ZUFAELLIGER Pause (zwei Geraete, die nach einem
+ *     Konflikt gleichzeitig neu schicken, kollidieren wieder — synchron, also
+ *     immer), und jedes Aufgeben landet im Fehlerprotokoll. Ein lautloses
+ *     Scheitern ist der schlimmste Fall: Es sieht aus wie Erfolg.
+ *
+ *  2026-08-16 (8) · FEHLERPROTOKOLL + ABSTURZ BEIM SUCHEN DER HANDY-RUNDE:
+ *     Eine Ausnahme INNERHALB von `scope.launch` beendet die ganze App — sie
+ *     landet beim globalen Auffang, nicht in einem catch-Zweig. Beim Suchen
+ *     der Handy-Runde reichen dafuer ein Netzfehler, eine unerwartete Antwort
+ *     oder ein Platz ohne Loecher. Der Block ist jetzt abgesichert; der
+ *     Wartezustand wird dabei aufgeloest, sonst stuende „suche…" fuer immer da.
+ *     Neu `object Fehler`: haelt die letzten 12 Meldungen in den Einstellungen
+ *     (also ueber Neustart und Absturz hinweg) und zeigt sie am ENDE von
+ *     Seite 3 — nur wenn es welche gibt. Der globale Auffang notiert und reicht
+ *     DANACH weiter: Die App soll trotzdem abstuerzen, statt in einem Zustand
+ *     weiterzulaufen, dem man nicht mehr trauen kann.
+ *
+ *  2026-08-16 (7) · BAUFEHLER: `Caddy.lieFactor` gibt es nicht — die Funktion
+ *     liegt in `Geo` (so rufen sie auch `planCore` und `Caddy.plan` auf).
+ *
+ *  2026-08-16 (6) · BAUFEHLER: 10 × „Argument type mismatch" in `parseDraft`.
+ *     Die neuen `caddy*`-Felder standen in der MITTE von `RepoDraft` — und
+ *     `parseDraft` baute den Entwurf mit POSITIONS-Argumenten. Damit rutschte
+ *     jeder nachfolgende Wert eine Stelle weiter.
+ *     ZWEI KONSEQUENZEN: (1) Die Felder stehen jetzt am ENDE der Datenklasse,
+ *     wie es bei `Caddy.Plan` schon vermerkt war. (2) Wichtiger: Der Aufruf
+ *     ist auf BENANNTE Argumente umgestellt. Der Compiler hat den Fehler hier
+ *     nur gefunden, weil die Typen zufaellig kollidierten — bei String nach
+ *     String waere er stillschweigend durchgelaufen und haette falsche Daten
+ *     geliefert. Mit Namen ist die Reihenfolge gleichgueltig.
+ *
+ *  2026-08-16 (5) · BEWEGUNG LOEST EINE MELDUNG AUS: Der Push-Takt hing allein
+ *     an EINGABEN (10 s kurz danach, sonst 60 s). Wer nur geht, tippt nichts —
+ *     die gemeldete Position war damit bis zu eine Minute alt, und das Handy
+ *     rechnete seine Empfehlung fuer einen Punkt, an dem man laengst nicht mehr
+ *     stand. Jetzt gilt auch „mehr als 15 m seit der letzten Meldung" als
+ *     Ereignis. 15 m, weil darunter die Schlaegerwahl gleich bleibt.
+ *
+ *  2026-08-16 (4) · UHR MELDET IHRE POSITION (`live.pos`): Das Handy ist beim
+ *     Caddy fuehrend, rechnete aber mit SEINER Position — und es liegt oft im
+ *     Trolley, waehrend man am Ball steht. Zwanzig Meter sind ein halber
+ *     Schlaeger. Die Uhr meldet jetzt ihren Standort (nur mit Genauigkeit
+ *     besser als FixQuality.MAX_ACC), das Handy rechnet FUER DIESEN PUNKT
+ *     (PWA v3.18) und schickt das Ergebnis zurueck.
+ *     Damit gilt beides: bestes Modell UND richtige Position.
+ *
+ *  2026-08-16 (3) · DAS HANDY IST FUEHREND BEIM CADDY:
+ *     Beide Geraete hatten einen EIGENEN Caddy — und zwar zwei verschiedene
+ *     Modelle: Das Handy rechnet mit der EV-Engine (Monte Carlo ueber die
+ *     Streuung, Lie-Raster, zwei Zuege voraus), die Uhr mit dem einfacheren
+ *     „spielt-wie"-Modell. Auf demselben Ball konnten sie verschiedene
+ *     Schlaeger nennen; dann glaubt man auf der Bahn keinem von beiden.
+ *     Die Uhr kann die EV-Engine nicht rechnen (keine Streuungsdaten, keine
+ *     Rechenzeit) — sie uebernimmt jetzt das ERGEBNIS, das mit dem Live-Zeiger
+ *     ohnehin jede Sekunde reist (`live.caddy` aus PWA v3.17).
+ *     VERWORFEN wird es, wenn es nicht mehr gilt: anderes Loch, aelter als
+ *     90 s, oder weiter als 20 m von der eigenen Position. Dann bleibt die
+ *     eigene Rechnung — sichtbar an „🎯" statt „📱". Eine stille Vertauschung
+ *     waere schlimmer als der Unterschied selbst.
+ *
+ *  2026-08-16 (2) · GAMEPLAN-BILDSCHIRM: Der Plan wird auf dem HANDY gerechnet
+ *     (STRAT/EV-Engine) und reist als `AppData.plans` mit — die Uhr hatte ihn
+ *     laengst dabei, konnte ihn aber nur WAEHREND einer Runde zeigen. Zum
+ *     Nachsehen am Vorabend musste man eine Runde starten.
+ *     Neu `GameplanScreen` (Knopf „📋 Gameplan ansehen" auf dem Startbildschirm,
+ *     nur wenn Plaene vorliegen): Platz waehlen, dann Loch fuer Loch Schlaeger
+ *     und Ziel. GERECHNET WIRD NICHTS — zwei Rechenwege waeren zwei Wahrheiten,
+ *     und die Uhr hat weder die Streuungsdaten noch die Rechenzeit dafuer.
+ *     Bei nur EINEM Platz mit Plan entfaellt die Auswahl.
+ *
+ *  2026-08-16 · KOPPLUNGSTEST prueft jetzt auch die CADDY-KONSTANTEN: Die Uhr
+ *     meldet ihre Lage-Faktoren (`Caddy.lieFactor`), das Handy vergleicht sie
+ *     mit `LIE_F`. Beide Seiten haben einen eigenen Caddy — dieselben Zahlen an
+ *     zwei Orten laufen auseinander, sobald eine Seite geaendert wird, und das
+ *     faellt sonst erst auf der Bahn auf.
+ *
  *  2026-08-15 (17) · Der Kopplungstest-Beantworter lief DAUERHAFT (alle 5 s
  *     eine Netzanfrage, auch waehrend der Runde und im Ambientmodus). Fuer ein
  *     Werkzeug, das man einmal in der Woche benutzt, ist das der falsche Preis.
@@ -1454,7 +1645,24 @@ data class RepoDraft(
        dann muss die Uhr ihre eigene Aufnahme beenden, sonst wird derselbe
        Schlag doppelt erfasst. */
     val recSrc: String? = null,
-    val recClub: String? = null
+    val recClub: String? = null,
+    /* ==========================================================================
+       EMPFEHLUNG DES HANDYS (2026-08-16 (3)) — samt Ort und Zeit, fuer die sie
+       gilt. Ohne beides waere sie gefaehrlich: Nach dreissig Schritten stimmt
+       sie nicht mehr.
+       AM ENDE, UND ZWAR ZWINGEND (Korrektur 2026-08-16 (6)): `parseDraft` baut
+       den Entwurf mit POSITIONS-Argumenten. Diese Felder standen zuerst in der
+       Mitte — damit rutschte jeder nachfolgende Wert eine Stelle weiter, und
+       der Bau brach mit zehn „Argument type mismatch" ab. Dieselbe Falle ist
+       bei `Caddy.Plan` bereits vermerkt; sie gilt fuer JEDE Datenklasse, die
+       irgendwo positional gebaut wird. Neue Felder deshalb IMMER ans Ende. */
+    val caddyClub: String? = null,
+    val caddyRest: Int? = null,
+    val caddyPlays: Int? = null,
+    val caddyHole: Int? = null,
+    val caddyLat: Double? = null,
+    val caddyLng: Double? = null,
+    val caddyAt: String? = null
 ) {
     val fromPhone: Boolean get() = roundId != null || liveSrc == "phone"
 }
@@ -1576,11 +1784,71 @@ data class GeoFeature(
     val b3: Double = 0.0
 )
 
+/* HOEHENPROFIL DER BAHN (2026-08-21, PWA v4.1)
+   Alle `schritt` Meter entlang der Ideallinie ein Wert, in ganzen DEZIMETERN
+   RELATIV ZUM ABSCHLAG. `dm[0]` ist deshalb immer 0. Kommt aus `watch.json`
+   und stammt am Handy aus dem amtlichen 1-m-Gelaendemodell (DGM1).
+   WARUM RELATIV: Die Uhr braucht nur Differenzen. Relative Werte bleiben
+   zweistellig statt fuenfstellig, und die Frage nach der Bezugsflaeche
+   erledigt sich — innerhalb eines Profils stammt alles aus einer Quelle. */
+data class ElevProfil(
+    val schritt: Int,
+    val dm: List<Int>
+) {
+    /* Hoehe (in METERN ueber Abschlag) an einer Stelle der Bahn, angegeben als
+       zurueckgelegte Strecke ab Tee. Linear zwischen den Stuetzpunkten; ausser-
+       halb wird auf den Rand geklemmt, weil dahinter nichts gemessen wurde und
+       eine Extrapolation nur Zahlen erfinden wuerde. */
+    fun beiMeter(m: Double): Double? {
+        if (dm.isEmpty() || schritt <= 0) return null
+        val f = m / schritt
+        if (f <= 0.0) return dm.first() / 10.0
+        if (f >= dm.size - 1.0) return dm.last() / 10.0
+        val i = f.toInt()
+        val t = f - i
+        return (dm[i] * (1 - t) + dm[i + 1] * t) / 10.0
+    }
+}
+
 data class HoleGeo(
     val tee: LL?,
     val green: LL?,
-    val distM: Int
-)
+    val distM: Int,
+    val elev: ElevProfil? = null
+) {
+    /* Hoehenunterschied ZIEL minus STANDORT in Metern, `null` wenn kein Profil
+       vorliegt. Beide Punkte werden auf die Tee-Gruen-Achse projiziert — das
+       Profil kennt nur EINE Dimension, und quer zur Bahn ist der Unterschied
+       auf einem Golfplatz klein gegen den entlang.
+       KEIN ERSATZWERT bei fehlendem Profil: `null` heisst „unbekannt", und die
+       Anzeige sagt das auch. 0 zurueckzugeben hiesse „gemessen und eben" — das
+       ist eine andere Auskunft. */
+    fun dElev(von: LL?, ziel: LL?): Double? {
+        val e = elev ?: return null
+        val t = tee ?: return null
+        val g = green ?: return null
+        if (von == null || ziel == null) return null
+        val achse = Geo.dist(t, g)
+        if (achse <= 0.0) return null
+        fun aufAchse(p: LL): Double {
+            /* Projektion auf die Achse ueber den Kosinussatz. `ax` ist dasselbe
+               wie `achse` weiter oben — einmal berechnen genuegt (2026-08-22). */
+            val ax = achse
+            val dp = Geo.dist(t, p)
+            val dz = Geo.dist(p, g)
+            /* Ueber den Kosinussatz, damit seitlicher Versatz nicht als Laenge
+               zaehlt: s = (dp² - dz² + ax²) / (2·ax) */
+            return (dp * dp - dz * dz + ax * ax) / (2 * ax)
+        }
+        val hVon = e.beiMeter(aufAchse(von)) ?: return null
+        val hZiel = e.beiMeter(aufAchse(ziel)) ?: return null
+        val d = hZiel - hVon
+        /* Rauschsperre 0,3 m — dieselbe wie in der PWA seit v3.95. Die Quelle
+           ist dezimetergenau, die alte 1,5-m-Schwelle stammte vom groben
+           globalen Raster. */
+        return if (kotlin.math.abs(d) < 0.3) 0.0 else d
+    }
+}
 
 data class CourseGeo(
     val holes: Map<Int, HoleGeo>,
@@ -1618,6 +1886,17 @@ private fun isoNow(): String {
 
 /* Zeitstempel EINES Zeitpunkts im selben Format wie `isoNow` — gebraucht, um
    den Rundenbeginn mit der Verworfen-Marke zu vergleichen (2026-08-15 (9)). */
+/* Alter eines ISO-Zeitstempels in Sekunden. Nicht parsebar -> sehr gross,
+   damit ein unlesbarer Wert NIE als frisch gilt (2026-08-16 (3)). */
+private fun alterSek(iso: String): Long {
+    return try {
+        val f = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.US)
+        f.timeZone = TimeZone.getTimeZone("UTC")
+        val t = f.parse(iso.take(19) + "Z")?.time ?: return 99999
+        (System.currentTimeMillis() - t) / 1000
+    } catch (e: Exception) { 99999 }
+}
+
 private fun isoOf(ms: Long): String {
     val f = SimpleDateFormat(
         "yyyy-MM-dd'T'HH:mm:ss'Z'",
@@ -1661,8 +1940,17 @@ object Geo {
 
     private val COMPASS8 = listOf("N", "NO", "O", "SO", "S", "SW", "W", "NW")
 
-    fun compass8(deg: Double): String =
-        COMPASS8[(Math.round((deg % 360.0) / 45.0).toInt()) % 8]
+    /* NEGATIVER REST IST EIN NEGATIVER INDEX (2026-08-16 (12)).
+       In Kotlin liefert `-30.0 % 360.0` den Wert `-30.0`, nicht `330.0` — der
+       Ausdruck landete damit bei einem negativen Feldindex und die App stuerzte
+       ab. Windrichtungen kommen aus einer fremden Schnittstelle; auf eine
+       Normierung dort ist kein Verlass, und ein Wert wie -5 Grad ist voellig
+       plausibel. Zweimal Modulo mit Addition dazwischen macht daraus sicher
+       einen Wert von 0 bis 7. */
+    fun compass8(deg: Double): String {
+        val i = Math.round((deg % 360.0) / 45.0).toInt()
+        return COMPASS8[((i % 8) + 8) % 8]
+    }
 
     // lokale Meter-Projektion um (lat0,lng0)
     private fun projX(lng: Double, lat0: Double, lng0: Double) =
@@ -2082,16 +2370,31 @@ object Wx {
         return arrows[idx]
     }
 
+    /* IDENTISCH ZUR PWA (2026-08-21, PWA v4.1) — vorher fehlten hier ZWEI
+       Glieder, die die PWA seit langem hat:
+         · HOEHE: `dElev` gab es auf der Uhr gar nicht, weil es keine
+           Hoehendaten gab. Seit PWA v4.1 kommt je Bahn ein Profil in
+           `watch.json` mit. Bergauf voll, bergab gedaempft (0,75) — der Ball
+           faellt weiter, gewinnt aber nicht die volle Hoehe an Weite zurueck.
+         · REGEN: nasser Ball und feuchte Luft kosten Carry, rund 3 % bei
+           stetigem Regen.
+       Zwei Rechnungen fuer dieselbe Sache sind der Fehler, der sich hier am
+       laengsten gehalten hat: Handy und Uhr nannten fuer denselben Schlag
+       verschiedene Zahlen, und man glaubt am Ende keiner von beiden.
+       `w == null` gibt weiterhin die rohe Strecke zurueck — aber NUR, wenn
+       auch keine Hoehe vorliegt. */
     fun playsLike(
         distM: Double,
         w: Weather?,
-        bearing: Double?
+        bearing: Double?,
+        dElev: Double? = null,
+        nass: Double = 0.0
     ): Int {
 
-        if (w == null) return distM.roundToInt()
+        if (w == null && dElev == null && nass <= 0.0) return distM.roundToInt()
 
-        var d = distM / tempFactor(w.temp)
-        val rel = windRel(w.windMs, w.windDir, bearing)
+        var d = distM / tempFactor(w?.temp)
+        val rel = windRel(w?.windMs, w?.windDir, bearing)
 
         if (rel != null) {
             d += if (rel.head < 0) {
@@ -2101,7 +2404,24 @@ object Wx {
             }
         }
 
+        if (dElev != null && dElev.isFinite()) {
+            d += if (dElev > 0) dElev else dElev * 0.75
+        }
+        if (nass > 0.0) d += distM * nass * 0.03
+
         return d.roundToInt()
+    }
+
+    /* Kurzform fuer die Anzeige: „⛰ 6 m bergauf" / „⛰ eben (±0 m)" /
+       „⛰ Höhe unbekannt". Genau wie in der PWA seit v3.97 steht die Hoehe
+       IMMER da, auch mit 0 — „gemessen und eben" ist eine andere Auskunft als
+       „nicht gemessen", und nur eine davon darf beruhigen. */
+    fun elevLabel(dElev: Double?): String {
+        if (dElev == null) return "⛰ Höhe unbekannt"
+        val a = kotlin.math.abs(dElev)
+        if (a < 0.5) return "⛰ eben (±0 m)"
+        val z = if (a < 10) String.format(Locale.US, "%.1f", a) else a.roundToInt().toString()
+        return if (dElev > 0) "⛰ $z m bergauf" else "⛰ $z m bergab"
     }
 
     fun line(w: Weather?): String? {
@@ -2178,7 +2498,12 @@ object Caddy {
         val tempM: Int = 0,          // Temperaturanteil
         val lieM: Int = 0,           // Lage-Anteil (need - plays)
         val windArrow: String? = null, // Pfeil RELATIV zur Spiellinie (↑ = Rückenwind)
-        val windKmh: Int? = null
+        val windKmh: Int? = null,
+        /* Woher kommt die Empfehlung? „phone" = vom Handy uebernommen (dessen
+           EV-Engine ist fuehrend), „watch" = hier gerechnet. Muss sichtbar
+           sein: Eine stille Vertauschung waere schlimmer als der Unterschied
+           selbst (2026-08-16 (3)). */
+        val quelle: String = "watch"
     )
 
     private fun pick(
@@ -2222,13 +2547,18 @@ object Caddy {
         feats: List<GeoFeature>,
         w: Weather?,
         mode: String,
+        /* HOEHENUNTERSCHIED Ziel minus Standort (2026-08-21, PWA v4.1).
+           `null` = kein Profil fuer diese Bahn; dann rechnet es wie vorher.
+           Der Aufrufer holt ihn aus `HoleGeo.dElev(here, target)` — nur dort
+           ist bekannt, um welche Bahn es geht. */
+        dElev: Double? = null,
         lie: String,
         teePt: LL? = null
     ): Plan {
         // Hülle: Kernplan rechnen und mit der Einfluss-Aufschlüsselung
         // (Wind/Temperatur/Lage einzeln, in Metern) anreichern — das Cockpit
         // zeigt nicht nur DASS es anders spielt, sondern WARUM.
-        val p = planCore(here, target, par, clubs, feats, w, mode, lie, teePt)
+        val p = planCore(here, target, par, clubs, feats, w, mode, dElev, lie, teePt)
         val raw = Geo.dist(here, target)
         val bearing = Geo.bearing(here, target)
         val tempM = (raw / Wx.tempFactor(w?.temp) - raw).roundToInt()
@@ -2251,6 +2581,11 @@ object Caddy {
         feats: List<GeoFeature>,
         w: Weather?,
         mode: String,
+        /* HOEHENUNTERSCHIED Ziel minus Standort (2026-08-21, PWA v4.1).
+           `null` = kein Profil fuer diese Bahn; dann rechnet es wie vorher.
+           Der Aufrufer holt ihn aus `HoleGeo.dElev(here, target)` — nur dort
+           ist bekannt, um welche Bahn es geht. */
+        dElev: Double? = null,
         lie: String,
         teePt: LL? = null
     ): Plan {
@@ -2273,11 +2608,19 @@ object Caddy {
         val raw = Geo.dist(here, target)
         val dist = raw.roundToInt()
         val bearing = Geo.bearing(here, target)
-        val plays = Wx.playsLike(raw, w, bearing)
+        val plays = Wx.playsLike(raw, w, bearing, dElev)
         val lines = ArrayList<String>()
         var warn: String? = null
 
         // Lage verkürzt den Schlag -> nötige Schlägerlänge steigt
+        /* DIE HOEHE STEHT IMMER DA (2026-08-21, PWA v4.1) — auch mit 0, und
+           auch wenn sie fehlt. Genau wie in der PWA seit v3.97: „gemessen und
+           eben" ist eine andere Auskunft als „nicht gemessen", und wer nichts
+           anzeigt, laesst den Leser raten, ob ueberhaupt gerechnet wurde.
+           Auf der Uhr wiegt das schwerer als am Handy — der Bildschirm ist
+           klein, man sieht nur die eine Zahl und muss ihr trauen koennen. */
+        lines.add(Wx.elevLabel(dElev))
+
         val lf = Geo.lieFactor(lie)
         val need = (plays / lf).roundToInt()
 
@@ -2524,7 +2867,7 @@ private fun feature(
 /* Ueberladung fuer den Weg ohne Text (2026-08-14 (4)) — siehe CourseDef.geoObj. */
 fun parseGeo(obj: org.json.JSONObject?): CourseGeo? {
     if (obj == null) return null
-    return try { parseGeoObj(obj) } catch (e: Exception) { null }
+    return try { parseGeoObj(obj) } catch (e: Exception) { Fehler.add("Karte lesen", e); null }
 }
 fun parseGeo(raw: String?): CourseGeo? {
 
@@ -2532,9 +2875,7 @@ fun parseGeo(raw: String?): CourseGeo? {
 
     return try {
         parseGeoObj(JSONObject(raw))
-    } catch (e: Exception) {
-        null
-    }
+    } catch (e: Exception) { Fehler.add("Karte lesen", e); null }
 }
 
 /* Der KERN — arbeitet auf einem bereits geparsten Objekt. Beide Wege
@@ -2562,10 +2903,24 @@ private fun parseGeoObj(g: JSONObject): CourseGeo? {
                     val swap = o.optBoolean("swap", false)
                     val tee = llPoint(o.optJSONArray("tee"))
                     val green = llPoint(o.optJSONArray("green"))
+                    /* HOEHENPROFIL (2026-08-21, PWA v4.1): nur vollstaendige
+                       Profile uebernehmen. Ein halbes waere schlimmer als
+                       keines — die Uhr koennte nicht erkennen, wo es endet,
+                       und wuerde den Rand fortschreiben. */
+                    val ep = o.optJSONObject("elev")?.let { eo ->
+                        val schritt = eo.optInt("schritt", 0)
+                        val arr = eo.optJSONArray("dm")
+                        if (schritt > 0 && arr != null && arr.length() >= 2) {
+                            val l = ArrayList<Int>(arr.length())
+                            for (i in 0 until arr.length()) l.add(arr.optInt(i, 0))
+                            ElevProfil(schritt, l)
+                        } else null
+                    }
                     holes[n] = HoleGeo(
                         if (swap) green else tee,
                         if (swap) tee else green,
-                        o.optInt("distM", 0)
+                        o.optInt("distM", 0),
+                        ep
                     )
                 }
             }
@@ -2596,9 +2951,7 @@ private fun parseGeoObj(g: JSONObject): CourseGeo? {
             CourseGeo(holes, feats)
         }
 
-    } catch (e: Exception) {
-        null
-    }
+    } catch (e: Exception) { Fehler.add("Karte lesen", e); null }
 }
 
 private object Net {
@@ -2613,19 +2966,36 @@ private object Net {
         val date = r.optString("date")
         if (course.isEmpty() || date.isEmpty()) return null
         val lv = d.optJSONObject("live")
+        /* ==========================================================================
+           BENANNTE ARGUMENTE (2026-08-16 (6)) — nicht Kosmetik, sondern die
+           Behebung einer wiederkehrenden Fehlerklasse.
+           Vorher stand hier eine Liste aus 19 Werten in fester Reihenfolge. Wer
+           ein Feld in die MITTE der Datenklasse einfuegt, verschiebt damit jeden
+           nachfolgenden Wert um eine Stelle — der Bau brach mit zehn „Argument
+           type mismatch" ab, und nur weil die Typen zufaellig kollidierten. Bei
+           gleichen Typen (String nach String) waere es ohne Fehlermeldung
+           durchgelaufen und haette stillschweigend falsche Daten geliefert.
+           Mit Namen ist die Reihenfolge gleichgueltig. */
         return RepoDraft(
-            course,
-            date,
-            r.optString("side", "18 Loch"),
-            d.optString("ts"),
-            r.optJSONArray("holes") ?: JSONArray(),
-            lv?.optString("src")?.ifEmpty { null },
-            lv?.optInt("hole", 0)?.takeIf { it > 0 },
-            lv?.optString("at")?.ifEmpty { null },
-            r.optString("id").ifEmpty { null },
-            r.optString("tee").ifEmpty { null },
-            lv?.optJSONObject("rec")?.optString("src")?.ifEmpty { null },
-            lv?.optJSONObject("rec")?.optString("club")?.ifEmpty { null }
+            course = course,
+            date = date,
+            side = r.optString("side", "18 Loch"),
+            ts = d.optString("ts"),
+            holes = r.optJSONArray("holes") ?: JSONArray(),
+            liveSrc = lv?.optString("src")?.ifEmpty { null },
+            liveHole = lv?.optInt("hole", 0)?.takeIf { it > 0 },
+            liveAt = lv?.optString("at")?.ifEmpty { null },
+            roundId = r.optString("id").ifEmpty { null },
+            tee = r.optString("tee").ifEmpty { null },
+            recSrc = lv?.optJSONObject("rec")?.optString("src")?.ifEmpty { null },
+            recClub = lv?.optJSONObject("rec")?.optString("club")?.ifEmpty { null },
+            caddyClub = lv?.optJSONObject("caddy")?.optString("club")?.ifEmpty { null },
+            caddyRest = lv?.optJSONObject("caddy")?.optInt("rest", 0)?.takeIf { it > 0 },
+            caddyPlays = lv?.optJSONObject("caddy")?.optInt("plays", 0)?.takeIf { it > 0 },
+            caddyHole = lv?.optJSONObject("caddy")?.optInt("hole", 0)?.takeIf { it > 0 },
+            caddyLat = lv?.optJSONObject("caddy")?.optDouble("lat", Double.NaN)?.takeIf { !it.isNaN() },
+            caddyLng = lv?.optJSONObject("caddy")?.optDouble("lng", Double.NaN)?.takeIf { !it.isNaN() },
+            caddyAt = lv?.optJSONObject("caddy")?.optString("at")?.ifEmpty { null }
         )
     }
 
@@ -2638,7 +3008,14 @@ private object Net {
             val c = openRead(DRAFT_FRESH_URL)
             val code = c.responseCode
             if (code == 404) { draftSha = null; c.disconnect(); return JSONObject() }
-            if (code !in 200..299) { c.disconnect(); return null }
+            if (code !in 200..299) {
+                /* MIT CODE MELDEN (2026-08-16 (14)): „nichts gelesen" kann
+                   Netzausfall, falscher Schluessel (401/403) oder ein Fehler
+                   im Worker (5xx) sein — drei ganz verschiedene Ursachen mit
+                   drei verschiedenen Abhilfen. Ohne die Zahl raet man. */
+                Fehler.add("draft.json lesen", "HTTP $code")
+                c.disconnect(); return null
+            }
             draftSha = c.getHeaderField("X-Repo-Sha")
             val t = c.inputStream.bufferedReader().use { it.readText() }
             c.disconnect()
@@ -2653,16 +3030,33 @@ private object Net {
                eben nicht, WAS man bekommen hat — deshalb der Inhaltstest. */
             if (o.has("testDefs") || o.has("rounds") || o.has("_draftRound")) return null
             o
-        } catch (e: Exception) { null }
+        } catch (e: Exception) { Fehler.add("draft.json lesen", e); null }
     }
 
     /** Schreibt die kleine Datei. Bei 409 (jemand war schneller) EINMAL frisch
      *  lesen, VEREINEN (nicht ueberschreiben — der andere steht gerade auf der
      *  Bahn) und neu senden. Mehr Anlaeufe lohnen nicht; der naechste Takt
      *  kommt in Sekunden. */
+    /* ==========================================================================
+       SCHREIBKONFLIKTE AUSSITZEN (2026-08-16 (9)) — HIER RISS DER ABGLEICH AB
+       --------------------------------------------------------------------------
+       Vorher: EIN Versuch, bei 409 einmal neu lesen, neu bauen, nochmal — und
+       dann STILL aufgeben. Solange nur alle 60 s geschrieben wurde, fiel das
+       nicht auf. Seit das Handy waehrend der Runde alle 10 s schreibt (PWA
+       v3.19), kollidiert fast jeder Versuch: Die Uhr liest frisch, baut neu,
+       schickt — und in der Zwischenzeit hat das Handy erneut geschrieben. Zwei
+       Versuche reichen dafuer nicht, und danach lief die Uhr fuer den Rest der
+       Runde ohne Abgleich weiter. Genau das gemeldete Bild: Die ersten Loecher
+       gehen, dann laufen die Geraete auseinander.
+       JETZT VIER VERSUCHE MIT ZUFAELLIGER PAUSE. Die Pause ist wichtig und
+       muss ZUFAELLIG sein: Zwei Geraete, die nach einem Konflikt beide sofort
+       wieder schicken, kollidieren erneut — und zwar synchron, also immer.
+       UND GEMELDET WIRD ES: Ein lautloses Aufgeben ist der schlimmste Fall,
+       weil dann alles normal aussieht. Das Fehlerprotokoll haelt es fest. */
     fun pushDraftFile(bauen: (JSONObject?) -> JSONObject): Boolean {
         var body = bauen(null)
-        repeat(2) { versuch ->
+        var letzterCode = 0
+        repeat(4) { versuch ->
             try {
                 val p = URL(WORKER_URL).openConnection() as HttpURLConnection
                 p.requestMethod = "POST"
@@ -2676,12 +3070,20 @@ private object Net {
                 p.outputStream.use { it.write(body.toString().toByteArray(Charsets.UTF_8)) }
                 val code = p.responseCode
                 p.disconnect()
+                letzterCode = code
                 if (code in 200..299) return true
-                if (code != 409 || versuch == 1) return false
-                val frisch = fetchDraftFile() ?: return false
+                if (code != 409) { Fehler.add("Entwurf senden", "HTTP $code"); return false }
+                if (versuch == 3) { Fehler.add("Entwurf senden", "4× Konflikt (409) — Abgleich ausgesetzt"); return false }
+                Thread.sleep((300L + (Math.random() * 700).toLong()))
+                val frisch = fetchDraftFile()
+                    ?: run { Fehler.add("Entwurf senden", "Konflikt, aber Datei nicht lesbar"); return false }
                 body = bauen(frisch)
-            } catch (e: Exception) { return false }
+            } catch (e: Exception) {
+                Fehler.add("Entwurf senden", e)
+                return false
+            }
         }
+        Fehler.add("Entwurf senden", "aufgegeben (letzter Code $letzterCode)")
         return false
     }
 
@@ -2729,7 +3131,7 @@ private object Net {
             val t = c.inputStream.bufferedReader().use { it.readText() }
             c.disconnect()
             if (t.isBlank()) null else JSONObject(t)
-        } catch (e: Exception) { null }
+        } catch (e: Exception) { Fehler.add("probe.json lesen", e); null }
     }
 
     fun probePut(o: JSONObject): Boolean {
@@ -2748,7 +3150,7 @@ private object Net {
             val code = p.responseCode
             p.disconnect()
             code in 200..299
-        } catch (e: Exception) { false }
+        } catch (e: Exception) { Fehler.add("probe.json schreiben", e); false }
     }
 
     /** Schreibt NUR die Verworfen-Marke — damit ist die Runde auf beiden
@@ -2788,8 +3190,7 @@ private object Net {
                 return t
             }
             f.disconnect()
-        } catch (e: Exception) {
-        }
+        } catch (e: Exception) { Fehler.add("Daten lesen", e) }
         val c = openRead(DATA_URL)
         val t = c.inputStream.bufferedReader().use { it.readText() }
         c.disconnect()
@@ -2843,7 +3244,7 @@ private object Net {
             c.disconnect()
             lastWatchFile = t.isNotBlank()
             if (t.isBlank()) null else t
-        } catch (e: Exception) { lastWatchFile = false; null }
+        } catch (e: Exception) { Fehler.add("watch.json lesen", e); lastWatchFile = false; null }
     }
 
     fun fetchRaw(): String = readData()
@@ -2856,7 +3257,11 @@ private object Net {
         val ca = db.optJSONArray("courses") ?: JSONArray()
 
         for (i in 0 until ca.length()) {
-            val co = ca.getJSONObject(i)
+            /* `getJSONObject` WIRFT, wenn an der Stelle etwas anderes steht —
+               ein `null` im Feld reicht. Die Datei kommt vom Handy; ein
+               unerwarteter Eintrag darf die Uhr nicht beenden, sondern nur
+               diesen einen Platz kosten (2026-08-16 (12)). */
+            val co = ca.optJSONObject(i) ?: continue
             val name = co.optString("name")
 
             val tees = co.optJSONObject("tees") ?: continue
@@ -2885,7 +3290,7 @@ private object Net {
                 val holes = ArrayList<HoleDef>()
 
                 for (j in 0 until ha.length()) {
-                    val h = ha.getJSONObject(j)
+                    val h = ha.optJSONObject(j) ?: continue
 
                     holes.add(
                         HoleDef(
@@ -3120,9 +3525,7 @@ private object Net {
                 System.currentTimeMillis()
             )
 
-        } catch (e: Exception) {
-            null
-        }
+        } catch (e: Exception) { Fehler.add("Wetter", e); null }
     }
 
     /**
@@ -3236,7 +3639,34 @@ private object Net {
                             .put("tee", teeName ?: round.optString("tee"))
                             .put("date", round.optString("date"))
                             .put("side", round.optString("side"))
-                            .also { lv -> if (recLive != null) lv.put("rec", recLive) }
+                            .also { lv ->
+                                if (recLive != null) lv.put("rec", recLive)
+                        /* EIGENE POSITION MELDEN (2026-08-16 (4)).
+                           Das Handy ist beim Caddy fuehrend, rechnet aber mit
+                           SEINER Position — und das Handy liegt oft im Trolley,
+                           waehrend man am Ball steht. Zwanzig Meter Unterschied
+                           sind ein halber Schlaeger.
+                           Die Uhr meldet deshalb, wo sie steht; das Handy
+                           rechnet FUER DIESEN PUNKT und schickt das Ergebnis
+                           zurueck. Die Uhr hat den richtigen Ort, das Handy die
+                           bessere Rechnung.
+                           NUR MIT BRAUCHBARER GENAUIGKEIT: Eine Position mit
+                           30 m Streuung wuerde die Rechnung verschlechtern
+                           statt sie zu verbessern. */
+                        Live.fixUi?.let { f ->
+                            if (f.acc <= FixQuality.MAX_ACC) {
+                                lv.put(
+                                    "pos",
+                                    JSONObject()
+                                        .put("src", "watch")
+                                        .put("lat", f.lat)
+                                        .put("lng", f.lng)
+                                        .put("acc", f.acc.toDouble())
+                                        .put("at", isoNow())
+                                )
+                            }
+                        }
+                            }
                     )
                 }
                 /* gpsShots vereinen: was in der Datei steht, bleibt; eigene
@@ -3316,6 +3746,31 @@ private object Net {
                            Vertrag identisch zur PWA:
                              rec = {src, club, at, lat, lng} */
                         if (recLive != null) lv.put("rec", recLive)
+                        /* EIGENE POSITION MELDEN (2026-08-16 (4)).
+                           Das Handy ist beim Caddy fuehrend, rechnet aber mit
+                           SEINER Position — und das Handy liegt oft im Trolley,
+                           waehrend man am Ball steht. Zwanzig Meter Unterschied
+                           sind ein halber Schlaeger.
+                           Die Uhr meldet deshalb, wo sie steht; das Handy
+                           rechnet FUER DIESEN PUNKT und schickt das Ergebnis
+                           zurueck. Die Uhr hat den richtigen Ort, das Handy die
+                           bessere Rechnung.
+                           NUR MIT BRAUCHBARER GENAUIGKEIT: Eine Position mit
+                           30 m Streuung wuerde die Rechnung verschlechtern
+                           statt sie zu verbessern. */
+                        Live.fixUi?.let { f ->
+                            if (f.acc <= FixQuality.MAX_ACC) {
+                                lv.put(
+                                    "pos",
+                                    JSONObject()
+                                        .put("src", "watch")
+                                        .put("lat", f.lat)
+                                        .put("lng", f.lng)
+                                        .put("acc", f.acc.toDouble())
+                                        .put("at", isoNow())
+                                )
+                            }
+                        }
                     }
             )
         }
@@ -3730,11 +4185,13 @@ private fun optI(
     o: JSONObject,
     k: String
 ): Int? =
+    /* `getInt` wirft, wenn der Wert ein nicht zahlenfoermiger Text ist —
+       „""" statt 5 reicht. `optInt` mit Wachwert kann das nicht (2026-08-16 (12)). */
     if (
         o.has(k) &&
         !o.isNull(k)
     ) {
-        o.getInt(k)
+        o.optInt(k, Int.MIN_VALUE).takeIf { it != Int.MIN_VALUE }
     } else {
         null
     }
@@ -4004,9 +4461,7 @@ private fun loadLocal(
             )
         }
 
-    } catch (e: Exception) {
-        null
-    }
+    } catch (e: Exception) { Fehler.add("Runde laden", e); null }
 }
 
 // ---------------------------------------------------------------------------
@@ -4024,17 +4479,14 @@ private const val DATA_CACHE = "data_cache.json"
 private fun cacheWrite(ctx: Context, raw: String) {
     try {
         java.io.File(ctx.filesDir, DATA_CACHE).writeText(raw)
-    } catch (e: Exception) {
-    }
+    } catch (e: Exception) { Fehler.add("Zwischenspeicher schreiben", e) }
 }
 
 private fun cacheRead(ctx: Context): AppData? =
     try {
         val f = java.io.File(ctx.filesDir, DATA_CACHE)
         if (f.exists()) Net.parseData(JSONObject(f.readText())) else null
-    } catch (e: Exception) {
-        null
-    }
+    } catch (e: Exception) { Fehler.add("Zwischenspeicher lesen", e); null }
 
 // Netz zuerst, Cache als Rückfall. Gibt zusätzlich zurück, ob die Daten
 // frisch sind — die UI sagt dem Nutzer, womit er gerade arbeitet.
@@ -4397,6 +4849,152 @@ object AmbientState {
     var tick: Int by mutableIntStateOf(0)
 }
 
+/* ==========================================================================
+   FEHLERPROTOKOLL (2026-08-16 (8))
+   --------------------------------------------------------------------------
+   WARUM ES DAS BRAUCHT: Stuerzt die App auf der Bahn ab, ist der Grund weg,
+   sobald man sie neu startet — Logcat gibt es dort nicht. Was bleibt, ist
+   „sie ist abgestuerzt", und damit ist nichts anzufangen.
+   Dieses Protokoll haelt die letzten Eintraege in den Einstellungen fest, also
+   ueber Neustart und Absturz hinweg, und zeigt sie auf der Detailseite.
+   ZWEI QUELLEN:
+     · `Fehler.add(...)` aus `catch`-Zweigen — erwartete Stoerungen (Netz,
+       kaputte Antwort), die nicht zum Absturz fuehren, aber erklaeren, warum
+       etwas nicht ankam.
+     · Der globale Auffang fuer NICHT gefangene Ausnahmen. Er notiert und gibt
+       DANACH an den urspruenglichen Handler weiter — die App darf trotzdem
+       abstuerzen, sonst bleibt sie in einem kaputten Zustand stehen.
+   NUR 12 EINTRAEGE, jeweils gekuerzt: Das Protokoll soll auf einem runden
+   Display lesbar bleiben, und die letzten Minuten vor dem Absturz sind das,
+   was zaehlt. */
+object Fehler {
+    private const val KEY = "fehlerlog"
+    /* MEHR EINTRAEGE (2026-08-16 (13)): Zwoelf reichten nicht — bei einem
+       Absturz stehen die entscheidenden Meldungen oft DAVOR, und zwei
+       Sync-Fehlschlaege verdraengten sie. 30 Eintraege sind auf einem runden
+       Display noch scrollbar und decken eine ganze Bahn ab. */
+    private const val MAX = 30
+    var liste: List<String> by mutableStateOf(emptyList())
+        private set
+    private var ctxRef: Context? = null
+
+    /* WO WAR MAN GERADE? (2026-08-16 (13))
+       Eine Meldung wie „NullPointerException" ohne Ort ist fast wertlos. Die
+       App schreibt hier laufend hinein, wo sie steht — Bildschirm, Platz, Loch.
+       Kostet nichts (eine Zuweisung) und macht aus „irgendwann abgestuerzt"
+       ein „auf Loch 7 beim Zeichnen abgestuerzt". */
+    var kontext: String = ""
+
+    /* Einmal beim Start: Geraet und Fassung. Ohne das raet man bei jeder
+       Meldung mit, ob ueberhaupt die neue Uhr-Datei laeuft. */
+    fun start() {
+        add("Start", "Uhr $WATCH_APP · ${Build.MANUFACTURER} ${Build.MODEL} · Android ${Build.VERSION.RELEASE}")
+    }
+
+    fun init(ctx: Context) {
+        ctxRef = ctx.applicationContext
+        liste = try {
+            ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+                .getString(KEY, "")?.split("\n")?.filter { it.isNotBlank() } ?: emptyList()
+        } catch (e: Exception) { emptyList() }
+    }
+
+    fun add(tag: String, e: Throwable?) = add(tag, e?.let {
+        (it.javaClass.simpleName + ": " + (it.message ?: "")).take(120)
+    } ?: "?")
+
+    /* `sofort` = synchron schreiben (2026-08-16 (10)) — DAS WAR DER GRUND, WARUM
+       DAS PROTOKOLL NACH EINEM ABSTURZ LEER BLIEB.
+       `apply()` schreibt im Hintergrund. Bei einer gefangenen Stoerung ist das
+       richtig (kein Ruckeln auf dem UI-Faden). Beim ABSTURZ stirbt der Prozess
+       aber, bevor der Hintergrundschreiber fertig ist — die Meldung war also
+       genau in dem Fall weg, fuer den das Protokoll gebaut wurde.
+       `commit()` blockiert, und das ist hier ausdruecklich erwuenscht: Der
+       Prozess geht ohnehin unter, ein paar Millisekunden aendern daran nichts. */
+    fun add(tag: String, text: String, sofort: Boolean = false) {
+        try {
+            val z = SimpleDateFormat("dd.MM. HH:mm:ss", Locale.GERMANY).format(Date())
+            /* Faden mitschreiben: „main" oder ein Sensor-/Netzfaden zu
+               unterscheiden hat schon zwei Fehler erklaert, die sonst gleich
+               ausgesehen haetten (2026-08-16 (13)). */
+            val fd = Thread.currentThread().name.take(14)
+            val ort = if (kontext.isNotBlank()) " · $kontext" else ""
+            val neu = (listOf("$z · $tag$ort · [$fd] ${text.take(220)}") + liste).take(MAX)
+            liste = neu
+            val ed = ctxRef?.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+                ?.edit()?.putString(KEY, neu.joinToString("\n"))
+            if (sofort) ed?.commit() else ed?.apply()
+        } catch (ignore: Exception) { }
+    }
+
+    /* ==========================================================================
+       WARNUNGEN (2026-08-16 (15))
+       --------------------------------------------------------------------------
+       Ein Fehler sagt „etwas ist schiefgegangen". Eine WARNUNG sagt „es lief,
+       aber das Ergebnis kann falsch sein" — und das ist auf der Bahn die
+       wichtigere Auskunft. Eine Distanz, die mit 40 m GPS-Genauigkeit
+       gerechnet wurde, sieht genauso aus wie eine gute.
+       Gleicher Speicher, eigene Stufe: Man liest EINE Liste und sieht die
+       zeitliche Abfolge — ein Absturz nach drei Warnungen erklaert sich oft
+       von selbst.
+       `warnEinmal` fuer Erkenntnisse, die sich nicht aendern (kein Beutel,
+       keine Karte): Im Takt gemeldet wuerden sie das Protokoll fuellen und die
+       eine wichtige Zeile verdraengen. */
+    private val warnGesehen = HashSet<String>()
+
+    fun warn(tag: String, text: String) = add("⚠ $tag", text)
+
+    fun warnEinmal(schluessel: String, tag: String, text: String) {
+        if (!warnGesehen.add(schluessel)) return
+        warn(tag, text)
+    }
+
+    fun clear() {
+        warnGesehen.clear()
+        liste = emptyList()
+        try {
+            ctxRef?.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+                ?.edit()?.remove(KEY)?.apply()
+        } catch (ignore: Exception) { }
+    }
+
+    /* Muss FRUEH aufgerufen werden — was vorher abstuerzt, faengt niemand. */
+    fun fangeAlles(ctx: Context) {
+        init(ctx)
+        val vorher = Thread.getDefaultUncaughtExceptionHandler()
+        Thread.setDefaultUncaughtExceptionHandler { t, e ->
+            try {
+                /* Bis zu DREI eigene Stellen aus dem Aufrufstapel: Eine
+                   allein sagt oft nur „Compose", die dritte nennt die
+                   Funktion, in der es wirklich passiert ist. */
+                /* AUSFUEHRLICH (2026-08-16 (13)): fuenf eigene Stellen statt
+                   drei, die erste FREMDE Stelle dazu (oft die eigentliche
+                   Bibliothek), und die URSACHENKETTE — bei Compose steckt der
+                   wahre Fehler regelmaessig zwei `cause` tiefer. */
+                val eigen = e.stackTrace.filter { it.className.contains("golfwatch") }
+                    .take(5).joinToString(" < ") {
+                        "${it.className.substringAfterLast('.')}.${it.methodName}:${it.lineNumber}"
+                    }
+                val fremd = e.stackTrace.firstOrNull { !it.className.contains("golfwatch") }
+                    ?.let { "${it.className.substringAfterLast('.')}.${it.methodName}" } ?: ""
+                var ursache = e.cause; var kette = ""; var tiefe = 0
+                while (ursache != null && tiefe < 3) {
+                    kette += " ← ${ursache.javaClass.simpleName}: ${ursache.message ?: ""}"
+                    ursache = ursache.cause; tiefe++
+                }
+                add("ABSTURZ", e.javaClass.simpleName + ": " + (e.message ?: "") + kette +
+                        (if (eigen.isNotBlank()) " @$eigen" else "") +
+                        (if (fremd.isNotBlank()) " (via $fremd)" else ""), true)
+            } catch (ignore: Exception) { }
+            /* WEITERREICHEN: Die App soll trotzdem abstuerzen. Ein abgefangener
+               Absturz laesst sie in einem Zustand weiterlaufen, dem man nicht
+               mehr trauen kann — und der naechste Fehler waere dann noch
+               schwerer zuzuordnen. */
+            vorher?.uncaughtException(t, e)
+        }
+    }
+}
+
 object Live {
 
     /* ==========================================================================
@@ -4691,8 +5289,7 @@ class RoundService : Service() {
             try {
                 // 8 h Deckel: selbst wenn der Stopp mal ausbleibt, endet der Lock
                 wake?.acquire(8 * 60 * 60 * 1000L)
-            } catch (e: Exception) {
-            }
+            } catch (e: Exception) { Fehler.add("Dienst starten", e) }
         }
 
         started = true
@@ -4766,9 +5363,7 @@ class RoundService : Service() {
 
         } catch (e: SecurityException) {
             Live.err = "Standort-Freigabe fehlt"
-        } catch (e: Exception) {
-            Live.err = "GPS-Fehler"
-        }
+        } catch (e: Exception) { Fehler.add("GPS starten", e); Live.err = "GPS-Fehler" }
     }
 
     // Fused-Location-Pfad („Handy"). true = erfolgreich gestartet.
@@ -4827,9 +5422,7 @@ class RoundService : Service() {
         } catch (e: SecurityException) {
             Live.err = "Standort-Freigabe fehlt"
             false
-        } catch (e: Exception) {
-            false
-        }
+        } catch (e: Exception) { Fehler.add("Handy-GPS", e); false }
 
     // Nur die GPS-Quellen lösen (für Quellen-Wechsel) — Foreground-Status,
     // Notification und WakeLock bleiben unangetastet.
@@ -4854,8 +5447,7 @@ class RoundService : Service() {
         stopGpsOnly()
         try {
             if (wake?.isHeld == true) wake?.release()
-        } catch (e: Exception) {
-        }
+        } catch (e: Exception) { Fehler.add("GPS stoppen", e) }
         wake = null
         started = false
         Live.running = false
@@ -4905,8 +5497,7 @@ fun svcGpsRestart(ctx: Context) {
             Intent(ctx, RoundService::class.java)
                 .setAction(RoundService.ACTION_GPS)
         )
-    } catch (e: Exception) {
-    }
+    } catch (e: Exception) { Fehler.add("GPS neu starten", e) }
 }
 
 fun svcStop(ctx: Context) {
@@ -4962,6 +5553,15 @@ class MainActivity : ComponentActivity() {
         savedInstanceState: Bundle?
     ) {
         super.onCreate(savedInstanceState)
+
+        /* SO FRUEH WIE MOEGLICH (2026-08-16 (8)): Was vor dieser Zeile
+           abstuerzt, faengt niemand — und genau der Start ist die Phase, in
+           der es zuletzt passiert ist. */
+        Fehler.fangeAlles(this)
+        /* Eine Startzeile ins Protokoll: Ohne sie raet man bei jeder Meldung
+           mit, ob ueberhaupt die neue Uhr-Datei laeuft — und man sieht nicht,
+           wo eine Sitzung anfaengt (2026-08-16 (13)). */
+        Fehler.start()
 
         lifecycle.addObserver(ambientObserver)
 
@@ -5499,9 +6099,7 @@ fun GolfWatchApp(
                     )
                 }
 
-            } catch (e: Exception) {
-                Net.PushResult(false)
-            }
+            } catch (e: Exception) { Fehler.add("Sync", e); Net.PushResult(false) }
 
             if (res.ok) {
                 lastSyncMs = System.currentTimeMillis()
@@ -5574,9 +6172,7 @@ fun GolfWatchApp(
                         pending
                     )
                 }
-            } catch (e: Exception) {
-                Net.PushResult(false)
-            }
+            } catch (e: Exception) { Fehler.add("Rundenende senden", e); Net.PushResult(false) }
 
             if (res.ok) {
                 status = "✓ gespeichert – schließe…"
@@ -5621,6 +6217,11 @@ fun GolfWatchApp(
        ========================================================================== */
     var akkuGewarnt by remember { mutableStateOf(false) }
     LaunchedEffect(screen, akkuGewarnt) {
+        /* SICHERHEITSNETZ (2026-08-16 (12)): Eine Ausnahme in einer
+           Nebenlaeufigkeit landet beim globalen Auffang und beendet die
+           GANZE App — nicht nur diesen Ablauf. Auf der Bahn ist das der
+           schlimmste Fall. Notiert und weiterleben statt abstuerzen. */
+        try {
         if (screen != "play" || akkuGewarnt) return@LaunchedEffect
         while (screen == "play" && !akkuGewarnt) {
             val bm = ctx.getSystemService(Context.BATTERY_SERVICE) as? android.os.BatteryManager
@@ -5638,6 +6239,8 @@ fun GolfWatchApp(
             }
             delay(300_000)          // alle 5 min genuegt
         }
+    
+        } catch (e: Exception) { Fehler.add("Akku-Warnung", e) }
     }
 
     // ---------------- Live-Tracking ----------------
@@ -5742,8 +6345,85 @@ fun GolfWatchApp(
        laengstes und kuerzestes, je drei Positionen — und dazu Schlaeger,
        Auswahllisten, Caddy und die Quelle der eigenen Daten.
        Alles ohne laufende Runde und ohne Spieldaten anzufassen. */
+    /* Welcher Platz wird im Gameplan-Bildschirm gezeigt? Leer = Auswahl. */
+    var gpKurs by remember { mutableStateOf<String?>(null) }
+
+    /* Der zuletzt gelesene Handy-Entwurf — traegt dessen Caddy-Empfehlung. */
+    var repoDraft by remember { mutableStateOf<RepoDraft?>(null) }
+
+    /* Ort fuer das Fehlerprotokoll: Bei jedem Bildschirmwechsel neu (2026-08-16
+       (13)). Ein eigener Effekt statt eines Ausdrucks in `when` — dort waere er
+       eine Zuweisung mitten in einem Wertausdruck und damit schwer zu lesen. */
+    LaunchedEffect(screen) { Fehler.kontext = "Bildschirm $screen" }
+
+    /* ==========================================================================
+       STILLE STOERUNGEN MITSCHREIBEN (2026-08-16 (14))
+       --------------------------------------------------------------------------
+       Die gefaehrlichsten Fehler werfen gar keine Ausnahme — sie sehen aus wie
+       Normalbetrieb:
+         · GPS liefert seit Minuten keine Position (Ortung aus, kein Empfang),
+         · der Abgleich hat seit Minuten nichts geschrieben,
+         · die Daten sind alt, obwohl das Handy laufen sollte.
+       Ohne Eintrag steht man auf der Bahn und weiss nur „irgendwas stimmt
+       nicht". Gemeldet wird jeweils NUR BEIM WECHSEL des Zustands, nicht im
+       Takt — sonst ist das Protokoll nach zehn Minuten voll mit derselben
+       Zeile, und die eine Meldung, auf die es ankommt, ist verdraengt. */
+    var gpsStumm by remember { mutableStateOf(false) }
+    var gpsGrob by remember { mutableStateOf(false) }
+    var syncStumm by remember { mutableStateOf(false) }
+    LaunchedEffect(screen) {
+        if (screen != "play") return@LaunchedEffect
+        while (screen == "play") {
+            delay(60_000)
+            try {
+                /* Feld heisst `ts`, nicht `at` — in der Fix-Klasse nachgesehen. */
+                val fixAlter = Live.fix?.let { System.currentTimeMillis() - it.ts } ?: Long.MAX_VALUE
+                val stumm = fixAlter > 180_000
+                if (stumm != gpsStumm) {
+                    gpsStumm = stumm
+                    if (stumm) Fehler.warn("GPS",
+                        "seit ${fixAlter / 1000} s keine Position (Quelle ${if (gpsSource == "phone") "Handy" else "Uhr"})")
+                    else Fehler.add("GPS", "Position wieder da")
+                }
+                val syncAlter = System.currentTimeMillis() - lastSyncMs
+                val sStumm = lastSyncMs > 0 && syncAlter > 300_000
+                if (sStumm != syncStumm) {
+                    syncStumm = sStumm
+                    if (sStumm) Fehler.warn("Abgleich", "seit ${syncAlter / 1000} s nichts übertragen")
+                    else Fehler.add("Abgleich", "läuft wieder")
+                }
+                /* GENAUIGKEIT: Eine Position mit 40 m Streuung ergibt eine
+                   Distanz, die genauso aussieht wie eine gute — und zwei
+                   Schlaeger danebenliegt. Der haeufigste Grund fuer
+                   „die Uhr zeigt Unsinn" (2026-08-16 (15)). */
+                Live.fix?.let { f ->
+                    val schlecht = f.acc > 25f
+                    if (schlecht != gpsGrob) {
+                        gpsGrob = schlecht
+                        if (schlecht) Fehler.warn("GPS-Genauigkeit",
+                            "±${f.acc.toInt()} m — Distanzen und automatische Schläge unzuverlässig")
+                        else Fehler.add("GPS-Genauigkeit", "wieder brauchbar (±${f.acc.toInt()} m)")
+                    }
+                }
+                /* DATENALTER: Mit Schlaegerdistanzen von vor drei Wochen
+                   rechnet der Caddy sauber — nur eben mit veralteten Zahlen. */
+                if (!dataFresh) Fehler.warnEinmal("datenAlt", "Daten",
+                    "Stand nicht aktualisiert — Schlägerdistanzen und Pläne können veraltet sein")
+            } catch (e: Exception) { Fehler.add("Zustandswache", e) }
+        }
+    }
+
+    /* Wo stand die Uhr bei der letzten Meldung? Daran haengt, ob Bewegung
+       allein eine neue Meldung rechtfertigt (2026-08-16 (5)). */
+    var letztePos by remember { mutableStateOf<LL?>(null) }
+
     var probeBeantwortet by remember { mutableStateOf("") }
     LaunchedEffect(screen) {
+        /* SICHERHEITSNETZ (2026-08-16 (12)): Eine Ausnahme in einer
+           Nebenlaeufigkeit landet beim globalen Auffang und beendet die
+           GANZE App — nicht nur diesen Ablauf. Auf der Bahn ist das der
+           schlimmste Fall. Notiert und weiterleben statt abstuerzen. */
+        try {
         /* NUR AUF DEM STARTBILDSCHIRM (2026-08-15 (17)).
            Vorher lief diese Schleife dauerhaft — alle 5 s eine Netzanfrage,
            auch waehrend einer Runde und auch mit dem Arm unten. Fuer ein
@@ -5814,13 +6494,31 @@ fun GolfWatchApp(
                                 val par = kurs?.holes?.firstOrNull { it.hole == loch }?.par ?: 4
                                 val p = Caddy.plan(
                                     hier, ziel, par, clubs, kg.features,
-                                    weather, caddyMode, "fairway",
+                                    weather, caddyMode,
+                                    kg.holes[loch]?.dElev(hier, ziel),
+                                    "fairway",
                                     kg.holes[loch]?.tee
                                 )
                                 p.club?.let { r.put("club", it) }
                                 r.put("plays", p.plays)
                             }
                         }
+                    }
+                    "lie" -> {
+                        /* Die Uhr hat einen EIGENEN Caddy (Portierung von
+                           `planCore`). Dieselben Zahlen an zwei Orten laufen
+                           auseinander, sobald einer geaendert wird — hier
+                           meldet die Uhr ihre, und das Handy vergleicht
+                           (2026-08-16). */
+                        val lf = JSONObject()
+                        listOf("fairway", "rough", "highrough", "bunker", "recovery").forEach {
+                            /* `lieFactor` liegt in `Geo`, nicht in `Caddy` —
+                               die uebrigen Aufrufe in dieser Datei sagen es
+                               (Geo.lieFactor bei planCore). Korrektur
+                               2026-08-16 (7). */
+                            lf.put(it, Geo.lieFactor(it))
+                        }
+                        r.put("lie", lf)
                     }
                     "quelle" -> {
                         r.put("karte", kg != null)
@@ -5837,7 +6535,10 @@ fun GolfWatchApp(
                 .put("ergebnisse", erg)
             val ok = withContext(Dispatchers.IO) { Net.probePut(antwort) }
             if (ok) probeBeantwortet = ping
+            else Fehler.add("Kopplungstest", "Antwort nicht schreibbar")
         }
+    
+        } catch (e: Exception) { Fehler.add("Sync-Schleife", e) }
     }
 
     // Service starten, sobald gespielt wird (Doku 2b) — und beim Verlassen stoppen
@@ -5854,6 +6555,11 @@ fun GolfWatchApp(
 
     // Notification mit Loch + Stand aktuell halten
     LaunchedEffect(idx, entries.size, screen) {
+        /* SICHERHEITSNETZ (2026-08-16 (12)): Eine Ausnahme in einer
+           Nebenlaeufigkeit landet beim globalen Auffang und beendet die
+           GANZE App — nicht nur diesen Ablauf. Auf der Bahn ist das der
+           schlimmste Fall. Notiert und weiterleben statt abstuerzen. */
+        try {
         if (screen == "play") {
             val cs = course
             if (cs != null) {
@@ -5863,12 +6569,17 @@ fun GolfWatchApp(
                     else if (op == 0) "E"
                     else if (op > 0) "+$op"
                     else "$op"
+                /* Auch hier kein direkter Index (2026-08-16 (11)): Die
+                   Notification wird bei jeder Aenderung neu gebaut, auch
+                   waehrend der Umfang gerade wechselt. */
                 svcNote(
                     ctx,
-                    "Loch ${cs.holes[idx].hole} · $opTxt ($thru)"
+                    "Loch ${cs.holes.getOrNull(idx)?.hole ?: "-"} · $opTxt ($thru)"
                 )
             }
         }
+    
+        } catch (e: Exception) { Fehler.add("Notification", e) }
     }
 
     // Herzschlag: solange die Runde läuft, alle 3 Minuten pushen — auch ohne
@@ -5882,6 +6593,11 @@ fun GolfWatchApp(
        Sparbetrieb. Das spart Akku UND beschleunigt genau die Momente, auf die
        es ankommt. */
     LaunchedEffect(screen) {
+        /* SICHERHEITSNETZ (2026-08-16 (12)): Eine Ausnahme in einer
+           Nebenlaeufigkeit landet beim globalen Auffang und beendet die
+           GANZE App — nicht nur diesen Ablauf. Auf der Bahn ist das der
+           schlimmste Fall. Notiert und weiterleben statt abstuerzen. */
+        try {
         if (screen == "play") {
             syncNow()                       // sofort beim Betreten der Runde
             while (screen == "play") {
@@ -5890,15 +6606,41 @@ fun GolfWatchApp(
                    damit ist der alte Sparbetrieb unnoetig langsam. Kurz nach
                    einer Eingabe alle 10 s, sonst alle 60 s. Der Herzschlag ist
                    das Signal, an dem das Handy die laufende Runde erkennt. */
-                val frisch = System.currentTimeMillis() - lastEditMs < 120_000
-                delay(if (frisch) 10_000 else 60_000)
-                if (rec == null) syncNow()  // laufende Messung nicht stören
+                /* ==========================================================
+                   BEWEGUNG IST AUCH EIN EREIGNIS (2026-08-16 (5))
+                   ----------------------------------------------------------
+                   Bisher haing der Takt allein an EINGABEN: kurz nach einer
+                   Eingabe alle 10 s, sonst alle 60 s. Wer aber nur GEHT — vom
+                   Abschlag zum Ball —, tippt nichts. Die Position der Uhr war
+                   damit bis zu einer Minute alt, und das Handy rechnete seine
+                   Empfehlung fuer einen Punkt, an dem man laengst nicht mehr
+                   stand. Genau die Kette, die seit v3.18 die Empfehlung traegt.
+                   Jetzt zaehlt auch, dass man sich BEWEGT hat: mehr als 15 m
+                   seit der letzten Meldung heisst „neue Lage". 15 m, weil
+                   darunter die Schlaegerwahl gleich bleibt und jede Meldung
+                   Funk kostet. */
+                val jetzt = System.currentTimeMillis()
+                val frisch = jetzt - lastEditMs < 120_000
+                val f = Live.fixUi
+                val bewegt = f != null && letztePos?.let { Geo.dist(it, f.ll()) > 15.0 } ?: true
+                delay(if (frisch || bewegt) 10_000 else 60_000)
+                if (rec == null) {
+                    Live.fixUi?.let { letztePos = it.ll() }
+                    syncNow()  // laufende Messung nicht stören
+                }
             }
         }
+    
+        } catch (e: Exception) { Fehler.add("Uhr-Push", e) }
     }
 
     // Wetter (Open-Meteo) — beim ersten Fix und danach alle 20 Minuten
     LaunchedEffect(screen) {
+        /* SICHERHEITSNETZ (2026-08-16 (12)): Eine Ausnahme in einer
+           Nebenlaeufigkeit landet beim globalen Auffang und beendet die
+           GANZE App — nicht nur diesen Ablauf. Auf der Bahn ist das der
+           schlimmste Fall. Notiert und weiterleben statt abstuerzen. */
+        try {
         while (screen == "play") {
             val f = Live.fix
             val stale =
@@ -5912,6 +6654,8 @@ fun GolfWatchApp(
             }
             delay(60_000)
         }
+    
+        } catch (e: Exception) { Fehler.add("Dienst", e) }
     }
 
     // Handy -> Uhr: während der Runde alle 90 s den Repo-Entwurf ziehen und
@@ -5940,8 +6684,10 @@ fun GolfWatchApp(
             val dr = try {
                 withContext(Dispatchers.IO) { Net.fetchDraft() }
             } catch (e: Exception) {
+                Fehler.add("Entwurf lesen", e)   // 2026-08-16 (8)
                 null
             }
+            repoDraft = dr        // fuer die Caddy-Uebernahme (2026-08-16 (3))
             /* AM HANDY VERWORFEN -> hier auch beenden (2026-08-15 (9)).
                Ohne Rueckfrage: Die Entscheidung ist drueben gefallen; eine
                zweite Frage waere nur eine Falle. Nur wenn die Marke JUENGER ist
@@ -6004,6 +6750,11 @@ fun GolfWatchApp(
     val gridLng = fix?.let { (it.lng * 1e4).roundToInt() }
 
     LaunchedEffect(gridLat, gridLng, idx, caddyMode, weather, clubs.size, geo) {
+        /* SICHERHEITSNETZ (2026-08-16 (12)): Eine Ausnahme in einer
+           Nebenlaeufigkeit landet beim globalen Auffang und beendet die
+           GANZE App — nicht nur diesen Ablauf. Auf der Bahn ist das der
+           schlimmste Fall. Notiert und weiterleben statt abstuerzen. */
+        try {
 
         val cs = course
         val f = Live.fix
@@ -6031,12 +6782,46 @@ fun GolfWatchApp(
                 g.features,
                 weather,
                 caddyMode,
+                g.holes[hd.hole]?.dElev(f.ll(), target),
                 Geo.lieAt(f.ll(), g.features),
                 g.holes[hd.hole]?.tee
             )
         }
 
-        plan = p
+        /* ==========================================================================
+           DAS HANDY IST FUEHREND (2026-08-16 (3))
+           --------------------------------------------------------------------------
+           Beide Geraete hatten einen eigenen Caddy — und zwar zwei VERSCHIEDENE
+           Modelle: Das Handy rechnet mit der EV-Engine (Monte Carlo ueber die
+           Streuung, Lie-Raster, zwei Zuege voraus), die Uhr mit dem einfacheren
+           „spielt-wie"-Modell. Auf demselben Ball konnten sie verschiedene
+           Schlaeger nennen — und dann glaubt man auf der Bahn keinem von beiden.
+           Die Uhr kann die EV-Engine nicht rechnen: Ihr fehlen Streuungsdaten und
+           Rechenzeit. Also rechnet sie nicht mit, sondern uebernimmt das ERGEBNIS,
+           das mit dem Live-Zeiger ohnehin jede Sekunde reist.
+           VERWORFEN WIRD ES SELBST, wenn es nicht mehr gilt:
+             · anderes Loch,
+             · aelter als 90 s (dann steht das Handy woanders oder ist aus),
+             · weiter als 20 m von der eigenen Position (man ist weitergegangen).
+           In diesen Faellen bleibt die eigene Rechnung — sichtbar gemacht durch
+           „⌚" statt „📱", damit man weiss, wessen Zahl man liest. Eine stille
+           Vertauschung waere schlimmer als der Unterschied selbst. */
+        val ph = repoDraft
+        val phGilt = ph?.caddyClub != null &&
+                ph.caddyHole == hd.hole &&
+                (ph.caddyAt?.let { alterSek(it) } ?: 9999) <= 90 &&
+                (ph.caddyLat != null && ph.caddyLng != null &&
+                        Geo.dist(f.ll(), LL(ph.caddyLat, ph.caddyLng)) <= 20.0)
+
+        plan = if (phGilt && ph?.caddyClub != null)
+            p.copy(
+                club = ph.caddyClub,
+                plays = ph.caddyPlays ?: p.plays,
+                quelle = "phone"
+            )
+        else p.copy(quelle = "watch")
+    
+        } catch (e: Exception) { Fehler.add("Karten-Raster", e) }
     }
 
     /* AUTO-LOCH ENTFERNT (2026-08-10). Der automatische Lochwechsel per
@@ -6069,6 +6854,11 @@ fun GolfWatchApp(
         status = "messe…"
 
         scope.launch {
+            /* SICHERHEITSNETZ (2026-08-16 (12)): Eine Ausnahme in einer
+               Nebenlaeufigkeit landet beim globalen Auffang und beendet die
+               GANZE App — nicht nur diesen Ablauf. Auf der Bahn ist das der
+               schlimmste Fall. Notiert und weiterleben statt abstuerzen. */
+            try {
             val f = FixQuality.collect { n -> status = "messe… ($n)" }
             measuring = false
             if (f == null) {
@@ -6078,6 +6868,8 @@ fun GolfWatchApp(
             rec = Rec(null, f.ll(), startAcc = f.acc)
             status = "Aufnahme laeuft · ±${f.acc.roundToInt()} m"
             buzz(ctx)
+        
+            } catch (e: Exception) { Fehler.add("Schlag ablegen", e) }
         }
     }
 
@@ -6129,12 +6921,18 @@ fun GolfWatchApp(
         val cur = entries[hd.hole] ?: HoleEntry()
         val arr = ArrayList(cur.shots)
 
-        if (arr.isEmpty() ||
-            Geo.dist(LL(arr.last().lat, arr.last().lng), startP) > 12
+        /* `last()` auf einer leeren Liste wirft. Die Reihenfolge der
+           Bedingungen faengt das zwar ab (isEmpty zuerst), aber der zweite
+           Zweig lief bisher ohne eigene Pruefung — und Kotlin wertet dort
+           erneut `arr.last()` aus. Mit `lastOrNull` ist beides gleichgueltig
+           (2026-08-16 (11)). */
+        val letzter = arr.lastOrNull()
+        if (letzter == null ||
+            Geo.dist(LL(letzter.lat, letzter.lng), startP) > 12
         ) {
             arr.add(ShotPt(startP.lat, startP.lng, club))
         } else if (club.isNotEmpty()) {
-            arr[arr.size - 1] = arr.last().copy(club = club)
+            arr[arr.size - 1] = letzter.copy(club = club)
         }
 
         arr.add(ShotPt(endP.lat, endP.lng, ""))
@@ -6198,6 +6996,11 @@ fun GolfWatchApp(
         status = "messe…"
 
         scope.launch {
+            /* SICHERHEITSNETZ (2026-08-16 (12)): Eine Ausnahme in einer
+               Nebenlaeufigkeit landet beim globalen Auffang und beendet die
+               GANZE App — nicht nur diesen Ablauf. Auf der Bahn ist das der
+               schlimmste Fall. Notiert und weiterleben statt abstuerzen. */
+            try {
             val f = FixQuality.collect { n -> status = "messe… ($n)" }
             measuring = false
             if (f == null) {
@@ -6205,6 +7008,8 @@ fun GolfWatchApp(
                 return@launch
             }
             recFinish(r, f)
+        
+            } catch (e: Exception) { Fehler.add("Uhr-Eingabe", e) }
         }
     }
 
@@ -6276,6 +7081,11 @@ fun GolfWatchApp(
        WAEHREND EINER LAUFENDEN MESSUNG passiert nichts — `measuring` sperrt.
        Sonst wuerde der Bodenkontakt des Divots die eigene Aufnahme abbrechen. */
     LaunchedEffect(screen, autoShot) {
+        /* SICHERHEITSNETZ (2026-08-16 (12)): Die Schlagerkennung laeuft auf dem
+           SENSOR-Faden. Eine Ausnahme dort beendet die ganze App — mitten in der
+           Runde und ohne erkennbaren Zusammenhang. Notiert und weiterleben. */
+        try {
+        
         /* EINMAL SAGEN, WORAN MAN IST. Eine Automatik, die still im Hintergrund
            laeuft, erkennt man erst am ersten unerwarteten Schlag — oder gar
            nicht, wenn sie AUS ist und man auf sie wartet. */
@@ -6299,6 +7109,11 @@ fun GolfWatchApp(
                     }
                     // Schlaegervorschlag uebernehmen, sobald die Messung steht.
                     scope.launch {
+                        /* SICHERHEITSNETZ (2026-08-16 (12)): Eine Ausnahme in einer
+                           Nebenlaeufigkeit landet beim globalen Auffang und beendet die
+                           GANZE App — nicht nur diesen Ablauf. Auf der Bahn ist das der
+                           schlimmste Fall. Notiert und weiterleben statt abstuerzen. */
+                        try {
                         val bis = System.currentTimeMillis() + 2000
                         while (System.currentTimeMillis() < bis) {
                             delay(100)
@@ -6323,6 +7138,8 @@ fun GolfWatchApp(
                                 break
                             }
                         }
+                    
+                        } catch (e: Exception) { Fehler.add("Handy-Runde", e) }
                     }
                     buzz(ctx)
                     status = "🏌 Schlag erfasst"
@@ -6331,6 +7148,8 @@ fun GolfWatchApp(
         } else {
             Swing.stop()
         }
+    
+        } catch (e: Exception) { Fehler.add("Schlagerkennung", e) }
     }
     DisposableEffect(Unit) { onDispose { Swing.stop() } }
 
@@ -6381,8 +7200,8 @@ fun GolfWatchApp(
                 }
             }
 
-            // 4. Platzauswahl -> Startbildschirm
-            screen == "pick" -> screen = "home"
+            // 4. Platzauswahl und Gameplan -> Startbildschirm
+            screen == "pick" || screen == "gameplan" -> screen = "home"
 
             // 5. Startbildschirm -> App schließen
             else -> activity?.finish()
@@ -6438,9 +7257,13 @@ fun GolfWatchApp(
         }
     ) {
 
-        if (picker != null) {
-
-            val req = picker!!
+        /* Auch hier: erst in eine lokale Groesse, dann pruefen (2026-08-16 (11)).
+           `picker` ist veraenderlicher Zustand; wird er zwischen Pruefung und
+           `!!` geleert — etwa weil die Zurueck-Geste den Waehler schliesst —
+           endet die App. Seltener als beim Schlagtracking, aber dasselbe
+           Muster, und die Behebung kostet eine Zeile. */
+        val req = picker
+        if (req != null) {
 
             PickerScreen(
                 req.title,
@@ -6457,6 +7280,26 @@ fun GolfWatchApp(
         }
 
         when (screen) {
+
+            /* ==========================================================================
+               GAMEPLAN AUF DER UHR (2026-08-16)
+               --------------------------------------------------------------------------
+               Der Gameplan wird auf dem HANDY gerechnet (STRAT/EV-Engine) und
+               reist als `plans` mit — Schlaeger und Ziel je Loch. Die Uhr hat
+               ihn damit laengst dabei, konnte ihn aber nur WAEHREND einer Runde
+               zeigen. Zum Nachsehen am Vorabend oder auf dem Weg zum Platz
+               musste man eine Runde starten.
+               Dieser Bildschirm zeigt ihn ohne Runde, fuer jeden Platz mit
+               Plan. GERECHNET WIRD HIER NICHTS — es ist eine Anzeige dessen,
+               was das Handy geplant hat; zwei Rechenwege waeren zwei
+               Wahrheiten. */
+            "gameplan" -> GameplanScreen(
+                listState = homeListState,
+                data = data,
+                gewaehlt = gpKurs,
+                onKurs = { gpKurs = it },
+                onBack = { screen = "home" }
+            )
 
             "home" -> HomeScreen(
                 listState = homeListState,
@@ -6492,6 +7335,8 @@ fun GolfWatchApp(
                 // hat (roundId oder live.src == "phone"). Ein eigener Entwurf
                 // der Uhr zählt hier nicht — genau das hat vorher jeden
                 // Rundenstart abgefangen und still in eine Altrunde geführt.
+                hatPlaene = (data?.plans?.isNotEmpty() == true),
+                onGameplan = { screen = "gameplan" },
                 onFetchPhone = {
 
                     awaitingPhone = true
@@ -6500,6 +7345,18 @@ fun GolfWatchApp(
                     askPerms()
 
                     scope.launch {
+                      /* ==========================================================
+                         ABSICHERUNG (2026-08-16 (8))
+                         ----------------------------------------------------------
+                         Eine Ausnahme INNERHALB von `launch` beendet die ganze App —
+                         sie landet beim globalen Auffang, nicht in einem
+                         catch-Zweig. Genau das ist beim Suchen einer Handy-Runde
+                         aufgetreten: Netzfehler, unerwartete Antwort oder ein
+                         Platz ohne Loecher reichen aus.
+                         Jetzt wird die Stoerung notiert und angezeigt, statt die
+                         App mitzureissen. Der Wartezustand MUSS dabei aufgeloest
+                         werden — sonst steht „suche…" fuer immer da. */
+                      try {
 
                         var done = false
                         var lastNote = ""
@@ -6575,6 +7432,20 @@ fun GolfWatchApp(
                                     entries.clear()
                                     measurements.clear()
                                     adoptHoles(dr.holes)
+                                    /* Was genau kam an? Fehlen spaeter Werte,
+                                       will man wissen, ob sie ueberhaupt
+                                       uebernommen wurden (2026-08-16 (14)). */
+                                    /* Was FEHLT, ist wichtiger als was da ist:
+                                       Ohne Karte keine Distanzen, ohne
+                                       Schlaeger kein sinnvoller Caddy — beides
+                                       faellt sonst erst am Abschlag auf
+                                       (2026-08-16 (15)). */
+                                    if (dc.geoRaw.isNullOrBlank() && dc.geoObj == null)
+                                        Fehler.warn("Platzkarte", "„${dc.name}“ ohne Karte — keine Distanzen, kein Caddy")
+                                    if (clubs.isEmpty())
+                                        Fehler.warn("Schläger", "Keine Distanzen auf der Uhr — Caddy rechnet mit Annahmen")
+                                    Fehler.add("Runde übernommen",
+                                        "${dc.name} · ${dr.side} · ${dr.holes.length()} Löcher · Loch ${dr.liveHole ?: "?"}")
 
                                     // Loch des Handys übernehmen, sonst erstes ohne Score
                                     // WICHTIG: gegen die GEFILTERTE Lochliste suchen,
@@ -6626,6 +7497,13 @@ fun GolfWatchApp(
                             awaitingPhone = false
                             status = "Keine Handy-Runde — $lastNote"
                         }
+
+                      } catch (e: Exception) {
+                        Fehler.add("Handy-Runde", e)
+                        loading = false
+                        awaitingPhone = false
+                        status = "Fehler bei der Suche — siehe Protokoll (Seite 3)"
+                      }
                     }
                 },
 
@@ -6646,6 +7524,11 @@ fun GolfWatchApp(
                     if (data == null) {
                         loading = true
                         scope.launch {
+                            /* SICHERHEITSNETZ (2026-08-16 (12)): Eine Ausnahme in einer
+                               Nebenlaeufigkeit landet beim globalen Auffang und beendet die
+                               GANZE App — nicht nur diesen Ablauf. Auf der Bahn ist das der
+                               schlimmste Fall. Notiert und weiterleben statt abstuerzen. */
+                            try {
                             val (d, fresh) =
                                 withContext(Dispatchers.IO) { loadData(ctx) }
                             loading = false
@@ -6659,6 +7542,8 @@ fun GolfWatchApp(
                                 if (d.clubs.isNotEmpty()) clubs = d.clubs
                                 screen = "pick"
                             }
+                        
+                            } catch (e: Exception) { Fehler.add("Rundenende", e) }
                         }
                     } else {
                         screen = "pick"
@@ -6695,6 +7580,11 @@ fun GolfWatchApp(
                         if (data == null || !dataFresh) {
 
                             scope.launch {
+                                /* SICHERHEITSNETZ (2026-08-16 (12)): Eine Ausnahme in einer
+                                   Nebenlaeufigkeit landet beim globalen Auffang und beendet die
+                                   GANZE App — nicht nur diesen Ablauf. Auf der Bahn ist das der
+                                   schlimmste Fall. Notiert und weiterleben statt abstuerzen. */
+                                try {
 
                                 val (d, fresh) =
                                     withContext(Dispatchers.IO) { loadData(ctx) }
@@ -6705,6 +7595,8 @@ fun GolfWatchApp(
                                     data = d
                                     if (d.clubs.isNotEmpty()) clubs = d.clubs
                                 }
+                            
+                                } catch (e: Exception) { Fehler.add("Verwerfen", e) }
                             }
                         }
 
@@ -6810,7 +7702,38 @@ fun GolfWatchApp(
 
                 if (cs != null) {
 
-                    val hd = cs.holes[idx]
+                    /* ==========================================================
+                       DIREKTER INDEXZUGRIFF WAR EIN ABSTURZ (2026-08-16 (11))
+                       ----------------------------------------------------------
+                       `cs.holes[idx]` wirft, sobald `idx` groesser ist als die
+                       Lochliste. Genau das passiert im Betrieb: Wird waehrend
+                       einer laufenden 18er der Umfang auf Front 9 gestellt
+                       (Uebernahme vom Handy, `side = dr.side`), schrumpft
+                       `course.holes` auf neun — `idx` bleibt aber, wo es war.
+                       Steht man dann auf Loch 13, ist der naechste Zeichenlauf
+                       der letzte. Diese Zeile laeuft bei JEDER Neuzeichnung des
+                       Spielbildschirms; ein Fehler hier beendet die App sofort
+                       und ohne erkennbaren Zusammenhang.
+                       Statt abzustuerzen: auf das letzte gueltige Loch
+                       zurueckfallen und den Zeiger korrigieren. */
+                    if (idx >= cs.holes.size || idx < 0) {
+                        val neuIdx = (cs.holes.size - 1).coerceAtLeast(0)
+                        Fehler.add("Lochzeiger", "idx $idx bei ${cs.holes.size} Löchern → $neuIdx")
+                        idx = neuIdx
+                    }
+                    /* Kein vorzeitiges `return` aus einer Composable-Lambda —
+                       das waere je nach umgebendem Block ein Uebersetzungs-
+                       fehler und im besten Fall ein halb gezeichneter
+                       Bildschirm. Nach dem Zurechtruecken oben kann `getOrNull`
+                       nur noch null sein, wenn die Lochliste LEER ist; dann
+                       traegt ein Ersatzloch die Anzeige, bis der Zustand
+                       wieder stimmt. Sichtbar wird es ueber das Protokoll. */
+                    /* Ort mitschreiben — jede Meldung traegt ihn dann bei
+                       sich (2026-08-16 (13)). */
+                    Fehler.kontext = "Loch ${cs.holes.getOrNull(idx)?.hole ?: "?"}/${cs.holes.size} · ${cs.name.take(18)}"
+                    val hd = cs.holes.getOrNull(idx)
+                        ?: cs.holes.firstOrNull()
+                        ?: HoleDef(1, 4).also { Fehler.add("Lochliste", "leer — Ersatzloch") }
                     val e =
                         entries[hd.hole]
                             ?: HoleEntry()
@@ -6831,9 +7754,24 @@ fun GolfWatchApp(
                        dann, wenn es keine mehr gibt. */
                     val live = remember(fix, hd.hole, geo, Live.err) { liveOf(hd.hole) }
 
+                    /* ==========================================================
+                       WETTLAUF ZWISCHEN PRUEFUNG UND ZUGRIFF (2026-08-16 (11))
+                       ----------------------------------------------------------
+                       `if (rec?.start != null) … rec!!.start!!` sieht sicher
+                       aus, ist es aber nicht: `rec` ist veraenderlicher
+                       Zustand, und seit der automatischen Schlagerfassung setzt
+                       ihn ein SENSOR-RUECKRUF — also ein anderer Faden. Faellt
+                       die Erkennung genau zwischen Pruefung und Zugriff, ist
+                       `rec` null und `!!` beendet die App. Das passiert selten,
+                       aber waehrend jeder Runde staendig neu, und es sieht nach
+                       einem zufaelligen Absturz aus.
+                       Genau dafuer schreibt man den Wert in eine LOKALE Grosse:
+                       Die aendert niemand mehr. */
+                    val recJetzt = rec
+                    val recStart = recJetzt?.start
                     val recDist =
-                        if (rec?.start != null && fix != null) {
-                            Geo.dist(rec!!.start!!, fix.ll()).roundToInt()
+                        if (recStart != null && fix != null) {
+                            Geo.dist(recStart, fix.ll()).roundToInt()
                         } else {
                             null
                         }
@@ -7124,7 +8062,8 @@ fun GolfWatchApp(
                 }
             }
         }
-    }
+    
+}
 }
 
 // Auswahlwerte für "Rest zur Fahne". Die PWA speichert eine freie ganze
@@ -7267,6 +8206,110 @@ private fun rotaryScrollModifier(
     }
 }
 
+/* ==========================================================================
+   GAMEPLAN-ANSICHT (2026-08-16)
+   --------------------------------------------------------------------------
+   Zeigt, was das HANDY geplant hat: je Loch Schlaeger und Ziel. Gerechnet wird
+   hier nichts — die Plaene kommen fertig aus `AppData.plans` („Platz|Tee" ->
+   Loch -> PlanHole). Zwei Rechenwege waeren zwei Wahrheiten, und die Uhr hat
+   weder die Streuungsdaten noch die Rechenzeit fuer die EV-Engine.
+   ZWEI STUFEN: erst Platz waehlen, dann die Loecher. Bei nur EINEM Platz mit
+   Plan wird die Auswahl uebersprungen — ein Menue mit einem Eintrag ist eine
+   Frage, die sich nicht stellt. */
+@Composable
+private fun GameplanScreen(
+    listState: ScalingLazyListState,
+    data: AppData?,
+    gewaehlt: String?,
+    onKurs: (String?) -> Unit,
+    onBack: () -> Unit
+) {
+    val plaene = data?.plans ?: emptyMap()
+    val schluessel = plaene.keys.sorted()
+    val aktiv = gewaehlt ?: if (schluessel.size == 1) schluessel[0] else null
+
+    ScalingLazyColumn(
+        state = listState,
+        modifier = Modifier.fillMaxSize().then(rotaryScrollModifier(listState, true)),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        item {
+            Text(
+                if (aktiv == null) "Gameplan" else aktiv.replace("|", " · "),
+                fontSize = 13.sp, maxLines = 2, textAlign = TextAlign.Center,
+                color = GoldText
+            )
+        }
+
+        if (aktiv == null) {
+            if (schluessel.isEmpty()) {
+                item {
+                    Text(
+                        "Noch kein Gameplan. Am Handy unter Runden → Gameplan rechnen lassen.",
+                        fontSize = 12.sp, textAlign = TextAlign.Center, color = InkFaint,
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp)
+                    )
+                }
+            }
+            /* `items(liste)` wie an den anderen Stellen dieser Datei — die
+               Zaehl-Variante ist im Wear-ScalingLazyColumn nicht verfuegbar. */
+            items(schluessel) { k ->
+                Chip(
+                    onClick = { onKurs(k) },
+                    label = { Text(k.substringBefore("|"), fontSize = 13.sp, maxLines = 1) },
+                    secondaryLabel = {
+                        Text(
+                            k.substringAfter("|", "") + " · " + (plaene[k]?.size ?: 0) + " Löcher",
+                            fontSize = 11.sp, maxLines = 1
+                        )
+                    },
+                    colors = ChipDefaults.secondaryChipColors(),
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
+                )
+            }
+        } else {
+            val plan = plaene[aktiv] ?: emptyMap()
+            val loecher = plan.keys.sorted()
+            items(loecher) { n ->
+                val p = plan[n]
+                Chip(
+                    onClick = { },
+                    label = {
+                        Text("Loch $n · ${p?.club ?: "—"}", fontSize = 13.sp, maxLines = 1)
+                    },
+                    secondaryLabel = {
+                        /* Die Zielbeschreibung ist der eigentliche Inhalt — der
+                           Schlaeger allein sagt nicht, WOHIN. */
+                        Text(p?.desc ?: "", fontSize = 11.sp, maxLines = 2)
+                    },
+                    colors = ChipDefaults.secondaryChipColors(),
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
+                )
+            }
+            if (schluessel.size > 1) {
+                item {
+                    Chip(
+                        onClick = { onKurs(null) },
+                        label = { Text("‹ anderer Platz", fontSize = 12.sp, maxLines = 1) },
+                        colors = ChipDefaults.secondaryChipColors(),
+                        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
+                    )
+                }
+            }
+        }
+
+        item {
+            Chip(
+                onClick = onBack,
+                label = { Text("‹ Übersicht", fontSize = 12.sp, maxLines = 1) },
+                colors = ChipDefaults.secondaryChipColors(),
+                modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
+            )
+        }
+        item { Spacer(Modifier.height(10.dp)) }
+    }
+}
+
 @Composable
 private fun HomeScreen(
     listState: ScalingLazyListState,
@@ -7278,6 +8321,8 @@ private fun HomeScreen(
        (2026-08-15 (16)). */
     phoneRunde: String?,
     datenAlter: String?,
+    hatPlaene: Boolean,
+    onGameplan: () -> Unit,
     loading: Boolean,
     status: String,
     keepScreen: Boolean,
@@ -7474,6 +8519,22 @@ private fun HomeScreen(
             )
         }
 
+        /* GAMEPLAN NACHSEHEN (2026-08-16) — ohne Runde. Steht bei den
+           Handlungen, nicht bei den Einstellungen: Man schaut ihn sich VOR der
+           Runde an, und dann ist er das Ziel des Bildschirms. Ohne Plaene im
+           Datenbestand waere der Knopf eine Sackgasse — dann erscheint er
+           gar nicht. */
+        if (hatPlaene) {
+            item {
+                Chip(
+                    onClick = onGameplan,
+                    label = { Text("📋 Gameplan ansehen", fontSize = 13.sp, maxLines = 1) },
+                    colors = ChipDefaults.secondaryChipColors(),
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
+                )
+            }
+        }
+
         /* EINSTELLUNGEN NACH UNTEN (2026-08-15 (16)).
            „Display an" und „GPS-Quelle" standen zwischen den Handlungen — auf
            einem runden Display nimmt jeder Chip ein Drittel der Hoehe, und
@@ -7578,6 +8639,18 @@ private fun HomeScreen(
                 )
             }
         }
+
+        /* GANZ UNTEN AUF DEM STARTBILDSCHIRM (2026-08-16 (13)).
+           Der wichtigste Ort fuer das Protokoll: Nach einem Absturz landet man
+           HIER — und will wissen, was passiert ist, ohne erst eine Runde zu
+           starten. Ganz unten, weil man es selten braucht; wenn doch, sucht man
+           gezielt.
+           `zeigeLeer = true` nur hier: Eine Zeile „keine Meldungen" ist auf dem
+           Startbildschirm eine ANTWORT (die Uhr laeuft sauber), waehrend sie in
+           der Rundenansicht nur Platz kostet. */
+        item { Spacer(Modifier.height(6.dp)) }
+        fehlerBlock(zeigeLeer = true)
+        item { Spacer(Modifier.height(10.dp)) }
     }
 }
 
@@ -8300,7 +9373,13 @@ private fun HolePage(
                    Umschalt-Symbol und einer Flaeche, die man auch mit Handschuh
                    trifft. */
                 Text(
-                    "🎯 ${plan.headline} · ${Caddy.modeLabel(caddyMode)} ⇄",
+                    /* HERKUNFT SICHTBAR (2026-08-16 (3)): 📱 = Empfehlung des
+                       Handys (dessen EV-Engine ist fuehrend), ⌚ = hier
+                       gerechnet, weil das Handy nichts Gueltiges geliefert hat.
+                       Ohne diese Angabe wuesste man nicht, wessen Zahl man
+                       liest — und beide Modelle koennen verschiedene Schlaeger
+                       nennen. */
+                    "${if (plan.quelle == "phone") "📱" else "🎯"} ${plan.headline} · ${Caddy.modeLabel(caddyMode)} ⇄",
                     fontSize = 12.sp,
                     color = GoldText,
                     maxLines = 1,
@@ -9101,7 +10180,79 @@ private fun DetailPage(
             )
         }
 
+        /* ==========================================================================
+           FEHLERPROTOKOLL AM ENDE VON SEITE 3 (2026-08-16 (8))
+           --------------------------------------------------------------------------
+           AM ENDE, nicht oben: Man braucht es selten, und wenn, dann sucht man
+           es gezielt. Oben stuende es jeder Eingabe im Weg.
+           NUR WENN ES EINTRAEGE GIBT — ein leeres Protokoll ist eine Zeile
+           Rauschen; sein Fehlen ist die gute Nachricht. */
+        fehlerBlock()
+
         item { Spacer(Modifier.height(12.dp)) }
+    }
+}
+
+/* ==========================================================================
+   FEHLERPROTOKOLL ALS BAUSTEIN (2026-08-16 (13))
+   --------------------------------------------------------------------------
+   Steht jetzt an ZWEI Stellen: unten auf der Detailseite einer Runde UND unten
+   auf dem Startbildschirm. Der Startbildschirm ist der wichtigere Ort — nach
+   einem Absturz landet man dort, und genau dann will man wissen, was passiert
+   ist, ohne erst eine Runde zu starten.
+   EINE Funktion fuer beide, weil dieselbe Sache zweimal gebaut auseinander
+   laeuft (die Scorekarte in der PWA war genau dieser Fall).
+   `ScalingLazyListScope`-Erweiterung statt @Composable: Eintraege muessen
+   EINZELNE `items` sein, sonst scrollt der ganze Block als ein Stueck und wird
+   auf einem runden Display unlesbar. */
+private fun ScalingLazyListScope.fehlerBlock(zeigeLeer: Boolean = false) {
+    val eintraege = Fehler.liste
+    if (eintraege.isEmpty()) {
+        if (zeigeLeer) {
+            item {
+                Text(
+                    "Fehlerprotokoll: keine Meldungen",
+                    fontSize = 10.sp, color = InkFaint, textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth().padding(top = 14.dp, bottom = 4.dp)
+                )
+            }
+        }
+        return
+    }
+    item { SectionLabel("Fehlerprotokoll") }
+    item {
+        Text(
+            "Letzte " + eintraege.size + " Meldungen · bleiben über Neustarts erhalten",
+            fontSize = 10.sp, color = InkFaint, textAlign = TextAlign.Center,
+            modifier = Modifier.padding(horizontal = 8.dp)
+        )
+    }
+    items(eintraege) { z ->
+        /* KEINE Kuerzung (maxLines): Der Aufrufstapel steht am ENDE der Zeile —
+           genau der Teil, wegen dem man hinsieht. Lieber vier Zeilen umbrechen
+           als die Antwort abschneiden. */
+        Text(
+            z,
+            fontSize = 10.sp,
+            lineHeight = 12.sp,
+            /* Drei Stufen sichtbar: Absturz rot, Warnung gold, Rest ruhig.
+               Ohne Unterscheidung liest man dreissig gleich aussehende Zeilen
+               und findet die eine nicht (2026-08-16 (15)). */
+            color = when {
+                z.contains("ABSTURZ") -> RedC
+                z.contains("⚠") -> GoldText
+                else -> InkFaint
+            },
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 6.dp, vertical = 3.dp)
+        )
+    }
+    item {
+        Chip(
+            onClick = { Fehler.clear() },
+            label = { Text("Protokoll leeren", fontSize = 12.sp, maxLines = 1) },
+            colors = ChipDefaults.secondaryChipColors(),
+            modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
+        )
     }
 }
 

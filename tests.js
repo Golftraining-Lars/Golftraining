@@ -168,7 +168,7 @@ try {
   /* WICHTIG: bei vm.runInContext landen nur `var` und `function` am Kontext —
      `const STRAT = {...}` bleibt im Blockscope unsichtbar. Deshalb ein Epilog,
      der die benoetigten Namen aktiv herausreicht. */
-  const namen = ["wetterSetzen","mobBaseline","MOB_KEYS","_fitMedian","_fitVergleich","isoWoche","kraftNorm","est1RM","kraftVerlauf","_dgmAbstandZuStrecke","gpFingerprint","_aimApproachEv","watchElevProfil","dgmSetzen","elevQuelle","elevQuelleText","dgmRahmen","dgmIdx","dgmZelleMitte","dgmZellen","dgmHoehe","dgmNeigung","dgmKey",
+  const namen = ["turnierNaehe","wakeAn","wakeAus","_wakeGruende","kraftVerlauf","standNeuer","wetterSetzen","mobBaseline","MOB_KEYS","_fitMedian","_fitVergleich","isoWoche","kraftNorm","est1RM","kraftVerlauf","_dgmAbstandZuStrecke","gpFingerprint","_aimApproachEv","watchElevProfil","dgmSetzen","elevQuelle","elevQuelleText","dgmRahmen","dgmIdx","dgmZelleMitte","dgmZellen","dgmHoehe","dgmNeigung","dgmKey",
                  "STRAT","clubPick","playsLike","pinPoint","geoDist","playMapBox",
                  "selfCheck","PLAY","escShort","_short","clubShort","windRel","tempFactor","DB",
                  "courseTee","activeHoles","roundDurationMin","mergeDB","_mergeArr","_mergeTs",
@@ -4245,6 +4245,146 @@ group("Zielkette — der Schläger folgt der gespielten Distanz");
      /\(spielt wie "\+L\.spielt\+"\)/.test(src));
   ok("aber nur bei nennenswerter Abweichung",
      /Math\.abs\(L\.spielt-L\.dist\)>=3/.test(src));
+}
+
+/* ============ 24bu. Zwei Wahrheiten, RPE, Turniernähe ============ */
+group("Aufräumen — eine Sperre, ein Feld mit Wirkung, ein Kalender");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+  const DBx = G("DB"), tn = G("turnierNaehe"), wAn = G("wakeAn"), wAus = G("wakeAus"),
+        kv = G("kraftVerlauf");
+
+  /* (5) EINE BILDSCHIRMSPERRE. Es gab zwei getrennte Fassungen derselben
+     Sache — `_wake` an der Runde, `GPS.wake` an der Ortung. Beide forderten
+     dieselbe Browser-Sperre an und wussten nichts voneinander. */
+  ok("ein Zähler hält die Gründe", /const _wakeGruende=new Set\(\);/.test(src));
+  ok("angemeldet wird mit Grund", /function wakeAn\(grund\)/.test(src));
+  ok("freigegeben erst, wenn niemand mehr will",
+     /if\(!_wakeGruende\.size\) wakeRelease\(\);/.test(src));
+  ok("GPS ist nur noch eine Hülle", /async function requestWake\(\)\{ return wakeAn\("gps"\); \}/.test(src));
+  ok("die Runde meldet sich als „runde“ an", /wakeAn\("runde"\)/.test(src));
+  ok("kein eigener GPS-Sperrzustand mehr", !/GPS\.wake\s*=/.test(src));
+  if (typeof wAn === "function" && typeof wAus === "function") {
+    /* Der Kern: Endet die Ortung, während die Runde läuft, darf die Sperre
+       NICHT fallen. Mit zwei getrennten Sperren war das zufällig richtig. */
+    const S = G("_wakeGruende");
+    if (S) {
+      S.clear(); S.add("runde"); S.add("gps");
+      wAus("gps");
+      ok("Ortung endet, Runde läuft: Sperre bleibt", S.has("runde") && S.size === 1);
+      wAus("runde");
+      eq("Runde endet: niemand mehr", S.size, 0);
+    }
+  }
+
+  /* (6a) RPE WIRD AUSGEWERTET, NICHT NUR ERFASST. Ein Eingabefeld ohne
+     Wirkung kostet bei jeder Erfassung Zeit und suggeriert Nutzen. */
+  ok("Wochenlast aus Sätzen × Wdh. × RPE", /\(e2\.sets\|\|0\)\*\(e2\.reps\|\|0\)\*r/.test(src));
+  ok("und getrennt vom Volumen ausgewiesen", /Wochenlast \(Sätze × Wdh\. × RPE/.test(src));
+  if (typeof kv === "function") {
+    const sich = DBx.fitnessSessions;
+    try {
+      DBx.fitnessSessions = [
+        { type: "Kraft", date: "2026-03-02", exercises: [{ name: "Kniebeuge", sets: 3, reps: 10, weight: 60, rpe: 8 }] },
+        { type: "Kraft", date: "2026-03-09", exercises: [{ name: "Kniebeuge", sets: 3, reps: 10, weight: 60 }] }
+      ];
+      const r = kv();
+      const w1 = r.wochen.find(w => w.last);
+      ok("Woche mit RPE hat eine Last", !!w1);
+      if (w1) eq("3 × 10 × 8", w1.last, 240);
+      /* Ohne RPE bleibt der Satz draußen — ein geschätzter Wert wäre keine
+         Messung, und eine erfundene Zahl sieht nach Wissen aus. */
+      eq("nur eine Woche mit Last", r.lastWochen.length, 1);
+      eq("Volumen zählt trotzdem beide", r.wochen.length, 2);
+    } finally { DBx.fitnessSessions = sich; }
+  }
+
+  /* (6b) DER PLAN KENNT DEN TURNIERKALENDER. */
+  ok("Schontage sind begründet benannt", /const TURNIER_SCHONTAGE=2;/.test(src));
+  ok("nicht absagen, sondern umwidmen", /Beweglichkeit und Aufwärmen bleiben sinnvoll/.test(src));
+  ok("kein automatisches Umräumen", /KEIN AUTOMATISCHES VERSCHIEBEN/.test(src));
+  if (typeof tn === "function") {
+    const sichC = DBx.competitions;
+    try {
+      const heute = new Date(), iso = d => new Date(heute.getTime() + d * 864e5).toISOString().slice(0, 10);
+      DBx.competitions = [{ date: iso(1), name: "Clubmeisterschaft" }];
+      ok("Turnier morgen wird erkannt", tn() && tn().tage === 1);
+      DBx.competitions = [{ date: iso(2), name: "X" }];
+      ok("übermorgen auch noch", !!tn());
+      DBx.competitions = [{ date: iso(5), name: "X" }];
+      eq("in fünf Tagen nicht mehr", tn(), null);
+      DBx.competitions = [{ date: iso(-3), name: "vorbei" }];
+      eq("vergangene Turniere zählen nicht", tn(), null);
+      DBx.competitions = [];
+      eq("ohne Turnier nichts", tn(), null);
+    } finally { DBx.competitions = sichC; }
+  }
+}
+
+/* ============ 24bv. Zusicherungen, die keine sind ============ */
+group("Die App darf nichts behaupten, was sie nicht geprüft hat");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+  /* DIE FEHLERKLASSE DIESES TAGES. Gefunden wurden am 21.08. fünf Fälle, und
+     alle folgten demselben Muster — keine Abstürze, keine falschen Formeln,
+     sondern FALSCHE ZUSICHERUNGEN:
+       · „✓ vollständig", während 14.363 Punkte fehlten (v4.10)
+       · Wind und Höhe genannt, aber nicht eingerechnet (v4.16)
+       · Ein Punkt eingezeichnet, den der genannte Schläger nicht erreicht (v4.15)
+       · Der Fahnen-Schalter sah funktionsfähig aus und tat nichts (v3.93)
+       · „Höhe unbekannt" hieß in Wahrheit „nicht geladen" (v4.2)
+     Die sind gefährlicher als Abstürze, weil man ihnen glaubt. Der Grundsatz:
+     Jede Anzeige, die einen Zustand behauptet, muss ihn aus derselben Quelle
+     lesen, aus der er entsteht. Diese Gruppe hält die belegten Fälle fest. */
+
+  ok("„vollständig“ zählt den Schnitt mit der Sollliste, nicht alle Zellen",
+     /liste\.forEach\(i=>\{ if\(rec\.h\[i\]!==DGM_LEER\) ist\+\+; \}\)/.test(src));
+  ok("„gespeichert“ hat einen Zeitstempel, der JEDE Änderung sieht",
+     /db\.savedAt=new Date\(\)\.toISOString\(\);/.test(src));
+  ok("die Bedingungszeile rechnet, was sie nennt",
+     /const _plays=\(spieltVorgabe!=null&&isFinite\(spieltVorgabe\)\)/.test(src));
+  ok("der eingezeichnete Schläger muss die gespielte Distanz tragen",
+     /dSpielt <= reach\*1\.05/.test(src));
+  ok("„Höhe unbekannt“ unterscheidet fünf Fälle",
+     /kein Höhenraster für diesen Platz/.test(src) && /außerhalb des geladenen Streifens/.test(src));
+  ok("Kopfzeile und Karte lesen dieselbe Entscheidung",
+     /club=L0\.club; clubQuelle="Kette";/.test(src));
+
+  /* Und der Riegel gegen die Wiederholung: Widersprüche zwischen zwei
+     Rechnern gehen ins Protokoll, statt nebeneinander angezeigt zu werden. */
+  ok("Widersprüche werden gemeldet", /Schläger uneinig: Bewertung /.test(src));
+  ok("mit beiden Zahlen", /spielt-wie uneinig: Kopfzeile /.test(src));
+  ok("und ein jünger-aber-ärmerer Speicherstand ebenso",
+     /IndexedDB ist juenger, aber inhaltsaermer/.test(src));
+}
+
+/* ============ 24bw. Versprechen ohne Auffangnetz ============ */
+group("Zusagen, die niemand einlöst — .then ohne .catch");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+  const dv = src.indexOf('id="devdocs"'), cl = src.indexOf("## Changelog", dv);
+  const end = src.indexOf("</script>", cl);
+  const code = src.slice(0, dv) + src.slice(end);
+
+  /* Eine abgewiesene Zusage ohne `catch` erzeugt eine unbehandelte Ablehnung:
+     Der Fehler landet nirgends, die Anzeige bleibt stehen wie sie ist, und der
+     Benutzer wartet auf etwas, das nie kommt. Das ist dieselbe Klasse wie
+     oben — die App behauptet, sie arbeite daran.
+     Gezählt, nicht verboten: Wo ein Fehlschlag folgenlos ist (`idbSet` für
+     einen Zwischenspeicher), ist ein leerer Pfad in Ordnung. Die Zahl darf nur
+     nicht WACHSEN, ohne dass jemand hinsieht. */
+  let ohne = 0;
+  for (const m of code.matchAll(/\.then\(/g)) {
+    const seg = code.slice(m.index, m.index + 900);
+    if (!/\.catch\(/.test(seg)) ohne++;
+  }
+  ok("Zusagen ohne Auffangnetz sind gedeckelt", ohne <= 48, ohne + " Stellen");
+  /* Die Stellen, an denen es WEHTUT, haben eines — dort hängt eine Anzeige
+     dran, die sonst ewig „lädt …" zeigt. */
+  ok("Höhenraster-Ladelauf fängt ab", /dgmLadenFuer\([\s\S]{0,700}?\.catch\(/.test(code));
+  ok("beide Bestandsabfragen fangen ab",
+     (code.match(/dgmStatus\([\s\S]{0,3000}?\.catch\(/g) || []).length >= 2);
+  ok("Repo-Notausgang fängt ab", /freshRepoFetch\(\)[\s\S]{0,900}?catch/.test(code));
 }
 
 /* ============ 24bl. Caddy-Plan: Einheiten und Plausibilität ============ */
@@ -9259,12 +9399,36 @@ group("Sicherungen — bezahlbar und verlässlich");
   ok("keine Versionsprüfung mehr in load", !/d\.version===SEED\.version/.test(ld));
 
   const hy = src.slice(src.indexOf("async function idbHydrate()"),
-                       src.indexOf("async function idbHydrate()") + 1600);
+                       src.indexOf("async function idbHydrate()") + 2600);
   ok("idbHydrate prüft die Version nicht mehr", !/idb\.version===SEED\.version/.test(hy));
   /* Der eigentliche Datenverlust: Die abgelehnte IDB-Kopie wurde mit dem
      leeren SEED überschrieben. */
   ok("nie eine reichere Kopie überschreiben",
     /else if\(!idb \|\| dataScore\(DB\) >= dataScore\(idb\|\|\{\}\)\)/.test(hy));
+
+  /* ---- `savedAt`: der Stempel, den die Frischeprüfung bisher nicht hatte (v4.18) ----
+     Es gibt ZWEI Ablagen. `load()` liest localStorage, `idbHydrate` holt die
+     IndexedDB-Kopie nach, wenn sie „neuer oder reicher" ist — gemessen an
+     `dataScore` und `exportedAt`. **Beides sieht Kartenarbeit nicht.** Läuft
+     localStorage über (Kontingent), liegt eine reine Geo-Änderung nur in IDB,
+     `load()` nimmt beim Start die veraltete Fassung, und niemand korrigiert. */
+  ok("jeder Schreibvorgang stempelt", /db\.savedAt=new Date\(\)\.toISOString\(\);/.test(src));
+  ok("und zwar VOR dem Schreiben",
+     src.indexOf("db.savedAt=new Date().toISOString();") < src.indexOf('idbSet("golfdb", db)'));
+  ok("der Stempel entscheidet", /const perStempel=standNeuer\(idb, DB\);/.test(hy));
+  ok("dataScore bleibt nur Rückfall", /\(perStempel!=null\)[\s\S]{0,120}?idbScore>curScore/.test(hy));
+  ok("jünger-aber-ärmer wird gemeldet", /IndexedDB ist juenger, aber inhaltsaermer/.test(hy));
+
+  const sn2 = G("standNeuer");
+  if (typeof sn2 === "function") {
+    eq("jünger", sn2({savedAt:"2026-08-21T10:00:00Z"}, {savedAt:"2026-08-20T10:00:00Z"}), true);
+    eq("älter", sn2({savedAt:"2026-08-19T10:00:00Z"}, {savedAt:"2026-08-20T10:00:00Z"}), false);
+    /* Gleich alt ist NICHT dasselbe wie „nicht entscheidbar" — aber beide
+       dürfen keine Übernahme auslösen, sonst schreibt sich der Start im Kreis. */
+    eq("gleich alt entscheidet nicht", sn2({savedAt:"2026-08-20T10:00:00Z"}, {savedAt:"2026-08-20T10:00:00Z"}), null);
+    eq("ohne Stempel nicht entscheidbar", sn2({}, {savedAt:"2026-08-20T10:00:00Z"}), null);
+    eq("gar nichts ergibt null", sn2(null, null), null);
+  }
 }
 
 group("Merge — ein leerer Stand überschreibt keine Skalare");
