@@ -3428,7 +3428,7 @@ group("DGM1 — Raster, Neigung und die Grenze zwischen zwei Quellen");
      Vorrichtung vergiftet — `GIT` war undefined, das Testgelaende wurde mit
      NaN gefuellt, und Int16Array machte daraus lauter Nullen. Deshalb hier
      die Werte, und daneben die Probe, dass sie noch zum Quelltext passen. */
-  const GIT = 5, LEER = -32768;
+  const GIT = 10, LEER = -32768;
   const srcK = fs.readFileSync(FILE, "utf8");
   ok("DGM_GITTER im Quelltext ist " + GIT, new RegExp("DGM_GITTER=" + GIT + "\\b").test(srcK));
   ok("DGM_LEER im Quelltext ist " + LEER, new RegExp("DGM_LEER=" + LEER + "\\b").test(srcK));
@@ -3440,8 +3440,8 @@ group("DGM1 — Raster, Neigung und die Grenze zwischen zwei Quellen");
   const geo = { holes: { 1: { tee, green, line: [tee, green] } }, features: [], overrides: { holes: {} } };
   const R = rahmen(geo);
   ok("Rahmen entsteht", !!R);
-  ok("Maschenweite ~5 m", Math.abs(R.dLa * R.mLat - GIT) < 0.01, String(R.dLa * R.mLat));
-  ok("Rahmen umfasst den Korridor", R.nx > 18 && R.ny > 55, R.nx + "x" + R.ny);
+  ok("Maschenweite ~10 m", Math.abs(R.dLa * R.mLat - GIT) < 0.01, String(R.dLa * R.mLat));
+  ok("Rahmen umfasst den Korridor", R.nx >= 14 && R.ny >= 38, R.nx + "x" + R.ny);
   ok("kein Rahmen ohne Bahnen", rahmen({ holes: {} }) === null);
 
   /* Index und Zellmitte müssen zueinander passen — sonst landen die geholten
@@ -3461,6 +3461,30 @@ group("DGM1 — Raster, Neigung und die Grenze zwischen zwei Quellen");
      geladen war. Geprüft wird die Breite, nicht die Konstante: Ein Punkt
      50 m neben der Linie muss im Rahmen liegen. */
   ok("Streifen ist 120 m breit", /DGM_KORRIDOR=120\b/.test(fs.readFileSync(FILE, "utf8")));
+
+  /* LADBARKEIT IST EINE EIGENSCHAFT (v4.7). Bei 5 m Maschenweite brauchte ein
+     18-Loch-Platz rund 38.000 Punkte — zwei Stunden Quote und vierzehn Klicks.
+     Praktisch war das Raster damit IMMER halb voll, und der Benutzer sah nicht
+     „noch nicht geladen", sondern „Höhe unbekannt".
+     Ein Raster, das man realistisch nicht fertig lädt, ist schlechter als ein
+     gröberes, das fertig wird — deshalb steht die Menge hier als Regel. */
+  {
+    const mLat = 110540;
+    const laengen = [279,499,150,340,387,330,160,463,342,341,482,155,300,317,440,350,175,360];
+    const h18 = {};
+    laengen.forEach((L, i) => {
+      const lo = 10.70 + (i % 6) * 0.0025, la = 54.00 + Math.floor(i / 6) * 0.006;
+      h18[i + 1] = { tee: [la, lo], green: [la + L / mLat, lo], line: [[la, lo], [la + L / mLat, lo]] };
+    });
+    const g18 = { holes: h18, features: [], overrides: { holes: {} } };
+    const R18 = rahmen(g18), Z18 = zellen(g18, R18);
+    ok("18 Löcher passen in einen Ladelauf",
+       Z18.length <= 12000, Z18.length.toLocaleString("de-DE") + " Punkte");
+    ok("und unter zwei Dritteln der Stundenquote",
+       Z18.length <= 12000, Z18.length + " von 18.000/h");
+    ok("Speicher bleibt klein", R18.nx * R18.ny * 2 < 120 * 1024,
+       Math.round(R18.nx * R18.ny * 2 / 1024) + " kB");
+  }
 
   /* DIE ENDEN (v4.6) — hier lag der gemeldete Fehler: „Höhe unbekannt" mitten
      auf dem Fairway, weil das GRÜN fehlte. Eine Bahnlinie aus OSM endet oft am
@@ -3507,10 +3531,10 @@ group("DGM1 — Raster, Neigung und die Grenze zwischen zwei Quellen");
   for (let y = 0; y < R.ny; y++) for (let x = 0; x < R.nx; x++)
     rec.h[y * R.nx + x] = Math.round((100 + y * GIT * 0.04) * 10);   // 4 % Steigung nach Norden
 
-  const hMitte = hoehe(tee[0] + R.dLa * 10, tee[1], rec);
+  const hMitte = hoehe(tee[0] + R.dLa * 12, tee[1], rec);
   ok("Höhe wird interpoliert", hMitte != null && hMitte > 100, String(hMitte));
 
-  const n = neigung([tee[0] + R.dLa * 10, tee[1]], 0, rec);   // Peilung 0° = nach Norden
+  const n = neigung([tee[0] + R.dLa * 12, tee[1]], 0, rec);   // Peilung 0° = nach Norden
   ok("Neigung gemessen", !!n);
   if (n) {
     ok("längs ~ +4 %", Math.abs(n.laengs - 0.04) < 0.005, String(n.laengs));
@@ -3519,12 +3543,12 @@ group("DGM1 — Raster, Neigung und die Grenze zwischen zwei Quellen");
   }
   /* Nach Süden gepeilt muss dasselbe Gelände bergAB sein — ein Vorzeichenfehler
      hier würde den Zuschlag auf genau die falschen Landezonen legen. */
-  const nS = neigung([tee[0] + R.dLa * 10, tee[1]], 180, rec);
+  const nS = neigung([tee[0] + R.dLa * 12, tee[1]], 180, rec);
   if (n && nS) ok("Gegenrichtung kehrt das Vorzeichen um", Math.abs(nS.laengs + n.laengs) < 0.005);
 
   /* Ebenes Gelände darf keinen Zuschlag erzeugen. */
   const eben = { ...rec, h: new Int16Array(R.nx * R.ny).fill(1000) };
-  const nE = neigung([tee[0] + R.dLa * 10, tee[1]], 0, eben);
+  const nE = neigung([tee[0] + R.dLa * 12, tee[1]], 0, eben);
   ok("ebenes Gelände = 0 %", nE && nE.betrag < 0.001);
 
   /* Lücken dürfen NICHT stillschweigend zu 0 werden. */
