@@ -168,7 +168,7 @@ try {
   /* WICHTIG: bei vm.runInContext landen nur `var` und `function` am Kontext —
      `const STRAT = {...}` bleibt im Blockscope unsichtbar. Deshalb ein Epilog,
      der die benoetigten Namen aktiv herausreicht. */
-  const namen = ["mobBaseline","MOB_KEYS","_fitMedian","_fitVergleich","isoWoche","kraftNorm","est1RM","kraftVerlauf","_dgmAbstandZuStrecke","gpFingerprint","_aimApproachEv","watchElevProfil","dgmSetzen","elevQuelle","elevQuelleText","dgmRahmen","dgmIdx","dgmZelleMitte","dgmZellen","dgmHoehe","dgmNeigung","dgmKey",
+  const namen = ["wetterSetzen","mobBaseline","MOB_KEYS","_fitMedian","_fitVergleich","isoWoche","kraftNorm","est1RM","kraftVerlauf","_dgmAbstandZuStrecke","gpFingerprint","_aimApproachEv","watchElevProfil","dgmSetzen","elevQuelle","elevQuelleText","dgmRahmen","dgmIdx","dgmZelleMitte","dgmZellen","dgmHoehe","dgmNeigung","dgmKey",
                  "STRAT","clubPick","playsLike","pinPoint","geoDist","playMapBox",
                  "selfCheck","PLAY","escShort","_short","clubShort","windRel","tempFactor","DB",
                  "courseTee","activeHoles","roundDurationMin","mergeDB","_mergeArr","_mergeTs",
@@ -8035,18 +8035,41 @@ group("Caddy — vollständig sichtbar, Bedingungen, 2 Iron nur vom Tee");
      zielt nicht auf die Grünmitte, sondern auf seinen Zielpunkt, und ohne
      Beschriftung stehen zwei verschiedene Bezugsgrößen unkommentiert
      nebeneinander. */
-  ok("Bedingungen auch im EV-Zweig", /const spieltWie=condZeile\(PLAY\.here, ev\.target\|\|_hrC\.green, /.test(src));
+  ok("Bedingungen auch im EV-Zweig", /const spieltWie=condZeile\(PLAY\.here, ev\.target\|\|_hrC\.green,/.test(src));
   ok("mit benanntem Bezugspunkt", /ev\.target\?"Ziel":"Grünmitte"/.test(src));
   ok("die eingeklappte Zeile nennt ihn auch", /bis \$\{esc\(now\.zielName\)\}/.test(src));
   /* `now.spieltWie` wurde abgefragt, aber nie gesetzt — toter Code. */
-  ok("caddyFuerPunkt liefert spieltWie", /spieltWie: cw&&cw\.plays\?cw\.plays:null/.test(src));
+  /* Seit v4.16 kommt die Zahl aus der KETTE, nicht aus einer zweiten eigenen
+     Rechnung — eine Empfehlung, eine Quelle. */
+  ok("caddyFuerPunkt startet bei condFaktor", /let spieltWie=cw&&cw\.plays\?cw\.plays:null/.test(src));
+  ok("übernimmt aber die Kette, wenn es eine gibt", /if\(L0\.spielt!=null && isFinite\(L0\.spielt\)\) spieltWie=L0\.spielt;/.test(src));
+  ok("und den Schläger der Kette ebenso", /club=L0\.club; clubQuelle="Kette";/.test(src));
+  /* Schritt 2: Widersprüche werden gemeldet, nicht angezeigt. */
+  ok("uneinige Schläger landen im Protokoll", /Schläger uneinig: Bewertung /.test(src));
+  ok("uneinige Distanzen ebenso", /spielt-wie uneinig: Kopfzeile /.test(src));
+
+  /* BACKTICKS IN KOMMENTAREN, DIE IN TEMPLATE-LITERALEN LANDEN.
+     Heute dreimal passiert (v3.96 `satOn()`, v4.9 im Durchlauf, v4.16 erneut):
+     Ein Kommentar mit Backticks innerhalb einer Zeichenkette beendet sie, und
+     die ganze Datei ist unlesbar. Der Prüfstand fängt es künftig, statt dass
+     es jedes Mal beim ersten Lauf auffällt. */
+  {
+    const roh = fs.readFileSync(path.join(__dirname, "runde-simulation.js"), "utf8");
+    const von = roh.indexOf("const durchlauf = JSON.parse(R(`");
+    const bis = roh.indexOf("})()`));", von);
+    const blk = von >= 0 && bis > von ? roh.slice(von + 32, bis) : "";
+    eq("kein Backtick im eingebetteten Durchlauf-Code", (blk.match(/`/g) || []).length, 0);
+  }
+  ok("und zwar mit beiden Zahlen", /\+" — "\+\(L0\.dist!=null\?L0\.dist\+" m gemessen":""\)/.test(src));
   /* NAMEN OHNE DEKLARATION — dieselbe Klasse wie v3.91 (`lineDeg`) und v3.98.
      Beim Bau von v4.9 selbst hineingelaufen: `zielName` in `condZeile`
      benutzt, aber die Signatur nicht angefasst. Der Prüfstand meldete es
      nicht, der Platz-Durchlauf schon — weil dort wirklich gerendert wird.
      Deshalb hier die Nagelprobe auf die Signatur. */
-  ok("condZeile nimmt Bezugsname und Grünmitte als Parameter",
-     /function condZeile\(von, ziel, zielName, gruen\)/.test(src));
+  ok("condZeile nimmt Bezugsname, Grünmitte und die Vorgabe",
+     /function condZeile\(von, ziel, zielName, gruen, spieltVorgabe\)/.test(src));
+  ok("und zeigt die Vorgabe, wenn es eine gibt",
+     /const _plays=\(spieltVorgabe!=null&&isFinite\(spieltVorgabe\)\)/.test(src));
   ok("und benutzt keinen Namen, den es nicht gibt",
      !/function condZeile\(von, ziel(, zielName)?\)[\s\S]{0,3000}?gruen/.test(src));
   /* ZWEI ZIELE, ZWEI ZAHLEN (v4.11): Wer die Grünmitte anspielen WILL, fand
@@ -8056,7 +8079,7 @@ group("Caddy — vollständig sichtbar, Bedingungen, 2 Iron nur vom Tee");
   ok("aber nur, wenn der Caddy woanders hin zielt",
      /geoDist\(ziel,gruen\)>=3/.test(src));
   ok("beide Aufrufer geben die Grünmitte mit",
-     (src.match(/condZeile\(PLAY\.here,[^;]{0,90}_hrC\.green\)/g) || []).length === 2);
+     (src.match(/condZeile\(PLAY\.here,[\s\S]{0,160}?_hrC\.green[,)]/g) || []).length === 2);
   ok("und den Bezugspunkt dazu", /zielName: zielIstGruen\?"Grünmitte":"Ziel"/.test(src));
   ok("und zwar ganz oben", /<div class="play-caddy">\$\{spieltWie\}\$\{fahne\}<div class="pc-head">/.test(src));
   /* Beide Zweige gleich aufgebaut — sonst sucht man die Zahl je nach Lage an

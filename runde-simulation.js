@@ -291,13 +291,50 @@ kopf("draft.json — Handy → Uhr");
      Pruefungen je Regel — einzeln gemeldet waere das eine unlesbare Wand. Eine
      Regel gilt als bestanden, wenn sie NIRGENDS verletzt wird, und die erste
      Verletzung steht mit Loch und Lage dabei. */
+  /* ---------- HOEHENRASTER FUER DEN DURCHLAUF (2026-08-21, PWA v4.5) ----------
+     Die Hoehenkette (PWA v3.95–v4.3) war bisher nur in `tests.js` an gebauten
+     Einzelfaellen geprueft. Hier bekommt sie 90 echte Lagen. Gebaut wird ein
+     Gelaende mit ausgepraegtem Profil — eine Senke in der Mitte jeder Bahn,
+     ein hoeher liegendes Gruen —, weil ein flacher Platz nichts beweisen
+     wuerde: Ohne Hoehenunterschiede sehen „gerechnet und eben" und „gar nicht
+     gerechnet" identisch aus, und genau diese Verwechslung war der Fehler
+     v3.97/v4.2. */
+  R(`(function(){
+    function WETTER_SIM(){ /* 6 m/s: die Bedingungen aus der Meldung vom 21.08. und an der Ostsee
+         voellig gewoehnlich. Mit 3,9 m/s blieb die gespielte Distanz zu nah an
+         der gemessenen — die Kettenregel haette den Fehler nicht gefangen,
+         fuer den sie geschrieben wurde. */
+      WEATHER={temp:15, windMs:6.0, windDir:225, gustMs:9.5, at:Date.now()}; }
+    var geo=playGeo(); if(!geo) return "0";
+    var R2=dgmRahmen(geo); if(!R2) return "0";
+    var rec={course:PLAY.course, la0:R2.la0, lo0:R2.lo0, dLa:R2.dLa, dLo:R2.dLo,
+             mLat:R2.mLat, mLng:R2.mLng, nx:R2.nx, ny:R2.ny,
+             h:new Int16Array(R2.nx*R2.ny).fill(DGM_LEER), quelle:"DGM1", stand:"test"};
+    /* Wellenfoermiges Gelaende: rund 12 m Amplitude ueber die Bbox, damit auf
+       jeder Bahn sowohl Anstiege als auch Gefaelle vorkommen. */
+    for(var y=0;y<R2.ny;y++) for(var x=0;x<R2.nx;x++){
+      var hh=100 + 6*Math.sin(y/9) + 5*Math.cos(x/7) + y*0.02;
+      rec.h[y*R2.nx+x]=Math.round(hh*10);
+    }
+    dgmSetzen(rec);
+    /* WETTER MITGEBEN. Ohne Wetter greift die Schweigeschwelle, die v3.97
+       entfernt hat, nie — die Gegenprobe (Schwelle wieder einbauen) lief
+       durch, und die Regel waere fuer genau diesen Rueckfall blind gewesen.
+       Werte wie am Meldetag: 14 km/h Grundwind aus Suedwest, 18 Grad. */
+    try{ WETTER_SIM(); }catch(e){}
+    return "1";
+  })()`);
+
   kopf("Alle 18 Löcher, fünf Lagen je Loch");
   const durchlauf = JSON.parse(R(`(function(){
-    var geo=playGeo(), beutel={}, maxCarry=0;
+    var geo=playGeo(), beutel={}, reichweite={}, maxCarry=0;
     (DB.clubDistances||[]).forEach(function(c){
-      beutel[c.club]=1; var d=(c.carry!=null?c.carry:c.reach)||0; if(d>maxCarry) maxCarry=d; });
+      beutel[c.club]=1; var d=(c.carry!=null?c.carry:c.reach)||0; reichweite[c.club]=d; if(d>maxCarry) maxCarry=d; });
     var regeln={endeAufGruen:0, startAmPunkt:0, schlagZuLang:0, layupStumpf:0,
-                schlaegerFremd:0, zahlKaputt:0, restSteigt:0};
+                schlaegerFremd:0, zahlKaputt:0, restSteigt:0,
+                /* v4.5 — die Hoehenkette auf echten Lagen: */
+                zeileFehlt:0, hoeheUnbekannt:0, hoeheUnsinn:0,
+                kettePlays:0, ketteZuKurz:0, zweiMeinungen:0, zweiZahlen:0};
     var ersteVerletzung={};
     var faelle=0;
     function merke(regel, text){
@@ -358,6 +395,80 @@ kopf("draft.json — Handy → Uhr");
           if(k<pts.length-2 && restDanach<35)
             merke("layupStumpf", wo+": nur "+Math.round(restDanach)+" m Rest nach Schlag "+(k+1));
         }
+        /* 8 — DIE BEDINGUNGSZEILE STEHT IMMER (PWA v3.97/v4.2).
+           Sie ist dreimal verschwunden, zuletzt im Annaeherungs-Zweig, und
+           jedes Mal war die Meldung dieselbe: „ich sehe kein spielt wie".
+           Eine Regel ueber 90 Lagen faengt das, eine Prosa-Pruefung nicht. */
+        /* GERENDERT, NICHT GERUFEN. Erster Versuch rief condZeile() direkt —
+           und fiel prompt durch die Gegenprobe: Die Zeile war ja da, sie wurde
+           nur in EINEM der drei Caddy-Zweige nicht eingebaut. Eine Regel, die
+           die Bausteine prueft statt das Ergebnis, sieht genau den Fehler
+           nicht, fuer den sie geschrieben wurde. Deshalb hier der echte
+           Ausgabeweg. */
+        var zeile="", html="";
+        try{
+          var mid=Math.round(geoDist(PLAY.here,hr.green));
+          html=playCaddyHtml(mid, h.par)||"";
+          /* AUF DIE SACHE PRUEFEN, NICHT AUF DAS MARKUP. Erster Versuch suchte
+             nach der Klasse pc-why — und meldete 24 Fehler, die keine waren:
+             Der Regel-Zweig baut dieselbe Auskunft in eine wx-line. Eine Regel,
+             die an einer CSS-Klasse haengt, prueft die Schreibweise statt die
+             Sache; genau davon gibt es hier schon zu viele.
+             Verlangt wird deshalb nur, dass die AUSSAGE dasteht: eine
+             spielt-wie-Angabe UND ein Hoehenzeichen.
+             (Keine Regex: Dieser Block steht in einem Template-Literal, in dem
+             Backslash-s seinen Backslash verliert.) */
+          var tief=html.toLowerCase();
+          zeile=(tief.indexOf("spielt wie")>=0) ? "ja" : "";
+          if(zeile && html.indexOf("⛰")<0) zeile="";
+        }catch(e2){ merke("zahlKaputt", wo+": playCaddyHtml "+e2.message); }
+        if(!zeile) merke("zeileFehlt", wo+": keine spielt-wie/Höhen-Angabe · "+(html?html.slice(0,110):"LEERE Ausgabe"));
+
+        /* 9 — MIT RASTER IST DIE HOEHE BEKANNT.
+           Der Durchlauf legt oben eins an, das den ganzen Streifen abdeckt.
+           Steht hier „unbekannt", ist entweder das Raster nicht geladen (v4.2)
+           oder die Lage faellt aus dem Streifen (v4.3) — beides waren echte
+           Fehler, beide sahen fuer den Benutzer gleich aus. */
+        var dEl=null;
+        try{ dEl=elevDelta(PLAY.here, hr.green); }catch(e3){ dEl=null; }
+        if(dEl===null) merke("hoeheUnbekannt", wo+": elevDelta null trotz Raster");
+        else if(!isFinite(dEl)) merke("hoeheUnsinn", wo+": elevDelta "+dEl);
+        else if(Math.abs(dEl)>60) merke("hoeheUnsinn", wo+": "+Math.round(dEl)+" m Hoehenunterschied");
+
+        /* 13 — EINE EMPFEHLUNG, NICHT ZWEI (v4.16).
+           Kopfzeile und Karte nannten verschiedene Schlaeger fuer denselben
+           Schlag — bei identischer Bewertung. Geprueft wird auf jeder Lage:
+           Was playCaddyNow() sagt, muss dem entsprechen, was die Kette
+           zeichnet. Nicht „aehnlich", sondern gleich; alles andere ist fuer
+           den Leser ein Widerspruch, egal wie gut begruendet. */
+        try{
+          var nw=playCaddyNow(), L0=legs[0];
+          if(nw && nw.club && L0 && L0.club && nw.club!==L0.club)
+            merke("zweiMeinungen", wo+": Kopfzeile "+nw.club+" · Karte "+L0.club);
+          if(nw && nw.spieltWie!=null && L0 && L0.spielt!=null
+             && Math.abs(nw.spieltWie-L0.spielt)>=5)
+            merke("zweiZahlen", wo+": Kopfzeile "+nw.spieltWie+" m · Karte "+L0.spielt+" m");
+        }catch(e4){ merke("zahlKaputt", wo+": playCaddyNow "+e4.message); }
+
+        /* 11 — DIE KARTE MUSS MIT DER KOPFZEILE UEBEREINSTIMMEN (v4.15).
+           Die Kette waehlte ihren Schlaeger nach der GEOMETRISCHEN Strecke,
+           die Kopfzeile rechnete Wind und Hoehe mit. Auf der Karte stand dann
+           „3 Wood · 217 m", darueber „spielt wie 240 m" — mit dem 3 Wood
+           kommt man an diesen Punkt nie. Geprueft wird deshalb auf jeder Lage:
+           Traegt der eingezeichnete Schlaeger die GESPIELTE Distanz? */
+        for(var q=0;q<legs.length;q++){
+          var Lg=legs[q]; if(!Lg || !Lg.club || Lg.role==="Grün") continue;
+          if(Lg.spielt==null){ merke("kettePlays", wo+": Teilstrecke ohne spielt-wie"); continue; }
+          var reach2=reichweite[Lg.club]||0;
+          /* 5 % Reserve: Ein Schlaeger darf knapp sein, aber nicht chancenlos.
+             12 % waren zu lasch — 6 m/s Gegenwind machen rund 9 %, der
+             gemeldete Fall waere durchgerutscht. Die Schwelle muss unter der
+             Wirkung liegen, die sie fangen soll. */
+          if(reach2>0 && Lg.spielt > reach2*1.05)
+            merke("ketteZuKurz", wo+": "+Lg.club+" ("+Math.round(reach2)+" m) für "
+              +Lg.spielt+" m gespielt ("+Lg.dist+" m gemessen)");
+        }
+
         /* 5 + 6 */
         for(var q=0;q<legs.length;q++){
           var l=legs[q];
@@ -406,7 +517,14 @@ kopf("draft.json — Handy → Uhr");
     layupStumpf:"kein Layup mit Reststummel",
     schlaegerFremd:"nur Schläger aus dem Bag",
     zahlKaputt:"keine kaputten Zahlen (NaN/Unendlich/Ausnahme)",
-    restSteigt:"Restdistanz nimmt entlang der Kette ab"
+    restSteigt:"Restdistanz nimmt entlang der Kette ab",
+    zeileFehlt:"„Spielt wie\" steht auf jeder Lage — mit Höhenangabe",
+    hoeheUnbekannt:"Höhe ist mit geladenem Raster nie unbekannt",
+    hoeheUnsinn:"Höhenunterschiede bleiben endlich und plausibel",
+    kettePlays:"jede Teilstrecke kennt ihre gespielte Distanz",
+    ketteZuKurz:"der eingezeichnete Schläger trägt die GESPIELTE Distanz",
+    zweiMeinungen:"Kopfzeile und Karte nennen denselben Schläger",
+    zweiZahlen:"Kopfzeile und Karte nennen dieselbe gespielte Distanz"
   };
   Object.keys(RG).forEach(k=>{
     const n=durchlauf.regeln[k]||0;
