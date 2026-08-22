@@ -4212,6 +4212,41 @@ group("Beweglichkeit — fünf Tests, Maßstab ist die eigene Erstmessung");
      /Beweglichkeit · gegen die eigene Baseline/.test(src));
 }
 
+/* ============ 24bt. Karte und Kopfzeile: dieselbe Distanz ============ */
+group("Zielkette — der Schläger folgt der gespielten Distanz");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+  const ab = src.slice(src.indexOf("function _aimBuild"), src.indexOf("function _aimBuild") + 16000);
+
+  /* DER FEHLER (v4.15): `d` ist die GEOMETRISCHE Strecke zwischen zwei
+     Kettenpunkten — und genau damit wurde der Schläger gewählt. Wind,
+     Temperatur und Höhe kamen nicht vor. Auf der Karte stand „3 Wood · 217 m",
+     darüber „spielt wie 240 m": mit dem 3 Wood kommt man da nie an. */
+  ok("je Teilstrecke wird die gespielte Distanz gerechnet",
+     /const pl=playsLike\(d, w\?w\.temp:null/.test(ab));
+  ok("in der Richtung DIESER Teilstrecke",
+     /bearingDeg\(pts\[i\], pts\[i\+1\]\)/.test(ab));
+  ok("und mit der Höhe dieser Teilstrecke",
+     /elevDelta\(pts\[i\], pts\[i\+1\]\)/.test(ab));
+  ok("die Schlägerwahl nutzt sie", /_aimClub\(clubs,dSpielt,i===0\)/.test(ab));
+  ok("die gemessene Strecke bleibt daneben stehen", /dist:d, spielt:Math\.round\(dSpielt\)/.test(ab));
+
+  /* „PASST" MUSS IN BEIDE RICHTUNGEN GELTEN. Die Prüfung kannte nur ZU LANG;
+     zu KURZ war nie ein Ausschluss — deshalb blieb der 3 Wood am 240-m-Punkt
+     hängen, obwohl er ihn nicht erreicht. Das ist der Kern des Fehlers. */
+  ok("zu lang bleibt ausgeschlossen", /dSpielt >= reach\*0\.85/.test(ab));
+  ok("zu kurz jetzt ebenso", /dSpielt <= reach\*1\.05/.test(ab));
+  ok("und nicht mehr gegen die geometrische Strecke",
+     !/return !\(reach>0\) \|\| d >= reach\*0\.85;/.test(ab));
+
+  /* Und die Karte zeigt beide Zahlen — sonst muss der Leser selbst darauf
+     kommen, dass die eine Wind und Höhe enthält und die andere nicht. */
+  ok("die Beschriftung nennt die gespielte Distanz",
+     /\(spielt wie "\+L\.spielt\+"\)/.test(src));
+  ok("aber nur bei nennenswerter Abweichung",
+     /Math\.abs\(L\.spielt-L\.dist\)>=3/.test(src));
+}
+
 /* ============ 24bl. Caddy-Plan: Einheiten und Plausibilität ============ */
 group("caddyPlan — kein Wedge vom Abschlag, Einheiten beschriftet");
 {
