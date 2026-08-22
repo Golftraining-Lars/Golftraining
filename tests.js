@@ -10090,8 +10090,24 @@ group("Vollbild — Automatik, aber nicht gegen den Nutzer");
   ok("und zwar VOR dem verzögerten Kartenaufbau",
     po.indexOf("pfFullscreenAuto()") < po.indexOf("setTimeout"));
 
+  /* Fenster vergrößert (v4.12): Die Begründung zum Anzeigemodus-Riegel steht
+     jetzt in dieser Funktion. Besser wäre eine Suche bis zur nächsten
+     Funktion — ein festes Zeichenfenster ist die schwächste Art zu prüfen und
+     bricht bei jeder Ergänzung, ohne etwas über die Sache zu sagen. */
   const fa = src.slice(src.indexOf("function pfFullscreenAuto("),
-                       src.indexOf("function pfFullscreenAuto(") + 1500);
+                       src.indexOf("function pfFullscreen()"));
+
+  /* v4.12: Die Browser-Einblendung „zum Beenden des Vollbildmodus" lässt sich
+     nicht unterdrücken — nur vermeiden, indem die API gar nicht erst gerufen
+     wird. Das geht, wenn die App schon im Anzeigemodus `fullscreen` läuft. */
+  ok("kein Vollbild-Aufruf, wenn die Anzeige schon vollbildig ist",
+     /display-mode: fullscreen[\s\S]{0,40}?\)\.matches\) return;/.test(fa));
+  ok("Manifest startet vollbildig",
+     /%22display%22: %22fullscreen%22/.test(src));
+  ok("mit standalone als Rückfall",
+     /display_override%22: \[%22fullscreen%22, %22standalone%22\]/.test(src));
+  ok("und die Einstellung erklärt die Einblendung",
+     /kommt vom <b>Browser<\/b>/.test(src));
   ok("Abschaltung wird respektiert", /!fsAutoOn\(\)/.test(fa));
   ok("selbst geschlossenes Vollbild bleibt zu", /PLAY\.fsOff/.test(fa));
   /* Der Standalone-Riegel ist mit v2.61.1 GEFALLEN: Vollbild blendet auch in
