@@ -168,7 +168,7 @@ try {
   /* WICHTIG: bei vm.runInContext landen nur `var` und `function` am Kontext —
      `const STRAT = {...}` bleibt im Blockscope unsichtbar. Deshalb ein Epilog,
      der die benoetigten Namen aktiv herausreicht. */
-  const namen = ["_dgmAbstandZuStrecke","gpFingerprint","_aimApproachEv","watchElevProfil","dgmSetzen","elevQuelle","elevQuelleText","dgmRahmen","dgmIdx","dgmZelleMitte","dgmZellen","dgmHoehe","dgmNeigung","dgmKey",
+  const namen = ["mobBaseline","MOB_KEYS","_fitMedian","_fitVergleich","isoWoche","kraftNorm","est1RM","kraftVerlauf","_dgmAbstandZuStrecke","gpFingerprint","_aimApproachEv","watchElevProfil","dgmSetzen","elevQuelle","elevQuelleText","dgmRahmen","dgmIdx","dgmZelleMitte","dgmZellen","dgmHoehe","dgmNeigung","dgmKey",
                  "STRAT","clubPick","playsLike","pinPoint","geoDist","playMapBox",
                  "selfCheck","PLAY","escShort","_short","clubShort","windRel","tempFactor","DB",
                  "courseTee","activeHoles","roundDurationMin","mergeDB","_mergeArr","_mergeTs",
@@ -4048,6 +4048,168 @@ group("Höhenraster — Rahmenwechsel erkennen, Bestand ehrlich zählen");
     eq("bis ±58 m quer lückenlos (versprochen sind ±60)", fehl, 0);
     ok("und der Aufwand bleibt tragbar", Z.length < 3000, Z.length + " Zellen für ein Loch");
   }
+}
+
+/* ============ 24br. Fitness: messen, was gemeint ist ============ */
+group("Fitness — Wirkung, Verlauf, Steigerung");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+  const med = G("_fitMedian"), verg = G("_fitVergleich"), woche = G("isoWoche"),
+        norm = G("kraftNorm"), e1 = G("est1RM");
+
+  /* (1) DIE WIRKUNG WURDE AM FALSCHEN MASSSTAB GEMESSEN (v4.13).
+     Verglichen wurde die DRIVER-LÄNGE AUF DEM PLATZ — das verrauschteste
+     Signal im Datenbestand (Wind, Rollweite, Gefälle, Bodenhärte) und
+     saisonal verzerrt. Das saubere Signal lag daneben: `clubSpeed` aus den
+     Launch-Monitor-Sitzungen, drinnen gemessen. */
+  ok("Schlägerkopfgeschwindigkeit ist die erste Wahl",
+     /function fitSpeedProMonat[\s\S]{0,700}?isFinite\(x\.clubSpeed\)/.test(src));
+  ok("Platzlänge nur noch als Rückfall",
+     /const lK=_fitVergleich\(laenge, e\.alle, 5\);/.test(src));
+  ok("Speed wird gegen KRAFT-Einheiten gehalten, nicht gegen alle",
+     /_fitVergleich\(speed, e\.kraft, 8\)/.test(src));
+  ok("und die Herkunft steht im Ergebnis", /quelle:"speed"/.test(src) && /quelle:"laenge"/.test(src));
+  ok("der Vorbehalt bleibt stehen", /Beobachtung, kein Beweis/.test(src));
+
+  if (typeof med === "function") {
+    eq("Median ungerade", med([3, 1, 2]), 2);
+    eq("Median gerade", med([1, 2, 3, 4]), 2.5);
+    eq("Median einzeln", med([7]), 7);
+  }
+  if (typeof verg === "function") {
+    /* Vier Monate, zwei mit viel Training und höherem Wert. */
+    const w = { "2026-01": [100, 100, 100], "2026-02": [100, 100, 100],
+                "2026-03": [106, 106, 106], "2026-04": [106, 106, 106] };
+    const e = { "2026-01": 1, "2026-02": 1, "2026-03": 8, "2026-04": 8 };
+    const r = verg(w, e, 3);
+    ok("Vergleich greift", r.reicht);
+    if (r.reicht) {
+      eq("viel Training = höherer Wert", r.mMit, 106);
+      eq("wenig Training", r.mOhne, 100);
+      eq("Unterschied", r.diff, 6);
+    }
+    eq("unter 4 Monaten kein Ergebnis", verg({ "2026-01": [1, 2, 3] }, { "2026-01": 1 }, 3).reicht, false);
+    /* Zu wenige Messungen je Monat dürfen den Monat nicht zählen lassen. */
+    eq("dünne Monate fallen raus", verg(w, e, 4).reicht, false);
+  }
+
+  /* (2) KRAFT BRAUCHT EINEN VERLAUF. Bisher war die einzige Kurve im Reiter
+     die der Yoga-Minuten — die Fleiß-, nicht die Fortschrittsgröße. */
+  ok("e1RM je Übung wird verfolgt", /function kraftVerlauf\(\)/.test(src));
+  ok("erst ab drei Messungen", /proUebung\[k\]\.length>=3/.test(src));
+  ok("Wochenvolumen getrennt vom Kraftverlauf",
+     /Belastungs<\/b>größe, keine Leistungsgröße/.test(src));
+  ok("Kraftverlauf steht vor den Yoga-Minuten",
+     src.indexOf("Kraft · wird es schwerer?") < src.indexOf("Yoga-Verlauf · Dauer"));
+
+  if (typeof norm === "function") {
+    eq("Namen werden normalisiert", norm("  Pallof   Press "), "pallof press");
+    eq("Groß/klein egal", norm("PALLOF PRESS"), norm("pallof press"));
+  }
+  if (typeof e1 === "function") {
+    eq("Epley: 100 kg × 10 Wdh.", e1({ weight: 100, reps: 10 }), 133);
+    eq("ohne Gewicht kein Wert", e1({ reps: 10 }), null);
+  }
+  if (typeof woche === "function") {
+    /* Der 4. Januar liegt IMMER in Woche 1 — daran hängt die ganze Rechnung,
+       und der Jahreswechsel ist der Fall, der schiefgeht. */
+    eq("4. Januar ist Woche 1", woche("2026-01-04"), "2026-W01");
+    eq("1. Januar 2026 gehört noch zu W01", woche("2026-01-01"), "2026-W01");
+    eq("29.12.2025 zählt schon zu 2026-W01", woche("2025-12-29"), "2026-W01");
+    eq("Wochen sind sortierbar", woche("2026-08-21"), "2026-W34");
+    eq("Unsinn gibt null", woche("keindatum"), null);
+  }
+
+  /* (3) OHNE STEIGERUNGSREGEL IST ES ERHALTUNGSTRAINING. */
+  ok("Programm nennt eine Steigerungsregel", /const PROG_REGEL = /.test(src));
+  ok("und sie steht in der Ansicht", /Wie du steigerst/.test(src));
+  ok("Wiederholungen sind Spannen, keine Fixwerte",
+     /3 × 8–10 je Seite/.test(src) && /3 × 6–8/.test(src));
+  /* Bewusst KEINE Automatik: ob ein Satz sauber war, steht in keiner Zahl. */
+  ok("Steigerung wird nicht automatisch berechnet", /ABSICHTLICH KEINE AUTOMATIK/.test(src));
+  ok("Mobilität wird nicht gesteigert", /Bei Mobilität wird nicht gesteigert/.test(src));
+}
+
+/* ============ 24bs. Beweglichkeit: Testbatterie und Baseline ============ */
+group("Beweglichkeit — fünf Tests, Maßstab ist die eigene Erstmessung");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+  const DBx = G("DB"), mob = G("mobBaseline"), KEYS = G("MOB_KEYS");
+  const defs = (DBx.testDefs || []).filter(d => d && String(d.key).startsWith("mob"));
+
+  eq("fünf Beweglichkeitstests vorhanden", defs.length, 5);
+  ok("alle in der Kategorie Beweglichkeit", defs.every(d => d.category === "Beweglichkeit"));
+
+  /* KEIN `weight` — sonst flössen sie in die Golf-Spielstärke ein
+     (`focusList` verlangt `d.weight`). Beweglichkeit ist eine Voraussetzung,
+     kein Können. */
+  ok("kein Gewicht — fließen nicht in die Spielstärke", defs.every(d => !d.weight));
+  ok("focusList verlangt weiterhin ein Gewicht", /if\(!d\.benchmark\|\|!d\.weight\) return;/.test(src));
+
+  /* BEWUSST OHNE RICHTWERTE: Fremde Normen hängen an Alter, Körperbau und
+     Messweise. Eine erfundene Zahl ist schlimmer als keine, weil sie nach
+     Wissen aussieht. */
+  ok("keine erfundenen Richtwerte", defs.every(d => !d.benchmark));
+  ok("und das steht auch so da", /keine Richtwerte/.test(src) && /erfundene Zahl/.test(src));
+
+  /* Jeder Test braucht eine Einheit und Eingabefelder — sonst weiß man beim
+     Nachmessen in sechs Wochen nicht mehr, was man eingetragen hat. */
+  ok("alle haben eine Einheit", defs.every(d => d.unit));
+  ok("alle haben Eingabefelder", defs.every(d => (d.inputs || []).length >= 1));
+  ok("vier messen seitengetrennt", defs.filter(d => (d.inputs || []).length === 2).length === 4);
+
+  /* Bei der Schulter ist WENIGER besser — ein Vorzeichenfehler würde
+     Verschlechterung als Fortschritt anzeigen. */
+  const sch = defs.find(d => d.key === "mobSchulter");
+  ok("Schultertest: weniger ist besser", sch && sch.higherIsBetter === false);
+  ok("die übrigen: mehr ist besser",
+     defs.filter(d => d.key !== "mobSchulter").every(d => d.higherIsBetter !== false));
+
+  if (typeof mob === "function" && Array.isArray(KEYS)) {
+    const sicherung = DBx.tests;
+    try {
+      /* Ohne Messung: Karte lädt ein, statt leer zu bleiben. */
+      DBx.tests = [];
+      let m = mob();
+      eq("ohne Messung nichts gemessen", m.gemessen, 0);
+      ok("und dann ist sie fällig", m.faellig === true);
+
+      /* Eine Messung = Baseline, noch kein Urteil. */
+      DBx.tests = [{ defKey: "mobRotation", date: "2026-01-10", total: 80 }];
+      m = mob();
+      const r1 = m.reihen.find(r => r.key === "mobRotation");
+      eq("Erstmessung ist die Baseline", r1.basis, 80);
+      eq("noch kein Besser/Schlechter", r1.besser, null);
+
+      /* Zweite Messung: Fortschritt, richtig herum. */
+      DBx.tests.push({ defKey: "mobRotation", date: "2026-03-01", total: 92 });
+      m = mob();
+      const r2 = m.reihen.find(r => r.key === "mobRotation");
+      eq("Differenz zur Baseline", r2.diff, 12);
+      eq("mehr Grad ist besser", r2.besser, true);
+      ok("Prozent bezogen auf die Baseline", Math.abs(r2.pct - 15) < 0.01, String(r2.pct));
+
+      /* Und die Gegenprobe beim Schultertest — hier ist weniger besser. */
+      DBx.tests.push({ defKey: "mobSchulter", date: "2026-01-10", total: 20 });
+      DBx.tests.push({ defKey: "mobSchulter", date: "2026-03-01", total: 12 });
+      m = mob();
+      const rs = m.reihen.find(r => r.key === "mobSchulter");
+      eq("weniger Abstand", rs.diff, -8);
+      eq("und das ist eine Verbesserung", rs.besser, true);
+
+      /* Verschlechterung darf nicht als Fortschritt durchgehen. */
+      DBx.tests.push({ defKey: "mobBeuge", date: "2026-01-10", total: 5 });
+      DBx.tests.push({ defKey: "mobBeuge", date: "2026-03-01", total: 1 });
+      m = mob();
+      eq("weniger Reichweite ist schlechter", m.reihen.find(r => r.key === "mobBeuge").besser, false);
+    } finally { DBx.tests = sicherung; }
+  }
+
+  /* Sechs Wochen Takt — kürzer misst Tagesform, nicht Anpassung. */
+  ok("Takt sind sechs Wochen", /MOB_TAKT_TAGE=42/.test(src));
+  ok("und die Begründung steht dabei", /Tagesform/.test(src));
+  ok("die Karte steht im Fitness-Reiter",
+     /Beweglichkeit · gegen die eigene Baseline/.test(src));
 }
 
 /* ============ 24bl. Caddy-Plan: Einheiten und Plausibilität ============ */
