@@ -168,7 +168,7 @@ try {
   /* WICHTIG: bei vm.runInContext landen nur `var` und `function` am Kontext —
      `const STRAT = {...}` bleibt im Blockscope unsichtbar. Deshalb ein Epilog,
      der die benoetigten Namen aktiv herausreicht. */
-  const namen = ["_dgmScheibe","gpFingerprint","_aimApproachEv","watchElevProfil","dgmSetzen","elevQuelle","elevQuelleText","dgmRahmen","dgmIdx","dgmZelleMitte","dgmZellen","dgmHoehe","dgmNeigung","dgmKey",
+  const namen = ["_dgmAbstandZuStrecke","gpFingerprint","_aimApproachEv","watchElevProfil","dgmSetzen","elevQuelle","elevQuelleText","dgmRahmen","dgmIdx","dgmZelleMitte","dgmZellen","dgmHoehe","dgmNeigung","dgmKey",
                  "STRAT","clubPick","playsLike","pinPoint","geoDist","playMapBox",
                  "selfCheck","PLAY","escShort","_short","clubShort","windRel","tempFactor","DB",
                  "courseTee","activeHoles","roundDurationMin","mergeDB","_mergeArr","_mergeTs",
@@ -3430,7 +3430,7 @@ group("DGM1 — Raster, Neigung und die Grenze zwischen zwei Quellen");
      die Werte, und daneben die Probe, dass sie noch zum Quelltext passen. */
   const GIT = 10, LEER = -32768;
   const srcK = fs.readFileSync(FILE, "utf8");
-  ok("DGM_GITTER im Quelltext ist " + GIT, new RegExp("DGM_GITTER=" + GIT + "\\b").test(srcK));
+  ok("Voreinstellung der Maschenweite ist " + GIT, new RegExp("DGM_GITTER_STD=" + GIT + "\\b").test(srcK));
   ok("DGM_LEER im Quelltext ist " + LEER, new RegExp("DGM_LEER=" + LEER + "\\b").test(srcK));
 
   eq("Schlüssel je Platz", key("Nordplatz"), "dgm:Nordplatz");
@@ -3491,8 +3491,6 @@ group("DGM1 — Raster, Neigung und die Grenze zwischen zwei Quellen");
      Grünrand; quer abgetastet wurde jenseits des letzten Kettenpunkts nichts
      mehr, und `dgmHoehe` braucht für die bilineare Ecke ohnehin vier Nachbarn.
      Geprüft wird die Sache: Abschlag und Grün müssen mit RESERVE drin sein. */
-  const scheibe = G("_dgmScheibe");
-  ok("Scheibenhelfer vorhanden", typeof scheibe === "function");
   const abgedeckt = new Set(zellen(geo, R));
   const drin = (p) => abgedeckt.has(idx(R, p[0], p[1]));
   ok("Abschlag ist abgetastet", drin(tee));
@@ -3915,6 +3913,75 @@ group("swap — Fingerabdruck und Annäherung");
                          src.indexOf("function _aimApproachEv") + 1400);
     ok("_aimApproachEv liest durch holeRef", /holeRef\(geo,h\.hole\)/.test(fn));
     ok("und nicht mehr nur roh", !/const hr=geo\.holes&&geo\.holes\[h\.hole\];/.test(fn));
+  }
+}
+
+/* ============ 24bp. Rasterung: schräge Bahnen ============ */
+group("dgmZellen — das Schachbrett auf schrägen Bahnen");
+{
+  const rahmen = G("dgmRahmen"), zellen = G("dgmZellen"), hoehe = G("dgmHoehe"),
+        abst = G("_dgmAbstandZuStrecke");
+  if (rahmen && zellen && hoehe) {
+    /* DER FEHLER (v4.8): `dgmZellen` LIEF die Bahn AB und rundete jede
+       Position auf eine Zelle. Auf einer schräg im Gitter liegenden Bahn
+       springt so ein Schritt DIAGONAL — (x,y) → (x+1,y+1) —, und (x+1,y) wie
+       (x,y+1) werden nie getroffen. Ergebnis: ein Schachbrett. `dgmHoehe`
+       interpoliert bilinear und braucht alle vier Nachbarn, also fehlte
+       mitten auf dem Fairway die Höhe.
+       Gemessen auf einer 400-m-Bahn, Punkte auf der eigenen Ideallinie:
+         0° → 45/45 · 30° → 25/45 · 60° → 23/45 · 90° → 45/45
+       Nur die achsenparallelen Fälle waren dicht — und genau so war der
+       Testplatz gebaut. Deshalb prüft diese Gruppe SIEBEN Richtungen. */
+    const mLat = 110540, mLng = 111320 * Math.cos(54 * Math.PI / 180);
+    const pruefe = (grad) => {
+      const L = 400, b = grad * Math.PI / 180, tee = [54.0, 10.70];
+      const green = [tee[0] + Math.cos(b) * L / mLat, tee[1] + Math.sin(b) * L / mLng];
+      const geo = { holes: { 1: { tee, green, line: [tee, green] } }, features: [], overrides: { holes: {} } };
+      const R = rahmen(geo), Z = zellen(geo, R);
+      const rec = { ...R, h: new Int16Array(R.nx * R.ny).fill(-32768) };
+      Z.forEach(i => { rec.h[i] = 1000; });
+      let fehl = 0, ges = 0;
+      for (let t = 0.05; t <= 0.95; t += 0.02) {
+        const p = [tee[0] + (green[0] - tee[0]) * t, tee[1] + (green[1] - tee[1]) * t];
+        ges++; if (hoehe(p[0], p[1], rec) == null) fehl++;
+      }
+      return { fehl, ges, zellen: Z.length };
+    };
+    [0, 15, 30, 45, 60, 75, 90, 135].forEach(w => {
+      const r = pruefe(w);
+      eq("Bahn " + w + "°: lückenlose Höhe auf der Ideallinie", r.fehl, 0);
+    });
+    /* Auch quer zur Bahn, bis zum Rand des Streifens. */
+    const r45 = (() => {
+      const L = 400, b = Math.PI / 4, tee = [54.0, 10.70];
+      const green = [tee[0] + Math.cos(b) * L / mLat, tee[1] + Math.sin(b) * L / mLng];
+      const geo = { holes: { 1: { tee, green, line: [tee, green] } }, features: [], overrides: { holes: {} } };
+      const R = rahmen(geo), Z = zellen(geo, R);
+      const rec = { ...R, h: new Int16Array(R.nx * R.ny).fill(-32768) };
+      Z.forEach(i => { rec.h[i] = 1000; });
+      let fehl = 0;
+      const q = (b + Math.PI / 2);
+      for (let t = 0.2; t <= 0.8; t += 0.1) for (let d = -40; d <= 40; d += 10) {
+        const p = [tee[0] + (green[0] - tee[0]) * t + Math.cos(q) * d / mLat,
+                   tee[1] + (green[1] - tee[1]) * t + Math.sin(q) * d / mLng];
+        if (hoehe(p[0], p[1], rec) == null) fehl++;
+      }
+      return fehl;
+    })();
+    eq("45°-Bahn: auch ±40 m quer lückenlos", r45, 0);
+  }
+
+  if (typeof abst === "function") {
+    /* Der Abstandshelfer trägt die ganze Rasterung — er muss stimmen. */
+    const mLat = 110540, mLng = 111320 * Math.cos(54 * Math.PI / 180);
+    const a = [54.0, 10.7], b = [54.0 + 100 / mLat, 10.7];
+    ok("auf der Strecke: 0", abst([54.0 + 50 / mLat, 10.7], a, b, mLat, mLng) < 0.5);
+    ok("seitlich: der seitliche Abstand",
+       Math.abs(abst([54.0 + 50 / mLat, 10.7 + 30 / mLng], a, b, mLat, mLng) - 30) < 0.5);
+    ok("hinter dem Ende: bis zum Endpunkt",
+       Math.abs(abst([54.0 + 140 / mLat, 10.7], a, b, mLat, mLng) - 40) < 0.5);
+    ok("entartete Strecke stürzt nicht ab",
+       Math.abs(abst([54.0 + 10 / mLat, 10.7], a, a, mLat, mLng) - 10) < 0.5);
   }
 }
 
