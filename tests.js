@@ -4608,6 +4608,65 @@ group("ES_BASE — die Grundlage stimmt in Metern");
   }
 }
 
+/* ============ 24ca. Streuung nach Niveau, Spielvorgabe mit Allowance ============ */
+group("Golf-Grundlagen — Streuung skaliert, Spielvorgabe rechnet im Turniermodus");
+{
+  const S = G("STRAT"), src = fs.readFileSync(FILE, "utf8");
+
+  /* (1) DIE STREUUNG MUSS MIT DEM SPIELNIVEAU WACHSEN (v4.25).
+     Vorher fest: Eisen 4,5 % Seitenstreuung — Tour-Niveau (veröffentlicht:
+     Tour ~4 %, Handicap 20 ~6–7 %; Driver Tour ~5 %, HCP 20 ~8–10 %).
+     Alles andere skaliert (`esOffset` ausdrücklich), die Streuung als
+     einzige nicht — und ausgerechnet sie entscheidet über Trefferquoten,
+     Ovalgröße und damit über die Empfehlung. */
+  if (S && S.sigmaFor) {
+    const alt = S.esHcp;
+    try {
+      const quer = (h, name, d) => { S.esHcp = () => h;
+        return S.sigmaFor({ name, carry: d, dist: d }).sigL / d * 100; };
+      /* Anker gegen die veröffentlichten Bänder, nicht gegen sich selbst. */
+      ok("Scratch-Driver bei ~7 %", Math.abs(quer(0, "Driver", 225) - 7.0) < 0.3, quer(0,"Driver",225).toFixed(1));
+      const d20 = quer(20, "Driver", 225), i20 = quer(20, "5 Iron", 164);
+      ok("HCP-20-Driver im Band 8–10,5 %", d20 >= 8 && d20 <= 10.5, d20.toFixed(1) + " %");
+      ok("HCP-20-Eisen im Band 5,5–7 %", i20 >= 5.5 && i20 <= 7, i20.toFixed(1) + " %");
+      /* Monotonie: schwächer heißt nie enger. */
+      let letzt = 0, mono = true;
+      for (let h = 0; h <= 36; h += 2) { const v = quer(h, "5 Iron", 164);
+        if (v < letzt - 1e-9) mono = false; letzt = v; }
+      ok("schwächeres Spiel streut nie enger", mono);
+      /* Gedeckelt: über 36 wird es nicht mehr schlechter. */
+      ok("gedeckelt bei 36", Math.abs(quer(50, "5 Iron", 164) - quer(36, "5 Iron", 164)) < 1e-9);
+    } finally { S.esHcp = alt; }
+  }
+  /* GEMESSENE Werte dürfen NICHT skaliert werden — eine Messung enthält die
+     Spielstärke bereits. Ein Zuschlag darauf wäre Doppelzählung. */
+  ok("nur der Heuristik-Pfad skaliert",
+     /if\(st&&st\.n>=20\)\{[\s\S]{0,400}?src:"gelernt/.test(src) && !/st\.sigL\*nivF/.test(src));
+
+  /* (3) SPIELVORGABE MIT 95 % — IMMER, ohne Schalter. */
+  ok("Allowance ist benannt", /const VORGABE_ALLOWANCE=0\.95;/.test(src));
+  ok("erst runden, dann 95 %, dann runden",
+     /const CHcpVoll=Math\.round\(HI\*SL\/113\+\(CR-PAR\)\);[\s\S]{0,80}?Math\.round\(CHcpVoll\*VORGABE_ALLOWANCE\)/.test(src));
+  /* Der Begründungstext NENNT den Schalter, um zu erklären, warum es ihn
+     nicht gibt — geprüft wird deshalb der ausführbare Teil, nicht die Prosa. */
+  {
+    const dv2 = src.indexOf('id="devdocs"'), cl2 = src.indexOf("## Changelog", dv2);
+    const e2 = src.indexOf("</script>", cl2);
+    const nurCode = (src.slice(0, dv2) + src.slice(e2)).replace(/\/\*[\s\S]*?\*\//g, "");
+    ok("kein Kippschalter im Code",
+       !/allowanceAn|DB\.ui\.allowance|allowanceModus/.test(nurCode));
+    ok("die Allowance ist nicht abschaltbar",
+       !/VORGABE_ALLOWANCE\s*=\s*[^0]/.test(nurCode.replace("const VORGABE_ALLOWANCE=0.95;", "")));
+  }
+  ok("die Begründung gegen den Schalter steht dabei", /BEWUSST OHNE SCHALTER/.test(src));
+  ok("die Anzeige weist es aus", /95 % von \$\{vg\.chcpVoll\}/.test(src));
+
+  /* Nachgerechnet: Lars' Fall — HI 20, Slope 135, CR 71,8, Par 72. */
+  const voll = Math.round(20 * 135 / 113 + (71.8 - 72));
+  eq("Course Handicap", voll, 24);
+  eq("Spielvorgabe mit 95 %", Math.round(voll * 0.95), 23);
+}
+
 /* ============ 24bl. Caddy-Plan: Einheiten und Plausibilität ============ */
 group("caddyPlan — kein Wedge vom Abschlag, Einheiten beschriftet");
 {
