@@ -4548,6 +4548,66 @@ group("Doku — keine Funktion versprechen, die entfernt wurde");
   eq("keine Funktion ohne Doku", ohne.join(", "), "");
 }
 
+/* ============ 24bz. Erwartungstabellen gegen die Referenz ============ */
+group("ES_BASE — die Grundlage stimmt in Metern");
+{
+  const S = G("STRAT");
+  if (S && S.lookup) {
+    /* GEFUNDEN v4.24: `ES_BASE.green` war in FUSS-Werten, aber in METERN
+       beschriftet — Umrechnungsfaktor ~2 statt 3,28. Ein 10-m-Putt wurde mit
+       der Erwartung eines 6-m-Putts bewertet.
+       Diese Tabellen tragen alles: Caddy, Gameplan, Modusvergleich, Strokes
+       Gained, Trainingsschwerpunkte. Deshalb hier feste Anker gegen die
+       veröffentlichte Scratch-Grundlinie, nicht gegen sich selbst. */
+    const anker = [
+      // [Meter, Lage, erwartet (Scratch), Toleranz]
+      [1,  "green", 1.07, 0.04],
+      [2,  "green", 1.38, 0.05],
+      [4,  "green", 1.72, 0.05],
+      [10, "green", 2.03, 0.05],
+      [20, "green", 2.29, 0.06],
+      [100,"fairway", 2.82, 0.04],
+      [150,"fairway", 2.97, 0.04],
+      [210,"fairway", 3.31, 0.05],
+      [240,"fairway", 3.53, 0.05],
+      [100,"rough", 3.12, 0.05],
+      [240,"rough", 3.76, 0.06],
+      [400,"tee", 3.99, 0.06]
+    ];
+    anker.forEach(([d, lie, soll, tol]) => {
+      const ist = S.lookup(d, lie, 0);
+      ok(`${d} m ${lie}: ${soll.toFixed(2)} (Scratch)`, Math.abs(ist - soll) <= tol,
+         ist.toFixed(2));
+    });
+
+    /* MONOTONIE: Weiter weg darf nie billiger sein. Das ist die Probe, die
+       jede Tabelle bestehen muss, egal aus welcher Quelle. */
+    ["fairway", "rough", "sand", "green", "tee"].forEach(lie => {
+      let letzt = -1, ok2 = true, wo = "";
+      for (let d = (lie === "green" ? 0.5 : (lie === "tee" ? 100 : 5));
+           d <= (lie === "green" ? 25 : (lie === "tee" ? 450 : 250));
+           d += (lie === "green" ? 0.5 : 5)) {
+        const v = S.lookup(d, lie, 0);
+        if (v < letzt - 1e-9) { ok2 = false; wo = d + " m"; break; }
+        letzt = v;
+      }
+      ok(lie + ": weiter weg ist nie billiger", ok2, wo);
+    });
+
+    /* PUTTEN muss teurer werden als ein Chip aus derselben Distanz? Nein —
+       umgekehrt: Vom Grün aus ist es IMMER billiger als aus dem Rough. */
+    [4, 10, 20].forEach(d =>
+      ok(`${d} m: vom Grün billiger als aus dem Rough`,
+         S.lookup(d, "green", 0) < S.lookup(d, "rough", 0)));
+
+    /* Und die Wirkung, um die es geht: Zwei Putts aus 10 m dürfen einen
+       Scratch-Spieler nicht bestrafen. Vorher ergab das −0,13. */
+    const sgZwei = S.lookup(10, "green", 0) - 0 - 2;
+    ok("zwei Putts aus 10 m sind für Scratch neutral bis leicht positiv",
+       sgZwei > -0.05, sgZwei.toFixed(2));
+  }
+}
+
 /* ============ 24bl. Caddy-Plan: Einheiten und Plausibilität ============ */
 group("caddyPlan — kein Wedge vom Abschlag, Einheiten beschriftet");
 {
