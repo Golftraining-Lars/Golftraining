@@ -168,7 +168,7 @@ try {
   /* WICHTIG: bei vm.runInContext landen nur `var` und `function` am Kontext —
      `const STRAT = {...}` bleibt im Blockscope unsichtbar. Deshalb ein Epilog,
      der die benoetigten Namen aktiv herausreicht. */
-  const namen = ["lmShotKey","lmNurNeue","playKopfraum","playKopfAnteil","aimUmweg","sgAbdeckungsQuote","sgPuttSchieflage","sgWarnHtml","sgRound","sgEnrich","turnierNaehe","wakeAn","wakeAus","_wakeGruende","kraftVerlauf","standNeuer","wetterSetzen","mobBaseline","MOB_KEYS","_fitMedian","_fitVergleich","isoWoche","kraftNorm","est1RM","kraftVerlauf","_dgmAbstandZuStrecke","gpFingerprint","_aimApproachEv","watchElevProfil","dgmSetzen","elevQuelle","elevQuelleText","dgmRahmen","dgmIdx","dgmZelleMitte","dgmZellen","dgmHoehe","dgmNeigung","dgmKey",
+  const namen = ["lmShotKey","lmNurNeue","lmDubletten","playKopfraum","playKopfAnteil","aimUmweg","sgAbdeckungsQuote","sgPuttSchieflage","sgWarnHtml","sgRound","sgEnrich","turnierNaehe","wakeAn","wakeAus","_wakeGruende","kraftVerlauf","standNeuer","wetterSetzen","mobBaseline","MOB_KEYS","_fitMedian","_fitVergleich","isoWoche","kraftNorm","est1RM","kraftVerlauf","_dgmAbstandZuStrecke","gpFingerprint","_aimApproachEv","watchElevProfil","dgmSetzen","elevQuelle","elevQuelleText","dgmRahmen","dgmIdx","dgmZelleMitte","dgmZellen","dgmHoehe","dgmNeigung","dgmKey",
                  "STRAT","clubPick","playsLike","pinPoint","geoDist","playMapBox",
                  "selfCheck","PLAY","escShort","_short","clubShort","windRel","tempFactor","DB",
                  "courseTee","activeHoles","roundDurationMin","mergeDB","_mergeArr","_mergeTs",
@@ -4720,6 +4720,48 @@ group("Launch Monitor — derselbe Schlag zählt einmal");
      im Verlauf ein Punkt ohne Inhalt. */
   ok("keine leere Sitzung bei vollständiger Dublette", /if\(t\.neu\.length\)\{[\s\S]{0,300}?lmSessions=DB\.lmSessions\|\|\[\]\)\.push/.test(src));
   ok("übersprungene Schläge stehen in der Meldung", /bereits vorhanden/.test(src));
+
+  /* --- Dubletten im BESTAND (v4.27) --- */
+  const dub = G("lmDubletten");
+  if (typeof dub === "function") {
+    const sich = DBx.lmSessions;
+    try {
+      const mk = (c, carry) => ({ club: c, clubSpeed: 80, ballSpeed: 105, attack: -2, launch: 19, spin: 6000, carry, total: carry + 3 });
+      /* Zwei Sitzungen mit identischem Inhalt — der klassische Doppelimport. */
+      DBx.lmSessions = [
+        { id: "A", date: "2026-07-28", name: "export", shots: [mk("7 Iron", 149), mk("7 Iron", 151)] },
+        { id: "B", date: "2026-07-29", name: "export", shots: [mk("7 Iron", 149), mk("7 Iron", 151)] }
+      ];
+      let d = dub();
+      eq("eine Dublette gefunden", d.length, 1);
+      eq("und zwar die SPÄTERE", d[0].id, "B");
+      ok("als vollständig erkannt", d[0].voll === true);
+      ok("die Quelle wird benannt", d[0].quellen[0].id === "A");
+
+      /* Teilweise: enthält auch Neues — darf NICHT zum Löschen angeboten werden. */
+      DBx.lmSessions = [
+        { id: "A", date: "2026-08-01", name: "a", shots: [mk("8 Iron", 133)] },
+        { id: "B", date: "2026-08-02", name: "b", shots: [mk("8 Iron", 133), mk("8 Iron", 137)] }
+      ];
+      d = dub();
+      eq("teilweise Dublette erkannt", d.length, 1);
+      eq("nur ein Schlag doppelt", d[0].doppelt, 1);
+      ok("nicht als vollständig markiert", d[0].voll === false);
+
+      /* Sauberer Bestand meldet nichts. */
+      DBx.lmSessions = [
+        { id: "A", date: "2026-08-01", name: "a", shots: [mk("PW", 113)] },
+        { id: "B", date: "2026-08-02", name: "b", shots: [mk("PW", 115)] }
+      ];
+      eq("sauberer Bestand: keine Meldung", dub().length, 0);
+      DBx.lmSessions = [];
+      eq("leerer Bestand: keine Meldung", dub().length, 0);
+    } finally { DBx.lmSessions = sich; }
+  }
+  ok("nur vollständige werden zum Löschen angeboten", /lmDubletteLoeschen\('\$\{x\.id\}'\)/.test(src)
+     && /teil\.forEach[\s\S]{0,400}?openLMsession/.test(src));
+  ok("vor dem Löschen wird erneut geprüft", /if\(!d\|\|!d\.voll\)\{ toast/.test(src));
+  ok("mit Grabstein gelöscht", /tombAdd\("lmSessions", id\);\s*\n\s*DB\.lmSessions=DB\.lmSessions\.filter/.test(src));
 
   /* Auswahl „Alle" */
   ok("Kennung für „Alle“ vorhanden", /const LM_ALLE="__alle__";/.test(src));
