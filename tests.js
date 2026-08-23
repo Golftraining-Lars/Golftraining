@@ -168,7 +168,7 @@ try {
   /* WICHTIG: bei vm.runInContext landen nur `var` und `function` am Kontext —
      `const STRAT = {...}` bleibt im Blockscope unsichtbar. Deshalb ein Epilog,
      der die benoetigten Namen aktiv herausreicht. */
-  const namen = ["playKopfraum","playKopfAnteil","aimUmweg","sgAbdeckungsQuote","sgPuttSchieflage","sgWarnHtml","sgRound","sgEnrich","turnierNaehe","wakeAn","wakeAus","_wakeGruende","kraftVerlauf","standNeuer","wetterSetzen","mobBaseline","MOB_KEYS","_fitMedian","_fitVergleich","isoWoche","kraftNorm","est1RM","kraftVerlauf","_dgmAbstandZuStrecke","gpFingerprint","_aimApproachEv","watchElevProfil","dgmSetzen","elevQuelle","elevQuelleText","dgmRahmen","dgmIdx","dgmZelleMitte","dgmZellen","dgmHoehe","dgmNeigung","dgmKey",
+  const namen = ["lmShotKey","lmNurNeue","playKopfraum","playKopfAnteil","aimUmweg","sgAbdeckungsQuote","sgPuttSchieflage","sgWarnHtml","sgRound","sgEnrich","turnierNaehe","wakeAn","wakeAus","_wakeGruende","kraftVerlauf","standNeuer","wetterSetzen","mobBaseline","MOB_KEYS","_fitMedian","_fitVergleich","isoWoche","kraftNorm","est1RM","kraftVerlauf","_dgmAbstandZuStrecke","gpFingerprint","_aimApproachEv","watchElevProfil","dgmSetzen","elevQuelle","elevQuelleText","dgmRahmen","dgmIdx","dgmZelleMitte","dgmZellen","dgmHoehe","dgmNeigung","dgmKey",
                  "STRAT","clubPick","playsLike","pinPoint","geoDist","playMapBox",
                  "selfCheck","PLAY","escShort","_short","clubShort","windRel","tempFactor","DB",
                  "courseTee","activeHoles","roundDurationMin","mergeDB","_mergeArr","_mergeTs",
@@ -4665,6 +4665,75 @@ group("Golf-Grundlagen — Streuung skaliert, Spielvorgabe rechnet im Turniermod
   const voll = Math.round(20 * 135 / 113 + (71.8 - 72));
   eq("Course Handicap", voll, 24);
   eq("Spielvorgabe mit 95 %", Math.round(voll * 0.95), 23);
+}
+
+/* ============ 24cb. Launch Monitor: keine Dubletten, Auswahl „Alle" ============ */
+group("Launch Monitor — derselbe Schlag zählt einmal");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+  const key = G("lmShotKey"), neuF = G("lmNurNeue"), DBx = G("DB");
+
+  /* GEMELDET: Wird dieselbe CSV zweimal importiert, entsteht eine zweite
+     Sitzung mit denselben Schlägen. Danach zählt jeder Schlag doppelt — die
+     Mittelwerte bleiben gleich, aber die STREUUNG wird zu klein (dieselben
+     Werte doppelt gesehen wirken künstlich sicher), die Schlagzahl lügt, und
+     der Verlauf zeigt zwei Punkte, wo einer gehört. */
+  if (typeof key === "function") {
+    const a = { club: "7 Iron", clubSpeed: 82.3, ballSpeed: 108.1, attack: -2.4, launch: 19.2, spin: 6400, carry: 149.2, total: 152.0 };
+    const b = { ...a };
+    eq("identische Schläge, identischer Abdruck", key(a), key(b));
+    ok("anderer Schläger, anderer Abdruck", key({ ...a, club: "8 Iron" }) !== key(a));
+    ok("anderer Carry, anderer Abdruck", key({ ...a, carry: 151.0 }) !== key(a));
+    /* Rundung auf eine Nachkommastelle: Exportformate schwanken im Rauschen. */
+    eq("149,24 und 149,21 sind derselbe Schlag", key({ ...a, carry: 149.24 }), key({ ...a, carry: 149.21 }));
+    /* KEIN DATUM im Abdruck — sonst gälte derselbe Schlag als neu, nur weil
+       die Datei an einem anderen Tag importiert wurde. */
+    eq("Datum spielt keine Rolle", key({ ...a, date: "2026-01-01" }), key(a));
+    ok("fehlende Werte stürzen nicht ab", typeof key({}) === "string");
+  }
+
+  if (typeof neuF === "function") {
+    const sich = DBx.lmSessions;
+    try {
+      const mk = (c, carry) => ({ club: c, clubSpeed: 80, ballSpeed: 105, attack: -2, launch: 19, spin: 6000, carry, total: carry + 3 });
+      DBx.lmSessions = [{ id: "A", date: "2026-08-01", shots: [mk("7 Iron", 149), mk("7 Iron", 151)] }];
+      let r = neuF([mk("7 Iron", 149), mk("7 Iron", 151)]);
+      eq("zweiter Import derselben Datei: nichts neu", r.neu.length, 0);
+      eq("und alles als doppelt gemeldet", r.doppelt, 2);
+
+      r = neuF([mk("7 Iron", 149), mk("7 Iron", 153)]);
+      eq("nur der neue Schlag kommt dazu", r.neu.length, 1);
+      eq("der bekannte wird übersprungen", r.doppelt, 1);
+
+      /* Auch INNERHALB der Datei entdoppeln: Ein Export, der eine Zeile
+         zweimal enthält, soll sie einmal ablegen. */
+      r = neuF([mk("8 Iron", 133), mk("8 Iron", 133), mk("8 Iron", 135)]);
+      eq("Dublette in der Datei selbst", r.neu.length, 2);
+      eq("und gezählt", r.doppelt, 1);
+
+      DBx.lmSessions = [];
+      eq("ohne Bestand ist alles neu", neuF([mk("PW", 113)]).neu.length, 1);
+    } finally { DBx.lmSessions = sich; }
+  }
+
+  /* Sind ALLE Schläge bekannt, darf keine leere Sitzung entstehen — die wäre
+     im Verlauf ein Punkt ohne Inhalt. */
+  ok("keine leere Sitzung bei vollständiger Dublette", /if\(t\.neu\.length\)\{[\s\S]{0,300}?lmSessions=DB\.lmSessions\|\|\[\]\)\.push/.test(src));
+  ok("übersprungene Schläge stehen in der Meldung", /bereits vorhanden/.test(src));
+
+  /* Auswahl „Alle" */
+  ok("Kennung für „Alle“ vorhanden", /const LM_ALLE="__alle__";/.test(src));
+  ok("Knopf wird gezeichnet", /data-c="\$\{LM_ALLE\}"[\s\S]{0,60}?>Alle</.test(src));
+  ok("Auswahl bleibt gültig", /lmSelClub!==LM_ALLE&&!clubs\.includes\(lmSelClub\)/.test(src));
+  ok("Lücken werden hervorgehoben", /luecke<8\|\|luecke>18/.test(src));
+  /* Der Changelog ERKLAERT, warum es sie nicht gibt — geprueft wird deshalb
+     der ausfuehrbare Teil. */
+  {
+    const dv3 = src.indexOf('id="devdocs"'), cl3 = src.indexOf("## Changelog", dv3);
+    const e3 = src.indexOf("</script>", cl3);
+    ok("keine erfundene Sammelstreuung",
+       !/Streuung über alle Schläger/.test(src.slice(0, dv3) + src.slice(e3)));
+  }
 }
 
 /* ============ 24bl. Caddy-Plan: Einheiten und Plausibilität ============ */
