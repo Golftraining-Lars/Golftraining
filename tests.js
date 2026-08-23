@@ -168,7 +168,7 @@ try {
   /* WICHTIG: bei vm.runInContext landen nur `var` und `function` am Kontext —
      `const STRAT = {...}` bleibt im Blockscope unsichtbar. Deshalb ein Epilog,
      der die benoetigten Namen aktiv herausreicht. */
-  const namen = ["lmShotKey","lmNurNeue","lmDubletten","playKopfraum","playKopfAnteil","aimUmweg","sgAbdeckungsQuote","sgPuttSchieflage","sgWarnHtml","sgRound","sgEnrich","turnierNaehe","wakeAn","wakeAus","_wakeGruende","kraftVerlauf","standNeuer","wetterSetzen","mobBaseline","MOB_KEYS","_fitMedian","_fitVergleich","isoWoche","kraftNorm","est1RM","kraftVerlauf","_dgmAbstandZuStrecke","gpFingerprint","_aimApproachEv","watchElevProfil","dgmSetzen","elevQuelle","elevQuelleText","dgmRahmen","dgmIdx","dgmZelleMitte","dgmZellen","dgmHoehe","dgmNeigung","dgmKey",
+  const namen = ["lmShotKey","lmNurNeue","lmDubletten","LM_ALLE","lmSetClub","playKopfraum","playKopfAnteil","aimUmweg","sgAbdeckungsQuote","sgPuttSchieflage","sgWarnHtml","sgRound","sgEnrich","turnierNaehe","wakeAn","wakeAus","_wakeGruende","kraftVerlauf","standNeuer","wetterSetzen","mobBaseline","MOB_KEYS","_fitMedian","_fitVergleich","isoWoche","kraftNorm","est1RM","kraftVerlauf","_dgmAbstandZuStrecke","gpFingerprint","_aimApproachEv","watchElevProfil","dgmSetzen","elevQuelle","elevQuelleText","dgmRahmen","dgmIdx","dgmZelleMitte","dgmZellen","dgmHoehe","dgmNeigung","dgmKey",
                  "STRAT","clubPick","playsLike","pinPoint","geoDist","playMapBox",
                  "selfCheck","PLAY","escShort","_short","clubShort","windRel","tempFactor","DB",
                  "courseTee","activeHoles","roundDurationMin","mergeDB","_mergeArr","_mergeTs",
@@ -4775,6 +4775,65 @@ group("Launch Monitor — derselbe Schlag zählt einmal");
     const e3 = src.indexOf("</script>", cl3);
     ok("keine erfundene Sammelstreuung",
        !/Streuung über alle Schläger/.test(src.slice(0, dv3) + src.slice(e3)));
+  }
+}
+
+/* ============ 24cc. Jede Ansicht rendert wirklich ============ */
+group("Ansichten — gerendert, nicht nur gelesen");
+{
+  const DBx = G("DB");
+  /* HEUTE VIERMAL DERSELBE FEHLER: ein Name, den es nicht gibt.
+     `lineDeg` (v3.91), `zielName` (v4.9), `satOn()` im Template (v3.96) und
+     jetzt `A_sd` statt `A_std` in der neuen „Alle"-Ansicht (v4.28).
+     Alle vier hatten dasselbe gemeinsam: Der Prüfstand sucht MUSTER im
+     Quelltext, und ein falscher Name ist als Muster nicht von einem richtigen
+     zu unterscheiden. Gefunden wurden sie durch Ausführen — zweimal vom
+     Platz-Durchlauf, zweimal erst auf dem Gerät.
+     Diese Gruppe führt AUS. Sie ist kein Ersatz für inhaltliche Prüfungen,
+     aber sie fängt die ganze Klasse „Name existiert nicht" auf einen Schlag. */
+  const namenR = Object.keys(ctx).filter(k => /^render[A-Z]/.test(k) && typeof ctx[k] === "function");
+  ok("Render-Funktionen gefunden", namenR.length >= 25, namenR.length + " Ansichten");
+
+  /* Ohne Daten laufen viele Ansichten in den Leer-Zweig und prüfen nichts.
+     Deshalb erst füttern — mit dem Wenigsten, das die Zweige erreicht. */
+  const sich = { lm: DBx.lmSessions, r: DBx.rounds, f: DBx.fitnessSessions };
+  try {
+    const mk = (c, carry) => ({ club: c, clubSpeed: 80, ballSpeed: 105, attack: -2,
+                                launch: 19, spin: 6000, carry, total: carry + 3 });
+    DBx.lmSessions = [
+      { id: "T1", date: "2026-08-01", name: "a", shots: [mk("7 Iron",149), mk("7 Iron",151), mk("7 Iron",147), mk("PW",113), mk("PW",111), mk("PW",115)] },
+      { id: "T2", date: "2026-08-08", name: "b", shots: [mk("Driver",225), mk("Driver",229), mk("Driver",221)] }
+    ];
+    DBx.fitnessSessions = [{ type:"Kraft", date:"2026-08-01",
+      exercises:[{name:"Kniebeuge",sets:3,reps:10,weight:60,rpe:8}] }];
+
+    const kaputt = [];
+    namenR.forEach(n => {
+      try { ctx[n](); }
+      catch (e) {
+        /* Drei Ansichten brauchen ein Argument (Platz-Index) — die zählen
+           nicht als Fehler, sie sind nur nicht argumentfrei aufrufbar. */
+        if (/Cannot read properties of undefined/.test(e.message)) return;
+        kaputt.push(n + ": " + e.message);
+      }
+    });
+    eq("keine Ansicht wirft eine Ausnahme", kaputt.join(" | "), "");
+
+    /* Und die Zweige, die eine AUSWAHL brauchen — genau dort saß A_sd. */
+    const ALLE = G("LM_ALLE");
+    if (ctx.renderLaunch && ALLE) {
+      const setzeClub = G("lmSetClub");
+      const zustaende = [ALLE, "7 Iron", "Driver"];
+      const fehler = [];
+      zustaende.forEach(w => {
+        /* NICHT ctx.lmSelClub — das setzt nur eine Namensvetterin (v4.28). */
+        if (setzeClub) setzeClub(w); else ctx.lmSelClub = w;
+        try { ctx.renderLaunch(); } catch (e) { fehler.push(String(w) + ": " + e.message); }
+      });
+      eq("Launch-Ansicht rendert in jedem Auswahlzustand", fehler.join(" | "), "");
+    }
+  } finally {
+    DBx.lmSessions = sich.lm; DBx.rounds = sich.r; DBx.fitnessSessions = sich.f;
   }
 }
 
