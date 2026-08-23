@@ -168,7 +168,7 @@ try {
   /* WICHTIG: bei vm.runInContext landen nur `var` und `function` am Kontext —
      `const STRAT = {...}` bleibt im Blockscope unsichtbar. Deshalb ein Epilog,
      der die benoetigten Namen aktiv herausreicht. */
-  const namen = ["lmShotKey","lmNurNeue","lmDubletten","LM_ALLE","lmSetClub","playKopfraum","playKopfAnteil","aimUmweg","sgAbdeckungsQuote","sgPuttSchieflage","sgWarnHtml","sgRound","sgEnrich","turnierNaehe","wakeAn","wakeAus","_wakeGruende","kraftVerlauf","standNeuer","wetterSetzen","mobBaseline","MOB_KEYS","_fitMedian","_fitVergleich","isoWoche","kraftNorm","est1RM","kraftVerlauf","_dgmAbstandZuStrecke","gpFingerprint","_aimApproachEv","watchElevProfil","dgmSetzen","elevQuelle","elevQuelleText","dgmRahmen","dgmIdx","dgmZelleMitte","dgmZellen","dgmHoehe","dgmNeigung","dgmKey",
+  const namen = ["testZaehltNicht","testDefsAusgewertet","lmShotKey","lmNurNeue","lmDubletten","LM_ALLE","lmSetClub","playKopfraum","playKopfAnteil","aimUmweg","sgAbdeckungsQuote","sgPuttSchieflage","sgWarnHtml","sgRound","sgEnrich","turnierNaehe","wakeAn","wakeAus","_wakeGruende","kraftVerlauf","standNeuer","wetterSetzen","mobBaseline","MOB_KEYS","_fitMedian","_fitVergleich","isoWoche","kraftNorm","est1RM","kraftVerlauf","_dgmAbstandZuStrecke","gpFingerprint","_aimApproachEv","watchElevProfil","dgmSetzen","elevQuelle","elevQuelleText","dgmRahmen","dgmIdx","dgmZelleMitte","dgmZellen","dgmHoehe","dgmNeigung","dgmKey",
                  "STRAT","clubPick","playsLike","pinPoint","geoDist","playMapBox",
                  "selfCheck","PLAY","escShort","_short","clubShort","windRel","tempFactor","DB",
                  "courseTee","activeHoles","roundDurationMin","mergeDB","_mergeArr","_mergeTs",
@@ -4946,6 +4946,58 @@ group("mergeDB — zwei Fassungen, eine Wahrheit");
          !/DIESE FASSUNG IST VERALTET/.test(doc));
     }
   }
+}
+
+/* ============ 24cf. Heim-Tests fließen nirgends ein ============ */
+group("Zu Hause — Übungsgerät, keine Standortbestimmung");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+  const DBx = G("DB"), zaehltNicht = G("testZaehltNicht"), ausgew = G("testDefsAusgewertet");
+  const heim = (DBx.testDefs || []).filter(d => d && d.category === "Zu Hause");
+
+  eq("sechs Heim-Tests vorhanden", heim.length, 6);
+  ok("alle als „keine Auswertung“ markiert", heim.every(d => d.keineAuswertung === true));
+  ok("keiner hat ein Gewicht", heim.every(d => !d.weight));
+  ok("keiner hat einen Richtwert", heim.every(d => !d.benchmark));
+  ok("alle haben eine Einheit und Eingabefelder",
+     heim.every(d => d.unit && (d.inputs || []).length >= 1));
+
+  /* Bei zwei Tests ist WENIGER besser — ein Vorzeichenfehler würde
+     Verschlechterung als Fortschritt anzeigen. */
+  const kleiner = heim.filter(d => d.higherIsBetter === false).map(d => d.key).sort();
+  eq("Startlinie und Startrichtung: weniger ist besser",
+     kleiner.join(","), "heimLinie,heimStartlinie");
+
+  /* DER KERN: Sie dürfen in KEINEN Auswertungspfad geraten. `weight` allein
+     genügt dafür nicht — ohne Gewicht zählt ein Test nicht für die
+     Spielstärke, taucht aber weiter in Erinnerungen und Vorschlägen auf. */
+  if (typeof zaehltNicht === "function" && typeof ausgew === "function") {
+    ok("Heim-Tests werden erkannt", heim.every(d => zaehltNicht(d) === true));
+    const rest = ausgew().map(d => d.key);
+    ok("und aus der Auswertungsliste entfernt", heim.every(d => !rest.includes(d.key)));
+    ok("die übrigen bleiben drin", rest.length === (DBx.testDefs || []).length - heim.length,
+       rest.length + " von " + (DBx.testDefs || []).length);
+    eq("ohne Definition kein Ausschluss", zaehltNicht(null), false);
+    eq("normale Tests zählen weiter", zaehltNicht({ key: "kurzputt" }), false);
+  }
+
+  /* Jeder Auswertungspfad muss die gefilterte Liste benutzen. Ein einziger
+     vergessener Pfad reicht, damit die Heim-Tests doch auftauchen. */
+  ["focusList", "heuteTests"].forEach(fn => {
+    const i = src.indexOf("function " + fn + "(");
+    const blk = i < 0 ? "" : src.slice(i, i + 1200);
+    ok(fn + " nutzt die bereinigte Liste",
+       /testDefsAusgewertet\(\)/.test(blk), fn);
+  });
+  ok("die Fällig-Meldung ebenso",
+     /const faellig=testDefsAusgewertet\(\)/.test(src));
+  ok("die Benchmark-Übersicht ebenso",
+     /testDefsAusgewertet\(\)\.forEach\(d=>\{\s*\n?\s*if\(!d\.benchmark \|\| !d\.benchmark\.levels\)/.test(src));
+
+  /* Die Tests zielen auf bekannte Schwächen — das ist der Grund, warum es
+     genau diese sechs sind und nicht sechs beliebige. */
+  ok("Anstellwinkel wird adressiert", /heimAnstell/.test(src) && /zu flach/.test(src));
+  ok("die Wedge-Lücke wird adressiert", /heimTeil/.test(src) && /23 Metern/.test(src));
 }
 
 /* ============ 24bl. Caddy-Plan: Einheiten und Plausibilität ============ */
