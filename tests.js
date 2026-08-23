@@ -168,7 +168,7 @@ try {
   /* WICHTIG: bei vm.runInContext landen nur `var` und `function` am Kontext —
      `const STRAT = {...}` bleibt im Blockscope unsichtbar. Deshalb ein Epilog,
      der die benoetigten Namen aktiv herausreicht. */
-  const namen = ["turnierNaehe","wakeAn","wakeAus","_wakeGruende","kraftVerlauf","standNeuer","wetterSetzen","mobBaseline","MOB_KEYS","_fitMedian","_fitVergleich","isoWoche","kraftNorm","est1RM","kraftVerlauf","_dgmAbstandZuStrecke","gpFingerprint","_aimApproachEv","watchElevProfil","dgmSetzen","elevQuelle","elevQuelleText","dgmRahmen","dgmIdx","dgmZelleMitte","dgmZellen","dgmHoehe","dgmNeigung","dgmKey",
+  const namen = ["aimUmweg","sgAbdeckungsQuote","sgPuttSchieflage","sgWarnHtml","sgRound","sgEnrich","turnierNaehe","wakeAn","wakeAus","_wakeGruende","kraftVerlauf","standNeuer","wetterSetzen","mobBaseline","MOB_KEYS","_fitMedian","_fitVergleich","isoWoche","kraftNorm","est1RM","kraftVerlauf","_dgmAbstandZuStrecke","gpFingerprint","_aimApproachEv","watchElevProfil","dgmSetzen","elevQuelle","elevQuelleText","dgmRahmen","dgmIdx","dgmZelleMitte","dgmZellen","dgmHoehe","dgmNeigung","dgmKey",
                  "STRAT","clubPick","playsLike","pinPoint","geoDist","playMapBox",
                  "selfCheck","PLAY","escShort","_short","clubShort","windRel","tempFactor","DB",
                  "courseTee","activeHoles","roundDurationMin","mergeDB","_mergeArr","_mergeTs",
@@ -4387,6 +4387,127 @@ group("Zusagen, die niemand einlöst — .then ohne .catch");
   ok("Repo-Notausgang fängt ab", /freshRepoFetch\(\)[\s\S]{0,900}?catch/.test(code));
 }
 
+/* ============ 24bx. Strokes Gained: Belastbarkeit vor dem Ergebnis ============ */
+group("SG — sagen, wie tragfähig die Zahl ist");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+  const DBx = G("DB"), quote = G("sgAbdeckungsQuote"), schief = G("sgPuttSchieflage"),
+        warn = G("sgWarnHtml");
+
+  /* AN ECHTEN DATEN AUFGEFALLEN (v4.19): Die Auswertung wies „Putten −3,84"
+     als schwächste Kategorie aus. Gegenprobe: 2,01 Putts je Loch, 13 %
+     Drei-Putts — für diese Vorgabe unauffällig. Die erfassten ersten
+     Puttdistanzen häuften sich bei 6–9 m: kurze Putts wurden nicht
+     eingetragen. Kein Puttproblem, sondern ein ERFASSUNGSARTEFAKT.
+     Dazu stammten die Kategorien aus 65 von 144 Löchern — und die Abdeckung
+     stand als aufklappbarer Block UNTER dem Ergebnis. */
+
+  ok("die Warnung steht VOR den Zahlen",
+     src.indexOf("${sgWarnHtml(rs)}") < src.indexOf('<p class="note" style="margin-top:0">Gegen einen Spieler'));
+  ok("nicht automatisch korrigiert", /Herausrechnen lässt sich das nicht/.test(src));
+
+  if (typeof schief === "function") {
+    const sich = DBx.rounds;
+    try {
+      const loch = (n, b) => ({ hole: n, par: 4, len: 350, score: 5, putts: 2, firstPutt: b });
+      /* (a) Nur lange erste Putts — genau das gemeldete Bild. */
+      DBx.rounds = [{ course: "X", date: "2026-08-01",
+        holes: [6,7,8,9,6,7,8,9,6,7,8,9,6,7,8,9,6,7,8,9,6,7,8,9].map((m,i)=>loch(i+1, m+"m")) }];
+      let r = schief(DBx.rounds);
+      ok("Schieflage wird erkannt", r && r.schief === true, r ? Math.round(r.anteil*100)+" % kurz" : "-");
+
+      /* (b) Gemischt, wie es aussähe, wenn alles erfasst wird. */
+      DBx.rounds = [{ course: "X", date: "2026-08-01",
+        holes: [1,1,2,2,6,7,1,2,8,1,2,6,1,2,7,1,2,8,1,2,6,1,2,9].map((m,i)=>loch(i+1, m+"m")) }];
+      r = schief(DBx.rounds);
+      ok("ausgewogene Erfassung schlägt nicht an", r && r.schief === false,
+         r ? Math.round(r.anteil*100)+" % kurz" : "-");
+
+      /* (c) Zu wenige Werte: lieber nichts sagen als raten. */
+      DBx.rounds = [{ course: "X", date: "2026-08-01", holes: [loch(1,"8m"), loch(2,"8m")] }];
+      eq("unter 20 Werten kein Urteil", schief(DBx.rounds), null);
+
+      /* (d) Und die Warnung erscheint auch wirklich. */
+      if (typeof warn === "function") {
+        DBx.rounds = [{ course: "X", date: "2026-08-01",
+          holes: [6,7,8,9,6,7,8,9,6,7,8,9,6,7,8,9,6,7,8,9,6,7,8,9].map((m,i)=>loch(i+1, m+"m")) }];
+        const h = warn(DBx.rounds);
+        ok("Warntext nennt die Zahlen", /unter 3 m/.test(h));
+        ok("und sagt, in welche Richtung es verzerrt",
+           /sieht das Putten schlechter aus, als es ist/.test(h));
+      }
+    } finally { DBx.rounds = sich; }
+  }
+
+  if (typeof quote === "function") {
+    const sich = DBx.rounds;
+    try {
+      DBx.rounds = [];
+      eq("ohne Runden keine Quote", quote([]).quote, 0);
+    } finally { DBx.rounds = sich; }
+  }
+}
+
+/* ============ 24by. Die Linienrichtung darf nichts entscheiden ============ */
+group("Zielrichtung — OSM-Linien laufen in beide Richtungen");
+{
+  const S = G("STRAT"), hRef = G("holeRef"), bd = G("bearingDeg");
+  const src = fs.readFileSync(FILE, "utf8");
+
+  /* DER FEHLER (v4.20): Auf Loch 1 des Nordplatzes zielte der Abschlag 64 Grad
+     daneben — in die Wohnsiedlung, FW 0 %. Die Lochdaten waren einwandfrei.
+     Zwei Ursachen zusammen:
+     (1) `hh.line` ist die ROHE Linie; ihre Richtung kommt aus OSM und ist
+         beliebig. Dort lief sie GRÜN → TEE, die Schleife ab `i=1` also vom
+         falschen Ende.
+     (2) Der Rückfall gab dann den letzten Punkt zurück — EINEN Meter vom
+         Abschlag. Eine Peilung über einen Meter ist Rauschen.
+     Geprüft wird die Sache: Dieselbe Bahn, einmal mit vorwärts und einmal mit
+     rückwärts gespeicherter Linie, muss DIESELBE Zielrichtung ergeben. */
+  ok("die Linie wird über holeRef gelesen", /const _linie=\(_hrL&&_hrL\.line/.test(src));
+  ok("und der Rückfall verlangt Mindestabstand", /geoDist\(teeP, letzt\)>=40\) \? letzt : g\.green/.test(src));
+  ok("base folgt der normalisierten Linie", /const base=\(_linie&&_linie\.length>=2\)\?brg0:brgG;/.test(src));
+
+  if (S && S.tee && hRef && bd) {
+    const mLat = 110540, mLng = 111320 * Math.cos(54 * Math.PI / 180);
+    const tee = [54.0000, 10.7000];
+    const green = [tee[0] + 275 / mLat, tee[1] - 40 / mLng];      // schräg, nicht achsenparallel
+    const nah = [tee[0] + 1 / mLat, tee[1] + 1 / mLng];           // ein Meter neben dem Tee
+    const bau = (linie) => ({
+      holes: { 1: { tee, green, line: linie, distM: 275 } },
+      features: [], mine: [], overrides: { holes: {} } });
+
+    const DBx = G("DB"), sichC = DBx.courses, sichK = DBx.clubDistances;
+    try {
+      DBx.clubDistances = [
+        { club: "Driver", carry: 225, total: 240 }, { club: "3 Wood", carry: 211, total: 212 },
+        { club: "5 Iron", carry: 164, total: 170 }, { club: "PW", carry: 113 }];
+      const peilung = (linie) => {
+        const geo = bau(linie);
+        DBx.courses = [{ name: "T", geo, tees: {} }];
+        const ev = S.tee(geo, "T", 1, "bal", 20, null, null);
+        return ev && ev.target ? bd(tee, ev.target) : null;
+      };
+      const vor = peilung([nah, green]);          // Linie Tee -> Grün
+      const rueck = peilung([green, nah]);        // dieselbe Bahn, rückwärts gespeichert
+      const soll = bd(tee, green);
+      ok("vorwärts: Richtung stimmt", vor != null && Math.abs(vor - soll) < 15,
+         vor == null ? "-" : vor.toFixed(1) + "° statt " + soll.toFixed(1) + "°");
+      ok("rückwärts: dieselbe Richtung", rueck != null && Math.abs(rueck - soll) < 15,
+         rueck == null ? "-" : rueck.toFixed(1) + "° statt " + soll.toFixed(1) + "°");
+      ok("beide Richtungen liefern dasselbe",
+         vor != null && rueck != null && Math.abs(vor - rueck) < 1,
+         (vor || 0).toFixed(1) + "° / " + (rueck || 0).toFixed(1) + "°");
+      /* Und eine Linie, die NUR aus zwei nahen Punkten besteht, darf gar
+         keine Richtung vorgeben — dann zählt das Grün. */
+      const nurNah = peilung([nah, [tee[0] + 2 / mLat, tee[1] + 2 / mLng]]);
+      ok("Zwei-Meter-Linie gibt keine Richtung vor",
+         nurNah != null && Math.abs(nurNah - soll) < 15,
+         nurNah == null ? "-" : nurNah.toFixed(1) + "°");
+    } finally { DBx.courses = sichC; DBx.clubDistances = sichK; }
+  }
+}
+
 /* ============ 24bl. Caddy-Plan: Einheiten und Plausibilität ============ */
 group("caddyPlan — kein Wedge vom Abschlag, Einheiten beschriftet");
 {
@@ -8221,10 +8342,13 @@ group("Caddy — vollständig sichtbar, Bedingungen, 2 Iron nur vom Tee");
   ok("beide Aufrufer geben die Grünmitte mit",
      (src.match(/condZeile\(PLAY\.here,[\s\S]{0,160}?_hrC\.green[,)]/g) || []).length === 2);
   ok("und den Bezugspunkt dazu", /zielName: zielIstGruen\?"Grünmitte":"Ziel"/.test(src));
-  ok("und zwar ganz oben", /<div class="play-caddy">\$\{spieltWie\}\$\{fahne\}<div class="pc-head">/.test(src));
+  /* „Ganz oben" heisst seit v4.20: direkt nach dem optionalen Umweg-Hinweis.
+     Der darf davor, weil er sagt, dass die Zahlen darunter nicht stimmen —
+     eine Warnung UNTER dem, wovor sie warnt, ist keine Warnung. */
+  ok("und zwar ganz oben", /<div class="play-caddy">\$\{aimUmwegHtml\(\)\}\$\{spieltWie\}\$\{fahne\}<div class="pc-head">/.test(src));
   /* Beide Zweige gleich aufgebaut — sonst sucht man die Zahl je nach Lage an
      zwei verschiedenen Stellen. */
-  ok("im Regel-Zweig ebenso", /<div class="play-caddy">\$\{weatherEffectHtml\(bearing,mid\)\}\$\{pinZeile\(h\.hole\)\}<div class="pc-head">/.test(src));
+  ok("im Regel-Zweig ebenso", /<div class="play-caddy">\$\{aimUmwegHtml\(\)\}\$\{weatherEffectHtml\(bearing,mid\)\}\$\{pinZeile\(h\.hole\)\}<div class="pc-head">/.test(src));
   if (typeof CZ === "function") {
     eq("ohne Punkte keine Zeile", CZ(null, null), "");
     /* SCHWELLE ENTFERNT (v3.97). Bis v3.96 schwieg die Zeile unter drei Metern
@@ -8266,11 +8390,46 @@ group("Caddy — vollständig sichtbar, Bedingungen, 2 Iron nur vom Tee");
   {
     const zweige = (src.match(/<div class="play-caddy">/g) || []).length;
     ok("es gibt drei Caddy-Zweige", zweige === 3, String(zweige) + " gefunden");
-    const mitZeile = (src.match(/<div class="play-caddy">\$\{(spieltWie|condZeile\(|weatherEffectHtml\()/g) || []).length;
+    /* Seit v4.20 steht davor der Umweg-Hinweis — geprüft wird weiterhin, dass
+       JEDER Zweig mit einer Bedingungszeile beginnt, nur eben nach dem
+       optionalen Warnblock. Eine Prüfung, die an der exakten Reihenfolge
+       klebt, bricht bei jeder Ergänzung und sagt nichts über die Sache. */
+    const mitZeile = (src.match(/<div class="play-caddy">\$\{(aimUmwegHtml\(\)\}\$\{)?(spieltWie|condZeile\(|weatherEffectHtml\()/g) || []).length;
     ok("jeder beginnt mit der Bedingungszeile", mitZeile === zweige,
        mitZeile + " von " + zweige);
     ok("der Annäherungs-Zweig ruft condZeile",
-       /<div class="play-caddy">\$\{condZeile\(PLAY\.here, \(b&&b\.tgt\)\|\|_hrC\.green,[\s\S]{0,70}?\}\$\{pinZeile\(h\.hole\)\}/.test(src));
+       /<div class="play-caddy">\$\{aimUmwegHtml\(\)\}\$\{condZeile\(PLAY\.here, \(b&&b\.tgt\)\|\|_hrC\.green,[\s\S]{0,70}?\}\$\{pinZeile\(h\.hole\)\}/.test(src));
+  }
+
+  /* --- Ein von Hand gezogener Wegpunkt überstimmt die Rechnung (v4.20) ---
+     Auf Loch 1 (275 m) zeichnete die Karte 5 Iron 169 m + 3 Wood 252 m = 421 m
+     quer über eine Wohnsiedlung. Die Rechnung war unschuldig — mit denselben
+     Daten liefert sie 3 Wood 201 m + LW 74 m, Summe genau 275 m. Der Umweg kam
+     von einem gezogenen Ziel. Das darf er; er darf nur nicht UNBEMERKT bleiben. */
+  {
+    const um = G("aimUmweg"), gd2 = G("geoDist");
+    const hr = { tee: [54.0, 10.75], green: [54.00247, 10.75] };   // ~273 m
+    const leg = (m) => ({ dist: m });
+    if (typeof um === "function") {
+      ok("normale Kette schlägt nicht an",
+         um({ pts: [hr.tee], legs: [leg(201), leg(74)] }, hr) === null);
+      const u = um({ pts: [hr.tee], legs: [leg(169), leg(252)] }, hr);
+      ok("der gemeldete Umweg schlägt an", !!u, u ? u.summe + " m auf " + u.luft + " m" : "-");
+      /* Ein echtes Dogleg darf durch — 25 % Zuschlag sind auf 275 m rund 69 m. */
+      ok("ein Dogleg mit 20 % Umweg bleibt still",
+         um({ pts: [hr.tee], legs: [leg(180), leg(148)] }, hr) === null);
+      ok("die Handmarke wird durchgereicht",
+         um({ pts: [hr.tee], legs: [{ dist: 169, moved: true }, leg(252)] }, hr).hand === true);
+      ok("ohne Kette kein Urteil", um(null, hr) === null);
+      ok("ohne Grün kein Urteil", um({ pts: [hr.tee], legs: [leg(400)] }, {}) === null);
+    }
+    const src2 = fs.readFileSync(FILE, "utf8");
+    ok("Handmarke auf der Karte", /const _hand=L\.moved \? "✋ " : "";/.test(src2));
+    ok("Rücksetzen-Knopf vorhanden", /onclick="aimZielZuruecksetzen\(\)"/.test(src2));
+    ok("und er leert auch den Zwischenspeicher",
+       /aimZielZuruecksetzen[\s\S]{0,300}?delete _aimCache\[x\]/.test(src2));
+    ok("der Hinweis steht in allen drei Zweigen",
+       (src2.match(/\$\{aimUmwegHtml\(\)\}/g) || []).length === 3);
   }
 
   /* --- Das Raster muss einen Neustart mitten in der Runde überleben --- */
@@ -8686,6 +8845,17 @@ group("Changelog — aktuell in der Datei, älteres im Archiv");
     if (!sortiert) break;
   }
   ok("neueste Fassung zuerst", sortiert);
+
+  /* KEINE FASSUNGSNUMMER ZWEIMAL (v4.21). Zwei verschiedene Änderungen trugen
+     beide „v4.20.0" — die Selbstprüfung fällt darauf nicht herein, weil sie
+     nur fragt, ob die AKTUELLE Version einen Eintrag HAT. Eine doppelte
+     Nummer ist schlimmer als eine fehlende: Sie sieht vollständig aus, und
+     man kann hinterher nicht mehr sagen, welche Änderung in welcher Fassung
+     steckt. Genau das macht den Changelog als Werkzeug wertlos. */
+  const alleV = [...cl.matchAll(/\n- \*\*v([\d.]+)/g)].map(m => m[1])
+                  .filter(v => /^\d+\.\d+\.\d+$/.test(v));
+  const doppelt = alleV.filter((v, i) => alleV.indexOf(v) !== i);
+  eq("keine Fassungsnummer doppelt vergeben", [...new Set(doppelt)].join(", "), "");
 }
 
 /* ============ 24cs. Neue Seed-Tests erreichen bestehende Datenbanken ============ */
