@@ -168,7 +168,7 @@ try {
   /* WICHTIG: bei vm.runInContext landen nur `var` und `function` am Kontext —
      `const STRAT = {...}` bleibt im Blockscope unsichtbar. Deshalb ein Epilog,
      der die benoetigten Namen aktiv herausreicht. */
-  const namen = ["aimUmweg","sgAbdeckungsQuote","sgPuttSchieflage","sgWarnHtml","sgRound","sgEnrich","turnierNaehe","wakeAn","wakeAus","_wakeGruende","kraftVerlauf","standNeuer","wetterSetzen","mobBaseline","MOB_KEYS","_fitMedian","_fitVergleich","isoWoche","kraftNorm","est1RM","kraftVerlauf","_dgmAbstandZuStrecke","gpFingerprint","_aimApproachEv","watchElevProfil","dgmSetzen","elevQuelle","elevQuelleText","dgmRahmen","dgmIdx","dgmZelleMitte","dgmZellen","dgmHoehe","dgmNeigung","dgmKey",
+  const namen = ["playKopfraum","playKopfAnteil","aimUmweg","sgAbdeckungsQuote","sgPuttSchieflage","sgWarnHtml","sgRound","sgEnrich","turnierNaehe","wakeAn","wakeAus","_wakeGruende","kraftVerlauf","standNeuer","wetterSetzen","mobBaseline","MOB_KEYS","_fitMedian","_fitVergleich","isoWoche","kraftNorm","est1RM","kraftVerlauf","_dgmAbstandZuStrecke","gpFingerprint","_aimApproachEv","watchElevProfil","dgmSetzen","elevQuelle","elevQuelleText","dgmRahmen","dgmIdx","dgmZelleMitte","dgmZellen","dgmHoehe","dgmNeigung","dgmKey",
                  "STRAT","clubPick","playsLike","pinPoint","geoDist","playMapBox",
                  "selfCheck","PLAY","escShort","_short","clubShort","windRel","tempFactor","DB",
                  "courseTee","activeHoles","roundDurationMin","mergeDB","_mergeArr","_mergeTs",
@@ -4508,6 +4508,46 @@ group("Zielrichtung — OSM-Linien laufen in beide Richtungen");
   }
 }
 
+/* ============ 24by. Doku verspricht nichts, was es nicht gibt ============ */
+group("Doku — keine Funktion versprechen, die entfernt wurde");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+  const dv = src.indexOf('id="devdocs"'), cl = src.indexOf("## Changelog", dv);
+  const end = src.indexOf("</script>", cl);
+  const doc = src.slice(dv, cl), code = src.slice(0, dv) + src.slice(end);
+
+  /* GEFUNDEN BEIM AUDIT (v4.23): Der Referenzteil beschrieb `pfFacts()`,
+     `pfVerify()` und `pfDiagShow()` als vorhandene Messwerkzeuge, samt
+     Menüweg „Mehr → Daten → Diagnose → 📐 Layout-Diagnose". Alle drei sind mit
+     v2.03 entfallen. Die Korrektur stand 200 Zeilen weiter unten als Nachtrag —
+     wer oben liest, sucht vergeblich.
+     Das ist die Prosa-Verrottung, vor der Regel 0 warnt: nicht falsch
+     geschrieben, sondern richtig geschrieben und dann überholt worden. */
+  ["pfFacts", "pfVerify", "pfDiagShow", "pfSize", "pfApplyHeight"].forEach(n => {
+    if (new RegExp("function\\s+" + n + "\\s*\\(").test(code)) return;   // gibt es noch
+    if (!doc.includes(n)) return;                                      // nicht erwähnt
+    /* Erwähnt, aber nicht vorhanden: Dann MUSS in der Nähe stehen, dass es
+       historisch ist — sonst liest man es als Anleitung. */
+    const stellen = [...doc.matchAll(new RegExp(n, "g"))].map(m => m.index);
+    const alleMarkiert = stellen.every(i => {
+      const um = doc.slice(Math.max(0, i - 2500), i + 600);
+      return /HISTORISCH|entfallen|ersatzlos|Nachtrag/.test(um);
+    });
+    ok("entfernte Funktion " + n + " ist als historisch gekennzeichnet", alleMarkiert,
+       stellen.length + " Erwähnungen");
+  });
+
+  /* Und die Gegenrichtung: keine Funktion ohne Doku. Das prüft die
+     Selbstprüfung zur Laufzeit — hier als Riegel im Prüfstand, damit es beim
+     Bauen auffällt und nicht erst auf dem Gerät. */
+  const defs = [...new Set([...code.matchAll(/function\s+([A-Za-z_$][\w$]*)\s*\(/g)].map(m => m[1]))];
+  const base = (code.match(/const SELFCHECK_BASELINE\s*=\s*\(([\s\S]*?)\);/) || ["", ""])[1];
+  const bekannt = new Set(base.replace(/[+"]/g, " ").split(/\s+/).filter(Boolean));
+  const chg = src.slice(cl, end);
+  const ohne = defs.filter(n => !doc.includes(n) && !chg.includes(n) && !bekannt.has(n));
+  eq("keine Funktion ohne Doku", ohne.join(", "), "");
+}
+
 /* ============ 24bl. Caddy-Plan: Einheiten und Plausibilität ============ */
 group("caddyPlan — kein Wedge vom Abschlag, Einheiten beschriftet");
 {
@@ -8138,7 +8178,7 @@ group("Karte — hinter dem Grün muss Platz sein, auch beim Heranzoomen");
      und `playAutoView` beim Näherkommen. Und dort ist es am wichtigsten: Je
      enger der Ausschnitt zoomt, desto größer der Anteil, den die Kopfzeilen
      verdecken. */
-  ok("Kopfraum als eigene Funktion", /function playKopfraum\(v\)\{/.test(src));
+  ok("Kopfraum als eigene Funktion", /function playKopfraum\(v, anteil\)\{/.test(src));
   ok("im Anfangsausschnitt", /v=playKopfraum\(v\);\s*\/\/ Platz fuer die Kopfzeilen/.test(src));
   ok("und im mitwachsenden", /HIER IST ES AM WICHTIGSTEN[\s\S]{0,240}v=playKopfraum\(v\);/.test(src));
   /* Das Basisbild behält den Zuschlag: Luftbildkacheln entstehen nur für die
@@ -8146,8 +8186,35 @@ group("Karte — hinter dem Grün muss Platz sein, auch beim Heranzoomen");
      Verfügbar machen und sichtbar machen sind zwei verschiedene Dinge. */
   ok("Basisbild reicht weiter", /corridor:46,bufTopM:20,/.test(src));
   /* Das Band ist so bemessen, dass der bisherige Inhalt vollständig UNTER die
-     Kopfzeilen rutscht: 0,28/(1−0,28). */
-  ok("Bandbreite hergeleitet", /KARTE_KOPF_ANTEIL\/\(1-KARTE_KOPF_ANTEIL\)/.test(src));
+     Kopfzeilen rutscht: a/(1−a). Der Anteil wird seit v4.22 GEMESSEN statt
+     geschätzt — die feste 0,28 stammte aus v3.39, und seitdem sind vier
+     Zeilen dazugekommen (spielt wie, Bezugspunkt, Grünmitte, Umweg-Hinweis).
+     Eine Zahl, die eine Layout-Eigenschaft beschreibt, gehört nicht in den
+     Quelltext. */
+  ok("Bandbreite hergeleitet", /const band = v\.h \* \(a\/\(1-a\)\);/.test(src));
+  ok("Anteil wird gemessen", /function playKopfAnteil\(\)/.test(src));
+  ok("aus den Elementen, die wirklich verdecken",
+     /getElementById\(id\)[\s\S]{0,300}?querySelector\("\.pf-caddy"\)/.test(src)
+     && /\["pfTop"\]/.test(src));
+  ok("gedeckelt gegen die aufgeklappte Anzeige",
+     /Math\.max\(0\.15, Math\.min\(0\.55, anteil\)\)/.test(src));
+  ok("mit Rückfall, wenn nichts messbar ist", /if\(!\(H>50\)\) return KARTE_KOPF_ANTEIL;/.test(src));
+
+  /* Die Sache selbst: Das Band muss den bisherigen Inhalt vollständig unter
+     die Abdeckung schieben — bei JEDEM Anteil, nicht nur bei 0,28. */
+  const kr = G("playKopfraum");
+  if (typeof kr === "function") {
+    [0.15, 0.28, 0.40, 0.55].forEach(a => {
+      const v = kr({ x: 0, y: 0, w: 100, h: 100 }, a);
+      const sichtbarAb = v.h * a;            // so viel verdeckt die Anzeige
+      const inhaltOben = -v.y;               // wo der alte Inhalt beginnt
+      ok("bei " + Math.round(a * 100) + " % beginnt der Inhalt unter der Anzeige",
+         inhaltOben >= sichtbarAb - 0.01, inhaltOben.toFixed(1) + " vs " + sichtbarAb.toFixed(1));
+      eq("Breite bleibt unberührt bei " + Math.round(a * 100) + " %", v.w, 100);
+      ok("Höhe wächst nur nach oben bei " + Math.round(a * 100) + " %",
+         Math.abs((v.y + v.h) - 100) < 1e-9, String(v.y + v.h));
+    });
+  }
 
   /* Gerechnet: Ein Ausschnitt der Höhe h wird um b = h·0,28/0,72 nach oben
      erweitert. Alles, was vorher bei Anteil a saß, sitzt danach bei
