@@ -3187,9 +3187,11 @@ group("SPIELWEISE — Caddy und Ziellinie können nicht mehr auseinanderlaufen")
   const nsAb=src.indexOf("nextShot(geo,courseName,holeNo,from,mode,hcp");
   /* Fenster vergroessert (v3.62): Die Leitplanken stehen vor der Bewertung,
      die Bewertung ist damit weiter hinten in der Funktion. */
-  /* Nochmals vergroessert (v3.76): Wetter- und Lage-Umrechnung stehen vor der
-     Bewertung. */
-  const ns=src.slice(nsAb, nsAb+9000);
+  /* Nochmals vergroessert (v3.76, v4.29): Wetter-, Neigungs- und
+     Lage-Umrechnung stehen vor der Bewertung. Ein festes Zeichenfenster ist
+     die schwaechste Art zu pruefen — es bricht bei jeder Ergaenzung, ohne
+     etwas ueber die Sache zu sagen. */
+  const ns=src.slice(nsAb, nsAb+13000);
   ok("nextShot verrechnet Sand", /w\.sand\*sandQ/.test(ns));
   ok("nextShot verrechnet Rough", /w\.rough\*roughQ/.test(ns));
   ok("nextShot belohnt die Wedge-Zone", /inWedgeZone\(restNach\)/.test(ns));
@@ -4834,6 +4836,115 @@ group("Ansichten — gerendert, nicht nur gelesen");
     }
   } finally {
     DBx.lmSessions = sich.lm; DBx.rounds = sich.r; DBx.fitnessSessions = sich.f;
+  }
+}
+
+/* ============ 24cd. Die Lage streut, nicht nur verkürzt ============ */
+group("sigmaLage — aus dem Rough trifft man anders");
+{
+  const S = G("STRAT"), src = fs.readFileSync(FILE, "utf8");
+  if (S && S.sigmaLage) {
+    const sg = { sigL: 10, sigD: 12, biasL: 0, src: "Heuristik" };
+    const L = S.LIE;
+
+    /* DER BEFUND (v4.29): `LAGE_FAKTOR` verkürzte seit je (Rough 0,90), die
+       STREUUNG blieb unverändert. Ein Schlag aus 15 cm Rough hatte dieselbe
+       Präzision wie vom Bügelbrett, nur 10 % kürzer. Seit v4.0 verbreitert
+       die STANDLAGE beide Sigmas — die BALLLAGE tat es nicht.
+       Wirkung: Der Erholungsschlag sah zu gut aus, und genau dort entstehen
+       die Doppelbogeys. */
+    eq("Fairway bleibt unverändert", S.sigmaLage(sg, L.fairway), sg);
+    eq("Grün bleibt unverändert", S.sigmaLage(sg, L.green), sg);
+    eq("ohne Streuung nichts zu tun", S.sigmaLage(null, L.rough), null);
+    eq("unbekannte Lage lässt es", S.sigmaLage(sg, 99), sg);
+
+    const r = S.sigmaLage(sg, L.rough);
+    ok("Rough streut mehr quer", r.sigL > sg.sigL, r.sigL.toFixed(1));
+    ok("Rough streut mehr längs", r.sigD > sg.sigD, r.sigD.toFixed(1));
+    /* DER FLYER ist der Grund für die Asymmetrie: Gras zwischen Schlagfläche
+       und Ball nimmt den Spin, der Ball kann WEITER fliegen statt kürzer. Man
+       weiß nicht, ob es kurz oder lang wird — also wächst LÄNGS stärker. */
+    ok("im Rough wächst längs stärker als quer",
+       (r.sigD / sg.sigD) > (r.sigL / sg.sigL),
+       (r.sigD/sg.sigD).toFixed(2) + " gegen " + (r.sigL/sg.sigL).toFixed(2));
+
+    /* Aus hohem Rough und Sand gibt es keinen Flyer, dafür Richtungsverlust —
+       dort wächst QUER stärker. Ein Vorzeichenfehler hier würde die Empfehlung
+       genau falsch herum verschieben. */
+    [L.recovery, L.sand].forEach(c => {
+      const x = S.sigmaLage(sg, c);
+      ok("Lage " + c + ": quer wächst stärker als längs",
+         (x.sigL / sg.sigL) > (x.sigD / sg.sigD),
+         (x.sigL/sg.sigL).toFixed(2) + " gegen " + (x.sigD/sg.sigD).toFixed(2));
+    });
+
+    /* Reihenfolge: schlechtere Lage darf nie enger streuen. */
+    const reihe = [L.fairway, L.rough, L.sand, L.recovery].map(c => S.sigmaLage(sg, c).sigL);
+    ok("schlechtere Lage streut nie enger",
+       reihe.every((v, i) => i === 0 || v >= reihe[i - 1] - 1e-9), reihe.map(v=>v.toFixed(1)).join(" ≤ "));
+
+    /* Und die Größenordnung bleibt im Rahmen — kein Faktor 3. */
+    ok("kein Faktor über 2", reihe.every(v => v <= sg.sigL * 2));
+  }
+
+  /* Beide Wirkungen an derselben Stelle, unabhängig voneinander:
+     wie man STEHT (Neigung) und wie der Ball LIEGT. */
+  ok("Neigung und Lage werden beide angewandt",
+     /const sgH0=this\.sigmaHang\(sg, hangVon, carry\) \|\| sg;[\s\S]{0,120}?const sgH=this\.sigmaLage\(sgH0, this\.lieCode\(g, from\[0\], from\[1\]\)\)/.test(src));
+  /* Die Zahlen sind Vorlieben — das muss dranstehen, sonst hält sie jemand
+     für Messwerte und „korrigiert" sie irgendwann. */
+  ok("als Vorliebe gekennzeichnet", /VORLIEBEN, KEINE MESSUNG/.test(src));
+  ok("mit dem Hinweis auf spätere Messung", /Sobald genug eigene Schlaege AUS DEM ROUGH/.test(src));
+}
+
+/* ============ 24ce. Worker-Kopie gegen die App-Fassung ============ */
+group("mergeDB — zwei Fassungen, eine Wahrheit");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+  const dv = src.indexOf('id="devdocs"'), cl = src.indexOf("## Changelog", dv);
+  const end = src.indexOf("</script>", cl);
+  const doc = src.slice(dv, cl), code = src.slice(0, dv) + src.slice(end);
+
+  /* Der Doku-Abschnitt 28 haelt eine Kopie des Worker-Codes und bezeichnet
+     sich selbst als „Quelle der Wahrheit fuer die Frage, was macht der Worker
+     gerade". Regel 5 dort verlangt: App-Fassung und Worker-Fassung muessen
+     dieselben Ergebnisse liefern.
+     FESTGESTELLT v4.30: Sie tun es nicht. Der Worker-Kopie fehlen Grabsteine
+     (gelöschte Einträge würden wieder auferstehen), `swingAnalyses` und
+     `MERGE_KEY`. Wirkungslos, solange der NEU-Modus läuft — aber sie würde
+     genau dann greifen, wenn man auf den ALT-Modus zurückfällt, also in einer
+     Störung. Der schlechteste denkbare Zeitpunkt.
+     Diese Gruppe prüft nicht auf Gleichheit — die wäre erst herzustellen —,
+     sondern darauf, dass die Abweichung ANGESCHRIEBEN ist. Eine bekannte
+     Abweichung ist beherrschbar, eine vergessene nicht. */
+  const wIdx = doc.lastIndexOf("function mergeDB(localDB, repoDB){");
+  ok("Worker-Kopie vorhanden", wIdx > 0);
+  if (wIdx > 0) {
+    const wCode = doc.slice(wIdx, doc.indexOf("\n}", wIdx));
+    const aIdx = code.indexOf("function mergeDB(localDB, repoDB){");
+    const aCode = code.slice(aIdx, code.indexOf("\n}", aIdx));
+
+    const gleich = ["_mergeTomb", "MERGE_KEY", "swingAnalyses", "_tombFor"]
+      .filter(t => aCode.includes(t) !== wCode.includes(t));
+
+    if (gleich.length) {
+      /* Abweichung da → dann MUSS die Warnung darüber stehen, und zwar mit
+         dem, was fehlt. Ein „siehe oben" reicht nicht. */
+      ok("die Abweichung ist als Warnung angeschrieben",
+         /DIESE FASSUNG IST VERALTET/.test(doc), gleich.join(", "));
+      gleich.forEach(t =>
+        ok("fehlendes Stück „" + t + "“ ist benannt", doc.includes(t)));
+            ok("die Folge ist benannt, nicht nur der Unterschied",
+         doc.includes("erstehen geloeschte") && doc.includes("wieder auf"));
+      ok("und wann es gefährlich wird", /ALT-Modus/.test(doc) && /Stoerung/.test(doc));
+      ok("bewusst nicht stillschweigend angeglichen",
+         /Bewusst NICHT stillschweigend nachgezogen/.test(doc));
+    } else {
+      /* Kein Unterschied mehr → dann darf die Warnung nicht stehenbleiben,
+         sonst verrottet sie in die andere Richtung. */
+      ok("keine veraltete Warnung, wenn beide gleich sind",
+         !/DIESE FASSUNG IST VERALTET/.test(doc));
+    }
   }
 }
 
