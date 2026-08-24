@@ -168,7 +168,7 @@ try {
   /* WICHTIG: bei vm.runInContext landen nur `var` und `function` am Kontext —
      `const STRAT = {...}` bleibt im Blockscope unsichtbar. Deshalb ein Epilog,
      der die benoetigten Namen aktiv herausreicht. */
-  const namen = ["goalCurrent","trainingsEmpfehlung","goalIst","goalPlan","goalFortschritt","goalErreicht","goalHochIstGut","_zielMed","zielFeldDef","ZIEL_QUELLEN","ZIEL_FELDER","testZaehltNicht","testDefsAusgewertet","lmShotKey","lmNurNeue","lmDubletten","LM_ALLE","lmSetClub","playKopfraum","playKopfAnteil","aimUmweg","sgAbdeckungsQuote","sgPuttSchieflage","sgWarnHtml","sgRound","sgEnrich","turnierNaehe","wakeAn","wakeAus","_wakeGruende","kraftVerlauf","standNeuer","wetterSetzen","mobBaseline","MOB_KEYS","_fitMedian","_fitVergleich","isoWoche","kraftNorm","est1RM","kraftVerlauf","_dgmAbstandZuStrecke","gpFingerprint","_aimApproachEv","watchElevProfil","dgmSetzen","elevQuelle","elevQuelleText","dgmRahmen","dgmIdx","dgmZelleMitte","dgmZellen","dgmHoehe","dgmNeigung","dgmKey",
+  const namen = ["ensureSeedGoals","_zielSchluessel","goalCurrent","trainingsEmpfehlung","goalIst","goalPlan","goalFortschritt","goalErreicht","goalHochIstGut","_zielMed","zielFeldDef","ZIEL_QUELLEN","ZIEL_FELDER","testZaehltNicht","testDefsAusgewertet","lmShotKey","lmNurNeue","lmDubletten","LM_ALLE","lmSetClub","playKopfraum","playKopfAnteil","aimUmweg","sgAbdeckungsQuote","sgPuttSchieflage","sgWarnHtml","sgRound","sgEnrich","turnierNaehe","wakeAn","wakeAus","_wakeGruende","kraftVerlauf","standNeuer","wetterSetzen","mobBaseline","MOB_KEYS","_fitMedian","_fitVergleich","isoWoche","kraftNorm","est1RM","kraftVerlauf","_dgmAbstandZuStrecke","gpFingerprint","_aimApproachEv","watchElevProfil","dgmSetzen","elevQuelle","elevQuelleText","dgmRahmen","dgmIdx","dgmZelleMitte","dgmZellen","dgmHoehe","dgmNeigung","dgmKey",
                  "STRAT","clubPick","playsLike","pinPoint","geoDist","playMapBox",
                  "selfCheck","PLAY","escShort","_short","clubShort","windRel","tempFactor","DB",
                  "courseTee","activeHoles","roundDurationMin","mergeDB","_mergeArr","_mergeTs",
@@ -5229,6 +5229,64 @@ group("Zielquellen — was messbar ist, wird gemessen");
   ok("Par 3 zählen nicht in die Fairwayquote", /h\.par>3&&h\.fw!=null/.test(src));
   /* (6) Serie heißt LAUFENDE Serie. */
   ok("Trainingsserie zählt ab heute rückwärts", /Laengste ununterbrochene Tagesserie BIS HEUTE/.test(src));
+}
+
+/* ============ 24ci. Seed-Ziele erreichen einen bestehenden Bestand ============ */
+group("ensureSeedGoals — nachziehen ohne zu überschreiben");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+  const DBx = G("DB"), zieh = G("ensureSeedGoals");
+
+  /* GEMELDET: „Ich finde diese Punkte nicht unter Planung." Zu Recht —
+     `SEED.seasonGoals` galt nur für eine LEERE Datenbank. Ein bestehender
+     Bestand bekam weder Zieldaten noch Datenanbindung noch die neuen Ziele.
+     Für `testDefs` gibt es `ensureSeedTests()` seit v3.10; für die Ziele gab
+     es nichts. Dieselbe Klasse wie zweimal zuvor an diesem Tag: eingebaut und
+     wirkungslos. */
+  if (typeof zieh === "function") {
+    const sichG = DBx.seasonGoals, sichU = DBx.ui;
+    try {
+      /* Bestand wie vor der Migration: eigene Werte, keine Zieldaten. */
+      DBx.ui = {};
+      DBx.seasonGoals = [
+        { id: "G1", phase: "Phase 1", label: "Pelz Score ≥ 105", start: 58, target: 105,
+          note: "meine Notiz", testKey: "pelz" }
+      ];
+      const r = zieh();
+      ok("fehlende Ziele werden ergänzt", r.neu > 20, r.neu + " neu");
+      ok("vorhandene werden vervollständigt", r.ergaenzt >= 1, r.ergaenzt + " ergänzt");
+
+      const p = DBx.seasonGoals.find(g => g.id === "G1");
+      /* DAS WICHTIGSTE: eigene Eingaben bleiben. */
+      eq("eigener Startwert bleibt", p.start, 58);
+      eq("eigener Zielwert bleibt", p.target, 105);
+      eq("eigene Notiz bleibt", p.note, "meine Notiz");
+      ok("aber das Zieldatum kommt dazu", !!p.dateTo, p.dateTo);
+
+      /* Zweiter Lauf darf nichts mehr tun — sonst wächst die Liste bei jedem
+         Start. */
+      const n1 = DBx.seasonGoals.length;
+      const r2 = zieh();
+      eq("zweiter Lauf ergänzt nichts", r2.neu, 0);
+      eq("und die Liste wächst nicht", DBx.seasonGoals.length, n1);
+
+      /* Ein gelöschtes Ziel darf nicht wiederkehren. */
+      const weg = DBx.seasonGoals[5].label;
+      DBx.seasonGoals = DBx.seasonGoals.filter(g => g.label !== weg);
+      zieh();
+      ok("gelöschtes Ziel bleibt gelöscht",
+         !DBx.seasonGoals.some(g => g.label === weg), weg);
+    } finally { DBx.seasonGoals = sichG; DBx.ui = sichU; }
+  }
+
+  /* Nur diese Felder dürfen nachgetragen werden — die Liste steht im Code und
+     darf nicht heimlich wachsen. */
+  ok("nur unkritische Felder werden nachgetragen",
+     /const nachtragbar=\["dateFrom","dateTo","quelle","feld","lmClub","testKey"\]/.test(src));
+  ok("und nur, wenn sie fehlen", /if\(da\[f\]==null && sg\[f\]!=null\)/.test(src));
+  ok("beim Start aufgerufen", /try\{ ensureSeedGoals\(\); \}catch/.test(src));
+  ok("Erkennung über Phase und Beschriftung, nicht über die id",
+     /function _zielSchluessel\(g\)/.test(src));
 }
 
 /* ============ 24bl. Caddy-Plan: Einheiten und Plausibilität ============ */
