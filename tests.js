@@ -168,7 +168,7 @@ try {
   /* WICHTIG: bei vm.runInContext landen nur `var` und `function` am Kontext —
      `const STRAT = {...}` bleibt im Blockscope unsichtbar. Deshalb ein Epilog,
      der die benoetigten Namen aktiv herausreicht. */
-  const namen = ["_mergeObj","_leerWert","mergeDB","MERGE_KEY","EQUIP_FELDER","EQUIP_GRUPPEN","EQUIP_ALT_KEYS","equipAltRaeumen","ensureSeedGoals","_zielSchluessel","goalCurrent","trainingsEmpfehlung","goalIst","goalPlan","goalFortschritt","goalErreicht","goalHochIstGut","_zielMed","zielFeldDef","ZIEL_QUELLEN","ZIEL_FELDER","testZaehltNicht","testDefsAusgewertet","lmShotKey","lmNurNeue","lmDubletten","LM_ALLE","lmSetClub","playKopfraum","playKopfAnteil","aimUmweg","sgAbdeckungsQuote","sgPuttSchieflage","sgWarnHtml","sgRound","sgEnrich","turnierNaehe","wakeAn","wakeAus","_wakeGruende","kraftVerlauf","standNeuer","wetterSetzen","mobBaseline","MOB_KEYS","_fitMedian","_fitVergleich","isoWoche","kraftNorm","est1RM","kraftVerlauf","_dgmAbstandZuStrecke","gpFingerprint","_aimApproachEv","watchElevProfil","dgmSetzen","elevQuelle","elevQuelleText","dgmRahmen","dgmIdx","dgmZelleMitte","dgmZellen","dgmHoehe","dgmNeigung","dgmKey",
+  const namen = ["bagBewertung","clubNorm","_mergeObj","_leerWert","mergeDB","MERGE_KEY","EQUIP_FELDER","EQUIP_GRUPPEN","EQUIP_ALT_KEYS","equipAltRaeumen","ensureSeedGoals","_zielSchluessel","goalCurrent","trainingsEmpfehlung","goalIst","goalPlan","goalFortschritt","goalErreicht","goalHochIstGut","_zielMed","zielFeldDef","ZIEL_QUELLEN","ZIEL_FELDER","testZaehltNicht","testDefsAusgewertet","lmShotKey","lmNurNeue","lmDubletten","LM_ALLE","lmSetClub","playKopfraum","playKopfAnteil","aimUmweg","sgAbdeckungsQuote","sgPuttSchieflage","sgWarnHtml","sgRound","sgEnrich","turnierNaehe","wakeAn","wakeAus","_wakeGruende","kraftVerlauf","standNeuer","wetterSetzen","mobBaseline","MOB_KEYS","_fitMedian","_fitVergleich","isoWoche","kraftNorm","est1RM","kraftVerlauf","_dgmAbstandZuStrecke","gpFingerprint","_aimApproachEv","watchElevProfil","dgmSetzen","elevQuelle","elevQuelleText","dgmRahmen","dgmIdx","dgmZelleMitte","dgmZellen","dgmHoehe","dgmNeigung","dgmKey",
                  "STRAT","clubPick","playsLike","pinPoint","geoDist","playMapBox",
                  "selfCheck","PLAY","escShort","_short","clubShort","windRel","tempFactor","DB",
                  "courseTee","activeHoles","roundDurationMin","mergeDB","_mergeArr","_mergeTs",
@@ -4917,35 +4917,20 @@ group("mergeDB — zwei Fassungen, eine Wahrheit");
      Diese Gruppe prüft nicht auf Gleichheit — die wäre erst herzustellen —,
      sondern darauf, dass die Abweichung ANGESCHRIEBEN ist. Eine bekannte
      Abweichung ist beherrschbar, eine vergessene nicht. */
-  const wIdx = doc.lastIndexOf("function mergeDB(localDB, repoDB){");
-  ok("Worker-Kopie vorhanden", wIdx > 0);
-  if (wIdx > 0) {
-    const wCode = doc.slice(wIdx, doc.indexOf("\n}", wIdx));
-    const aIdx = code.indexOf("function mergeDB(localDB, repoDB){");
-    const aCode = code.slice(aIdx, code.indexOf("\n}", aIdx));
-
-    const gleich = ["_mergeTomb", "MERGE_KEY", "swingAnalyses", "_tombFor"]
-      .filter(t => aCode.includes(t) !== wCode.includes(t));
-
-    if (gleich.length) {
-      /* Abweichung da → dann MUSS die Warnung darüber stehen, und zwar mit
-         dem, was fehlt. Ein „siehe oben" reicht nicht. */
-      ok("die Abweichung ist als Warnung angeschrieben",
-         /DIESE FASSUNG IST VERALTET/.test(doc), gleich.join(", "));
-      gleich.forEach(t =>
-        ok("fehlendes Stück „" + t + "“ ist benannt", doc.includes(t)));
-            ok("die Folge ist benannt, nicht nur der Unterschied",
-         doc.includes("erstehen geloeschte") && doc.includes("wieder auf"));
-      ok("und wann es gefährlich wird", /ALT-Modus/.test(doc) && /Stoerung/.test(doc));
-      ok("bewusst nicht stillschweigend angeglichen",
-         /Bewusst NICHT stillschweigend nachgezogen/.test(doc));
-    } else {
-      /* Kein Unterschied mehr → dann darf die Warnung nicht stehenbleiben,
-         sonst verrottet sie in die andere Richtung. */
-      ok("keine veraltete Warnung, wenn beide gleich sind",
-         !/DIESE FASSUNG IST VERALTET/.test(doc));
-    }
-  }
+  /* SEIT WORKER v2.9 GIBT ES NICHTS MEHR ZU SPIEGELN (v4.45).
+     Der serverseitige Merge ist entfernt. Zwei Fassungen derselben Logik
+     synchron zu halten war teurer, als den zweiten Weg zu schließen — die
+     Regel „Äquivalenz prüfen" stand seit v2.2 und wurde kein einziges Mal
+     befolgt. Eine Regel, die niemand einhält, ist keine Regel, sondern eine
+     Beruhigung.
+     Geprüft wird jetzt das Gegenteil: dass der zweite Weg wirklich zu ist. */
+  ok("keine zweite Merge-Fassung im Worker",
+     doc.lastIndexOf("function mergeDB(localDB, repoDB){") < 0);
+  ok("der Grund steht dabei", /ES GIBT NUR NOCH EINE MERGE-LOGIK/.test(doc));
+  ok("die Folgen sind benannt", doc.includes("erstehen wieder auf"));
+  ok("und wie der Worker jetzt antwortet", /426 Upgrade\s*\n?>?\s*Required/.test(doc) || doc.includes("426"));
+  ok("der Spiegelungs-Zwang ist ausdrücklich aufgehoben",
+     /Spiegelungs-Zwang entfaellt/.test(doc));
 }
 
 /* ============ 24cf. Heim-Tests fließen nirgends ein ============ */
@@ -5606,6 +5591,83 @@ group("mergeDB — jeder Bereich hat eine Regel");
      `_mergeArr` auf „vollständigerer gewinnt" zurück, und eine geänderte Zahl
      macht den Eintrag nicht länger. */
   ok("Median-Übernahme stempelt", /obj\.total=med; stamp\(obj\);/.test(src));
+}
+
+/* ============ 24cm. Schlägername und Bewertungsmatrix ============ */
+group("clubNorm und bagBewertung — derselbe Schläger ist ein Schläger");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+  const cn = G("clubNorm"), bew = G("bagBewertung"), DBx = G("DB");
+
+  /* GEMESSEN an den echten Daten: DERSELBE Schläger hieß in drei Quellen
+     verschieden — „7 Iron" (Launch Monitor), „7 Iron 30°" (Schlägerliste),
+     „7 Eisen G410" (Abschlag auf der Runde). 36 Namen bei 13 Schlägern.
+     Ursache: Die Muster waren mit `$` VERANKERT, ein angehängter Modellname
+     ließ jeden Treffer scheitern. Jede Auswertung je Schläger zerfiel damit
+     in Bruchstücke — auch die neue Bewertungsmatrix hätte nichts getaugt. */
+  if (typeof cn === "function") {
+    const gleich = [
+      ["7 Iron", "7 Iron 30°", "7 Eisen G410"],
+      ["Driver", "Driver 10,5°", "Driver Aerojet"],
+      ["3 Wood", "3 Wood 15°", "3w Aerojet"],
+      ["7 Wood", "7 Wood 21°", "7w Aerojet"],
+      ["2 Iron", "2 Iron 17°", "2 Driving iron Cobra"],
+      ["Gap Wedge", "GW 50°"],
+      ["Sand Wedge", "SW 54°"],
+      ["Lob Wedge", "LW 58°"],
+      ["Pitching Wedge", "PW 44,5°"]
+    ];
+    gleich.forEach(gruppe => {
+      const k = gruppe.map(cn);
+      ok("„" + gruppe[0] + "“ = " + gruppe.slice(1).join(" = "),
+         k.every(x => x === k[0]), k.join(" / "));
+    });
+    /* Und verschiedene bleiben verschieden — eine Normalisierung, die alles
+       zusammenwirft, wäre schlimmer als gar keine. */
+    const verschieden = ["7 Iron", "8 Iron", "3 Wood", "7 Wood", "Driver", "Gap Wedge", "Sand Wedge"];
+    const ks = verschieden.map(cn);
+    eq("verschiedene Schläger bleiben verschieden", ks.length, new Set(ks).size);
+  }
+
+  if (typeof bew === "function") {
+    const sichC = DBx.clubDistances, sichL = DBx.lmSessions, sichR = DBx.rounds;
+    try {
+      DBx.clubDistances = [
+        { id: "a", club: "7 Iron 30°", carry: 147 },
+        { id: "b", club: "8 Iron 34,5°", carry: 141 },   // nur 6 m Abstand
+        { id: "c", club: "PW 44,5°", carry: 111 },        // 30 m Lücke
+        { id: "d", club: "GW 50°", carry: 88 }
+      ];
+      const shots = (club, carrys) => ({ id: club, date: "2026-08-01",
+        shots: carrys.map(c => ({ club, carry: c, clubSpeed: 80, ballSpeed: 110 })) });
+      DBx.lmSessions = [shots("7 Iron", [145,146,147,148,149,147,146,148])];
+      DBx.rounds = [];
+      const r = bew();
+      eq("eine Zeile je Schläger", r.length, 4);
+      /* Die Reihenfolge ist die des Bags — von lang nach kurz. */
+      eq("nach Länge sortiert", r.map(x => x.club).join(","),
+         "7 Iron 30°,8 Iron 34,5°,PW 44,5°,GW 50°");
+      /* Der 6-m-Abstand muss auffallen. */
+      const acht = r.find(x => x.club === "8 Iron 34,5°");
+      ok("zu enger Abstand wird gemeldet",
+         acht.befunde.some(b => /faktisch derselbe/.test(b.txt)), JSON.stringify(acht.befunde));
+      /* Die 23-m-Lücke ebenso. */
+      const pw = r.find(x => x.club === "PW 44,5°");
+      ok("zu große Lücke wird gemeldet",
+         pw.befunde.some(b => /dazwischen fehlt einer/.test(b.txt)), JSON.stringify(pw.befunde));
+      /* Die Messungen müssen ÜBER die Namensgrenze hinweg zugeordnet werden —
+         „7 Iron" aus dem LM zu „7 Iron 30°" im Bag. Genau das war kaputt. */
+      const sieben = r.find(x => x.club === "7 Iron 30°");
+      eq("LM-Messungen finden ihren Schläger", sieben.nLm, 8);
+      /* Ein nie gespielter, nie gemessener Schläger fällt auf. */
+      ok("ungenutzter Schläger wird gemeldet",
+         r.find(x => x.club === "GW 50°").befunde.some(b => /nie gespielt/.test(b.txt)));
+    } finally { DBx.clubDistances = sichC; DBx.lmSessions = sichL; DBx.rounds = sichR; }
+  }
+
+  /* Der Vorbehalt gehört in die Anzeige, nicht nur in den Code. */
+  ok("Vergleich gegen das eigene Bag ist benannt", /gegen <b>dein eigenes Bag<\/b>/.test(src));
+  ok("die Grenze der Aussage steht dabei", /Fitting mit Kamera und Impact-Tape/.test(src));
 }
 
 /* ============ 24bl. Caddy-Plan: Einheiten und Plausibilität ============ */
@@ -7715,8 +7777,9 @@ group("Abgleich — eine Löschung in der Karte überlebt den Merge");
      die ganze Karte, hier einzelne Objekte darin. */
   ok("jüngere Karte gewinnt", /const jung = \(lAt>rAt\) \? l : r;/.test(src));
   ok("nur bei unterschiedlichen Stempeln", /if\(l && r && lAt && rAt && lAt!==rAt\)/.test(src));
-  /* Die Worker-Kopie muss mitziehen — sonst räumt sie im ALT-Modus wieder ein. */
-  ok("im Worker gespiegelt", /gespiegelt aus der App: Die JUENGERE Karte gewinnt/.test(src));
+  /* Die Worker-Kopie musste bis v4.44 mitziehen — seit Worker v2.9 gibt es
+     sie nicht mehr, und damit auch keine zweite Stelle, die vergessen werden
+     kann. */
 
   if (typeof MC === "function") {
     const geoMit = { holes: {}, features: [
@@ -10512,8 +10575,12 @@ group("gpsShots — die Messungen der Uhr überleben den Abgleich");
   ok("Rückgängig hebt ihn auf", /tombClear\("gpsShots", weg\.id\)/.test(src));
   /* Und im Worker (ALT-Modus — den benutzt die Uhr!) gespiegelt. */
   const doc = (src.match(/<script[^>]*devdocs[^>]*>([\s\S]*?)<\/script>/) || [])[1] || "";
-  ok("Worker vereinigt sie ebenfalls", /out\.gpsShots\s+= _mergeArr\(L\.gpsShots, R\.gpsShots/.test(doc));
-  ok("Abzug vereinigt gpsShots", /out\.gpsShots\s+= _mergeArr/.test(doc));
+  /* SPIEGELUNGS-PRÜFUNGEN ENTFALLEN (v4.45): Der serverseitige Merge im
+     Worker ist entfernt. Es gibt nur noch EINE Merge-Logik, nämlich die in
+     dieser Datei — nichts mehr zu spiegeln. Geprüft wird stattdessen, dass
+     der zweite Weg wirklich zu ist. */
+  ok("kein serverseitiger Merge mehr in der Doku", !/function mergeDB\(localDB, repoDB\)\{[\s\S]{0,200}?_mergeArr\(L\.rounds/.test(doc));
+  ok("und der Grund steht dabei", /ES GIBT NUR NOCH EINE MERGE-LOGIK/.test(doc));
 }
 
 /* ============ 24ce. GPS-Tick und Runden-Sync ============ */
@@ -10776,16 +10843,20 @@ group("Worker-Code in der Doku");
      weil die Doku im Dokument vor dem Code steht. Der Hinweis muss dastehen. */
   ok("Warnung vor der doppelten mergeDB", /Die Funktion steht seit v2\.85 \*\*ZWEIMAL\*\*/.test(doc));
   ok("und nennt das Unterscheidungsmerkmal", /mit drei Argumenten/.test(doc));
-  /* Die Leer-Regel muss auch im Worker stehen (ALT-Modus). */
-  ok("Worker spiegelt die Leer-Regel", /const lLeer = \(dataScore\(L\)<5 && dataScore\(R\)>=5\)/.test(doc));
-  ok("Worker bringt dataScore mit", /function dataScore\(d\)\{ d=d\|\|\{\}/.test(doc));
+  /* Die Leer-Regel stand bis v4.44 auch im Worker (ALT-Modus). Seit Worker
+     v2.9 ist der ganze Merge dort entfernt — geprüft wird deshalb, dass die
+     Kopie WEG ist, nicht dass sie stimmt. */
+  ok("keine dataScore-Kopie mehr im Worker",
+     !/function dataScore\(d\)\{ d=d\|\|\{\}/.test(doc));
 
   /* Der CODE selbst muss dastehen, nicht nur eine Beschreibung. */
-  ["const CFG = {", "function _mergeArr(a,b,keyFn){", "function _mergeCourses(La, Ra){",
-   "function mergeDB(localDB, repoDB){", "async function ghSha(env, path)",
-   "export default {"].forEach(t =>
+  ["const CFG = {", "async function ghSha(env, path)", "export default {"].forEach(t =>
     ok("enthält: " + t.slice(0, 34), doc.indexOf(t) > 0));
-  ok("Zeile mit _mergeCourses ist gespiegelt", /out\.courses\s*= _mergeCourses\(L\.courses, R\.courses\);/.test(doc));
+  /* Und was NICHT mehr dastehen darf: die Merge-Logik. Sie existiert seit
+     Worker v2.9 nur noch einmal, in dieser Datei. */
+  ["function _mergeArr(a,b,keyFn){", "function _mergeCourses(La, Ra){"].forEach(t =>
+    ok("nicht mehr im Worker: " + t.slice(0, 30), doc.indexOf(t) < 0));
+
 
   /* Der Unterschied NEU-/ALT-Modus ist der Kern jeder Fehleinschätzung. */
   ok("NEU-Modus als Türsteher benannt", /NEU-Modus, den diese App benutzt[\s\S]{0,200}merged NICHT/.test(doc));
