@@ -5818,6 +5818,73 @@ group("mergeDB — was Liste war, bleibt Liste");
      /if\(Array\.isArray\(a\)\|\|Array\.isArray\(b\)\)\{/.test(src));
 }
 
+/* ============ 24cp. Uhr und App müssen dasselbe rechnen ============ */
+group("Gleichlauf Uhr ↔ App — dieselbe Frage, dieselbe Antwort");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+  const ktPfad = path.join(__dirname, "MainActivity.kt");
+  const kt = fs.existsSync(ktPfad) ? fs.readFileSync(ktPfad, "utf8") : "";
+
+  if (!kt) {
+    ok("MainActivity.kt liegt neben der App", false, "nicht gefunden");
+  } else {
+    /* NACHGEMESSEN am 24.08.2026: `playsLike` stimmte auf die Stelle, die
+       LAGEFAKTOREN nicht — Sand 0,72 gegen 0,75, Recovery 0,58 gegen 0,80.
+       Bei Recovery sind das 22 Prozentpunkte: Aus demselben Erholungsschlag
+       empfahl die Uhr einen deutlich kürzeren Schläger als das Handy, und der
+       Spieler hätte nicht sagen können, welchem Gerät er glauben soll.
+       Zwei Antworten auf dieselbe Frage sind schlimmer als eine falsche, weil
+       sie das Vertrauen in BEIDE kosten. */
+    const zahl = (txt, re) => { const m = txt.match(re); return m ? m[1] : null; };
+
+    [["Temperatur je °C", /\(temp-20\)\*([\d.]+)/, /\(temp - 20\.0\) \* ([\d.]+)/],
+     ["Gegenwind je m/s", /dist\*\(-w\.head\)\*([\d.]+)/, /distM \* \(-rel\.head\) \* ([\d.]+)/],
+     ["Rückenwind je m/s", /dist\*w\.head\*([\d.]+)/, /distM \* rel\.head \* ([\d.]+)/],
+     ["Höhe bergab", /dElev\*([\d.]+)/, /dElev \* ([\d.]+)/]
+    ].forEach(([name, rj, rk]) => {
+      const a = zahl(src, rj), b = zahl(kt, rk);
+      ok("playsLike · " + name + " gleich", a != null && a === b, "App " + a + " / Uhr " + b);
+    });
+
+    /* Lagefaktoren: die App führt sie über Codes, die Uhr über Namen. */
+    const m = src.match(/LAGE_FAKTOR:\{([^}]*)\}/);
+    const app = {};
+    if (m) for (const p2 of m[1].matchAll(/(\d+):([\d.]+)/g)) app[p2[1]] = parseFloat(p2[2]);
+    const lf = kt.slice(kt.indexOf("fun lieFactor"), kt.indexOf("fun lieFactor") + 700);
+    const uhr = {};
+    for (const p2 of lf.matchAll(/"(\w+)"(?:\s*,\s*"(\w+)")?\s*->\s*([\d.]+)/g)) {
+      uhr[p2[1]] = parseFloat(p2[3]);
+      if (p2[2]) uhr[p2[2]] = parseFloat(p2[3]);
+    }
+    [["1","fairway"],["2","rough"],["3","bunker"],["4","green"],
+     ["5","penalty"],["6","ob"],["7","recovery"]].forEach(([code, name]) => {
+      const a = app[code], b = uhr[name];
+      ok("Lage „" + name + "“ gleich gewichtet",
+         a != null && b != null && Math.abs(a - b) < 1e-9,
+         "App " + a + " / Uhr " + b);
+    });
+
+    /* Was die Uhr bewusst NICHT hat, muss auch nicht übereinstimmen — aber es
+       gehört benannt, damit niemand es für eine Lücke hält. */
+    ok("die Uhr rechnet keine Erwartungswerte", !/ES_BASE|esOffset/.test(kt));
+    ok("und sagt, dass sie den Gameplan des Handys zeigt",
+       /Gameplan/.test(kt) && /rechnet nur die Regel-Variante selbst/.test(kt));
+
+    /* Lochwechsel auf Seite 1 — und die Übertragung ans Handy. */
+    ok("Seite 1 kann das Loch wechseln", /onHolePrev/.test(kt) && /onHoleNext/.test(kt));
+    ok("Grenzen an der Aufrufstelle geprüft",
+       /onHolePrev = \{ if \(idx > 0\) idx -= 1 \}/.test(kt));
+    ok("am Rand ausgegraut statt entfernt", /GoldText\.copy\(alpha = 0\.25f\)/.test(kt));
+
+    /* Das Protokoll der Uhr reist mit dem Entwurf. */
+    ok("die Uhr hängt ihr Protokoll an den Entwurf", /"watchLog"/.test(kt));
+    ok("die App liest es", /DB\._draftRound\)\|\|null/.test(src) && /watchLog/.test(src));
+    ok("aber mischt es NICHT in das eigene Protokoll",
+       !/ERRLOG\.push\([^)]*watchLog/.test(src));
+    ok("und sagt, warum nicht", /nicht ins eigene\s*\n?\s*Protokoll übernommen|nicht in `ERRLOG` UEBERNOMMEN/.test(src));
+  }
+}
+
 /* ============ 24bl. Caddy-Plan: Einheiten und Plausibilität ============ */
 group("caddyPlan — kein Wedge vom Abschlag, Einheiten beschriftet");
 {
