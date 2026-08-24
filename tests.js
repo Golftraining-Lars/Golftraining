@@ -168,7 +168,7 @@ try {
   /* WICHTIG: bei vm.runInContext landen nur `var` und `function` am Kontext —
      `const STRAT = {...}` bleibt im Blockscope unsichtbar. Deshalb ein Epilog,
      der die benoetigten Namen aktiv herausreicht. */
-  const namen = ["EQUIP_FELDER","EQUIP_GRUPPEN","EQUIP_ALT","ensureSeedGoals","_zielSchluessel","goalCurrent","trainingsEmpfehlung","goalIst","goalPlan","goalFortschritt","goalErreicht","goalHochIstGut","_zielMed","zielFeldDef","ZIEL_QUELLEN","ZIEL_FELDER","testZaehltNicht","testDefsAusgewertet","lmShotKey","lmNurNeue","lmDubletten","LM_ALLE","lmSetClub","playKopfraum","playKopfAnteil","aimUmweg","sgAbdeckungsQuote","sgPuttSchieflage","sgWarnHtml","sgRound","sgEnrich","turnierNaehe","wakeAn","wakeAus","_wakeGruende","kraftVerlauf","standNeuer","wetterSetzen","mobBaseline","MOB_KEYS","_fitMedian","_fitVergleich","isoWoche","kraftNorm","est1RM","kraftVerlauf","_dgmAbstandZuStrecke","gpFingerprint","_aimApproachEv","watchElevProfil","dgmSetzen","elevQuelle","elevQuelleText","dgmRahmen","dgmIdx","dgmZelleMitte","dgmZellen","dgmHoehe","dgmNeigung","dgmKey",
+  const namen = ["_mergeObj","_leerWert","mergeDB","MERGE_KEY","EQUIP_FELDER","EQUIP_GRUPPEN","EQUIP_ALT","ensureSeedGoals","_zielSchluessel","goalCurrent","trainingsEmpfehlung","goalIst","goalPlan","goalFortschritt","goalErreicht","goalHochIstGut","_zielMed","zielFeldDef","ZIEL_QUELLEN","ZIEL_FELDER","testZaehltNicht","testDefsAusgewertet","lmShotKey","lmNurNeue","lmDubletten","LM_ALLE","lmSetClub","playKopfraum","playKopfAnteil","aimUmweg","sgAbdeckungsQuote","sgPuttSchieflage","sgWarnHtml","sgRound","sgEnrich","turnierNaehe","wakeAn","wakeAus","_wakeGruende","kraftVerlauf","standNeuer","wetterSetzen","mobBaseline","MOB_KEYS","_fitMedian","_fitVergleich","isoWoche","kraftNorm","est1RM","kraftVerlauf","_dgmAbstandZuStrecke","gpFingerprint","_aimApproachEv","watchElevProfil","dgmSetzen","elevQuelle","elevQuelleText","dgmRahmen","dgmIdx","dgmZelleMitte","dgmZellen","dgmHoehe","dgmNeigung","dgmKey",
                  "STRAT","clubPick","playsLike","pinPoint","geoDist","playMapBox",
                  "selfCheck","PLAY","escShort","_short","clubShort","windRel","tempFactor","DB",
                  "courseTee","activeHoles","roundDurationMin","mergeDB","_mergeArr","_mergeTs",
@@ -5282,7 +5282,7 @@ group("Zielquellen — was messbar ist, wird gemessen");
 
   /* (5) FAIRWAYQUOTE OHNE PAR 3 — sonst sinkt sie mit jedem Par 3, das man
      gar nicht anspielen kann. */
-  ok("Par 3 zählen nicht in die Fairwayquote", /h\.par>3&&h\.fw!=null/.test(src));
+  ok("Par 3 zählen nicht in die Fairwayquote", /h\.par&&h\.par>3&&h\.tee!=null/.test(src));
   /* (6) Serie heißt LAUFENDE Serie. */
   ok("Trainingsserie zählt ab heute rückwärts", /Laengste ununterbrochene Tagesserie BIS HEUTE/.test(src));
 }
@@ -5396,6 +5396,181 @@ group("Ausrüstung — eine Zeile je Schläger, ohne Datenverlust");
      helfen, nicht vorschreiben. */
   const mitLoft = F.filter(x => /°/.test(x[2] || "")).length;
   ok("Lofts als Hilfestellung hinterlegt", mitLoft >= 10, mitLoft + " Zeilen");
+}
+
+/* ============ 24ck. Rundengrößen lesen die angereicherte Sicht ============ */
+group("Zielquelle runde — par kommt aus dem Platz, nicht vom Loch");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+  const DBx = G("DB"), ist = G("goalIst");
+
+  /* GEMELDET: „Warum nur 9 von 60 Löchern? GIR lässt sich doch berechnen."
+     Völlig richtig. An den echten Runden nachgezählt: von 145 Löchern der
+     letzten zehn Runden tragen NEUN ein `par`-Feld. Die Scorekarte speichert
+     es nicht am Loch, weil es in der PLATZDEFINITION steht — dafür gibt es
+     `sgEnrich(round)`. Diese Auswertung benutzte es nicht und las `h.par` roh.
+     Dieselbe Fehlerklasse wie `sgHole` vor `sgEnrich` und wie Rohzugriff statt
+     `holeRef` in der Geometrie: Wer die Rohform liest, liest zu wenig. */
+  ok("die Rundenauswertung reichert an", /sgEnrich\(r\):\(r\.holes\|\|\[\]\)\)\.filter\(Boolean\)/.test(src));
+  ok("und zählt auf der angereicherten Liste",
+     /basis\+=zaehl\(H,h=>h\.score!=null&&h\.putts!=null&&h\.par\)/.test(src));
+
+  if (typeof ist === "function") {
+    const sichR = DBx.rounds, sichC = DBx.courses;
+    try {
+      /* Genau die Konstellation aus den echten Daten: Löcher OHNE `par`,
+         aber der Platz kennt es. */
+      DBx.courses = [{ name: "T", tees: { Gelb: { holes: [
+        { hole: 1, par: 4, si: 1, len: 350 }, { hole: 2, par: 3, si: 17, len: 150 },
+        { hole: 3, par: 5, si: 3, len: 480 }, { hole: 4, par: 4, si: 7, len: 320 }
+      ] } } }];
+      const holes = [
+        { hole: 1, score: 5, putts: 2 }, { hole: 2, score: 4, putts: 2 },
+        { hole: 3, score: 6, putts: 2 }, { hole: 4, score: 6, putts: 3 }
+      ];
+      DBx.rounds = [{ id: "R1", course: "T", tee: "Gelb", date: "2026-08-01", holes }];
+
+      /* Geprüft wird die ABDECKUNG, nicht der Wert: Vier Löcher reichen nie
+         für eine Aussage, aber sie zeigen, ob die Löcher überhaupt GEFUNDEN
+         werden. Genau das war der Fehler — ohne Anreicherung waren es null. */
+      const mit = ist({ quelle: "runde", feld: "par3" });
+      ok("Par-3-Löcher werden gefunden", mit.n >= 1, JSON.stringify(mit));
+      const si = ist({ quelle: "runde", feld: "si6" });
+      ok("SI-Löcher werden gefunden", si.n >= 1, JSON.stringify(si));
+      const gir = ist({ quelle: "runde", feld: "girPct" });
+      ok("GIR findet Löcher mit Par", gir.n >= 4, JSON.stringify(gir));
+
+      /* GEGENPROBE: Ohne Platzdefinition kann auch die Anreicherung nichts —
+         dann bleibt die Abdeckung bei null, und es kommt KEINE erfundene Zahl.
+         Der Unterschied zwischen beiden Läufen IST der Fehler von v4.38. */
+      DBx.courses = [];
+      const ohne = ist({ quelle: "runde", feld: "par3" });
+      eq("ohne Platz kein Loch gefunden", ohne.n || 0, 0);
+      eq("und keine erfundene Zahl", ohne.wert, null);
+    } finally { DBx.rounds = sichR; DBx.courses = sichC; }
+  }
+}
+
+/* ============ 24ck. Rundenziele lesen die Daten, die es gibt ============ */
+group("Zielquelle runde — angereichert lesen, echte Feldnamen");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+  const DBx = G("DB"), ist = G("goalIst");
+
+  /* GEMELDET: „9 von 60 Löchern" bei zehn Runden mit 144 Löchern.
+     ZWEI URSACHEN, beide meine:
+     (1) `par` steht NICHT am Loch, sondern in der Platzdefinition —
+         `sgEnrich(round)` trägt es nach. Diese Auswertung las `r.holes` ROH.
+         Von 144 Löchern trugen genau 9 ein eigenes `par`; die übrigen 135
+         waren vollständig auswertbar und wurden verworfen. Dieselbe Klasse
+         wie `grid()` in v3.94: Die Daten lagen da, sie wurden nur nicht durch
+         die Funktion gelesen, die sie vervollständigt.
+     (2) Erfundene Feldnamen: Das Abschlagergebnis steht in `h.tee` („Hit"),
+         der Grüntreffer in `h.apprMiss` („Grün getroffen") — ich hatte auf
+         `h.fw` geprüft, weshalb die Fairwayquote „0 von 40" meldete. */
+  ok("Rundenziele lesen angereichert",
+     /sgEnrich===\"function\"\)\?sgEnrich\(r\):\(r\.holes\|\|\[\]\)\)\.filter\(Boolean\)/.test(src));
+  ok("Fairway kommt aus h.tee", /h\.tee!=null&&String\(h\.tee\)\.trim\(\)!==""/.test(src));
+  ok("„Hit“ ist der Treffer", /\/\^hit\$\/i\.test\(String\(h\.tee\)\.trim\(\)\)/.test(src));
+  ok("Grüntreffer kommt aus h.apprMiss", /grün getroffen\/i\.test\(String\(h\.apprMiss\)\)/.test(src));
+  ok("kein erfundenes Feld h.fw mehr", !/h\.fw!=null/.test(src));
+
+  if (typeof ist === "function") {
+    const sichR = DBx.rounds, sichC = DBx.courses;
+    try {
+      /* Ein Loch OHNE eigenes `par` — genau der Fall, der 135 Löcher
+         verschluckt hat. Der Platz liefert es nach. */
+      DBx.courses = [{ name: "T", tees: { Gelb: { holes: [
+        { hole: 1, par: 4, si: 1, len: 350 }, { hole: 2, par: 3, si: 9, len: 150 }
+      ] } } }];
+      /* Genug Löcher, damit die Mindestabdeckung erreicht wird — sonst prüft
+         der Test die Abdeckungsregel statt der Anreicherung. */
+      const holes = [];
+      for (let i = 0; i < 45; i++) holes.push(
+        { hole: 1, score: 5, putts: 2, tee: "Hit", apprMiss: "Grün getroffen" });
+      for (let i = 0; i < 36; i++) holes.push(
+        { hole: 2, score: 4, putts: 2, tee: "Links", apprMiss: "Kurz" });
+      DBx.rounds = [{ course: "T", tee: "Gelb", date: "2026-08-01", holes }];
+      const g = f => ist({ quelle: "runde", feld: f }) || {};
+      ok("GIR rechnet trotz fehlendem par am Loch", g("girPct").wert != null,
+         JSON.stringify(g("girPct").grund || g("girPct").wert));
+      /* Par 3 fällt aus der Fairwayquote — Loch 2 ist eine Par 3. */
+      /* Loch 2 ist eine Par 3 — sie darf die Fairwayquote nicht drücken.
+         Alle Par-4-Löcher sind „Hit", also 100 %. */
+      const fw = g("fwPct");
+      eq("Par 3 drückt die Fairwayquote nicht", fw.wert, 100);
+    } finally { DBx.rounds = sichR; DBx.courses = sichC; }
+  }
+}
+
+/* ============ 24cl. Sync: kein Bereich ohne Regel ============ */
+group("mergeDB — jeder Bereich hat eine Regel");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+  const mo = G("_mergeObj"), leer = G("_leerWert"), md = G("mergeDB"), KEY = G("MERGE_KEY");
+
+  /* GEMELDET: „Die Synchronisation der Schlägerdaten funktioniert nicht über
+     verschiedene Geräte." Nachgezählt: `mergeDB` hatte Regeln für 14 Listen,
+     für die übrigen 30 Bereiche gar keine. Sie fielen unter
+     `Object.assign({},R,L)` — dort gewinnt der LOKALE Stand vollständig.
+     Verlustweg wie bei `gpsShots` in v2.90: A trägt ein und pusht, B behält
+     sein eigenes Objekt, beim nächsten Push von B ist es auch im Repo weg. */
+  if (typeof leer === "function") {
+    ok("leerer Text zählt als leer", leer("") && leer("   "));
+    ok("null und undefined ebenso", leer(null) && leer(undefined));
+    ok("leeres Objekt und leere Liste ebenso", leer({}) && leer([]));
+    ok("ein Objekt aus lauter Leerem ist leer", leer({ a: "", b: { c: null } }));
+    ok("Inhalt ist nicht leer", !leer("x") && !leer([1]) && !leer({ a: 1 }));
+    ok("die Zahl 0 ist NICHT leer", !leer(0));
+  }
+
+  if (typeof mo === "function") {
+    /* DER GEMELDETE FALL: Gerät A kennt einen Schläger, B nicht. */
+    const A = { driver: { text: "Cobra Aerojet", seit: "2026-08-24" }, i7: { text: "", seit: "" } };
+    const B = { driver: { text: "", seit: "" }, i7: { text: "Ping G410", seit: "2026-08-16" } };
+    const r = mo(A, B);
+    eq("A's Driver überlebt", r.driver.text, "Cobra Aerojet");
+    eq("B's Eisen überlebt", r.i7.text, "Ping G410");
+
+    /* Nur im echten Konflikt entscheidet der lokale Stand. */
+    const k = mo({ x: { text: "lokal" } }, { x: { text: "fern" } });
+    eq("bei beidseitigem Inhalt gewinnt lokal", k.x.text, "lokal");
+
+    /* Nichts darf verschwinden, was nur eine Seite kennt. */
+    const u = mo({ a: 1 }, { b: 2 });
+    ok("Schlüssel beider Seiten bleiben", u.a === 1 && u.b === 2);
+    ok("mit leeren Eingaben umgehen", typeof mo(null, null) === "object");
+  }
+
+  /* Jeder Bereich, den `mergeDB` behandelt, braucht auch einen Schlüssel —
+     und umgekehrt darf kein Schlüssel ins Leere zeigen. */
+  ["seasonGoals", "tournaments", "gear", "tasks"].forEach(k =>
+    ok("Merge-Schlüssel für " + k, typeof KEY[k] === "function"));
+  ok("Ziele ohne id über Phase und Beschriftung",
+     KEY.seasonGoals({ phase: "Phase 1", label: "GIR ≥ 32" }) === "Phase 1|GIR ≥ 32");
+
+  /* Und die Bereiche stehen wirklich in mergeDB. */
+  ["seasonGoals", "tournaments", "gear", "tasks", "periodization"].forEach(k =>
+    ok(k + " wird gemerged", new RegExp("out\\." + k + "\\s*=").test(src)));
+  ["equipment", "fitPlan", "settings", "lmTargets"].forEach(k =>
+    ok(k + " wird je Schlüssel vereinigt", new RegExp('"' + k + '"').test(src)));
+
+  /* END-ZU-END: der gemeldete Fall durch das echte mergeDB. */
+  if (typeof md === "function") {
+    const lokal = { rounds: [], equipment: { i7: { text: "Ping G410" } },
+                    seasonGoals: [{ id: "A", label: "a" }], profile: { hcpIndex: 20 } };
+    const repo = { rounds: [], equipment: { driver: { text: "Cobra Aerojet" } },
+                   seasonGoals: [{ id: "B", label: "b" }], profile: { hcpIndex: 20 } };
+    const m = md(lokal, repo);
+    ok("Ausrüstung beider Geräte überlebt den Merge",
+       m.equipment.i7 && m.equipment.driver, JSON.stringify(m.equipment));
+    eq("Saisonziele beider Geräte überleben", (m.seasonGoals || []).length, 2);
+  }
+
+  /* Die „Median übernehmen"-Wege stempeln jetzt — ohne Stempel fällt
+     `_mergeArr` auf „vollständigerer gewinnt" zurück, und eine geänderte Zahl
+     macht den Eintrag nicht länger. */
+  ok("Median-Übernahme stempelt", /obj\.total=med; stamp\(obj\);/.test(src));
 }
 
 /* ============ 24bl. Caddy-Plan: Einheiten und Plausibilität ============ */
