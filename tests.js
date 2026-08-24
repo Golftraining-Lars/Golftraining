@@ -5162,6 +5162,75 @@ group("Saisonziele — mit Zieldatum und mit Wirkung");
   ok("und die Begründung nennt die Frist", /Tage bis zum Zieldatum/.test(src));
 }
 
+/* ============ 24ch. Ziele aus Daten statt von Hand ============ */
+group("Zielquellen — was messbar ist, wird gemessen");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+  const DBx = G("DB"), FELDER = G("ZIEL_FELDER"), ist = G("goalIst");
+  const goals = DBx.seasonGoals || [];
+
+  /* (1) VERWAISTE ZIELE ANBINDEN. Elf Ziele wurden von Hand gepflegt,
+     obwohl die Daten dafür dalagen — „Eisen Streubreite" gegen `lm.streuung`,
+     „9-Shot Test" gegen den gleichnamigen Test. Ein Ziel, das man von Hand
+     nachträgt, wird nicht nachgetragen. */
+  const ohne = goals.filter(g => !g.quelle && !g.testKey);
+  ok("fast alle Ziele hängen an Daten", ohne.length <= 1,
+     ohne.map(g => g.label).join(" · ") || "keins");
+
+  /* (2) EINHEITEN GEHÖREN IN DIE BESCHRIFTUNG. An den echten Daten geprüft:
+     Geschwindigkeiten in mph, Längen in Metern — gemischt im selben Datensatz.
+     Genau die Konstellation, aus der in v4.24 der Tabellenfehler entstand. */
+  ["mph", "(m)", "°"].forEach(e =>
+    ok("Einheit „" + e + "“ steht in einer Beschriftung",
+       FELDER.lm.some(f => f.lab.includes(e))));
+
+  /* (3) ABDECKUNG: lieber keine Zahl als eine, der man nicht trauen kann.
+     Scrambling, Fairwayquote und Putts-nach-GIR hängen an Feldern, die real
+     nur zu 30–55 % gefüllt sind. */
+  const mitMin = FELDER.runde.filter(f => f.minN);
+  ok("Rundengrößen haben eine Mindestabdeckung", mitMin.length >= 10,
+     mitMin.length + " von " + FELDER.runde.length);
+  ok("die dünnen Größen fordern weniger als die dichten",
+     FELDER.runde.find(f => f.k === "scrambPct").minN <
+     FELDER.runde.find(f => f.k === "toPar").minN);
+
+  if (typeof ist === "function") {
+    const sich = DBx.rounds;
+    try {
+      /* Zu wenig Daten → Auskunft statt Zahl. */
+      DBx.rounds = [{ course: "X", date: "2026-08-01", tee: "Gelb",
+        holes: [{ hole: 1, par: 4, si: 1, score: 5, putts: 2 }] }];
+      const r = ist({ quelle: "runde", feld: "scrambPct" });
+      eq("dünne Basis liefert keinen Wert", r.wert, null);
+      ok("und sagt warum", /Datenbasis zu dünn/.test(r.grund || ""), r.grund);
+    } finally { DBx.rounds = sich; }
+  }
+
+  /* (4) DIE NEUEN SPIELGRÖSSEN — jede mit Richtung, keine geraten. */
+  const neu = ["fwPct", "scrambPct", "puttsGir", "onePutt", "doppelFrei", "par3", "par5", "si6"];
+  neu.forEach(k => {
+    const f = FELDER.runde.find(x => x.k === k);
+    ok("Messgröße " + k + " vorhanden", !!f);
+    if (f) ok(k + " hat eine Richtung", typeof f.hoch === "boolean");
+  });
+  /* Richtung inhaltlich: mehr Fairways ist gut, mehr Schläge über Par nicht. */
+  eq("mehr Fairways ist besser", FELDER.runde.find(f => f.k === "fwPct").hoch, true);
+  eq("mehr Scrambling ist besser", FELDER.runde.find(f => f.k === "scrambPct").hoch, true);
+  eq("mehr Schläge über Par ist schlechter", FELDER.runde.find(f => f.k === "si6").hoch, false);
+  eq("mehr Putts nach GIR ist schlechter", FELDER.runde.find(f => f.k === "puttsGir").hoch, false);
+  /* Beim Anstellwinkel ist WENIGER (negativer) besser für ein Eisen — aber die
+     Skala läuft negativ, also ist „hoch:true" hier richtig und „ein größerer
+     Zahlenwert ist besser" falsch. Deshalb ausdrücklich festgehalten. */
+  ok("Anstellwinkel ist als Messgröße vorhanden",
+     FELDER.lm.some(f => f.k === "attack"));
+
+  /* (5) FAIRWAYQUOTE OHNE PAR 3 — sonst sinkt sie mit jedem Par 3, das man
+     gar nicht anspielen kann. */
+  ok("Par 3 zählen nicht in die Fairwayquote", /h\.par>3&&h\.fw!=null/.test(src));
+  /* (6) Serie heißt LAUFENDE Serie. */
+  ok("Trainingsserie zählt ab heute rückwärts", /Laengste ununterbrochene Tagesserie BIS HEUTE/.test(src));
+}
+
 /* ============ 24bl. Caddy-Plan: Einheiten und Plausibilität ============ */
 group("caddyPlan — kein Wedge vom Abschlag, Einheiten beschriftet");
 {
