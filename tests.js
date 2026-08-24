@@ -168,7 +168,7 @@ try {
   /* WICHTIG: bei vm.runInContext landen nur `var` und `function` am Kontext —
      `const STRAT = {...}` bleibt im Blockscope unsichtbar. Deshalb ein Epilog,
      der die benoetigten Namen aktiv herausreicht. */
-  const namen = ["ensureSeedGoals","_zielSchluessel","goalCurrent","trainingsEmpfehlung","goalIst","goalPlan","goalFortschritt","goalErreicht","goalHochIstGut","_zielMed","zielFeldDef","ZIEL_QUELLEN","ZIEL_FELDER","testZaehltNicht","testDefsAusgewertet","lmShotKey","lmNurNeue","lmDubletten","LM_ALLE","lmSetClub","playKopfraum","playKopfAnteil","aimUmweg","sgAbdeckungsQuote","sgPuttSchieflage","sgWarnHtml","sgRound","sgEnrich","turnierNaehe","wakeAn","wakeAus","_wakeGruende","kraftVerlauf","standNeuer","wetterSetzen","mobBaseline","MOB_KEYS","_fitMedian","_fitVergleich","isoWoche","kraftNorm","est1RM","kraftVerlauf","_dgmAbstandZuStrecke","gpFingerprint","_aimApproachEv","watchElevProfil","dgmSetzen","elevQuelle","elevQuelleText","dgmRahmen","dgmIdx","dgmZelleMitte","dgmZellen","dgmHoehe","dgmNeigung","dgmKey",
+  const namen = ["EQUIP_FELDER","EQUIP_GRUPPEN","EQUIP_ALT","ensureSeedGoals","_zielSchluessel","goalCurrent","trainingsEmpfehlung","goalIst","goalPlan","goalFortschritt","goalErreicht","goalHochIstGut","_zielMed","zielFeldDef","ZIEL_QUELLEN","ZIEL_FELDER","testZaehltNicht","testDefsAusgewertet","lmShotKey","lmNurNeue","lmDubletten","LM_ALLE","lmSetClub","playKopfraum","playKopfAnteil","aimUmweg","sgAbdeckungsQuote","sgPuttSchieflage","sgWarnHtml","sgRound","sgEnrich","turnierNaehe","wakeAn","wakeAus","_wakeGruende","kraftVerlauf","standNeuer","wetterSetzen","mobBaseline","MOB_KEYS","_fitMedian","_fitVergleich","isoWoche","kraftNorm","est1RM","kraftVerlauf","_dgmAbstandZuStrecke","gpFingerprint","_aimApproachEv","watchElevProfil","dgmSetzen","elevQuelle","elevQuelleText","dgmRahmen","dgmIdx","dgmZelleMitte","dgmZellen","dgmHoehe","dgmNeigung","dgmKey",
                  "STRAT","clubPick","playsLike","pinPoint","geoDist","playMapBox",
                  "selfCheck","PLAY","escShort","_short","clubShort","windRel","tempFactor","DB",
                  "courseTee","activeHoles","roundDurationMin","mergeDB","_mergeArr","_mergeTs",
@@ -5084,9 +5084,10 @@ group("Saisonziele — Spielziele, robuster Ist-Wert, Ampel");
     ok("Resttage werden geliefert", plan(g, 5).tageRest > 0);
   }
 
-  /* SPIELZIELE IM BESTAND — der Grund für (B). */
-  const spiel = (DBx.seasonGoals || []).filter(g => g.phase === "Spielziele");
-  ok("Spielziele vorhanden", spiel.length >= 8, spiel.length + " Ziele");
+  /* SPIELZIELE IM BESTAND — der Grund für (B). Seit v4.36 stehen sie in den
+     vier Phasen statt in einer Sammelphase, erkannt werden sie an der Quelle. */
+  const spiel = (DBx.seasonGoals || []).filter(g => g.quelle && g.quelle !== "test");
+  ok("Spielziele vorhanden", spiel.length >= 40, spiel.length + " Ziele");
   ok("alle mit Quelle und Messgröße", spiel.every(g => g.quelle && g.feld));
   ok("alle mit Zieldatum", spiel.every(g => g.dateTo));
   ok("alle Messgrößen sind bekannt", spiel.every(g => feldDef(g) !== null));
@@ -5122,12 +5123,58 @@ group("Saisonziele — mit Zieldatum und mit Wirkung");
 
   /* (B) SPIELZIELE, nicht nur Übungsziele. Der ursprüngliche Bestand war
      ausschließlich Drill-Ergebnisse — man optimiert, was man misst. */
-  const spiel = goals.filter(g => g.phase === "Spielziele");
-  ok("Spielziele vorhanden", spiel.length >= 6, spiel.length + " Stück");
+  /* Seit v4.36 stehen die Spielziele NICHT mehr in einer eigenen Sammelphase,
+     sondern in den vier Saisonphasen — mit Zielwerten für das jeweilige
+     HCP-Niveau. Eine Sammelphase hätte gefragt „was willst du irgendwann",
+     die Phasen fragen „was ist bis Ende dieser Phase dran". */
+  const spiel = goals.filter(g => g.quelle && g.quelle !== "test");
+  ok("Spielziele vorhanden", spiel.length >= 40, spiel.length + " Stück");
+  ok("keine Sammelphase mehr", !goals.some(g => g.phase === "Spielziele"));
   const quellen = [...new Set(spiel.map(g => g.quelle))].sort();
   ok("aus mehreren Datenquellen", quellen.length >= 4, quellen.join(","));
-  ["sg", "runde", "hcp", "lm"].forEach(q =>
+  ["sg", "runde", "hcp", "lm", "fit"].forEach(q =>
     ok("Quelle „" + q + "“ wird genutzt", quellen.includes(q)));
+
+  /* DER KERN DER PHASENSTAFFELUNG: Jede Messgröße muss über die vier Phasen
+     monoton in die RICHTIGE Richtung laufen. Ein Ziel, das in Phase 4 weniger
+     fordert als in Phase 3, ist ein Tippfehler mit Anschein von Absicht —
+     genau so stand „Swing Speed ≥ 103" in Phase 3 und „≥ 102" in Phase 4. */
+  const FELDER2 = G("ZIEL_FELDER");
+  const reihen = {};
+  spiel.forEach(g => {
+    const k = g.quelle + ":" + g.feld + ":" + (g.lmClub || "");
+    (reihen[k] = reihen[k] || []).push(g);
+  });
+  const kaputt = [];
+  Object.entries(reihen).forEach(([k, gs]) => {
+    if (gs.length < 2) return;
+    gs.sort((a, b) => a.phase.localeCompare(b.phase));
+    const fd = (FELDER2[gs[0].quelle] || []).find(f => f.k === gs[0].feld);
+    if (!fd) return;
+    for (let i = 1; i < gs.length; i++) {
+      const besser = fd.hoch ? gs[i].target >= gs[i - 1].target : gs[i].target <= gs[i - 1].target;
+      if (!besser) kaputt.push(k + " " + gs[i - 1].phase + "→" + gs[i].phase
+                               + " (" + gs[i - 1].target + "→" + gs[i].target + ")");
+    }
+  });
+  eq("jede Messgröße wird über die Phasen anspruchsvoller", kaputt.join(" · "), "");
+
+  /* Und der Startwert einer Phase ist das Ziel der vorigen — sonst entsteht
+     eine Lücke oder eine Überschneidung im Fahrplan. */
+  const luecken = [];
+  Object.values(reihen).forEach(gs => {
+    if (gs.length < 2) return;
+    for (let i = 1; i < gs.length; i++)
+      if (Math.abs(gs[i].start - gs[i - 1].target) > 1e-6)
+        luecken.push(gs[i].label + " startet bei " + gs[i].start + ", vorige endete bei " + gs[i - 1].target);
+  });
+  eq("lückenloser Fahrplan über die Phasen", luecken.join(" · "), "");
+
+  /* Jede Phase muss Spielziele enthalten, nicht nur Übungsziele. */
+  ["Phase 1", "Phase 2", "Phase 3", "Phase 4"].forEach(ph => {
+    const n = spiel.filter(g => g.phase === ph).length;
+    ok(ph + " hat Spielziele", n >= 15, n + " Stück");
+  });
 
   if (typeof plan === "function") {
     let mitAmpel = 0, farben = {};
@@ -5221,8 +5268,17 @@ group("Zielquellen — was messbar ist, wird gemessen");
   /* Beim Anstellwinkel ist WENIGER (negativer) besser für ein Eisen — aber die
      Skala läuft negativ, also ist „hoch:true" hier richtig und „ein größerer
      Zahlenwert ist besser" falsch. Deshalb ausdrücklich festgehalten. */
-  ok("Anstellwinkel ist als Messgröße vorhanden",
-     FELDER.lm.some(f => f.k === "attack"));
+  /* ZWEI FELDER FÜR EINE MESSGRÖSSE (v4.36): Beim EISEN ist ein negativerer
+     Anstellwinkel besser, beim DRIVER ein positiverer. Ein einziges Feld mit
+     einer Richtung wäre für die eine Hälfte der Schläger zwangsläufig falsch
+     herum — und ein Ziel, das falsch herum zählt, belohnt genau den Fehler,
+     den es abstellen soll. */
+  ok("Anstellwinkel Eisen: negativer ist besser",
+     FELDER.lm.find(f => f.k === "attackIron").hoch === false);
+  ok("Anstellwinkel Driver: positiver ist besser",
+     FELDER.lm.find(f => f.k === "attackDriver").hoch === true);
+  ok("beide lesen dasselbe Rohfeld",
+     /g\.feld==="attackIron"\|\|g\.feld==="attackDriver"\) \? "attack"/.test(src));
 
   /* (5) FAIRWAYQUOTE OHNE PAR 3 — sonst sinkt sie mit jedem Par 3, das man
      gar nicht anspielen kann. */
@@ -5287,6 +5343,59 @@ group("ensureSeedGoals — nachziehen ohne zu überschreiben");
   ok("beim Start aufgerufen", /try\{ ensureSeedGoals\(\); \}catch/.test(src));
   ok("Erkennung über Phase und Beschriftung, nicht über die id",
      /function _zielSchluessel\(g\)/.test(src));
+}
+
+/* ============ 24cj. Ausrüstung: jeder Schläger einzeln ============ */
+group("Ausrüstung — eine Zeile je Schläger, ohne Datenverlust");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+  const F = G("EQUIP_FELDER"), GR = G("EQUIP_GRUPPEN"), ALT = G("EQUIP_ALT");
+
+  /* Bis v4.36 gab es je EINE Zeile für Hölzer, Eisen und Wedges. Damit ließ
+     sich nur der Satz eintragen, nicht der Schläger — und der Schläger ist
+     die Einheit, die man wechselt. Die „seit wann"-Spalte, der eigentliche
+     Wert dieser Liste, galt dann pauschal für den ganzen Satz. */
+  const keys = F.map(x => x[0]);
+  ["w3", "w5", "w7"].forEach(k => ok("Holz " + k + " einzeln", keys.includes(k)));
+  ["i4", "i5", "i6", "i7", "i8", "i9"].forEach(k => ok("Eisen " + k + " einzeln", keys.includes(k)));
+  /* EIGENE GRUPPE FUERS DRIVING IRON (v4.38): Mit 17° steht es zwischen
+     Hölzern und Eisen und gehört zu keinem von beiden — es ersetzt ein Holz,
+     wird aber wie ein Eisen geschlagen. Unter „Eisen" wirkte es wie der Anfang
+     eines Satzes, der bei 2 beginnt; das tut er nicht. */
+  ok("Driving Iron ist eine eigene Zeile", keys.includes("di"));
+  ok("und eine eigene Gruppe", GR.di === "Driving Iron");
+  ok("die Eisen beginnen bei 4", GR.i4 === "Eisen" && !keys.includes("i2"));
+  ["pw", "gw", "sw", "lw"].forEach(k => ok("Wedge " + k + " einzeln", keys.includes(k)));
+
+  /* Hybride sind nicht im Bag — eine dauerhaft leere Zeile kostet bei jedem
+     Blick Aufmerksamkeit. */
+  ok("keine Hybrid-Zeile mehr", !F.some(x => /Hybrid/i.test(x[1])));
+  ok("keine Sammelzeile mehr in der Hauptliste",
+     !keys.includes("woods") && !keys.includes("irons") && !keys.includes("wedges"));
+
+  /* Jeder Schlüssel genau einmal — ein doppelter überschriebe beim Speichern
+     stillschweigend den anderen. */
+  eq("keine doppelten Schlüssel", keys.length, new Set(keys).size);
+  ok("alle Zeilen haben eine Beschriftung", F.every(x => x[1] && x[1].trim()));
+
+  /* Gruppen-Überschriften: jede muss auf einen vorhandenen Schlüssel zeigen,
+     sonst erscheint sie nie. */
+  Object.keys(GR).forEach(k =>
+    ok("Überschrift „" + GR[k] + "“ hängt an einem echten Feld", keys.includes(k)));
+
+  /* KEIN DATENVERLUST: Die abgelösten Sammelzeilen bleiben lesbar, solange
+     sie Text tragen. Stilles Löschen fremder Eingaben wäre das Schlimmste,
+     was eine Umstellung tun kann. */
+  ok("alte Sammeleinträge sind erhalten",
+     ALT.map(x => x[0]).join(",") === "woods,irons,wedges,i2");
+  ok("sie werden nur bei Inhalt gezeigt",
+     /EQUIP_ALT\.filter\(\(\[k\]\)=>\(\(e\[k\]\|\|\{\}\)\.text\|\|""\)\.trim\(\)\)/.test(src));
+  ok("mit Hinweis, was damit zu tun ist", /Verteile den Inhalt auf die/.test(src));
+
+  /* Die Lofts in den Platzhaltern stammen aus dem echten Bag — sie sollen
+     helfen, nicht vorschreiben. */
+  const mitLoft = F.filter(x => /°/.test(x[2] || "")).length;
+  ok("Lofts als Hilfestellung hinterlegt", mitLoft >= 10, mitLoft + " Zeilen");
 }
 
 /* ============ 24bl. Caddy-Plan: Einheiten und Plausibilität ============ */
