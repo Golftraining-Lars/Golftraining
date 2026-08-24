@@ -5992,7 +5992,7 @@ group("Live-Zeiger — beide Geräte, dieselbe Regel");
     /* (1) Welche Uhr-Fassung läuft? Sie stand nur im Fehlerprotokoll — also
        nur, wenn es Fehler gab. */
     ok("die Uhr nennt ihre Fassung im Live-Zeiger", /\.put\("app", WATCH_APP\)/.test(kt));
-    ok("und die Kennung ist aktuell", /WATCH_APP = "2026-08-24/.test(kt));
+    ok("und die Kennung ist aktuell", /WATCH_APP = "2026-08-24 \(7\)"/.test(kt));
     ok("das Handy zeigt sie", /function watchFassung\(\)/.test(src));
     ok("ohne automatisches Urteil „veraltet“",
        /BEWUSST KEIN AUTOMATISCHER VERGLEICH/.test(src));
@@ -6000,7 +6000,20 @@ group("Live-Zeiger — beide Geräte, dieselbe Regel");
     /* (2) Quittung für Schlagmessungen. */
     ok("das Handy quittiert übernommene Schläge", /d\.shotAck=DRAFT_ACK/.test(src));
     ok("nur Kennungen, keine Messwerte", /\.map\(x=>x\.id\)\.slice\(-200\)/.test(src));
-    ok("die Uhr räumt daraufhin auf", /optJSONArray\("shotAck"\)/.test(kt));
+    /* ÜBERSETZUNGSFEHLER 2026-08-24 (7): Der erste Versuch las die neuen
+       Felder direkt mit `dr?.optJSONArray(...)` — aber `dr` ist ein
+       `RepoDraft`, KEIN `JSONObject`. Der Compiler meldete „Unresolved
+       reference 'optJSONArray'".
+       `parseDraft` liest den JSON EINMAL und macht daraus getippte Felder.
+       Wer daneben noch einmal roh liest, hat zwei Stellen, an denen ein
+       Feldname stehen kann — und irgendwann stehen dort zwei verschiedene. */
+    ok("shotAck ist ein getipptes Feld", /val shotAck: List<String>/.test(kt));
+    ok("roundDone ebenso", /val doneAt: String\?/.test(kt) && /val doneCourse: String\?/.test(kt));
+    ok("parseDraft füllt sie", /shotAck = d\.optJSONArray\("shotAck"\)/.test(kt));
+    /* Und die Auswertung greift NICHT roh auf `dr` zu — genau daran ist der
+       erste Versuch gescheitert. */
+    ok("kein roher JSON-Zugriff auf dr", !/\bdr\??\.optJSON/.test(
+       kt.replace(/\/\*[\s\S]*?\*\//g, "")));
     ok("und entfernt nur das Quittierte", /measurements\.removeAll\(weg\)/.test(kt));
 
     /* (3) Runde beendet. Bis hierher kannte die Uhr nur „verworfen". */
