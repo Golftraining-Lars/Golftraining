@@ -5934,6 +5934,19 @@ group("Live-Zeiger — beide Geräte, dieselbe Regel");
      jeder Eingabe und jedem GPS-Takt speichert, war der Zeiger der Uhr weg,
      bevor `playAdoptRemoteHole` ihn sehen konnte.
      Wer öfter schreibt, gewinnt — das ist keine Regel, das ist ein Zufall. */
+  /* ERST PRÜFEN, DANN ABHAKEN (v4.56). `playLiveSeenAt` wurde gesetzt, BEVOR
+     feststand, ob das Loch abweicht. Ein Zeiger, der beim Ankommen noch auf
+     dasselbe Loch zeigte, galt damit als „gesehen" — und ein Lochwechsel im
+     selben Zeitstempel war bereits abgehakt, bevor er ausgewertet wurde. Die
+     Uhr sendet seit 2026-08-24 (5) sofort, also oft mehrfach je Sekunde. */
+  ok("abgehakt wird nur, was wirkt",
+     /if\(t===PLAY\.idx\) return false;\s*\/\/ schon dort: NICHT abhaken/.test(src));
+  ok("ein unbekanntes Loch wird abgehakt",
+     /if\(t<0\)\{ playLiveSeenAt=lv\.at; return false; \}/.test(src));
+  ok("und der Rest erst danach", src.indexOf("if(t===PLAY.idx) return false;") <
+     src.indexOf("playLiveSeenAt=lv.at;\n  /* `stratOval`") ||
+     /if\(t===PLAY\.idx\) return false;[\s\S]{0,120}?playLiveSeenAt=lv\.at;/.test(src));
+
   ok("das Handy stempelt die eigene Lochwahl", /function playHoleStamp\(\)/.test(src));
   ok("playPrev stempelt", /PLAY\.idx--; playHoleStamp\(\);/.test(src));
   ok("playNext stempelt", /PLAY\.idx\+\+; playHoleStamp\(\);/.test(src));
@@ -5952,8 +5965,15 @@ group("Live-Zeiger — beide Geräte, dieselbe Regel");
       DBx._draftRound = { live: { src: "watch", hole: 7, at: iso(jetzt - 5000),
                                   course: "T", date: "2026-08-24" } };
       let o = pl({});
-      eq("frischer Uhr-Zeiger überlebt", o.hole, 7);
-      eq("und bleibt als Uhr gekennzeichnet", o.src, "watch");
+      /* SEIT v4.56 WIRD NICHT MEHR GEECHOT. Der fremde LOCHWERT wird
+         übernommen, gesendet wird aber mit EIGENEM, frischem Zeitstempel —
+         sonst schickt das Handy eine alte Kopie ins Repo und überschreibt
+         dort den frischen Zeiger der Uhr. Genau dieser Wettlauf war der
+         Grund für „mal geht es, mal nicht". */
+      eq("der Lochwert der Uhr wird übernommen", o.hole, 7);
+      eq("aber mit eigenem Absender", o.src, "phone");
+      ok("und mit frischem Zeitstempel",
+         new Date(o.at).getTime() > jetzt - 5000, o.at);
 
       /* (b) Eigene Wahl ist jünger → das Handy schreibt seinen Zeiger. */
       PLAYx.holeAt = iso(jetzt - 1000);
