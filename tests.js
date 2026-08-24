@@ -5872,8 +5872,20 @@ group("Gleichlauf Uhr ↔ App — dieselbe Frage, dieselbe Antwort");
 
     /* Lochwechsel auf Seite 1 — und die Übertragung ans Handy. */
     ok("Seite 1 kann das Loch wechseln", /onHolePrev/.test(kt) && /onHoleNext/.test(kt));
-    ok("Grenzen an der Aufrufstelle geprüft",
-       /onHolePrev = \{ if \(idx > 0\) idx -= 1 \}/.test(kt));
+    /* ÜBERSETZUNGSFEHLER 2026-08-24: Der erste Versuch schrieb `idx -= 1` und
+       `cs.holes.lastIndex` direkt in `PlayPager` — dort ist `idx` aber ein
+       `val`-Parameter und `cs` existiert gar nicht. Beides gehört der
+       aufrufenden Composable.
+       Ich konnte es nicht sehen, weil hier kein Kotlin übersetzt werden kann:
+       Die Klammernbilanz war in Ordnung, und mehr prüft eine statische
+       Durchsicht nicht. Deshalb hält der Prüfstand jetzt die STRUKTUR fest —
+       kein Schreibzugriff auf fremden Zustand aus der Composable heraus. */
+    const pp = kt.slice(kt.indexOf("private fun PlayPager("), kt.indexOf("private fun HolePage("));
+    ok("Lochwechsel läuft über einen Rückruf", /onHoleDelta: \(Int\) -> Unit/.test(pp));
+    ok("PlayPager weist idx nicht selbst zu", !/idx\s*[-+]=/.test(pp));
+    ok("und kennt die Kursdaten gar nicht", !/\bcs\./.test(pp));
+    ok("die Grenze steht dort, wo der Zustand liegt",
+       /if \(n >= 0 && n < cs\.holes\.size\) idx = n/.test(kt));
     ok("am Rand ausgegraut statt entfernt", /GoldText\.copy\(alpha = 0\.25f\)/.test(kt));
 
     /* Das Protokoll der Uhr reist mit dem Entwurf. */
