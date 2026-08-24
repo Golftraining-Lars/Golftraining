@@ -168,7 +168,7 @@ try {
   /* WICHTIG: bei vm.runInContext landen nur `var` und `function` am Kontext —
      `const STRAT = {...}` bleibt im Blockscope unsichtbar. Deshalb ein Epilog,
      der die benoetigten Namen aktiv herausreicht. */
-  const namen = ["bagBewertung","clubNorm","_mergeObj","_leerWert","mergeDB","MERGE_KEY","EQUIP_FELDER","EQUIP_GRUPPEN","EQUIP_ALT_KEYS","equipAltRaeumen","ensureSeedGoals","_zielSchluessel","goalCurrent","trainingsEmpfehlung","goalIst","goalPlan","goalFortschritt","goalErreicht","goalHochIstGut","_zielMed","zielFeldDef","ZIEL_QUELLEN","ZIEL_FELDER","testZaehltNicht","testDefsAusgewertet","lmShotKey","lmNurNeue","lmDubletten","LM_ALLE","lmSetClub","playKopfraum","playKopfAnteil","aimUmweg","sgAbdeckungsQuote","sgPuttSchieflage","sgWarnHtml","sgRound","sgEnrich","turnierNaehe","wakeAn","wakeAus","_wakeGruende","kraftVerlauf","standNeuer","wetterSetzen","mobBaseline","MOB_KEYS","_fitMedian","_fitVergleich","isoWoche","kraftNorm","est1RM","kraftVerlauf","_dgmAbstandZuStrecke","gpFingerprint","_aimApproachEv","watchElevProfil","dgmSetzen","elevQuelle","elevQuelleText","dgmRahmen","dgmIdx","dgmZelleMitte","dgmZellen","dgmHoehe","dgmNeigung","dgmKey",
+  const namen = ["repairListenFormen","bagBewertung","clubNorm","_mergeObj","_leerWert","mergeDB","MERGE_KEY","EQUIP_FELDER","EQUIP_GRUPPEN","EQUIP_ALT_KEYS","equipAltRaeumen","ensureSeedGoals","_zielSchluessel","goalCurrent","trainingsEmpfehlung","goalIst","goalPlan","goalFortschritt","goalErreicht","goalHochIstGut","_zielMed","zielFeldDef","ZIEL_QUELLEN","ZIEL_FELDER","testZaehltNicht","testDefsAusgewertet","lmShotKey","lmNurNeue","lmDubletten","LM_ALLE","lmSetClub","playKopfraum","playKopfAnteil","aimUmweg","sgAbdeckungsQuote","sgPuttSchieflage","sgWarnHtml","sgRound","sgEnrich","turnierNaehe","wakeAn","wakeAus","_wakeGruende","kraftVerlauf","standNeuer","wetterSetzen","mobBaseline","MOB_KEYS","_fitMedian","_fitVergleich","isoWoche","kraftNorm","est1RM","kraftVerlauf","_dgmAbstandZuStrecke","gpFingerprint","_aimApproachEv","watchElevProfil","dgmSetzen","elevQuelle","elevQuelleText","dgmRahmen","dgmIdx","dgmZelleMitte","dgmZellen","dgmHoehe","dgmNeigung","dgmKey",
                  "STRAT","clubPick","playsLike","pinPoint","geoDist","playMapBox",
                  "selfCheck","PLAY","escShort","_short","clubShort","windRel","tempFactor","DB",
                  "courseTee","activeHoles","roundDurationMin","mergeDB","_mergeArr","_mergeTs",
@@ -5780,6 +5780,37 @@ group("mergeDB — was Liste war, bleibt Liste");
          Array.isArray(m[k]) && typeof m[k].map === "function",
          Array.isArray(m[k]) ? "" : "Form: " + Object.prototype.toString.call(m[k])));
   }
+
+  /* --- UND DIE REPARATUR DES BESTANDS (v4.48) ---
+     Der Riegel verhindert NEUE Schäden. Was zwischen v4.41 und v4.46 bereits
+     verformt wurde, liegt weiter im Bestand UND im Repo — von dort bekommt es
+     jedes Gerät wieder. Der gemeldete Absturz kam nach dem Einspielen der
+     Reparatur unverändert wieder: Eine Reparatur, die nur den Code heilt,
+     heilt nichts. */
+  const rep = G("repairListenFormen");
+  if (typeof rep === "function") {
+    const sich = JSON.stringify({ a: DBx.approachBuckets, f: DBx.firstPuttDist, p: DBx.profile });
+    try {
+      DBx.approachBuckets = { "0": "80–110", "1": "110–140", "2": "140–170" };
+      DBx.firstPuttDist = { "0": "1m", "1": "2m" };
+      DBx.profile = { hcpIndex: 20 };            // echtes Objekt: darf NICHT wandern
+      const n = rep();
+      ok("verformte Listen werden zurückgewandelt", n >= 2, n + " repariert");
+      ok("approachBuckets ist wieder eine Liste", Array.isArray(DBx.approachBuckets));
+      eq("in der richtigen Reihenfolge", DBx.approachBuckets.join(","), "80–110,110–140,140–170");
+      ok("firstPuttDist ebenso", Array.isArray(DBx.firstPuttDist));
+      /* Ein echtes Objekt anzufassen wäre schlimmer als eine übersehene
+         Verformung — deshalb nur rein numerische Schlüssel. */
+      ok("echtes Objekt bleibt unangetastet",
+         !Array.isArray(DBx.profile) && DBx.profile.hcpIndex === 20);
+      eq("zweiter Lauf tut nichts", rep(), 0);
+    } finally {
+      const v = JSON.parse(sich);
+      DBx.approachBuckets = v.a; DBx.firstPuttDist = v.f; DBx.profile = v.p;
+    }
+  }
+  ok("die Reparatur läuft vor allen anderen Startschritten",
+     src.indexOf("repairListenFormen();") < src.indexOf("ensureSeedTests();"));
 
   ok("approachBuckets steht nicht mehr in der Objekt-Liste",
      !/"priorityWeights","approachBuckets"\]/.test(src));
