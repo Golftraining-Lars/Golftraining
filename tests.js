@@ -5711,6 +5711,82 @@ group("Sync — jeder Schreibvorgang nennt seinen Pfad");
      !/body:JSON\.stringify\(\{path:"wissen-bilder\.json",data:union\}\)/.test(code));
 }
 
+/* ============ 24co. Der Merge darf keine Form zerstören ============ */
+group("mergeDB — was Liste war, bleibt Liste");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+  const md = G("mergeDB"), mo = G("_mergeObj"), DBx = G("DB");
+
+  /* GEMELDET: „Wenn ich im Spielmodus auf Eingabe drücke, stürzt alles ab."
+     Im Protokoll: `(arr || []).map is not a function` in `playSel`.
+     URSACHE: v4.41 nahm `approachBuckets` in die Objekt-Vereinigung auf — die
+     Liste ist aber ein ARRAY. `_mergeObj` baute daraus ein `{}` mit den
+     Schlüsseln 0,1,2…, und danach hatte die Auswahlliste keine `.map` mehr.
+     Der Prüfstand hat es nicht gefangen, weil er Verhalten je Bereich prüfte
+     statt die FORM über alle Bereiche. Diese Gruppe schließt das. */
+  if (typeof mo === "function") {
+    ok("Liste bleibt Liste", Array.isArray(mo(["a","b"], ["a"])));
+    ok("auch wenn nur eine Seite eine ist", Array.isArray(mo(["a"], null)));
+    ok("und andersherum", Array.isArray(mo(null, ["a"])));
+    /* KEIN `.join` direkt auf das Ergebnis: Ist die Form kaputt, wirft der
+       Aufruf, und der Prüfstand STIRBT statt zu melden — genau das ist bei der
+       Gegenprobe passiert. Ein Prüfstand, der abbricht, sagt weniger als
+       einer, der einen roten Haken setzt. Deshalb erst die Form prüfen. */
+    const r1 = mo(["80–110","110–140"], []);
+    ok("Inhalt bleibt erhalten",
+       Array.isArray(r1) && r1.join(",") === "80–110,110–140",
+       Array.isArray(r1) ? r1.join(",") : "KEINE LISTE: " + JSON.stringify(r1).slice(0,60));
+    /* Leere lokale Liste darf die gefüllte nicht verdrängen. */
+    const r2 = mo([], ["x"]);
+    ok("leer verliert gegen gefüllt",
+       Array.isArray(r2) && r2.join(",") === "x",
+       Array.isArray(r2) ? r2.join(",") : "KEINE LISTE");
+    ok("Objekte bleiben Objekte", !Array.isArray(mo({a:1},{b:2})));
+  }
+
+  /* DIE EIGENTLICHE ABSICHERUNG: über den GANZEN Datenbestand. Jede Liste im
+     Eingang muss im Ergebnis eine Liste sein, jedes Objekt ein Objekt. Damit
+     ist es gleich, welcher Bereich künftig dazukommt. */
+  if (typeof md === "function") {
+    const beispiel = {
+      approachBuckets: ["80–110","110–140"], firstPuttDist: ["1m","2m"],
+      teeResults: ["Hit","Links"], teeClubs: ["Driver"], qualityOpts: ["gut"],
+      approachLies: ["Fairway"], puttMiss: ["kurz"], puttRest: ["1m"],
+      bunkerTypes: ["Grün"], penaltyTypes: ["Wasser"], swingTypes: ["Voll"],
+      fitnessLifts: ["Kniebeuge"], yogaStyles: ["Yin"], kurzseitig: ["ja"],
+      approachMiss: ["Kurz"], phases: [{name:"P1"}], gear: [{name:"x"}],
+      tasks: [{id:"t1"}], seasonGoals: [{id:"g1"}], tournaments: [{id:"c1"}],
+      rounds: [], tests: [], courses: [],
+      equipment: { driver: { text: "a" } }, settings: { dgmGitter: 10 },
+      profile: { hcpIndex: 20 }, lmTargets: { x: 1 }, warmup: { a: 1 },
+      costWeights: { a: 1 }, priorityWeights: { a: 1 }, periodization: { phases: [] }
+    };
+    const zweit = JSON.parse(JSON.stringify(beispiel));
+    const m = md(beispiel, zweit);
+    const kaputt = [];
+    Object.keys(beispiel).forEach(k => {
+      const warListe = Array.isArray(beispiel[k]);
+      const istListe = Array.isArray(m[k]);
+      if (m[k] === undefined) return;              // Bereich entfällt bewusst
+      if (warListe !== istListe)
+        kaputt.push(k + ": " + (warListe ? "Liste → Objekt" : "Objekt → Liste"));
+    });
+    eq("kein Bereich wechselt die Form", kaputt.join(" · "), "");
+
+    /* Und die Auswahllisten der Eingabemaske müssen benutzbar bleiben —
+       genau das war kaputt. */
+    ["approachBuckets","firstPuttDist","teeResults","qualityOpts","puttMiss"].forEach(k =>
+      ok(k + " ist nach dem Merge benutzbar",
+         Array.isArray(m[k]) && typeof m[k].map === "function",
+         Array.isArray(m[k]) ? "" : "Form: " + Object.prototype.toString.call(m[k])));
+  }
+
+  ok("approachBuckets steht nicht mehr in der Objekt-Liste",
+     !/"priorityWeights","approachBuckets"\]/.test(src));
+  ok("der Riegel sitzt in _mergeObj selbst",
+     /if\(Array\.isArray\(a\)\|\|Array\.isArray\(b\)\)\{/.test(src));
+}
+
 /* ============ 24bl. Caddy-Plan: Einheiten und Plausibilität ============ */
 group("caddyPlan — kein Wedge vom Abschlag, Einheiten beschriftet");
 {
