@@ -168,7 +168,7 @@ try {
   /* WICHTIG: bei vm.runInContext landen nur `var` und `function` am Kontext —
      `const STRAT = {...}` bleibt im Blockscope unsichtbar. Deshalb ein Epilog,
      der die benoetigten Namen aktiv herausreicht. */
-  const namen = ["repairListenFormen","bagBewertung","clubNorm","_mergeObj","_leerWert","mergeDB","MERGE_KEY","EQUIP_FELDER","EQUIP_GRUPPEN","EQUIP_ALT_KEYS","equipAltRaeumen","ensureSeedGoals","_zielSchluessel","goalCurrent","trainingsEmpfehlung","goalIst","goalPlan","goalFortschritt","goalErreicht","goalHochIstGut","_zielMed","zielFeldDef","ZIEL_QUELLEN","ZIEL_FELDER","testZaehltNicht","testDefsAusgewertet","lmShotKey","lmNurNeue","lmDubletten","LM_ALLE","lmSetClub","playKopfraum","playKopfAnteil","aimUmweg","sgAbdeckungsQuote","sgPuttSchieflage","sgWarnHtml","sgRound","sgEnrich","turnierNaehe","wakeAn","wakeAus","_wakeGruende","kraftVerlauf","standNeuer","wetterSetzen","mobBaseline","MOB_KEYS","_fitMedian","_fitVergleich","isoWoche","kraftNorm","est1RM","kraftVerlauf","_dgmAbstandZuStrecke","gpFingerprint","_aimApproachEv","watchElevProfil","dgmSetzen","elevQuelle","elevQuelleText","dgmRahmen","dgmIdx","dgmZelleMitte","dgmZellen","dgmHoehe","dgmNeigung","dgmKey",
+  const namen = ["_phoneLive","playHoleStamp","PLAY","repairListenFormen","bagBewertung","clubNorm","_mergeObj","_leerWert","mergeDB","MERGE_KEY","EQUIP_FELDER","EQUIP_GRUPPEN","EQUIP_ALT_KEYS","equipAltRaeumen","ensureSeedGoals","_zielSchluessel","goalCurrent","trainingsEmpfehlung","goalIst","goalPlan","goalFortschritt","goalErreicht","goalHochIstGut","_zielMed","zielFeldDef","ZIEL_QUELLEN","ZIEL_FELDER","testZaehltNicht","testDefsAusgewertet","lmShotKey","lmNurNeue","lmDubletten","LM_ALLE","lmSetClub","playKopfraum","playKopfAnteil","aimUmweg","sgAbdeckungsQuote","sgPuttSchieflage","sgWarnHtml","sgRound","sgEnrich","turnierNaehe","wakeAn","wakeAus","_wakeGruende","kraftVerlauf","standNeuer","wetterSetzen","mobBaseline","MOB_KEYS","_fitMedian","_fitVergleich","isoWoche","kraftNorm","est1RM","kraftVerlauf","_dgmAbstandZuStrecke","gpFingerprint","_aimApproachEv","watchElevProfil","dgmSetzen","elevQuelle","elevQuelleText","dgmRahmen","dgmIdx","dgmZelleMitte","dgmZellen","dgmHoehe","dgmNeigung","dgmKey",
                  "STRAT","clubPick","playsLike","pinPoint","geoDist","playMapBox",
                  "selfCheck","PLAY","escShort","_short","clubShort","windRel","tempFactor","DB",
                  "courseTee","activeHoles","roundDurationMin","mergeDB","_mergeArr","_mergeTs",
@@ -5916,6 +5916,79 @@ group("Gleichlauf Uhr ↔ App — dieselbe Frage, dieselbe Antwort");
     ok("aber mischt es NICHT in das eigene Protokoll",
        !/ERRLOG\.push\([^)]*watchLog/.test(src));
     ok("und sagt, warum nicht", /nicht ins eigene\s*\n?\s*Protokoll übernommen|nicht in `ERRLOG` UEBERNOMMEN/.test(src));
+  }
+}
+
+/* ============ 24cq. Der Lochzeiger gehört dem, der zuletzt handelte ============ */
+group("Live-Zeiger — beide Geräte, dieselbe Regel");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+  const ktPfad = path.join(__dirname, "MainActivity.kt");
+  const kt = fs.existsSync(ktPfad) ? fs.readFileSync(ktPfad, "utf8") : "";
+  const PLAYx = G("PLAY"), DBx = G("DB"), pl = G("_phoneLive");
+
+  /* GEMELDET: „Das Umschalten der Löcher durch die Uhr funktioniert nicht."
+     SPIEGELFEHLER zu dem auf der Uhr: BEIDE Geräte überschrieben den Zeiger
+     des anderen mit ihrem eigenen. Auf dem Handy in `playSaveDraft`
+     (`live:_phoneLive(r)` ersetzt ihn vollständig) — und weil das Handy bei
+     jeder Eingabe und jedem GPS-Takt speichert, war der Zeiger der Uhr weg,
+     bevor `playAdoptRemoteHole` ihn sehen konnte.
+     Wer öfter schreibt, gewinnt — das ist keine Regel, das ist ein Zufall. */
+  ok("das Handy stempelt die eigene Lochwahl", /function playHoleStamp\(\)/.test(src));
+  ok("playPrev stempelt", /PLAY\.idx--; playHoleStamp\(\);/.test(src));
+  ok("playNext stempelt", /PLAY\.idx\+\+; playHoleStamp\(\);/.test(src));
+
+  if (typeof pl === "function") {
+    const sich = { d: DBx._draftRound, h: PLAYx.holeAt, i: PLAYx.idx,
+                   c: PLAYx.course, dt: PLAYx.date, ho: PLAYx.holes };
+    try {
+      PLAYx.course = "T"; PLAYx.date = "2026-08-24"; PLAYx.idx = 0;
+      PLAYx.holes = [{ hole: 1 }, { hole: 2 }, { hole: 3 }];
+      const jetzt = Date.now();
+      const iso = ms => new Date(ms).toISOString();
+
+      /* (a) Uhr hat NACH der eigenen Wahl geblättert → ihr Zeiger überlebt. */
+      PLAYx.holeAt = iso(jetzt - 60000);
+      DBx._draftRound = { live: { src: "watch", hole: 7, at: iso(jetzt - 5000),
+                                  course: "T", date: "2026-08-24" } };
+      let o = pl({});
+      eq("frischer Uhr-Zeiger überlebt", o.hole, 7);
+      eq("und bleibt als Uhr gekennzeichnet", o.src, "watch");
+
+      /* (b) Eigene Wahl ist jünger → das Handy schreibt seinen Zeiger. */
+      PLAYx.holeAt = iso(jetzt - 1000);
+      o = pl({});
+      eq("eigene jüngere Wahl gewinnt", o.hole, 1);
+      eq("und wird als Handy gekennzeichnet", o.src, "phone");
+
+      /* (c) Fremder Zeiger von einer ANDEREN Runde zählt nicht. */
+      PLAYx.holeAt = iso(jetzt - 60000);
+      DBx._draftRound = { live: { src: "watch", hole: 7, at: iso(jetzt - 5000),
+                                  course: "Anderer Platz", date: "2026-08-24" } };
+      eq("fremde Runde wird ignoriert", pl({}).src, "phone");
+
+      /* (d) Ein veralteter Zeiger darf nicht wiederbelebt werden. */
+      DBx._draftRound = { live: { src: "watch", hole: 7, at: iso(jetzt - 9 * 3600 * 1000),
+                                  course: "T", date: "2026-08-24" } };
+      eq("alter Zeiger zählt nicht", pl({}).src, "phone");
+
+      /* (e) Ohne eigene Marke gewinnt der fremde frische Zeiger — sonst
+             verlöre die Uhr direkt nach dem Rundenstart. */
+      PLAYx.holeAt = null;
+      DBx._draftRound = { live: { src: "watch", hole: 5, at: iso(jetzt - 3000),
+                                  course: "T", date: "2026-08-24" } };
+      eq("ohne eigene Marke gewinnt die Uhr", pl({}).hole, 5);
+    } finally {
+      DBx._draftRound = sich.d; PLAYx.holeAt = sich.h; PLAYx.idx = sich.i;
+      PLAYx.course = sich.c; PLAYx.date = sich.dt; PLAYx.holes = sich.ho;
+    }
+  }
+
+  /* Und dieselbe Regel auf der Uhr — sonst gewinnt wieder, wer öfter schreibt. */
+  if (kt) {
+    ok("die Uhr stempelt ebenfalls die Eingabe", /private var ownHoleAt: String/.test(kt));
+    ok("und prüft sie beim Übernehmen",
+       (kt.match(/at > ownLiveAt && at > ownHoleAt/g) || []).length === 2);
   }
 }
 
