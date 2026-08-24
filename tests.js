@@ -168,7 +168,7 @@ try {
   /* WICHTIG: bei vm.runInContext landen nur `var` und `function` am Kontext —
      `const STRAT = {...}` bleibt im Blockscope unsichtbar. Deshalb ein Epilog,
      der die benoetigten Namen aktiv herausreicht. */
-  const namen = ["_mergeObj","_leerWert","mergeDB","MERGE_KEY","EQUIP_FELDER","EQUIP_GRUPPEN","EQUIP_ALT","ensureSeedGoals","_zielSchluessel","goalCurrent","trainingsEmpfehlung","goalIst","goalPlan","goalFortschritt","goalErreicht","goalHochIstGut","_zielMed","zielFeldDef","ZIEL_QUELLEN","ZIEL_FELDER","testZaehltNicht","testDefsAusgewertet","lmShotKey","lmNurNeue","lmDubletten","LM_ALLE","lmSetClub","playKopfraum","playKopfAnteil","aimUmweg","sgAbdeckungsQuote","sgPuttSchieflage","sgWarnHtml","sgRound","sgEnrich","turnierNaehe","wakeAn","wakeAus","_wakeGruende","kraftVerlauf","standNeuer","wetterSetzen","mobBaseline","MOB_KEYS","_fitMedian","_fitVergleich","isoWoche","kraftNorm","est1RM","kraftVerlauf","_dgmAbstandZuStrecke","gpFingerprint","_aimApproachEv","watchElevProfil","dgmSetzen","elevQuelle","elevQuelleText","dgmRahmen","dgmIdx","dgmZelleMitte","dgmZellen","dgmHoehe","dgmNeigung","dgmKey",
+  const namen = ["_mergeObj","_leerWert","mergeDB","MERGE_KEY","EQUIP_FELDER","EQUIP_GRUPPEN","EQUIP_ALT_KEYS","equipAltRaeumen","ensureSeedGoals","_zielSchluessel","goalCurrent","trainingsEmpfehlung","goalIst","goalPlan","goalFortschritt","goalErreicht","goalHochIstGut","_zielMed","zielFeldDef","ZIEL_QUELLEN","ZIEL_FELDER","testZaehltNicht","testDefsAusgewertet","lmShotKey","lmNurNeue","lmDubletten","LM_ALLE","lmSetClub","playKopfraum","playKopfAnteil","aimUmweg","sgAbdeckungsQuote","sgPuttSchieflage","sgWarnHtml","sgRound","sgEnrich","turnierNaehe","wakeAn","wakeAus","_wakeGruende","kraftVerlauf","standNeuer","wetterSetzen","mobBaseline","MOB_KEYS","_fitMedian","_fitVergleich","isoWoche","kraftNorm","est1RM","kraftVerlauf","_dgmAbstandZuStrecke","gpFingerprint","_aimApproachEv","watchElevProfil","dgmSetzen","elevQuelle","elevQuelleText","dgmRahmen","dgmIdx","dgmZelleMitte","dgmZellen","dgmHoehe","dgmNeigung","dgmKey",
                  "STRAT","clubPick","playsLike","pinPoint","geoDist","playMapBox",
                  "selfCheck","PLAY","escShort","_short","clubShort","windRel","tempFactor","DB",
                  "courseTee","activeHoles","roundDurationMin","mergeDB","_mergeArr","_mergeTs",
@@ -5349,7 +5349,7 @@ group("ensureSeedGoals — nachziehen ohne zu überschreiben");
 group("Ausrüstung — eine Zeile je Schläger, ohne Datenverlust");
 {
   const src = fs.readFileSync(FILE, "utf8");
-  const F = G("EQUIP_FELDER"), GR = G("EQUIP_GRUPPEN"), ALT = G("EQUIP_ALT");
+  const F = G("EQUIP_FELDER"), GR = G("EQUIP_GRUPPEN"), ALT_KEYS = G("EQUIP_ALT_KEYS");
 
   /* Bis v4.36 gab es je EINE Zeile für Hölzer, Eisen und Wedges. Damit ließ
      sich nur der Satz eintragen, nicht der Schläger — und der Schläger ist
@@ -5383,14 +5383,12 @@ group("Ausrüstung — eine Zeile je Schläger, ohne Datenverlust");
   Object.keys(GR).forEach(k =>
     ok("Überschrift „" + GR[k] + "“ hängt an einem echten Feld", keys.includes(k)));
 
-  /* KEIN DATENVERLUST: Die abgelösten Sammelzeilen bleiben lesbar, solange
-     sie Text tragen. Stilles Löschen fremder Eingaben wäre das Schlimmste,
-     was eine Umstellung tun kann. */
-  ok("alte Sammeleinträge sind erhalten",
-     ALT.map(x => x[0]).join(",") === "woods,irons,wedges,i2");
-  ok("sie werden nur bei Inhalt gezeigt",
-     /EQUIP_ALT\.filter\(\(\[k\]\)=>\(\(e\[k\]\|\|\{\}\)\.text\|\|""\)\.trim\(\)\)/.test(src));
-  ok("mit Hinweis, was damit zu tun ist", /Verteile den Inhalt auf die/.test(src));
+  /* Seit v4.42 sind die abgelösten Sammelzeilen ENTFERNT — sie wurden nicht
+     mehr gebraucht und ließen sich obendrein nicht löschen (siehe unten). */
+  eq("die abgelösten Schlüssel sind bekannt",
+     (ALT_KEYS || []).join(","), "woods,irons,wedges,i2");
+  ok("sie werden nicht mehr gerendert", !/font-weight:700;margin:14px 0 2px;color:var\(--gold\)">Alte Sammeleinträge/.test(src));
+  ok("und einmalig geräumt", /function equipAltRaeumen\(\)/.test(src));
 
   /* Die Lofts in den Platzhaltern stammen aus dem echten Bag — sie sollen
      helfen, nicht vorschreiben. */
@@ -5565,6 +5563,43 @@ group("mergeDB — jeder Bereich hat eine Regel");
     ok("Ausrüstung beider Geräte überlebt den Merge",
        m.equipment.i7 && m.equipment.driver, JSON.stringify(m.equipment));
     eq("Saisonziele beider Geräte überleben", (m.seasonGoals || []).length, 2);
+  }
+
+  /* ---- LÖSCHEN MUSS REISEN KÖNNEN (v4.42) ----
+     Die Fassung aus v4.41 löste das Sync-Problem und schuf ein neues: Wer ein
+     Feld LEERTE, bekam es beim nächsten Abgleich zurück, weil „gefüllt
+     schlägt leer" ohne Ansehen des Alters galt. Genau die Klasse, vor der
+     v1.74 und v2.84 warnen — ein Merge kann eine Löschung nicht ausdrücken,
+     solange er nur Inhalte vergleicht. */
+  if (typeof mo === "function") {
+    const alt = { x: { text: "alt", updated: "2026-08-01T10:00:00Z" } };
+    const geleert = { x: { text: "", updated: "2026-08-24T10:00:00Z" } };
+    eq("geleert und jünger gewinnt", mo(geleert, alt).x.text, "");
+    eq("und andersherum genauso", mo(alt, geleert).x.text, "");
+    /* Ohne Stempel bleibt es bei „gefüllt schlägt leer" — sonst verlöre man
+       bei Altbeständen Daten. */
+    eq("ohne Stempel gewinnt weiter der Inhalt",
+       mo({ x: { text: "" } }, { x: { text: "da" } }).x.text, "da");
+    /* KEIN Eintrag ist etwas anderes als ein LEERER Eintrag. */
+    const nurB = mo({}, { neu: { text: "kennt nur B" } });
+    eq("unbekannter Schlüssel wird übernommen", nurB.neu.text, "kennt nur B");
+  }
+  if (typeof G("equipAltRaeumen") === "function") {
+    const DBy = G("DB"), sichE = DBy.equipment, sichU = DBy.ui;
+    try {
+      DBy.ui = {};
+      DBy.equipment = { irons: { text: "Ping G410", seit: "2023-05-16" },
+                        i7: { text: "Ping G410 7" } };
+      const n = G("equipAltRaeumen")();
+      ok("alter Sammeleintrag geräumt", n >= 1, n + " geräumt");
+      eq("Inhalt ist weg", (DBy.equipment.irons.text || ""), "");
+      ok("aber als leere Hülle MIT Stempel", !!DBy.equipment.irons.updated);
+      eq("echte Schläger bleiben", DBy.equipment.i7.text, "Ping G410 7");
+      /* Zweiter Lauf darf nichts mehr tun. */
+      DBy.equipment.woods = { text: "neu angelegt" };
+      G("equipAltRaeumen")();
+      eq("kein zweites Räumen", DBy.equipment.woods.text, "neu angelegt");
+    } finally { DBy.equipment = sichE; DBy.ui = sichU; }
   }
 
   /* Die „Median übernehmen"-Wege stempeln jetzt — ohne Stempel fällt
