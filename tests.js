@@ -5670,6 +5670,47 @@ group("clubNorm und bagBewertung — derselbe Schläger ist ein Schläger");
   ok("die Grenze der Aussage steht dabei", /Fitting mit Kamera und Impact-Tape/.test(src));
 }
 
+/* ============ 24cn. Nur noch ein Schreibweg zum Worker ============ */
+group("Sync — jeder Schreibvorgang nennt seinen Pfad");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+  const dv = src.indexOf('id="devdocs"'), cl = src.indexOf("## Changelog", dv);
+  const end = src.indexOf("</script>", cl);
+  const code = src.slice(0, dv) + src.slice(end);
+
+  /* Der Worker (v2.9) hat den serverseitigen Merge entfernt und antwortet auf
+     einen POST ohne `X-Path` mit 426. Bleibt in der App auch nur EINE Stelle
+     im ALT-Modus, fällt sie beim Ausrollen des Workers still aus — und
+     „Bild-Sync fehlgeschlagen (426)" bringt niemand mit dem Worker in
+     Verbindung. Deshalb hier die Vollständigkeitsprüfung. */
+  const ohnePfad = [];
+  for (const m of code.matchAll(/method:\s*"POST"/g)) {
+    /* Das Fenster muss klein genug bleiben, um nicht in die nächste Funktion
+       zu greifen — genau daran ist die erste Fassung dieser Prüfung
+       gescheitert und hat einen Fehlalarm gemeldet. */
+    const seg = code.slice(m.index, m.index + 320);
+    if (!/X-Write-Key/.test(seg)) continue;      // fremder Dienst, nicht der Worker
+    if (!/X-Path/.test(seg)) ohnePfad.push(code.slice(0, m.index).split("\n").length);
+  }
+  eq("kein POST an den Worker ohne X-Path", ohnePfad.join(", "), "");
+
+  /* Und jeder nennt auch eine Basis — ohne sie ist der Türsteher wirkungslos. */
+  let mitPfad = 0, ohneBasis = 0;
+  for (const m of code.matchAll(/"X-Path"\s*:/g)) {
+    mitPfad++;
+    const seg = code.slice(Math.max(0, m.index - 300), m.index + 300);
+    if (!/X-Base-Sha/.test(seg)) ohneBasis++;
+  }
+  ok("es gibt mehrere Schreibpfade", mitPfad >= 4, mitPfad + " Stellen");
+  eq("jeder nennt eine Basis-Kennung", ohneBasis, 0);
+
+  /* Die Bilder waren die letzte Stelle im ALT-Modus. */
+  ok("Bild-Abgleich holt die Kennung vorher",
+     /sha=1&path=wissen-bilder\.json/.test(code));
+  ok("und schickt die reinen Daten, nicht {path,data}",
+     !/body:JSON\.stringify\(\{path:"wissen-bilder\.json",data:union\}\)/.test(code));
+}
+
 /* ============ 24bl. Caddy-Plan: Einheiten und Plausibilität ============ */
 group("caddyPlan — kein Wedge vom Abschlag, Einheiten beschriftet");
 {
