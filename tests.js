@@ -5987,6 +5987,65 @@ group("Live-Zeiger — beide Geräte, dieselbe Regel");
   /* Und dieselbe Regel auf der Uhr — sonst gewinnt wieder, wer öfter schreibt. */
   if (kt) {
     ok("die Uhr stempelt ebenfalls die Eingabe", /private var ownHoleAt: String/.test(kt));
+
+    /* --- ZUSAMMENARBEIT (v4.55 / Uhr 2026-08-24 (6)) --- */
+    /* (1) Welche Uhr-Fassung läuft? Sie stand nur im Fehlerprotokoll — also
+       nur, wenn es Fehler gab. */
+    ok("die Uhr nennt ihre Fassung im Live-Zeiger", /\.put\("app", WATCH_APP\)/.test(kt));
+    ok("und die Kennung ist aktuell", /WATCH_APP = "2026-08-24/.test(kt));
+    ok("das Handy zeigt sie", /function watchFassung\(\)/.test(src));
+    ok("ohne automatisches Urteil „veraltet“",
+       /BEWUSST KEIN AUTOMATISCHER VERGLEICH/.test(src));
+
+    /* (2) Quittung für Schlagmessungen. */
+    ok("das Handy quittiert übernommene Schläge", /d\.shotAck=DRAFT_ACK/.test(src));
+    ok("nur Kennungen, keine Messwerte", /\.map\(x=>x\.id\)\.slice\(-200\)/.test(src));
+    ok("die Uhr räumt daraufhin auf", /optJSONArray\("shotAck"\)/.test(kt));
+    ok("und entfernt nur das Quittierte", /measurements\.removeAll\(weg\)/.test(kt));
+
+    /* (3) Runde beendet. Bis hierher kannte die Uhr nur „verworfen". */
+    ok("das Handy meldet das Rundenende", /function playMarkDone\(\)/.test(src));
+    ok("beim Abschluss aufgerufen", /playMarkDone\(\);\s*\n\s*PLAY\.endTime/.test(src));
+    ok("die Uhr wertet es aus", /optJSONObject\("roundDone"\)/.test(kt));
+    /* Nur bei DERSELBEN Runde und nur, wenn die Marke jünger ist — sonst
+       beendet eine fremde oder alte Meldung die eigene Runde. */
+    ok("nur bei gleichem Platz", /gleichePlatz && juenger/.test(kt));
+    ok("und nur mit jüngerer Marke", /at > eigen/.test(kt));
+
+    /* (4) STILL DARF NICHT WIE VERGESSEN AUSSEHEN — dieselbe Regel wie in der
+       App seit v4.17. Auf der Uhr gab es acht `catch`-Blöcke ohne jede
+       Begründung; alle acht sind harmlos (abmelden, was nicht läuft; einen
+       Dienst beenden, den es nicht gibt), aber ohne Begründung ist das nicht
+       vom Vergessen zu unterscheiden. */
+    const leereCatch = (kt.match(/catch\s*\([^)]*\)\s*\{\s*\}/g) || []).length;
+    eq("kein stiller catch ohne Begründung auf der Uhr", leereCatch, 0);
+
+    /* --- TEMPO (2026-08-24 (5)) ---
+       GEMESSEN: Das Handy sendet bei einer Eingabe SOFORT (`playLivePush` ruft
+       `draftPush()` direkt). Die Uhr wartete auf ihren Takt — 10 Sekunden,
+       auch direkt nach einem Lochwechsel. Daher die Schieflage: Handy → Uhr
+       im Mittel 2,5 s, Uhr → Handy 7,5 s.
+       Kein Funkproblem, sondern eine fehlende Regel: Eine Handlung des
+       Benutzers sendet SOFORT, sie wartet nicht auf den Takt. */
+    {
+      /* Auf den BLOCK schauen, nicht auf einen Abstand: Der Kommentar dazwischen
+         ist über 1000 Zeichen lang, und ein Zeichenfenster ist die schwächste
+         Art zu prüfen — es bricht bei jeder Ergänzung, ohne etwas über die
+         Sache zu sagen. */
+      const i = kt.indexOf("onHoleDelta = { d ->");
+      const blk = i < 0 ? "" : kt.slice(i, kt.indexOf("},", kt.indexOf("scheduleSync()", i)) + 2);
+      ok("Lochwechsel auf der Uhr sendet sofort",
+         /Net\.holeGewechselt\(\)/.test(blk) && /scheduleSync\(\)/.test(blk)
+         && /lastEditMs = System\.currentTimeMillis\(\)/.test(blk));
+    }
+    /* Und der Gewinn darf nicht mit Funk bezahlt werden: Der Herzschlag lässt
+       einen Durchlauf aus, wenn gerade erst gesendet wurde. */
+    ok("der Herzschlag sendet nicht doppelt",
+       /System\.currentTimeMillis\(\) - Net\.letzterPushMs > 5_000/.test(kt));
+    ok("und der Push meldet sich dafür an", /pushGemeldet\(\)/.test(kt));
+    /* Die Entprellung fasst schnelle Taps weiter zusammen — 600 ms statt der
+       ursprünglichen 1500, weil ein Lochwechsel kein schneller Tap ist. */
+    ok("Entprellung auf 600 ms", /delay\(600\)/.test(kt));
     ok("und prüft sie beim Übernehmen",
        (kt.match(/at > ownLiveAt && at > ownHoleAt/g) || []).length === 2);
   }
@@ -7284,7 +7343,16 @@ group("Gleichlauf mit der Uhr · Fußraum in der Eingabe");
 
   /* Takt nach Sichtbarkeit: Wer hinschaut, erwartet Gleichlauf; wer das Handy
      in der Tasche hat, will kein Dauerfunken. */
-  ok("5 s sichtbar, 30 s im Hintergrund", /SYNC_MS_VORN=5000, SYNC_MS_HINTEN=30000/.test(src));
+  /* v4.53: vorn 2 s statt 5 s. Uhr -> Handy dauerte bis zu 6,5 s
+     (1,5 s Entprellung dort + bis zu 5 s Takt hier) — das fühlt sich an wie
+     „reagiert nicht". Die Abfrage ist billig (`?sha=1`), und nur bei
+     geänderter Kennung wird wirklich geladen.
+     NICHT schneller als der Push entprellt ist (2 s), sonst entsteht nur
+     Verkehr und im ungünstigen Fall ein Konflikt. */
+  ok("2 s sichtbar, 30 s im Hintergrund",
+     /const SYNC_MS_VORN=2000, SYNC_MS_HINTEN=30000;/.test(src));
+  ok("nicht schneller als der Push entprellt ist",
+     /_draftPushT=setTimeout\(\(\)=>\{ draftPush\(\); \}, 2000\)/.test(src));
   ok("Maßstab ist die Sichtbarkeit", /document\.visibilityState==="visible"\) \? SYNC_MS_VORN/.test(src));
   ok("Taktwechsel ohne doppelten Timer", /if\(playSyncTimer && _syncMs===ms\) return;/.test(src));
   ok("beim Aufwecken sofort abgleichen",
