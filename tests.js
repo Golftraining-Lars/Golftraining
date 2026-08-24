@@ -5885,7 +5885,29 @@ group("Gleichlauf Uhr ↔ App — dieselbe Frage, dieselbe Antwort");
     ok("PlayPager weist idx nicht selbst zu", !/idx\s*[-+]=/.test(pp));
     ok("und kennt die Kursdaten gar nicht", !/\bcs\./.test(pp));
     ok("die Grenze steht dort, wo der Zustand liegt",
-       /if \(n >= 0 && n < cs\.holes\.size\) idx = n/.test(kt));
+       /if \(n >= 0 && n < cs\.holes\.size\) \{/.test(kt));
+
+    /* --- WER GEWINNT BEIM LOCHZEIGER? (2026-08-24 (4)) ---
+       GEMELDET: „Die Lochanzeige des Handys überstimmt immer die der Uhr."
+       `ownLiveAt` wurde bei JEDEM Push gesetzt, verglichen wurde aber der Wert
+       von VORHER. Die Uhr sendet im Minutentakt, das Handy alle paar Sekunden
+       — der Zeiger des Handys war praktisch immer jünger. Schlimmer: Die
+       Bedingung `h != currentHole` traf ausgerechnet dann zu, wenn die
+       Uhr-Eingabe frisch war. Eine Handlung des Benutzers wiegt schwerer als
+       ein automatischer Zeiger. */
+    ok("die Uhr merkt sich die EINGABE, nicht nur den Push",
+       /private var ownHoleAt: String/.test(kt));
+    ok("und stempelt sie beim Blättern", /Net\.holeGewechselt\(\)/.test(kt));
+    ok("das Handy überstimmt nur, wenn es jünger als die Eingabe ist",
+       (kt.match(/at > ownLiveAt && at > ownHoleAt/g) || []).length === 2);
+
+    /* --- WARUM DER ABGLEICH GANZ EINBRACH ---
+       Nach einem ERFOLGREICHEN Schreibvorgang hat die Datei eine NEUE Kennung.
+       Der Client kannte sie nicht und schickte die alte — 409, neu lesen, neu
+       senden, bei JEDEM Push. Vier davon, und die Uhr gab auf. */
+    ok("die Uhr übernimmt die neue Kennung",
+       /getHeaderField\("X-Repo-Sha"\)\?\.takeIf/.test(kt));
+    ok("die App ebenso", /if\(neu\) REPO_SHA=neu;/.test(src));
     ok("am Rand ausgegraut statt entfernt", /GoldText\.copy\(alpha = 0\.25f\)/.test(kt));
 
     /* Das Protokoll der Uhr reist mit dem Entwurf. */
