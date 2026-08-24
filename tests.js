@@ -168,7 +168,7 @@ try {
   /* WICHTIG: bei vm.runInContext landen nur `var` und `function` am Kontext —
      `const STRAT = {...}` bleibt im Blockscope unsichtbar. Deshalb ein Epilog,
      der die benoetigten Namen aktiv herausreicht. */
-  const namen = ["testZaehltNicht","testDefsAusgewertet","lmShotKey","lmNurNeue","lmDubletten","LM_ALLE","lmSetClub","playKopfraum","playKopfAnteil","aimUmweg","sgAbdeckungsQuote","sgPuttSchieflage","sgWarnHtml","sgRound","sgEnrich","turnierNaehe","wakeAn","wakeAus","_wakeGruende","kraftVerlauf","standNeuer","wetterSetzen","mobBaseline","MOB_KEYS","_fitMedian","_fitVergleich","isoWoche","kraftNorm","est1RM","kraftVerlauf","_dgmAbstandZuStrecke","gpFingerprint","_aimApproachEv","watchElevProfil","dgmSetzen","elevQuelle","elevQuelleText","dgmRahmen","dgmIdx","dgmZelleMitte","dgmZellen","dgmHoehe","dgmNeigung","dgmKey",
+  const namen = ["goalCurrent","trainingsEmpfehlung","goalIst","goalPlan","goalFortschritt","goalErreicht","goalHochIstGut","_zielMed","zielFeldDef","ZIEL_QUELLEN","ZIEL_FELDER","testZaehltNicht","testDefsAusgewertet","lmShotKey","lmNurNeue","lmDubletten","LM_ALLE","lmSetClub","playKopfraum","playKopfAnteil","aimUmweg","sgAbdeckungsQuote","sgPuttSchieflage","sgWarnHtml","sgRound","sgEnrich","turnierNaehe","wakeAn","wakeAus","_wakeGruende","kraftVerlauf","standNeuer","wetterSetzen","mobBaseline","MOB_KEYS","_fitMedian","_fitVergleich","isoWoche","kraftNorm","est1RM","kraftVerlauf","_dgmAbstandZuStrecke","gpFingerprint","_aimApproachEv","watchElevProfil","dgmSetzen","elevQuelle","elevQuelleText","dgmRahmen","dgmIdx","dgmZelleMitte","dgmZellen","dgmHoehe","dgmNeigung","dgmKey",
                  "STRAT","clubPick","playsLike","pinPoint","geoDist","playMapBox",
                  "selfCheck","PLAY","escShort","_short","clubShort","windRel","tempFactor","DB",
                  "courseTee","activeHoles","roundDurationMin","mergeDB","_mergeArr","_mergeTs",
@@ -4998,6 +4998,168 @@ group("Zu Hause — Übungsgerät, keine Standortbestimmung");
      genau diese sechs sind und nicht sechs beliebige. */
   ok("Anstellwinkel wird adressiert", /heimAnstell/.test(src) && /zu flach/.test(src));
   ok("die Wedge-Lücke wird adressiert", /heimTeil/.test(src) && /23 Metern/.test(src));
+}
+
+/* ============ 24cg. Saisonziele: Quelle, Median, Fahrplan ============ */
+group("Saisonziele — Spielziele, robuster Ist-Wert, Ampel");
+{
+  const DBx = G("DB"), src = fs.readFileSync(FILE, "utf8");
+  const ist = G("goalIst"), plan = G("goalPlan"), fort = G("goalFortschritt"),
+        erreicht = G("goalErreicht"), hoch = G("goalHochIstGut"), med = G("_zielMed"),
+        feldDef = G("zielFeldDef");
+
+  /* (A) DER IST-WERT NAHM DEN LETZTEN TESTWERT, UNGEFILTERT. Ein schlechter
+     Tag ließ den Balken einbrechen; ein Wert von vor elf Monaten galt als
+     „aktuell". Jetzt Median der letzten drei — und das Alter wird geliefert. */
+  if (typeof med === "function") {
+    eq("Median von drei", med([10, 30, 20]), 20);
+    eq("Ausreißer bewegt nichts", med([20, 21, 99]), 21);
+    eq("leer ergibt null", med([]), null);
+  }
+  if (typeof ist === "function") {
+    const sichT = DBx.tests;
+    try {
+      DBx.tests = [
+        { defKey: "lag", date: "2026-05-01", total: 14 },
+        { defKey: "lag", date: "2026-06-01", total: 20 },
+        { defKey: "lag", date: "2026-07-01", total: 21 },
+        { defKey: "lag", date: "2026-08-01", total: 3 }   /* Ausrutscher */
+      ];
+      const r = ist({ quelle: "test", feld: "lag" });
+      eq("Median der letzten drei, nicht der letzte Wert", r.wert, 20);
+      eq("aus drei Versuchen", r.n, 3);
+      ok("mit Datum und Alter", r.datum === "2026-08-01" && r.tage != null);
+      eq("ohne Werte: null mit Grund", ist({ quelle: "test", feld: "gibtsnicht" }).wert, null);
+    } finally { DBx.tests = sichT; }
+  }
+
+  /* (B) ZIELE KONNTEN NUR AN TESTS BINDEN — damit waren alle Ziele
+     Übungsziele. Man optimiert, was man misst, und wird gut im Drill statt
+     auf der Bahn. */
+  const Q = G("ZIEL_QUELLEN"), F = G("ZIEL_FELDER");
+  ok("fünf Zielquellen", Q && Object.keys(Q).length === 5, Q ? Object.keys(Q).join(",") : "-");
+  ["sg", "runde", "hcp", "lm"].forEach(q =>
+    ok("Quelle " + q + " hat Messgrößen", F && (F[q] || []).length >= 1));
+  /* Die RICHTUNG gehört zur Messgröße, nicht zum Ziel. */
+  ok("weniger Putts ist besser", F.runde.find(x => x.k === "puttsPer").hoch === false);
+  ok("mehr GIR ist besser", F.runde.find(x => x.k === "girPct").hoch === true);
+  ok("kleinerer Index ist besser", F.hcp.find(x => x.k === "index").hoch === false);
+  ok("kleinere Streuung ist besser", F.lm.find(x => x.k === "streuung").hoch === false);
+  if (typeof hoch === "function") {
+    eq("Richtung kommt aus der Messgröße",
+       hoch({ quelle: "runde", feld: "puttsPer", start: 2.5, target: 1.9 }), false);
+    /* Auch wenn Start/Ziel das Gegenteil suggerieren würden. */
+    eq("und nicht aus Start/Ziel",
+       hoch({ quelle: "runde", feld: "girPct", start: 45, target: 38 }), true);
+  }
+  if (typeof erreicht === "function") {
+    ok("kleiner-ist-besser erreicht",
+       erreicht({ quelle: "runde", feld: "puttsPer", target: 1.9 }, 1.85) === true);
+    ok("und nicht erreicht",
+       erreicht({ quelle: "runde", feld: "puttsPer", target: 1.9 }, 1.95) === false);
+  }
+
+  /* RÜCKSCHRITT MUSS SICHTBAR SEIN. Vorher klemmte Math.max(0,…) alles unter
+     dem Startwert auf 0 % — nicht unterscheidbar von „gerade angefangen". */
+  if (typeof fort === "function") {
+    eq("halber Weg", fort({ start: 10, target: 20 }, 15), 50);
+    ok("Rückschritt ist negativ", fort({ start: 10, target: 20 }, 8) < 0,
+       String(fort({ start: 10, target: 20 }, 8)));
+    eq("ohne Zielwert kein Fortschritt", fort({ start: 10 }, 15), null);
+  }
+
+  /* (C) OHNE ZIELDATUM GIBT ES KEINEN FAHRPLAN — dann null, statt eine
+     Ampel zu erfinden. */
+  if (typeof plan === "function") {
+    eq("kein Datum, kein Plan", plan({ start: 0, target: 10 }, 5), null);
+    const heute = new Date(), iso = d => new Date(heute.getTime() + d * 864e5).toISOString().slice(0, 10);
+    /* Halbzeit: Soll 50 %. */
+    const g = { start: 0, target: 10, dateFrom: iso(-50), dateTo: iso(50) };
+    ok("im Plan bei 50 %", plan(g, 5).ampel === "gruen", plan(g, 5).txt);
+    ok("deutlich hinterher bei 10 %", plan(g, 1).ampel === "rot", plan(g, 1).txt);
+    ok("knapp hinterher bei 35 %", plan(g, 3.5).ampel === "gelb", plan(g, 3.5).txt);
+    ok("erreicht schlägt alles", plan(g, 10).ampel === "gruen" && plan(g, 10).txt === "erreicht");
+    const ab = { start: 0, target: 10, dateFrom: iso(-100), dateTo: iso(-1) };
+    ok("abgelaufene Frist ist rot", plan(ab, 5).ampel === "rot", plan(ab, 5).txt);
+    ok("Resttage werden geliefert", plan(g, 5).tageRest > 0);
+  }
+
+  /* SPIELZIELE IM BESTAND — der Grund für (B). */
+  const spiel = (DBx.seasonGoals || []).filter(g => g.phase === "Spielziele");
+  ok("Spielziele vorhanden", spiel.length >= 8, spiel.length + " Ziele");
+  ok("alle mit Quelle und Messgröße", spiel.every(g => g.quelle && g.feld));
+  ok("alle mit Zieldatum", spiel.every(g => g.dateTo));
+  ok("alle Messgrößen sind bekannt", spiel.every(g => feldDef(g) !== null));
+  ok("nicht nur Tests", spiel.some(g => g.quelle === "sg") && spiel.some(g => g.quelle === "runde"));
+
+  /* (E) RÜCKKOPPLUNG — nur ROT und nur mit Fahrplan, und auf Rang 4. Ein
+     selbst gesetztes Ziel ist eine Absicht, eine Messung ist eine Messung. */
+  ok("Ziele fließen in die Empfehlung", /quelle:"Saisonziel"/.test(src));
+  ok("nur rote Ziele", /p\.ampel==="rot" && !goalErreicht/.test(src));
+  ok("auf Rang 4, hinter den Messungen", /out\.push\(\{rang:4, quelle:"Saisonziel"/.test(src));
+  ok("und die Begründung dafür steht dabei", /Ein selbst gesetztes Ziel ist eine Absicht/.test(src));
+}
+
+/* ============ 24cg. Saisonziele: Fahrplan und Rückkopplung ============ */
+group("Saisonziele — mit Zieldatum und mit Wirkung");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+  const DBx = G("DB"), plan = G("goalPlan"), emp = G("trainingsEmpfehlung");
+  const goals = DBx.seasonGoals || [];
+
+  /* (C) OHNE ZIELDATUM KEIN FAHRPLAN. Die Ampel und die Rückkopplung hängen
+     an `dateTo` — alle 46 Ziele hatten keines, also war beides eingebaut und
+     wirkungslos. Das ist schlimmer als nicht eingebaut, weil man sich darauf
+     verlässt. */
+  ok("es gibt viele Ziele — bewusst so", goals.length >= 40, goals.length + " Ziele");
+  ok("jedes Ziel hat ein Zeitfenster", goals.every(g => g.dateFrom && g.dateTo),
+     goals.filter(g => !g.dateTo).length + " ohne");
+  /* Phasennamen müssen einheitlich sein, sonst zerfällt die Gruppierung
+     (`Phase 1` gegen `PHASE 3`) in Gruppen, die gleich heißen sollten. */
+  const phasen = [...new Set(goals.map(g => g.phase))];
+  ok("Phasennamen einheitlich geschrieben",
+     phasen.every(p => /^(Phase [1-4]|Spielziele)$/.test(p)), phasen.join(" · "));
+
+  /* (B) SPIELZIELE, nicht nur Übungsziele. Der ursprüngliche Bestand war
+     ausschließlich Drill-Ergebnisse — man optimiert, was man misst. */
+  const spiel = goals.filter(g => g.phase === "Spielziele");
+  ok("Spielziele vorhanden", spiel.length >= 6, spiel.length + " Stück");
+  const quellen = [...new Set(spiel.map(g => g.quelle))].sort();
+  ok("aus mehreren Datenquellen", quellen.length >= 4, quellen.join(","));
+  ["sg", "runde", "hcp", "lm"].forEach(q =>
+    ok("Quelle „" + q + "“ wird genutzt", quellen.includes(q)));
+
+  if (typeof plan === "function") {
+    let mitAmpel = 0, farben = {};
+    goals.forEach(g => { const p = plan(g, G("goalCurrent")(g));
+      if (p) { mitAmpel++; farben[p.ampel] = (farben[p.ampel] || 0) + 1; } });
+    ok("die meisten Ziele haben eine Ampel", mitAmpel >= goals.length * 0.6,
+       mitAmpel + " von " + goals.length);
+    ok("nicht alle dieselbe Farbe — sonst rechnet sie nicht",
+       Object.keys(farben).length >= 3, JSON.stringify(farben));
+    eq("ohne Zieldatum keine Ampel", plan({ start: 0, target: 10 }, 5), null);
+  }
+
+  /* (E) DIE RÜCKKOPPLUNG MUSS DURCHKOMMEN. Der Deckel stand auf vier
+     Einträgen und wurde nach Rang geschnitten — bei drei Tests unter
+     Zielniveau blieb für Rang 4 nie ein Platz. */
+  ok("höchstens zwei je Quelle", /if\(jeQuelle\[q\]<=2\) gemischt\.push\(x\)/.test(src));
+  if (typeof emp === "function") {
+    const e = emp();
+    const q = [...new Set(e.map(x => x.quelle))];
+    ok("mehrere Quellen kommen zu Wort", q.length >= 2, q.join(" · "));
+    const jeQ = {};
+    e.forEach(x => { jeQ[x.quelle] = (jeQ[x.quelle] || 0) + 1; });
+    ok("keine Quelle mehr als zweimal",
+       Object.values(jeQ).every(n => n <= 2), JSON.stringify(jeQ));
+    /* Messung vor Absicht — ein Saisonziel darf nie vor Strokes Gained stehen. */
+    const rangSG = e.findIndex(x => x.quelle === "Strokes Gained");
+    const rangZiel = e.findIndex(x => x.quelle === "Saisonziel");
+    if (rangSG >= 0 && rangZiel >= 0)
+      ok("Messung steht vor Absicht", rangSG < rangZiel, rangSG + " vor " + rangZiel);
+  }
+  ok("nur rote Ziele lösen etwas aus", /p\.ampel==="rot" && !goalErreicht/.test(src));
+  ok("und die Begründung nennt die Frist", /Tage bis zum Zieldatum/.test(src));
 }
 
 /* ============ 24bl. Caddy-Plan: Einheiten und Plausibilität ============ */
