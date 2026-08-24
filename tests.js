@@ -5947,6 +5947,26 @@ group("Live-Zeiger — beide Geräte, dieselbe Regel");
      src.indexOf("playLiveSeenAt=lv.at;\n  /* `stratOval`") ||
      /if\(t===PLAY\.idx\) return false;[\s\S]{0,120}?playLiveSeenAt=lv\.at;/.test(src));
 
+  /* Und die zweite gemessene Ursache: Fehlt `side` auf einer Seite — die Uhr
+     setzt sie nicht immer —, waren die Schlüssel verschieden, und der Merge
+     fiel auf „jüngerer Entwurf gewinnt VOLLSTÄNDIG" zurück. Der Score der Uhr
+     war damit weg, ohne jede Meldung. */
+  {
+    const md = G("mergeDraft"), iso2 = ms => new Date(ms).toISOString(), t0 = Date.now();
+    const handy = { round:{date:"2026-08-24",course:"T",side:"18 Loch",
+      holes:[{hole:3}]}, ts:iso2(t0-1000) };
+    const uhr = { round:{date:"2026-08-24",course:"T",side:"",
+      holes:[{hole:3,score:4,ts:iso2(t0-3000)}]}, ts:iso2(t0-3000) };
+    const dr = md(handy, uhr, "");
+    eq("fehlende Seite trennt nicht mehr", (dr.round.holes.find(h=>h.hole===3)||{}).score, 4);
+    /* Aber zwei ECHTE Neuner bleiben getrennt — dort ist die Seite auf beiden
+       gesetzt und verschieden. */
+    const uhr2 = JSON.parse(JSON.stringify(uhr)); uhr2.round.side = "Back 9";
+    const dr2 = md(handy, uhr2, "");
+    ok("verschiedene Seiten bleiben getrennt",
+       (dr2.round.holes.find(h=>h.hole===3)||{}).score === undefined);
+  }
+
   ok("das Handy stempelt die eigene Lochwahl", /function playHoleStamp\(\)/.test(src));
   ok("playPrev stempelt", /PLAY\.idx--; playHoleStamp\(\);/.test(src));
   ok("playNext stempelt", /PLAY\.idx\+\+; playHoleStamp\(\);/.test(src));
@@ -5972,13 +5992,22 @@ group("Live-Zeiger — beide Geräte, dieselbe Regel");
          Grund für „mal geht es, mal nicht". */
       eq("der Lochwert der Uhr wird übernommen", o.hole, 7);
       eq("aber mit eigenem Absender", o.src, "phone");
-      ok("und mit frischem Zeitstempel",
-         new Date(o.at).getTime() > jetzt - 5000, o.at);
+      /* DER ZEITSTEMPEL SAGT „ZULETZT GEÄNDERT", NICHT „ZULETZT GESENDET"
+         (v4.57). Er wird nur erneuert, wenn sich das Loch tatsächlich ändert.
+         Bleibt es gleich, bleibt auch `at` stehen — sonst gewinnt beim
+         Vereinigen immer das Gerät, das ÖFTER sendet, statt dem, das etwas
+         getan hat. Genau daran ist der Uhr-Zeiger jedes Mal gescheitert. */
+      ok("übernommenes Loch behält den fremden Zeitstempel",
+         o.at === iso(jetzt - 5000), o.at);
 
       /* (b) Eigene Wahl ist jünger → das Handy schreibt seinen Zeiger. */
       PLAYx.holeAt = iso(jetzt - 1000);
+      DBx._draftRound = { live: { src: "watch", hole: 7, at: iso(jetzt - 5000),
+                                  course: "T", date: "2026-08-24" } };
       o = pl({});
       eq("eigene jüngere Wahl gewinnt", o.hole, 1);
+      ok("und bekommt einen frischen Zeitstempel",
+         new Date(o.at).getTime() > jetzt - 3000, o.at);
       eq("und wird als Handy gekennzeichnet", o.src, "phone");
 
       /* (c) Fremder Zeiger von einer ANDEREN Runde zählt nicht. */
