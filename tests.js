@@ -6056,6 +6056,22 @@ group("Gleichlauf Uhr ↔ App — dieselbe Frage, dieselbe Antwort");
     ok("dieselbe Runde wird nicht zweimal übernommen", /val schonDa = dr != null/.test(kt));
     ok("erkannt an Rundenkennung oder Platz+Seite",
        /dr\.roundId == roundId[\s\S]{0,120}?dr\.course == course\?\.name && dr\.side == side/.test(kt));
+
+    /* GEMELDET: „Aus der laufenden Runde geflogen und konnte mich nicht mehr
+       verbinden." Auf dem Schirm „Nordplatz · NOCH KEINE LÖCHER" und eine
+       Suche, die nie endet.
+       URSACHE war dieser Riegel: Er prüfte nur, ob ein Platz mit passendem
+       NAMEN geladen ist. Nach einem Neustart ist genau das der Fall — der Platz
+       ist da, seine Lochliste aber LEER. Der Riegel sprang an, die Übernahme
+       unterblieb, und man saß fest.
+       EIN RIEGEL GEGEN DATENVERLUST DARF NIE DIE EINZIGE TÜR VERSPERREN. */
+    ok("der Riegel verlangt auch Löcher",
+       /course\?\.holes\?\.isNotEmpty\(\) == true/.test(kt));
+    ok("und den Spielbildschirm", /screen == "play" && \(/.test(kt));
+    /* Die Meldung muss sagen, WARUM übersprungen wurde — ohne Lochzahl und
+       Bildschirm war ihr nicht anzusehen, dass sie das Problem war. */
+    ok("die Meldung nennt Lochzahl und Bildschirm",
+       /laeuft bereits \(Platz mit \$\{course\?\.holes\?\.size \?: 0\} Loechern/.test(kt));
     ok("und es hinterlässt eine Spur", /warnEinmal\("adoptSkip"/.test(kt));
 
     /* --- DER VERSAND DARF AN NICHTS HÄNGEN (2026-08-25 (15)) ---
@@ -6301,8 +6317,28 @@ group("Live-Zeiger — beide Geräte, dieselbe Regel");
     /* (1) Welche Uhr-Fassung läuft? Sie stand nur im Fehlerprotokoll — also
        nur, wenn es Fehler gab. */
     ok("die Uhr nennt ihre Fassung im Live-Zeiger", /\.put\("app", WATCH_APP\)/.test(kt));
-    ok("und die Kennung ist aktuell", /WATCH_APP = "2026-08-25 \(19\)"/.test(kt));
+    ok("und die Kennung ist aktuell", /WATCH_APP = "2026-08-25 \(21\)"/.test(kt));
     ok("das Handy zeigt sie", /function watchFassung\(\)/.test(src));
+
+    /* --- STARTBILDSCHIRM (2026-08-25 (20)) ---
+       Die Fassung stand nur im Protokoll — diese Woche war „welche läuft
+       drüben?" mehrfach die erste Frage, und jedes Mal hat sie einen Umlauf
+       gekostet. */
+    {
+      const iH2 = kt.indexOf("private fun HomeScreen(");
+      const blk = iH2 < 0 ? "" : kt.slice(iH2, iH2 + 3000);
+      ok("die Fassung steht oben auf dem Startbildschirm",
+         /item \{\s*\n\s*Text\(\s*\n\s*WATCH_APP,/.test(blk));
+    }
+    /* BEENDEN: Der Wisch nach rechts schiebt die App nur in den Hintergrund,
+       wo GPS und Abgleich weiterlaufen — auf einer Uhr der Unterschied
+       zwischen einer und drei Stunden Akku. */
+    ok("es gibt einen Beenden-Knopf", /Text\("App beenden"/.test(kt));
+    ok("er läuft über einen Rückruf", /onClick = onQuit,/.test(kt));
+    /* ERST den Dienst stoppen, DANN schließen — sonst ist die App zu und das
+       GPS läuft weiter. Genau das ist am 15.08. passiert. */
+    ok("erst Dienst stoppen, dann schließen",
+       /onQuit = \{\s*\n\s*svcStop\(ctx\)\s*\n\s*activity\?\.finish\(\)/.test(kt));
     ok("ohne automatisches Urteil „veraltet“",
        /BEWUSST KEIN AUTOMATISCHER VERGLEICH/.test(src));
 
