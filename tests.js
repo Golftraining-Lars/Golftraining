@@ -6001,18 +6001,34 @@ group("Gleichlauf Uhr ↔ App — dieselbe Frage, dieselbe Antwort");
     /* Alles muss ins Protokoll — eine Diagnose, die man nur auf dem runden
        Display lesen kann, wird nicht gelesen. */
     ok("Diagnose geht ins Protokoll", /fun inProtokoll\(\)/.test(kt));
-    ok("der Selbsttest ebenso", /z\.forEach \{ Fehler\.warn\("Selbsttest", it\) \}/.test(kt));
+    /* SEIT (13) STEHT DER BERICHT NEBEN DEM PROTOKOLL, NICHT DARIN.
+       Gemeldet: Nach dem Knopfdruck kam beim Handy nur „Runde übernommen" an.
+       Ursache war der Aufbau, nicht ein einzelner Fehler: Die Diagnose schrieb
+       IN den Ringpuffer und räumte sich darin selbst auf — ihre Zustellung
+       hing damit an einem Puffer, den gleichzeitig Fehler, Rundenentwurf und
+       Aufräumen bewegen. Drei Stellen, an denen ein Bericht verschwinden kann.
+       Zwei Dinge, zwei Wege. */
+    ok("der Bericht liegt separat", /var letzterBericht: String/.test(kt));
+    ok("und wird vom Knopf gesetzt", /Diagnose\.berichtSetzen\(z\)/.test(kt));
+    ok("er reist als eigenes Feld", /put\("bericht", Diagnose\.letzterBericht\)/.test(kt));
+    ok("auf BEIDEN Wegen",
+       (kt.match(/put\("bericht", Diagnose\.letzterBericht\)/g) || []).length === 2);
+    /* Und der Vergleich „nichts Neues" muss den Bericht kennen — sonst bleibt
+       genau der frische Bericht liegen. */
+    ok("ein frischer Bericht gilt als Änderung",
+       /joinToString\("\\n"\) \+ "\|" \+ Diagnose\.berichtAt/.test(kt));
+    ok("die App zeigt ihn als eigenen Block", /Selbsttest der Uhr/.test(src));
+    ok("und nimmt den jüngeren Bericht, nicht die jüngeren Zeilen",
+       /\(b1\.berichtAt\|\|""\)>=\(b2\.berichtAt\|\|""\)/.test(src));
 
     /* GEMELDET: „Die Ergebnisse kommen erst, wenn ich eine Runde starte."
        Geschrieben wurde in den Puffer, und der reiste nur mit dem
        Rundenentwurf oder im Fünf-Minuten-Takt. Wer auf Diagnose drückt, will
        die Antwort JETZT — meistens, weil gerade etwas klemmt. */
     {
-      /* BIS ZUR MARKE SCANNEN, nicht in einem geratenen Zeichenfenster suchen.
-         Das ist heute das vierte Mal, dass ein festes Fenster einen richtigen
-         Code als Fehler meldet — die Begründung dazwischen ist länger als
-         jedes Fenster, das ich schätzen würde. */
-      const i3 = kt.indexOf('z.forEach { Fehler.warn("Selbsttest", it) }');
+      /* Der Knopf muss SOFORT senden — wer darauf drückt, will die Antwort
+         jetzt, meistens weil gerade etwas klemmt. */
+      const i3 = kt.indexOf("Diagnose.berichtSetzen(z)");
       const j3 = kt.indexOf("Net.logPut()", i3);
       ok("der Knopf sendet sofort", i3 >= 0 && j3 > i3 && (j3 - i3) < 2000,
          i3 < 0 ? "Marke fehlt" : (j3 - i3) + " Zeichen");
@@ -6021,8 +6037,8 @@ group("Gleichlauf Uhr ↔ App — dieselbe Frage, dieselbe Antwort");
     /* GEMESSEN am echten Protokoll: Fünfmal gedrückt = 35 von 60 Zeilen, und
        prompt meldete der Selbsttest „Protokoll fast voll". Die Diagnose
        verdrängte genau das, wozu sie da ist. */
-    ok("die Diagnose ersetzt sich selbst",
-       /Fehler\.entferneTags\(listOf\("⚠ Diagnose", "⚠ Selbsttest", "⚠ Abgleich-Verlauf"\)\)/.test(kt));
+    ok("nur eine Spur im Puffer, der Inhalt steht im Bericht",
+       /Fehler\.entferneTags\(listOf\("⚠ Diagnose"\)\)/.test(kt));
     ok("und rührt echte Fehler nicht an", /fun entferneTags\(tags: List<String>\)/.test(kt));
 
     /* Und das Gegenstück in der App: neu laden auf Knopfdruck. */
@@ -6164,7 +6180,7 @@ group("Live-Zeiger — beide Geräte, dieselbe Regel");
     /* (1) Welche Uhr-Fassung läuft? Sie stand nur im Fehlerprotokoll — also
        nur, wenn es Fehler gab. */
     ok("die Uhr nennt ihre Fassung im Live-Zeiger", /\.put\("app", WATCH_APP\)/.test(kt));
-    ok("und die Kennung ist aktuell", /WATCH_APP = "2026-08-25 \(12\)"/.test(kt));
+    ok("und die Kennung ist aktuell", /WATCH_APP = "2026-08-25 \(13\)"/.test(kt));
     ok("das Handy zeigt sie", /function watchFassung\(\)/.test(src));
     ok("ohne automatisches Urteil „veraltet“",
        /BEWUSST KEIN AUTOMATISCHER VERGLEICH/.test(src));
