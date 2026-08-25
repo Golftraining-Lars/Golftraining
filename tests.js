@@ -6018,6 +6018,24 @@ group("Gleichlauf Uhr ↔ App — dieselbe Frage, dieselbe Antwort");
     ok("ein frischer Bericht gilt als Änderung",
        /joinToString\("\\n"\) \+ "\|" \+ Diagnose\.berichtAt/.test(kt));
     ok("die App zeigt ihn als eigenen Block", /Selbsttest der Uhr/.test(src));
+
+    /* GEMELDET: „Bei Loch 1 geht die Eingabe, beim Wechsel auf Loch 2 bricht
+       alles ab." Im Protokoll stand „Runde übernommen · Loch 1" MEHRFACH — die
+       Uhr übernahm dieselbe Runde immer wieder, und dieser Zweig macht
+       `entries.clear()` und setzt `idx` auf das Loch des HANDYS. Eingabe weg,
+       Loch zurück. Von außen sieht das aus, als sei der Abgleich tot. */
+    ok("dieselbe Runde wird nicht zweimal übernommen", /val schonDa = dr != null/.test(kt));
+    ok("erkannt an Rundenkennung oder Platz+Seite",
+       /dr\.roundId == roundId[\s\S]{0,120}?dr\.course == course\?\.name && dr\.side == side/.test(kt));
+    ok("und es hinterlässt eine Spur", /warnEinmal\("adoptSkip"/.test(kt));
+
+    /* GEMELDET: „Der Score von der Uhr aktualisiert den Bildschirm nicht."
+       Neu gezeichnet wurde NUR beim Lochwechsel — kamen bloß Werte, gab es
+       einen Hinweis, und die Anzeige blieb, wie sie war. Der Hinweis sagte
+       „ist da", die Anzeige sagte „ist nicht da". */
+    ok("übernommene Werte zeichnen neu",
+       (src.match(/else if\(gotVals\)\{ renderPlay\(\);/g) || []).length === 2,
+       (src.match(/else if\(gotVals\)\{ renderPlay\(\);/g) || []).length + " von 2 Stellen");
     ok("und nimmt den jüngeren Bericht, nicht die jüngeren Zeilen",
        /\(b1\.berichtAt\|\|""\)>=\(b2\.berichtAt\|\|""\)/.test(src));
 
@@ -6180,7 +6198,7 @@ group("Live-Zeiger — beide Geräte, dieselbe Regel");
     /* (1) Welche Uhr-Fassung läuft? Sie stand nur im Fehlerprotokoll — also
        nur, wenn es Fehler gab. */
     ok("die Uhr nennt ihre Fassung im Live-Zeiger", /\.put\("app", WATCH_APP\)/.test(kt));
-    ok("und die Kennung ist aktuell", /WATCH_APP = "2026-08-25 \(13\)"/.test(kt));
+    ok("und die Kennung ist aktuell", /WATCH_APP = "2026-08-25 \(14\)"/.test(kt));
     ok("das Handy zeigt sie", /function watchFassung\(\)/.test(src));
     ok("ohne automatisches Urteil „veraltet“",
        /BEWUSST KEIN AUTOMATISCHER VERGLEICH/.test(src));
