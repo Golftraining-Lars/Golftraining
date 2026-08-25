@@ -6098,6 +6098,20 @@ group("Gleichlauf Uhr ↔ App — dieselbe Frage, dieselbe Antwort");
       ok("der Dienst startet während einer Runde immer",
          i4 > 0 && !/if \(!Live\.running\) \{\s*$/.test(vor.trimEnd()));
       ok("und die Begründung steht dabei", /haelt aber nicht nur GPS, sondern den/.test(kt));
+
+    /* --- DIE SPUR NENNT DAS FELD (2026-08-25 (26)) ---
+       Im Protokoll stand dreimal „Eingabe L3 score=–". Daraus war nicht zu
+       entscheiden, ob ein anderes Feld gefüllt wurde oder ein Score verloren
+       ging — genau diese Zweideutigkeit sollte die Spur beseitigen. */
+    ok("der Eintrag wird vor der Änderung gemerkt",
+       /val vorherStr = entries\[hole\]\?\.toString\(\) \?: ""/.test(kt));
+    ok("und danach verglichen", /b\.filterIndexed \{ i, w -> i < a\.size && w != a\[i\] \}/.test(kt));
+    /* OHNE Liste von Feldnamen: Eine solche Liste veraltet beim nächsten neuen
+       Feld, und zwar lautlos. */
+    ok("ohne feste Feldliste", /OHNE EINE LISTE VON FELDNAMEN/.test(kt));
+    /* Und eine Diagnose darf nie das sein, woran eine Eingabe scheitert. */
+    ok("mit Rückfall, wenn der Vergleich misslingt",
+       /"score=" \+ \(nachher\?\.score\?\.toString\(\) \?: "–"\)/.test(kt));
     }
     ok("kein Live.running mehr als Bedingung für den Dienst",
        kt.indexOf("if (!Live.running) {") < 0
@@ -6109,6 +6123,27 @@ group("Gleichlauf Uhr ↔ App — dieselbe Frage, dieselbe Antwort");
        /Eingaben bis #\$aktionNr, Handy sah #/.test(kt));
     ok("und markiert offene Schritte", /offen/.test(kt));
     ok("das Handy meldet eine Lücke ausdrücklich", /LUECKE: Uhr bei #/.test(src));
+
+    /* --- AUS ROHZEILEN EINE ANTWORT (v4.72 / Uhr (27)) ---
+       Die Liste sagt, WAS passiert ist. Die Frage lautet: wie LANGE hat es
+       gedauert und ist etwas ausgeblieben. Beides stand in den Zeilen — man
+       musste es von Hand ausrechnen, und genau das habe ich bei
+       „#1 14:34:55 … empfangen 15:03:11" zweimal übersehen. */
+    ok("das Handy rechnet die Verzögerung aus", /Bilanz: "\+neue\.length\+" Aktionen/.test(src));
+    ok("mit Spanne und Median", /Median "\s*\n?\s*\+Math\.round\(med\)/.test(src));
+    ok("und benennt eine Lücke", /luecke>0\?" · ⚠ "\+luecke\+" fehlen"/.test(src));
+    /* Die Uhrzeit der Uhr trägt kein Datum — ein Sprung über Mitternacht wird
+       verworfen statt falsch gerechnet. Lieber keine Zahl als eine erfundene. */
+    ok("kein Rechnen über Mitternacht", /d>=0 && d<7200/.test(src));
+
+    /* DIE DIREKTE MESSUNG auf der Uhr: Wir wissen, wie lange ein Durchlauf
+       schlafen SOLL. Dauert er länger, hat jemand anders die Schleife
+       angehalten — das unterscheidet „Netz war weg" von „Prozess eingefroren".
+       Genau diese Unterscheidung hat zwei Tage gefehlt. */
+    ok("die Uhr misst, ob die Schleife stand",
+       /if \(tatsaechlich > sollWarten \* 2\)/.test(kt));
+    ok("und meldet es mit Zahlen", /Schleife stand \$\{tatsaechlich \/ 1000\} s statt/.test(kt));
+    ok("der Puls zählt die Aussetzer", /Schleife stand \$\{taktStand\}×/.test(kt));
     ok("und sind nummeriert", /"#"\+_phPulsN\+" "\+was/.test(src));
     ok("reine Wiederholungen werden nicht gedoppelt", /if\(was===_phPuls\) return;/.test(src));
     /* Jede Abbruchstelle nennt ihren Grund — sonst heißt es wieder nur
@@ -6428,7 +6463,7 @@ group("Live-Zeiger — beide Geräte, dieselbe Regel");
     /* (1) Welche Uhr-Fassung läuft? Sie stand nur im Fehlerprotokoll — also
        nur, wenn es Fehler gab. */
     ok("die Uhr nennt ihre Fassung im Live-Zeiger", /\.put\("app", WATCH_APP\)/.test(kt));
-    ok("und die Kennung ist aktuell", /WATCH_APP = "2026-08-25 \(25\)"/.test(kt));
+    ok("und die Kennung ist aktuell", /WATCH_APP = "2026-08-25 \(27\)"/.test(kt));
     ok("das Handy zeigt sie", /function watchFassung\(\)/.test(src));
 
     /* --- STARTBILDSCHIRM (2026-08-25 (20)) ---
