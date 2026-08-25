@@ -6048,6 +6048,10 @@ group("Gleichlauf Uhr ↔ App — dieselbe Frage, dieselbe Antwort");
     ok("sie ersetzt sich selbst", /Fehler\.entferneTags\(listOf\("⚠ Puls"\)\)/.test(kt));
     ok("und nennt beide Löcher mit Zeitstempel",
        /eigenes Loch \$\{pulsLoch[\s\S]{0,60}?Handy-Loch \$pulsFremd/.test(kt));
+    /* Ein Zähler beweist KONTINUITÄT: „138 Vorgänge, 0 misslungen" sagt etwas
+       anderes als „3 Vorgänge" nach einer Stunde. Ohne ihn sah man nur, WANN
+       zuletzt gesendet wurde. */
+    ok("der Puls zählt die Vorgänge", /\$pulsAnzahl Vorgänge, \$pulsFehler misslungen/.test(kt));
     ok("sie wird bei jedem Sendevorgang geschrieben",
        /syncVerlauf = \(listOf[\s\S]{0,220}?pulsSchreiben\(\)/.test(kt));
 
@@ -6220,7 +6224,7 @@ group("Live-Zeiger — beide Geräte, dieselbe Regel");
     /* (1) Welche Uhr-Fassung läuft? Sie stand nur im Fehlerprotokoll — also
        nur, wenn es Fehler gab. */
     ok("die Uhr nennt ihre Fassung im Live-Zeiger", /\.put\("app", WATCH_APP\)/.test(kt));
-    ok("und die Kennung ist aktuell", /WATCH_APP = "2026-08-25 \(15\)"/.test(kt));
+    ok("und die Kennung ist aktuell", /WATCH_APP = "2026-08-25 \(16\)"/.test(kt));
     ok("das Handy zeigt sie", /function watchFassung\(\)/.test(src));
     ok("ohne automatisches Urteil „veraltet“",
        /BEWUSST KEIN AUTOMATISCHER VERGLEICH/.test(src));

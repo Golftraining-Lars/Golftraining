@@ -448,6 +448,25 @@ kopf("draft.json — Handy → Uhr");
           if(nw && nw.spieltWie!=null && L0 && L0.spielt!=null
              && Math.abs(nw.spieltWie-L0.spielt)>=5)
             merke("zweiZahlen", wo+": Kopfzeile "+nw.spieltWie+" m · Karte "+L0.spielt+" m");
+          /* DIE ECHTE PRUEFUNG (v4.63): spieltWie wird aus der Kette
+             uebernommen — die Zeile darueber vergleicht also eine Zahl mit
+             sich selbst und kann nie ausschlagen. Im Feld lief die Warnung
+             „spielt-wie uneinig" trotzdem dutzendfach: Sie verglich die
+             EIGENE Rechnung der Kopfzeile (spieltWieKopf) mit der Kette.
+             Genau die gehoert geprueft — sonst ist die Invariante Zierde.
+             OFFEN: Der Testplatz hat keine Doglegs und keine gezogenen
+             Wegpunkte, deshalb fallen Bewertungsziel und Kettenziel hier
+             ohnehin zusammen — die Invariante schlaegt also (noch) nicht aus,
+             auch wenn man die Vereinheitlichung zurueckbaut. Sie greift erst
+             auf einem Platz mit Knick. Das ist eine Luecke des PLATZES, nicht
+             der Pruefung; sie gehoert benannt statt uebersehen.
+             KEINE RUECKWAERTS-ANFUEHRUNGSZEICHEN in diesem Block: Er steht in
+             einem Vorlagentext, und ein einzelnes beendet ihn. Derselbe Fehler
+             wie in v3.96 und v4.5 — der Pruefstand warnt seit v4.17 davor. */
+          if(nw && nw.spieltWieKopf!=null && L0 && L0.spielt!=null
+             && Math.abs(nw.spieltWieKopf-L0.spielt)>=5)
+            merke("zweiZiele", wo+": Kopfzeile rechnet "+nw.spieltWieKopf
+              +" m, Kette "+L0.spielt+" m — verschiedene Zielpunkte");
         }catch(e4){ merke("zahlKaputt", wo+": playCaddyNow "+e4.message); }
 
         /* 11 — DIE KARTE MUSS MIT DER KOPFZEILE UEBEREINSTIMMEN (v4.15).
