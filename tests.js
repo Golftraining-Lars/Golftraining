@@ -6052,6 +6052,37 @@ group("Gleichlauf Uhr ↔ App — dieselbe Frage, dieselbe Antwort");
        anderes als „3 Vorgänge" nach einer Stunde. Ohne ihn sah man nur, WANN
        zuletzt gesendet wurde. */
     ok("der Puls zählt die Vorgänge", /\$pulsAnzahl Vorgänge, \$pulsFehler misslungen/.test(kt));
+
+    /* --- ANZEIGE (2026-08-25 (17)) --- */
+    ok("die Standby-Seite zeigt Front und Back",
+       /front: Int\?,\s*\n\s*back: Int\?,\s*\n\s*plays: Int\?/.test(kt));
+    ok("und wird auch damit versorgt", /front = live\.front,\s*\n\s*back = live\.back/.test(kt));
+    /* „spielt wie" nur bei Abweichung — neben einer gleichen Zahl ist es auf
+       einem runden Display verschenkter Platz. */
+    {
+      /* Im HolePage-Block suchen, nicht global: „Front · Mitte · Back" steht
+         seit (17) auch auf der Standby-Seite, und die liegt 20 000 Zeichen
+         entfernt. Ein globales Muster misst dann den falschen Abstand. */
+      const iH = kt.indexOf("private fun HolePage(");
+      const blkH = iH < 0 ? "" : kt.slice(iH, kt.indexOf("private fun ", iH + 30));
+      ok("„spielt wie“ auf Seite 1 unter den Zahlen",
+         /Front · Mitte · Back/.test(blkH) && /spielt wie \$p m/.test(blkH));
+    }
+    ok("nur bei Abweichung ab 2 m",
+       (kt.match(/abs\(p - \(live\.mid \?: p\)\) >= 2/g) || []).length >= 1);
+
+    /* --- WARNUNG NUR, WENN MAN AUF DEM PLATZ STEHT (v4.64) ---
+       `_aimBuild` baut die Kette ab ABSCHLAG, die Kopfzeile misst ab der
+       EIGENEN Position. Beide korrekt, und nur dann gleich, wenn man auch am
+       Abschlag steht. Im Protokoll las sich das als „Kopfzeile 2303 m · Kette
+       171 m" — das Handy lag 2,5 km entfernt auf dem Tisch. Eine Warnung, die
+       in dieser Lage immer angeht, verdeckt die Fälle, in denen sie etwas
+       bedeutet. */
+    ok("Caddy-Warnungen nur in Platznähe", /const _nahGenug=function\(\)/.test(src));
+    ok("gebunden an playTooFar", /playTooFar==="function"\) \? !playTooFar\(\)/.test(src));
+    ok("beide Meldungen sind gebunden",
+       (src.match(/_nahGenug\(\)/g) || []).length === 2,
+       (src.match(/_nahGenug\(\)/g) || []).length + " Aufrufe (Schläger + spielt-wie)");
     ok("sie wird bei jedem Sendevorgang geschrieben",
        /syncVerlauf = \(listOf[\s\S]{0,220}?pulsSchreiben\(\)/.test(kt));
 
@@ -6224,7 +6255,7 @@ group("Live-Zeiger — beide Geräte, dieselbe Regel");
     /* (1) Welche Uhr-Fassung läuft? Sie stand nur im Fehlerprotokoll — also
        nur, wenn es Fehler gab. */
     ok("die Uhr nennt ihre Fassung im Live-Zeiger", /\.put\("app", WATCH_APP\)/.test(kt));
-    ok("und die Kennung ist aktuell", /WATCH_APP = "2026-08-25 \(16\)"/.test(kt));
+    ok("und die Kennung ist aktuell", /WATCH_APP = "2026-08-25 \(17\)"/.test(kt));
     ok("das Handy zeigt sie", /function watchFassung\(\)/.test(src));
     ok("ohne automatisches Urteil „veraltet“",
        /BEWUSST KEIN AUTOMATISCHER VERGLEICH/.test(src));
