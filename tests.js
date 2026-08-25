@@ -5912,7 +5912,26 @@ group("Gleichlauf Uhr ↔ App — dieselbe Frage, dieselbe Antwort");
 
     /* Das Protokoll der Uhr reist mit dem Entwurf. */
     ok("die Uhr hängt ihr Protokoll an den Entwurf", /"watchLog"/.test(kt));
+    /* GEMELDET: „Das Protokoll der Uhr kommt nicht an." Es hing am AUFBAU FUER
+       DIE GROSSE DATEI (`val draft`) — also am Notweg, der praktisch nie
+       läuft. Das Handy las `draft.json` und fand deshalb nie etwas: eingebaut
+       und wirkungslos, zum wiederholten Mal. */
+    ok("das Protokoll hängt am echten Entwurf",
+       /if \(arr\.length\(\) > 0\) d\.put\("gpsShots", arr\)[\s\S]{0,900}?d\.put\(\s*"watchLog"/.test(kt));
     ok("die App liest es", /DB\._draftRound\)\|\|null/.test(src) && /watchLog/.test(src));
+
+    /* ZWEITER WEG für die Zeit OHNE Runde — dort gibt es keinen Entwurf. */
+    ok("die Uhr schreibt auch watchlog.json", /"X-Path", "watchlog\.json"/.test(kt));
+    ok("aber nur bei Änderung", /if \(stand == letzterLogStand\) return false/.test(kt));
+    ok("die App holt die Datei", /function watchLogPull\(\)/.test(src));
+    ok("und nimmt den jüngeren Stand",
+       /\(ausEntwurf\.at\|\|""\)>=\(ausDatei\.at\|\|""\)/.test(src));
+    ok("die Quelle steht in der Anzeige", /w\.quelle\?" · aus "/.test(src));
+
+    /* Puffer und Wiederholungen — eine Schleife darf die Vorgeschichte nicht
+       löschen, und die ist das, was man sucht. */
+    ok("Puffer auf 60 erhöht", /private const val MAX = 60/.test(kt));
+    ok("Wiederholungen werden gezählt", /\(×\$\{n \+ 1\}\)/.test(kt));
     ok("aber mischt es NICHT in das eigene Protokoll",
        !/ERRLOG\.push\([^)]*watchLog/.test(src));
     ok("und sagt, warum nicht", /nicht ins eigene\s*\n?\s*Protokoll übernommen|nicht in `ERRLOG` UEBERNOMMEN/.test(src));
@@ -6041,7 +6060,7 @@ group("Live-Zeiger — beide Geräte, dieselbe Regel");
     /* (1) Welche Uhr-Fassung läuft? Sie stand nur im Fehlerprotokoll — also
        nur, wenn es Fehler gab. */
     ok("die Uhr nennt ihre Fassung im Live-Zeiger", /\.put\("app", WATCH_APP\)/.test(kt));
-    ok("und die Kennung ist aktuell", /WATCH_APP = "2026-08-24 \(7\)"/.test(kt));
+    ok("und die Kennung ist aktuell", /WATCH_APP = "2026-08-24 \(8\)"/.test(kt));
     ok("das Handy zeigt sie", /function watchFassung\(\)/.test(src));
     ok("ohne automatisches Urteil „veraltet“",
        /BEWUSST KEIN AUTOMATISCHER VERGLEICH/.test(src));
