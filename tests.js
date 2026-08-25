@@ -6186,6 +6186,25 @@ group("Gleichlauf Uhr ↔ App — dieselbe Frage, dieselbe Antwort");
     ok("die Uhr liest dort zuerst",
        /val sahOben = basis\.optInt\("seenAktion", -1\)/.test(kt));
     ok("und der Zeiger bleibt als Rückfall", /else prevLiveK\?\.let \{ pl ->/.test(kt));
+
+    /* --- DIE DIAGNOSE HAT GELOGEN (2026-08-25 (30)) ---
+       Im Puls stand „Loch 4/18 · … · eigenes Loch 1", und ich habe daraus
+       geschlossen, die Uhr sende das falsche Loch. FALSCH: `pulsLoch` wurde
+       INNERHALB von `if (prevLiveK != null && src != "watch")` gesetzt — also
+       nur, wenn im Entwurf der Zeiger des HANDYS lag. Das ist der seltene Fall.
+       In allen anderen Durchläufen behielt der Wert seinen alten Stand.
+       EINE DIAGNOSE, DIE NUR MANCHMAL AKTUALISIERT WIRD, LÜGT IN ALLEN
+       ÜBRIGEN FÄLLEN — glaubwürdig, weil das Format stimmt. */
+    {
+      const iP = kt.indexOf("Diagnose.pulsLoch = currentHole");
+      const iB = kt.indexOf("val prevLiveK = basis.optJSONObject");
+      ok("der Puls wird bei JEDEM Vorgang gesetzt", iP > 0 && iB > 0 && iP < iB,
+         "pulsLoch bei " + iP + ", Bedingung bei " + iB);
+    }
+    ok("auch der Zeiger-Zustand", /Diagnose\.pulsZeiger = if \(currentHole != null\)/.test(kt));
+    /* Und die Lehre steht dabei, damit sie nicht verlorengeht. */
+    ok("die Lehre ist festgehalten",
+       /EINE DIAGNOSE, DIE NUR MANCHMAL AKTUALISIERT WIRD, LUEGT/.test(kt));
     ok("und sind nummeriert", /"#"\+_phPulsN\+" "\+was/.test(src));
     ok("reine Wiederholungen werden nicht gedoppelt", /if\(was===_phPuls\) return;/.test(src));
     /* Jede Abbruchstelle nennt ihren Grund — sonst heißt es wieder nur
@@ -6505,7 +6524,7 @@ group("Live-Zeiger — beide Geräte, dieselbe Regel");
     /* (1) Welche Uhr-Fassung läuft? Sie stand nur im Fehlerprotokoll — also
        nur, wenn es Fehler gab. */
     ok("die Uhr nennt ihre Fassung im Live-Zeiger", /\.put\("app", WATCH_APP\)/.test(kt));
-    ok("und die Kennung ist aktuell", /WATCH_APP = "2026-08-25 \(29\)"/.test(kt));
+    ok("und die Kennung ist aktuell", /WATCH_APP = "2026-08-25 \(30\)"/.test(kt));
     ok("das Handy zeigt sie", /function watchFassung\(\)/.test(src));
 
     /* --- STARTBILDSCHIRM (2026-08-25 (20)) ---
