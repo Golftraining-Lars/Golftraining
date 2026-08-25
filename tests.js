@@ -6002,6 +6002,35 @@ group("Gleichlauf Uhr ↔ App — dieselbe Frage, dieselbe Antwort");
        Display lesen kann, wird nicht gelesen. */
     ok("Diagnose geht ins Protokoll", /fun inProtokoll\(\)/.test(kt));
     ok("der Selbsttest ebenso", /z\.forEach \{ Fehler\.warn\("Selbsttest", it\) \}/.test(kt));
+
+    /* GEMELDET: „Die Ergebnisse kommen erst, wenn ich eine Runde starte."
+       Geschrieben wurde in den Puffer, und der reiste nur mit dem
+       Rundenentwurf oder im Fünf-Minuten-Takt. Wer auf Diagnose drückt, will
+       die Antwort JETZT — meistens, weil gerade etwas klemmt. */
+    {
+      /* BIS ZUR MARKE SCANNEN, nicht in einem geratenen Zeichenfenster suchen.
+         Das ist heute das vierte Mal, dass ein festes Fenster einen richtigen
+         Code als Fehler meldet — die Begründung dazwischen ist länger als
+         jedes Fenster, das ich schätzen würde. */
+      const i3 = kt.indexOf('z.forEach { Fehler.warn("Selbsttest", it) }');
+      const j3 = kt.indexOf("Net.logPut()", i3);
+      ok("der Knopf sendet sofort", i3 >= 0 && j3 > i3 && (j3 - i3) < 2000,
+         i3 < 0 ? "Marke fehlt" : (j3 - i3) + " Zeichen");
+    }
+    ok("und meldet, ob es geklappt hat", /an das Handy gesendet/.test(kt));
+    /* GEMESSEN am echten Protokoll: Fünfmal gedrückt = 35 von 60 Zeilen, und
+       prompt meldete der Selbsttest „Protokoll fast voll". Die Diagnose
+       verdrängte genau das, wozu sie da ist. */
+    ok("die Diagnose ersetzt sich selbst",
+       /Fehler\.entferneTags\(listOf\("⚠ Diagnose", "⚠ Selbsttest", "⚠ Abgleich-Verlauf"\)\)/.test(kt));
+    ok("und rührt echte Fehler nicht an", /fun entferneTags\(tags: List<String>\)/.test(kt));
+
+    /* Und das Gegenstück in der App: neu laden auf Knopfdruck. */
+    ok("die App kann von Hand nachladen", /async function watchLogAuffrischen\(\)/.test(src));
+    ok("ohne sich selbst aufzurufen",
+       !/watchLogAuffrischen[\s\S]{0,400}?watchLogAuffrischen\(\)/.test(
+         src.slice(src.indexOf("async function watchLogAuffrischen"),
+                   src.indexOf("function watchLogKnopfText"))));
     /* Und jede Selbsttest-Zeile nennt die FOLGE, nicht nur den Befund. */
     ok("Befunde nennen ihre Folge",
        /kein Abgleich moeglich/.test(kt) && /wird dadurch falsch/.test(kt)
@@ -6135,7 +6164,7 @@ group("Live-Zeiger — beide Geräte, dieselbe Regel");
     /* (1) Welche Uhr-Fassung läuft? Sie stand nur im Fehlerprotokoll — also
        nur, wenn es Fehler gab. */
     ok("die Uhr nennt ihre Fassung im Live-Zeiger", /\.put\("app", WATCH_APP\)/.test(kt));
-    ok("und die Kennung ist aktuell", /WATCH_APP = "2026-08-25 \(11\)"/.test(kt));
+    ok("und die Kennung ist aktuell", /WATCH_APP = "2026-08-25 \(12\)"/.test(kt));
     ok("das Handy zeigt sie", /function watchFassung\(\)/.test(src));
     ok("ohne automatisches Urteil „veraltet“",
        /BEWUSST KEIN AUTOMATISCHER VERGLEICH/.test(src));
