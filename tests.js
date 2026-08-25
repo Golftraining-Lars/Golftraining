@@ -6144,6 +6144,24 @@ group("Gleichlauf Uhr ↔ App — dieselbe Frage, dieselbe Antwort");
        /if \(tatsaechlich > sollWarten \* 2\)/.test(kt));
     ok("und meldet es mit Zahlen", /Schleife stand \$\{tatsaechlich \/ 1000\} s statt/.test(kt));
     ok("der Puls zählt die Aussetzer", /Schleife stand \$\{taktStand\}×/.test(kt));
+
+    /* --- DER SENDE-AUFTRAG GEHÖRT NICHT AN DIE ANZEIGE (2026-08-25 (28)) ---
+       GEMESSEN: beim Hinsehen 4–5 s, mit gesenktem Arm 119–208 s (Median 168),
+       bei „keine Lücke". `scheduleSync` startete auf `rememberCoroutineScope()`
+       — der gehört der KOMPOSITION und wird abgebrochen, sobald der Bildschirm
+       die Anzeige verlässt.
+       (25) hielt den PROZESS am Leben (28 min → 3 min), der AUFTRAG starb
+       trotzdem: zwei verschiedene Lebensdauern, die ich für dieselbe hielt. */
+    ok("es gibt einen eigenen Sende-Bereich",
+       /val syncScope = remember \{ CoroutineScope\(SupervisorJob\(\) \+ Dispatchers\.Default\) \}/.test(kt));
+    ok("scheduleSync benutzt ihn", /syncJob = syncScope\.launch \{/.test(kt));
+    ok("und nicht mehr den der Komposition", !/syncJob = scope\.launch/.test(kt));
+    /* Aufgeräumt wird trotzdem — sonst überlebt der Bereich die App. */
+    ok("der Bereich wird beim Verlassen beendet",
+       /DisposableEffect\(Unit\) \{ onDispose \{ syncScope\.cancel\(\) \} \}/.test(kt));
+    /* SupervisorJob: ein gescheiterter Vorgang darf die folgenden nicht
+       mitreißen — derselbe Fehler wie (10), nur in anderer Gestalt. */
+    ok("ein Fehlschlag reißt die folgenden nicht mit", /SupervisorJob\(\)/.test(kt));
     ok("und sind nummeriert", /"#"\+_phPulsN\+" "\+was/.test(src));
     ok("reine Wiederholungen werden nicht gedoppelt", /if\(was===_phPuls\) return;/.test(src));
     /* Jede Abbruchstelle nennt ihren Grund — sonst heißt es wieder nur
@@ -6463,7 +6481,7 @@ group("Live-Zeiger — beide Geräte, dieselbe Regel");
     /* (1) Welche Uhr-Fassung läuft? Sie stand nur im Fehlerprotokoll — also
        nur, wenn es Fehler gab. */
     ok("die Uhr nennt ihre Fassung im Live-Zeiger", /\.put\("app", WATCH_APP\)/.test(kt));
-    ok("und die Kennung ist aktuell", /WATCH_APP = "2026-08-25 \(27\)"/.test(kt));
+    ok("und die Kennung ist aktuell", /WATCH_APP = "2026-08-25 \(28\)"/.test(kt));
     ok("das Handy zeigt sie", /function watchFassung\(\)/.test(src));
 
     /* --- STARTBILDSCHIRM (2026-08-25 (20)) ---
