@@ -6053,6 +6053,23 @@ group("Gleichlauf Uhr ↔ App — dieselbe Frage, dieselbe Antwort");
        zuletzt gesendet wurde. */
     ok("der Puls zählt die Vorgänge", /\$pulsAnzahl Vorgänge, \$pulsFehler misslungen/.test(kt));
 
+    /* --- EIN LOCH AUSSERHALB DER LISTE (2026-08-25 (18)) ---
+       Im Puls stand „1 Vorgänge · eigenes Loch ? · Handy-Loch —". Das
+       Fragezeichen war die Antwort: `snapHole` war null. Der ganze Live-Block
+       steht hinter `if (currentHole != null)` — er wurde also übersprungen.
+       Der Push lief mit HTTP 200 und trug nichts bei; von außen sieht das aus
+       wie „die Uhr sendet nicht". Sechs Fassungen lang haben wir daran
+       gesucht, weil der Zustand LAUTLOS war. */
+    ok("ein Index außerhalb wird zurückgeholt",
+       /idx = idx\.coerceIn\(0, cs\.holes\.size - 1\)/.test(kt));
+    ok("und gemeldet", /idx \$alt lag ausserhalb von/.test(kt));
+    ok("ein leerer Lochzeiger wird gemeldet", /warnEinmal\("snapHoleNull"/.test(kt));
+    /* Und der Puls sagt jetzt, OB der Zeiger überhaupt gesetzt wurde — „HTTP
+       200" allein hat uns in die Irre geführt. */
+    ok("der Puls nennt den Zustand des Zeigers", /Zeiger \$pulsZeiger/.test(kt));
+    ok("mit „übersprungen“ als Ausgangswert",
+       /var pulsZeiger: String = "übersprungen"/.test(kt));
+
     /* --- ANZEIGE (2026-08-25 (17)) --- */
     ok("die Standby-Seite zeigt Front und Back",
        /front: Int\?,\s*\n\s*back: Int\?,\s*\n\s*plays: Int\?/.test(kt));
@@ -6255,7 +6272,7 @@ group("Live-Zeiger — beide Geräte, dieselbe Regel");
     /* (1) Welche Uhr-Fassung läuft? Sie stand nur im Fehlerprotokoll — also
        nur, wenn es Fehler gab. */
     ok("die Uhr nennt ihre Fassung im Live-Zeiger", /\.put\("app", WATCH_APP\)/.test(kt));
-    ok("und die Kennung ist aktuell", /WATCH_APP = "2026-08-25 \(17\)"/.test(kt));
+    ok("und die Kennung ist aktuell", /WATCH_APP = "2026-08-25 \(18\)"/.test(kt));
     ok("das Handy zeigt sie", /function watchFassung\(\)/.test(src));
     ok("ohne automatisches Urteil „veraltet“",
        /BEWUSST KEIN AUTOMATISCHER VERGLEICH/.test(src));
