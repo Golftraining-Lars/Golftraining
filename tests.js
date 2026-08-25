@@ -5930,7 +5930,32 @@ group("Gleichlauf Uhr ↔ App — dieselbe Frage, dieselbe Antwort");
 
     /* Puffer und Wiederholungen — eine Schleife darf die Vorgeschichte nicht
        löschen, und die ist das, was man sucht. */
+    /* Anzeige: F · Mitte · B nebeneinander (2026-08-24 (9)). Die Mitte bleibt
+       größer — drei gleich große Zahlen zwingen zum Suchen. */
+    {
+      /* Auf den BLOCK schauen statt auf einen Zeichenabstand — ein festes
+         Fenster bricht bei jeder Ergänzung, ohne etwas über die Sache zu
+         sagen. Dieselbe Lehre wie beim Lochwechsel. */
+      const i2 = kt.indexOf("live.front?.toString()");
+      const blk2 = i2 < 0 ? "" : kt.slice(i2, i2 + 900);
+      ok("Front, Mitte und Back in einer Reihe",
+         /live\.back\?\.toString\(\)/.test(blk2) && /\$\{live\.mid\}/.test(blk2));
+    }
+    ok("die Mitte bleibt die größte Zahl",
+       /"  \$\{live\.mid\}  ",\s*\n\s*fontSize = 32\.sp/.test(kt));
+    ok("und ist beschriftet", /"Front · Mitte · Back"/.test(kt));
+
     ok("Puffer auf 60 erhöht", /private const val MAX = 60/.test(kt));
+
+    /* MESSEN STATT RATEN (2026-08-24 (9)). Diese Stelle wurde viermal aus dem
+       Kopf repariert, dreimal daneben. Jetzt schreibt sie auf, WAS sie
+       entschieden hat — und der Puffer kommt seit (8) auch beim Handy an. */
+    ok("verworfene Zeiger werden protokolliert",
+       /Handy-Loch \$h verworfen · at=\$at/.test(kt));
+    ok("nur bei Abweichung, nicht je Herzschlag",
+       /else if \(h > 0 && h != currentHole\)/.test(kt));
+    ok("ein Worker ohne Kennung wird gemeldet",
+       /Worker ohne X-Repo-Sha/.test(kt));
     ok("Wiederholungen werden gezählt", /\(×\$\{n \+ 1\}\)/.test(kt));
     ok("aber mischt es NICHT in das eigene Protokoll",
        !/ERRLOG\.push\([^)]*watchLog/.test(src));
@@ -6060,7 +6085,7 @@ group("Live-Zeiger — beide Geräte, dieselbe Regel");
     /* (1) Welche Uhr-Fassung läuft? Sie stand nur im Fehlerprotokoll — also
        nur, wenn es Fehler gab. */
     ok("die Uhr nennt ihre Fassung im Live-Zeiger", /\.put\("app", WATCH_APP\)/.test(kt));
-    ok("und die Kennung ist aktuell", /WATCH_APP = "2026-08-24 \(8\)"/.test(kt));
+    ok("und die Kennung ist aktuell", /WATCH_APP = "2026-08-24 \(9\)"/.test(kt));
     ok("das Handy zeigt sie", /function watchFassung\(\)/.test(src));
     ok("ohne automatisches Urteil „veraltet“",
        /BEWUSST KEIN AUTOMATISCHER VERGLEICH/.test(src));
@@ -6130,6 +6155,48 @@ group("Live-Zeiger — beide Geräte, dieselbe Regel");
     ok("und prüft sie beim Übernehmen",
        (kt.match(/at > ownLiveAt && at > ownHoleAt/g) || []).length === 2);
   }
+}
+
+/* ============ 24cr. Das Protokoll darf sich nicht selbst aufhängen ============ */
+group("Protokoll-Anzeige — einmal nachladen, nicht endlos");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+
+  /* GEMELDET: „Das Fehlerprotokoll lässt sich nicht mehr schließen und die App
+     stürzt ab." v4.58 rief `watchLogPull().then(... showErrLog())`, um den
+     frischen Stand nachzuladen — der zweite Aufruf lud WIEDER nach und rief
+     WIEDER sich selbst. Eine Schleife ohne Abbruch.
+     Ich hatte auf „das Blatt ist offen" geprüft; das ist beim zweiten Mal auch
+     wahr. EINE FUNKTION, DIE SICH SELBST AUFRUFT, UM SICH ZU AKTUALISIEREN,
+     BRAUCHT EINE BEDINGUNG, DIE BEIM ZWEITEN MAL FALSCH IST. */
+  ok("das Nachladen ist gedeckelt", /if\(!_errLogGeholt\)\{/.test(src));
+  ok("die Marke wird gesetzt, bevor geladen wird",
+     /if\(!_errLogGeholt\)\{\s*\n\s*_errLogGeholt=true;/.test(src));
+  ok("und beim Schließen zurückgesetzt",
+     /function closeSheet\(\)\{\s*\n\s*_errLogGeholt=false;/.test(src));
+  /* Beide Anzeigen müssen die Marke benutzen — eine allein genügt nicht, sie
+     rufen dieselbe Ladefunktion. */
+  ["showErrLog", "showWatchLog"].forEach(fn => {
+    const i = src.indexOf("function " + fn + "(");
+    /* Bis zum ersten `_errLogGeholt` schauen, nicht auf ein Zeichenfenster:
+       Der Kommentar davor ist länger als jedes Fenster, das ich raten würde.
+       Und geprüft wird, dass die Marke die BEDINGUNG ist — sonst geht die
+       Gegenprobe durch, ohne etwas zu melden. */
+    const j2 = src.indexOf("_errLogGeholt=true;", i);
+    const blk = (i < 0 || j2 < 0) ? "" : src.slice(i, j2 + 20);
+    ok(fn + " lädt nur einmal je Öffnen",
+       /if\(!_errLogGeholt\)\{[\s\S]{0,20}?_errLogGeholt=true;/.test(blk));
+  });
+  /* Und jede Zusage braucht ihr Auffangnetz — ausgerechnet beim Öffnen des
+     Protokolls wäre ein unbehandelter Netzfehler bitter. */
+  ok("watchLogPull ist abgefangen",
+     (src.match(/watchLogPull\(\)[\s\S]{0,220}?\.catch\(/g) || []).length >= 2);
+
+  /* Der eigene Knopf: Er soll gleich sagen, ob etwas da ist — sonst tippt man
+     und findet „nichts vorhanden", was wie ein Fehler aussieht. */
+  ok("eigener Knopf für das Uhr-Protokoll", /onclick="showWatchLog\(\)"/.test(src));
+  ok("mit Anzahl und Alter im Text", /function watchLogKnopfText\(\)/.test(src));
+  ok("und einem Hinweis, wenn nichts ankommt", /noch nicht auf v2\.11/.test(src));
 }
 
 /* ============ 24bl. Caddy-Plan: Einheiten und Plausibilität ============ */
