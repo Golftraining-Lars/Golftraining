@@ -6029,6 +6029,28 @@ group("Gleichlauf Uhr ↔ App — dieselbe Frage, dieselbe Antwort");
        /dr\.roundId == roundId[\s\S]{0,120}?dr\.course == course\?\.name && dr\.side == side/.test(kt));
     ok("und es hinterlässt eine Spur", /warnEinmal\("adoptSkip"/.test(kt));
 
+    /* --- DER VERSAND DARF AN NICHTS HÄNGEN (2026-08-25 (15)) ---
+       Er hing an der Akku-Schleife, und die steht hinter
+       `screen != "play" || akkuGewarnt`. Außerhalb einer Runde lief er gar
+       nicht — meine Behauptung in (8), er laufe „auch ohne Runde", war falsch;
+       ich hatte sie aufgeschrieben, ohne nachzusehen, wo die Schleife hängt.
+       Und ab der ersten Akkuwarnung hörte er dauerhaft auf. */
+    ok("das Protokoll hat eine eigene Schleife",
+       /LaunchedEffect\(Unit\) \{\s*\n\s*while \(true\) \{\s*\n\s*delay\(120_000\)[\s\S]{0,200}?Net\.logPut\(\)/.test(kt));
+    ok("und hängt nicht mehr an der Akku-Schleife",
+       !/akkuGewarnt[\s\S]{0,600}?Net\.logPut\(\)/.test(kt));
+
+    /* --- DER PULS beendet die Zweideutigkeit „nichts gemeldet" ---
+       Das Protokoll endete um 08:40:48, das Handy lief bis 08:44. Daraus ließ
+       sich nicht ablesen, ob die Uhr nicht mehr sendete oder nur nichts zu
+       melden hatte — genau das hat mehrfach in die falsche Richtung geführt. */
+    ok("es gibt eine Puls-Zeile", /private fun pulsSchreiben\(\)/.test(kt));
+    ok("sie ersetzt sich selbst", /Fehler\.entferneTags\(listOf\("⚠ Puls"\)\)/.test(kt));
+    ok("und nennt beide Löcher mit Zeitstempel",
+       /eigenes Loch \$\{pulsLoch[\s\S]{0,60}?Handy-Loch \$pulsFremd/.test(kt));
+    ok("sie wird bei jedem Sendevorgang geschrieben",
+       /syncVerlauf = \(listOf[\s\S]{0,220}?pulsSchreiben\(\)/.test(kt));
+
     /* GEMELDET: „Der Score von der Uhr aktualisiert den Bildschirm nicht."
        Neu gezeichnet wurde NUR beim Lochwechsel — kamen bloß Werte, gab es
        einen Hinweis, und die Anzeige blieb, wie sie war. Der Hinweis sagte
@@ -6198,7 +6220,7 @@ group("Live-Zeiger — beide Geräte, dieselbe Regel");
     /* (1) Welche Uhr-Fassung läuft? Sie stand nur im Fehlerprotokoll — also
        nur, wenn es Fehler gab. */
     ok("die Uhr nennt ihre Fassung im Live-Zeiger", /\.put\("app", WATCH_APP\)/.test(kt));
-    ok("und die Kennung ist aktuell", /WATCH_APP = "2026-08-25 \(14\)"/.test(kt));
+    ok("und die Kennung ist aktuell", /WATCH_APP = "2026-08-25 \(15\)"/.test(kt));
     ok("das Handy zeigt sie", /function watchFassung\(\)/.test(src));
     ok("ohne automatisches Urteil „veraltet“",
        /BEWUSST KEIN AUTOMATISCHER VERGLEICH/.test(src));
