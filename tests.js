@@ -5946,7 +5946,7 @@ group("Gleichlauf Uhr ↔ App — dieselbe Frage, dieselbe Antwort");
        läuft. Das Handy las `draft.json` und fand deshalb nie etwas: eingebaut
        und wirkungslos, zum wiederholten Mal. */
     ok("das Protokoll hängt am echten Entwurf",
-       /if \(arr\.length\(\) > 0\) d\.put\("gpsShots", arr\)[\s\S]{0,900}?d\.put\(\s*"watchLog"/.test(kt));
+       /if \(arr\.length\(\) > 0\) d\.put\("gpsShots", arr\)[\s\S]{0,1800}?d\.put\(\s*"watchLog"/.test(kt));
     ok("die App liest es", /DB\._draftRound\)\|\|null/.test(src) && /watchLog/.test(src));
 
     /* ZWEITER WEG für die Zeit OHNE Runde — dort gibt es keinen Entwurf. */
@@ -6054,8 +6054,43 @@ group("Gleichlauf Uhr ↔ App — dieselbe Frage, dieselbe Antwort");
        und dreimal danebengelegen. `playLiveRemote` gibt an vier Stellen `null`
        zurück, und von außen war nicht zu unterscheiden, an welcher. */
     ok("das Handy schreibt einen eigenen Puls", /function playPulsSchreiben\(was\)/.test(src));
-    ok("selbstersetzend wie drüben",
-       /ERRLOG=ERRLOG\.filter\(x=>!\(x&&x\.where==="⌚ Zeiger \(Handy\)"\)\)/.test(src));
+    /* DIE LETZTEN FÜNF, NICHT NUR DIE LETZTE (v4.67). Die erste Fassung
+       ersetzte sich vollständig — im Protokoll stand genau EINE Zeile, während
+       zwischen 13:26 und 13:32 sechs Lochwechsel lagen. Man sah den Endzustand
+       und nicht den WEG dorthin, und der Weg ist die Frage. */
+    ok("die letzten fünf Entscheidungen bleiben", /if\(alt\.length>=5\)\{/.test(src));
+
+    /* --- DIE EINGABESPUR (Uhr (23) / App v4.68) ---
+       GEMELDET: „Von Loch zu Loch gewechselt, jedes Mal Score 6 — nichts kam
+       an." Bis hierher ließen sich nur ZUSTÄNDE vergleichen: Uhr auf 9, Handy
+       auf 9. Das sagt nichts über die sechs Schritte dazwischen — ein Endstand
+       kann auch zufällig übereinstimmen. Genau daran bin ich zehn Fassungen
+       lang gescheitert. */
+    ok("die Uhr nummeriert jede Handlung", /fun aktion\(text: String\)/.test(kt));
+    ok("Lochwechsel und Score-Eingabe sind erfasst",
+       (kt.match(/Diagnose\.aktion\(/g) || []).length >= 4,
+       (kt.match(/Diagnose\.aktion\(/g) || []).length + " Stellen");
+    ok("die Spur reist mit dem Entwurf", /d\.put\("aktionNr", Diagnose\.aktionNr\)/.test(kt));
+    ok("das Handy liest sie", /function watchAktionen\(dr\)/.test(src));
+    /* Aus der FRISCHEN Fassung, nicht aus der vereinigten: `mergeDraft` behält
+       unter Umständen den eigenen Entwurf, und dann sähe man die Eingaben der
+       Uhr gar nicht. */
+    ok("und zwar aus dem frischen Entwurf",
+       (src.match(/watchAktionen\(p\.draft\);/g) || []).length === 2);
+    ok("es quittiert mit seenAktion", /seenAktion:WATCH_SEEN/.test(src));
+    ok("die Uhr wertet die Quittung aus", /optInt\("seenAktion", -1\)/.test(kt));
+    /* Und mit dem Namen, den es in DIESEM Zweig gibt — `prevLive` existiert nur
+       im Voll-Push. Dritter Namensfehler in drei Tagen; die Klammernbilanz
+       stimmte jedes Mal, Namensauflösung prüft sie nicht. */
+    ok("mit dem richtigen Namen", /prevLiveK\?\.let \{ pl ->/.test(kt));
+    /* Der Puls nennt beide Zahlen — eine Lücke ist damit auf den Schritt genau
+       sichtbar statt „irgendwas kommt nicht an". */
+    ok("der Puls zeigt beide Stände",
+       /Eingaben bis #\$aktionNr, Handy sah #/.test(kt));
+    ok("und markiert offene Schritte", /offen/.test(kt));
+    ok("das Handy meldet eine Lücke ausdrücklich", /LUECKE: Uhr bei #/.test(src));
+    ok("und sind nummeriert", /"#"\+_phPulsN\+" "\+was/.test(src));
+    ok("reine Wiederholungen werden nicht gedoppelt", /if\(was===_phPuls\) return;/.test(src));
     /* Jede Abbruchstelle nennt ihren Grund — sonst heißt es wieder nur
        „ignoriert die Uhr". */
     ["kein Zeiger im Entwurf", "stammt vom Handy selbst",
@@ -6247,6 +6282,32 @@ group("Live-Zeiger — beide Geräte, dieselbe Regel");
      src.indexOf("playLiveSeenAt=lv.at;\n  /* `stratOval`") ||
      /if\(t===PLAY\.idx\) return false;[\s\S]{0,120}?playLiveSeenAt=lv\.at;/.test(src));
 
+  {
+    /* Die Wiederholung des EIGENEN Zeigers bleibt eingefroren — sonst gewinnt
+       beim Vereinigen wieder, wer öfter sendet. */
+    const DBz = G("DB"), PLAYz = G("PLAY"), pl2 = G("_phoneLive");
+    const sichz = { d: DBz._draftRound, h: PLAYz.holeAt, i: PLAYz.idx,
+                    c: PLAYz.course, dt: PLAYz.date, ho: PLAYz.holes };
+    try {
+      const t1 = Date.now(), iso1 = ms => new Date(ms).toISOString();
+      PLAYz.course = "T"; PLAYz.date = "2026-08-25"; PLAYz.idx = 0;
+      PLAYz.holes = [{ hole: 1 }]; PLAYz.holeAt = iso1(t1 - 1000);
+      DBz._draftRound = { live: { src: "phone", hole: 1, at: iso1(t1 - 40000),
+                                  course: "T", date: "2026-08-25" } };
+      eq("eigener unveränderter Zeiger bleibt eingefroren",
+         pl2({}).at, iso1(t1 - 40000));
+      /* Ein FREMDER Stempel wird nie fortgeschrieben — sonst trägt das Handy
+         die Zeit der Uhr weiter, als wäre es seine eigene. */
+      DBz._draftRound = { live: { src: "watch", hole: 1, at: iso1(t1 - 40000),
+                                  course: "T", date: "2026-08-25" } };
+      ok("fremder Stempel wird nicht fortgeschrieben",
+         new Date(pl2({}).at).getTime() > t1 - 3000);
+    } finally {
+      DBz._draftRound = sichz.d; PLAYz.holeAt = sichz.h; PLAYz.idx = sichz.i;
+      PLAYz.course = sichz.c; PLAYz.date = sichz.dt; PLAYz.holes = sichz.ho;
+    }
+  }
+
   /* Und die zweite gemessene Ursache: Fehlt `side` auf einer Seite — die Uhr
      setzt sie nicht immer —, waren die Schlüssel verschieden, und der Merge
      fiel auf „jüngerer Entwurf gewinnt VOLLSTÄNDIG" zurück. Der Score der Uhr
@@ -6297,8 +6358,14 @@ group("Live-Zeiger — beide Geräte, dieselbe Regel");
          Bleibt es gleich, bleibt auch `at` stehen — sonst gewinnt beim
          Vereinigen immer das Gerät, das ÖFTER sendet, statt dem, das etwas
          getan hat. Genau daran ist der Uhr-Zeiger jedes Mal gescheitert. */
-      ok("übernommenes Loch behält den fremden Zeitstempel",
-         o.at === iso(jetzt - 5000), o.at);
+      /* KORREKTUR v4.66: Eine ÜBERNAHME ist eine NEUE Aussage — „ich bin jetzt
+         auch auf Loch 7", gesagt zu diesem Zeitpunkt. Sie gehört frisch
+         gestempelt. Vorher behielt sie den fremden Stempel, und der Zeiger des
+         Handys alterte nicht mehr: Die Uhr las eine Minute später noch immer
+         denselben Zeitpunkt und hielt ihn für eingeschlafen.
+         Eingefroren bleibt nur die WIEDERHOLUNG des eigenen Zeigers. */
+      ok("übernommenes Loch wird frisch gestempelt",
+         new Date(o.at).getTime() > jetzt - 3000, o.at);
 
       /* (b) Eigene Wahl ist jünger → das Handy schreibt seinen Zeiger. */
       PLAYx.holeAt = iso(jetzt - 1000);
@@ -6341,7 +6408,7 @@ group("Live-Zeiger — beide Geräte, dieselbe Regel");
     /* (1) Welche Uhr-Fassung läuft? Sie stand nur im Fehlerprotokoll — also
        nur, wenn es Fehler gab. */
     ok("die Uhr nennt ihre Fassung im Live-Zeiger", /\.put\("app", WATCH_APP\)/.test(kt));
-    ok("und die Kennung ist aktuell", /WATCH_APP = "2026-08-25 \(22\)"/.test(kt));
+    ok("und die Kennung ist aktuell", /WATCH_APP = "2026-08-25 \(24\)"/.test(kt));
     ok("das Handy zeigt sie", /function watchFassung\(\)/.test(src));
 
     /* --- STARTBILDSCHIRM (2026-08-25 (20)) ---
@@ -11375,7 +11442,7 @@ group("draft.json — heiß und klein statt kalt und groß");
      kollidiert sonst auch der nächste Takt, und der Abgleich reißt mitten in
      der Runde ab, ohne dass etwas danach aussieht. */
   ok("409 wird vereint statt überschrieben",
-    /for\(let anlauf=0; anlauf<4 && r\.status===409; anlauf\+\+\)\{[\s\S]{0,300}mergeDraft\(DB\._draftRound, p\.draft/.test(src));
+    /for\(let anlauf=0; anlauf<4 && r\.status===409; anlauf\+\+\)\{[\s\S]{0,900}mergeDraft\(DB\._draftRound, p\.draft/.test(src));
   /* Die Pause muss ZUFÄLLIG sein: Zwei Geräte, die nach einem Konflikt
      gleichzeitig neu senden, kollidieren synchron wieder. */
   ok("zufällige Pause zwischen den Anläufen", /setTimeout\(x, 250\+Math\.random\(\)\*600\)/.test(src));
