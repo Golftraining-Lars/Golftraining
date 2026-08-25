@@ -6048,6 +6048,30 @@ group("Gleichlauf Uhr ↔ App — dieselbe Frage, dieselbe Antwort");
        /joinToString\("\\n"\) \+ "\|" \+ Diagnose\.berichtAt/.test(kt));
     ok("die App zeigt ihn als eigenen Block", /Selbsttest der Uhr/.test(src));
 
+    /* --- DER PULS DES HANDYS (v4.65) ---
+       Der Puls der Uhr zeigt seit (15) IHRE Seite. Was das HANDY mit dem
+       Zeiger macht, war nicht zu sehen — ich habe seine Seite fünfmal erraten
+       und dreimal danebengelegen. `playLiveRemote` gibt an vier Stellen `null`
+       zurück, und von außen war nicht zu unterscheiden, an welcher. */
+    ok("das Handy schreibt einen eigenen Puls", /function playPulsSchreiben\(was\)/.test(src));
+    ok("selbstersetzend wie drüben",
+       /ERRLOG=ERRLOG\.filter\(x=>!\(x&&x\.where==="⌚ Zeiger \(Handy\)"\)\)/.test(src));
+    /* Jede Abbruchstelle nennt ihren Grund — sonst heißt es wieder nur
+       „ignoriert die Uhr". */
+    ["kein Zeiger im Entwurf", "stammt vom Handy selbst",
+     "Zeiger unvollständig", "Zeiger zu alt"].forEach(g =>
+      ok("Grund benannt: " + g, src.includes(g)));
+    ok("und die Entscheidung selbst",
+       /"schon dort":"ÜBERNOMMEN"/.test(src));
+
+    /* --- FASSUNGSNOTIZ (Konzept B) --- */
+    ok("die Uhr schickt eine Fassungsnotiz", /WATCH_NOTE/.test(kt));
+    ok("auf allen drei Wegen", (kt.match(/"note"/g) || []).length >= 3,
+       (kt.match(/"note"/g) || []).length + " Stellen");
+    ok("von Hand gepflegt, nicht aus dem Kommentar geschnitten",
+       /VON HAND GEPFLEGT, ausdruecklich/.test(kt));
+    ok("das Handy zeigt sie", /w\.note\?`<div class="r-s"/.test(src));
+
     /* GEMELDET: „Bei Loch 1 geht die Eingabe, beim Wechsel auf Loch 2 bricht
        alles ab." Im Protokoll stand „Runde übernommen · Loch 1" MEHRFACH — die
        Uhr übernahm dieselbe Runde immer wieder, und dieser Zweig macht
@@ -6317,7 +6341,7 @@ group("Live-Zeiger — beide Geräte, dieselbe Regel");
     /* (1) Welche Uhr-Fassung läuft? Sie stand nur im Fehlerprotokoll — also
        nur, wenn es Fehler gab. */
     ok("die Uhr nennt ihre Fassung im Live-Zeiger", /\.put\("app", WATCH_APP\)/.test(kt));
-    ok("und die Kennung ist aktuell", /WATCH_APP = "2026-08-25 \(21\)"/.test(kt));
+    ok("und die Kennung ist aktuell", /WATCH_APP = "2026-08-25 \(22\)"/.test(kt));
     ok("das Handy zeigt sie", /function watchFassung\(\)/.test(src));
 
     /* --- STARTBILDSCHIRM (2026-08-25 (20)) ---
@@ -6449,6 +6473,81 @@ group("Protokoll-Anzeige — einmal nachladen, nicht endlos");
   ok("eigener Knopf für das Uhr-Protokoll", /onclick="showWatchLog\(\)"/.test(src));
   ok("mit Anzahl und Alter im Text", /function watchLogKnopfText\(\)/.test(src));
   ok("und einem Hinweis, wenn nichts ankommt", /noch nicht auf v2\.11/.test(src));
+}
+
+/* ============ 24cs. Der Changelog der Uhr — dieselben Regeln ============ */
+group("MainActivity.kt — Changelog verlässlich halten");
+{
+  const ktPfad2 = path.join(__dirname, "MainActivity.kt");
+  const kt2 = fs.existsSync(ktPfad2) ? fs.readFileSync(ktPfad2, "utf8") : "";
+
+  if (!kt2) { ok("MainActivity.kt gefunden", false); }
+  else {
+    /* DIE UHR HATTE DIE DOKU, ABER NICHT DEN PRÜFSTAND. 1993 Zeilen Kopf mit
+       99 Changelog-Einträgen — inhaltlich derselbe Standard wie in dieser
+       Datei. Was fehlte, war die Kontrolle darüber, und prompt fanden sich
+       beim ersten Blick vier doppelte Kennungen und drei Reihenfolgefehler.
+       In der index.html wäre das seit v4.21.1 sofort aufgefallen.
+       Die Regeln hier sind dieselben — sie kosten kein Byte auf der Uhr. */
+    const kopf = kt2.slice(0, kt2.indexOf("*/", kt2.indexOf("CHANGELOG")));
+    const eintraege = [...kopf.matchAll(/^ \*  (\d{4}-\d{2}-\d{2})(?: \(([\dab-c]+)\))? · /gm)]
+      .map(m => m[1] + " (" + (m[2] || "-") + ")");
+
+    ok("der Changelog ist gefüllt", eintraege.length >= 90, eintraege.length + " Einträge");
+
+    /* (1) KEINE KENNUNG DOPPELT — sonst verweist „siehe (5)" auf zwei Stellen,
+       und genau solche Verweise sind unser Gedächtnis. */
+    const zaehl = {};
+    eintraege.forEach(e => { zaehl[e] = (zaehl[e] || 0) + 1; });
+    const doppelt = Object.keys(zaehl).filter(k => zaehl[k] > 1);
+    eq("keine Kennung doppelt vergeben", doppelt.join(" · "), "");
+
+    /* (2) EIN EINTRAG FÜR DIE LAUFENDE FASSUNG. Ohne ihn weiß niemand, was
+       die Fassung geändert hat, die gerade auf dem Handgelenk läuft. */
+    const lauf = (kt2.match(/WATCH_APP = "([^"]+)"/) || [])[1] || "";
+    const lauf2 = lauf.replace(/(\d{4}-\d{2}-\d{2}) \((\d+)\)/, "$1 ($2)");
+    ok("Eintrag für die laufende Fassung vorhanden",
+       eintraege.includes(lauf2), lauf2 + " — vorhanden: " + eintraege.slice(0, 2).join(", "));
+
+    /* (3) NEUESTE ZUERST. Beim ersten Durchlauf standen drei Einträge
+       außerhalb der Reihenfolge; sie sind an Ort und Stelle GEKENNZEICHNET
+       statt verschoben, weil Verschieben Verweise bricht. Geprüft wird
+       deshalb: Jede Abweichung trägt eine Notiz. */
+    /* NUMERISCH VERGLEICHEN, nicht als Text: „(9)" ist als Zeichenkette
+       GRÖSSER als „(10)". Meine erste Fassung dieser Prüfung meldete deshalb
+       drei Fehler, die keine waren — zum wiederholten Mal ein Prüfstand, der
+       die Sache falsch misst statt die Sache falsch ist. */
+    const rang = e => {
+      const m = e.match(/^(\d{4}-\d{2}-\d{2}) \(([\dab-c-]+)\)$/);
+      if (!m) return [e, 0];
+      const n = parseInt(m[2], 10);
+      return [m[1], isNaN(n) ? 0 : n];
+    };
+    const spaeter = (a2, b2) => {
+      const [da, na] = rang(a2), [db, nb] = rang(b2);
+      return da !== db ? da > db : na > nb;
+    };
+    let ausserhalb = 0;
+    for (let i = 1; i < eintraege.length; i++)
+      if (spaeter(eintraege[i], eintraege[i - 1])) ausserhalb++;
+    const notizen = (kopf.match(/KENNUNG KORRIGIERT/g) || []).length;
+    ok("Abweichungen sind angeschrieben", ausserhalb <= notizen,
+       ausserhalb + " außerhalb der Reihenfolge, " + notizen + " Notizen");
+
+    /* (4) KEIN ENTFERNTES ALS VORHANDEN. Dieselbe Regel wie v4.23: Was der
+       Kopf im Präsens beschreibt, muss es geben. */
+    /* Nur Funktionen, die der Kopf DIESER Datei zuschreibt. Verweise auf die
+       PWA („Die PWA wertet sie in `puttDiagnose()` aus") sind korrekt und
+       gehören nicht geprüft — sie beschreiben ein anderes Programm. */
+    const versprochen = [...kopf.matchAll(/^ \*.*?`(\w{4,})\(\)`/gm)]
+      .filter(m => !/PWA|Handy|index\.html|Worker/.test(m[0]))
+      .map(m => m[1]);
+    const fehlend = [...new Set(versprochen)].filter(f =>
+      !new RegExp("fun " + f + "\\s*\\(").test(kt2)
+      && !new RegExp("\\b" + f + "\\s*\\(").test(kt2.slice(kopf.length)));
+    ok("keine Funktion beschrieben, die es nicht gibt",
+       fehlend.length === 0, fehlend.slice(0, 6).join(", "));
+  }
 }
 
 /* ============ 24bl. Caddy-Plan: Einheiten und Plausibilität ============ */
