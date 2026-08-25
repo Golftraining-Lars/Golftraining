@@ -190,7 +190,7 @@ try {
                  "holeGir","holeUpDown","holeSandSave","platzAnalyse","taskFortschritt",
                  "warmupSchedule","warmupKorrektiv","WARMUP_PLANS","medianSplit","pearson",
                  "rKrit","gpKey","gpLabel","gpTotalES","pickClub","_aimClub","_aimLerp",
-                 "geoEdSelHat","geoEdVertHandles","snapshot","_nearest","_reaching","heuteJetzt","dispOvalFrom","dispChipHtml","dispRingPath","pathTopPoint","dispHitShare","dispText","dispSchemaSvg","dispSigmaFor","_erf","gpClubFracs","measureOrigin","geoEdMinW","editMinW","vegMask","maskMorph","maskBlobs","blobRing","ringSimplify","detectVeg","gpFingerprint","gpStale","_hash32","vegOn","viewBoxFor","troubleFeatures","geoEdPunktVon","_mergeCourses","snapBehalten","playVecKey","syncFinger","courseSVG","mergeDB","mergeDraft","watchPayload","shotZaehlt","playTouchHole","watchGeo","probeFrage","probePlan","cardBlock","playCardHtml","playAutoView","playBegin","pfCaddyKurz","_mergeCourses","_mergeCourses","caddyPositionPlan","geoEdPunktVon","gpTotalN","geoEdKeinMenu","pinFuer","pinPunkt","pinZeile","pinSetz","greenDims","applyGeoOverrides","ringFlaecheM2","geoEdSelKey","geoEdSelParse","geoEdSelObj","hazOn","toggleHaz","simAktiv","simStart","simStop","simSetzePosition","modiZeile","SPIELWEISE","WEDGE_ZONE","playAimChain","holeRef","geoDist","playMapInitView","heuteTests","heuteSport","caddyFuerPunkt","_watchPos","istAchtzehn","equipSet","equipAll","equipHtml","deDatumZuIso","isoZuDeDatum","ensureSeedTests","SEED","logWarn","logWarnEinmal","ERRLOG","condZeile","caddyClubs","clubPick","gearHat","gearSeed","gearAll","progVerfuegbar","GOLF_PROG","dauerUebungHtml","fitplanIdx","fitplanAll","fitplanSet","fitplanHeute","fitplanWocheGeschafft","wikiRelated","wikiToc","wikiTocId","wikiForSG","wikiTagsShow","SAT_SRC","satSrcFor","satTileUrl","satTileKey","DB","STRAT","GEOED"];
+                 "geoEdSelHat","geoEdVertHandles","snapshot","_nearest","_reaching","heuteJetzt","dispOvalFrom","dispChipHtml","dispRingPath","pathTopPoint","dispHitShare","dispText","dispSchemaSvg","dispSigmaFor","_erf","gpClubFracs","measureOrigin","geoEdMinW","editMinW","vegMask","maskMorph","maskBlobs","blobRing","ringSimplify","detectVeg","gpFingerprint","gpStale","_hash32","vegOn","viewBoxFor","troubleFeatures","geoEdPunktVon","_mergeCourses","snapBehalten","playVecKey","syncFinger","courseSVG","mergeDB","mergeDraft","watchPayload","shotZaehlt","playTouchHole","watchGeo","probeFrage","probePlan","cardBlock","playCardHtml","playAutoView","playBegin","pfCaddyKurz","_mergeCourses","_mergeCourses","caddyPositionPlan","geoEdPunktVon","gpTotalN","geoEdKeinMenu","pinFuer","pinPunkt","pinZeile","pinSetz","greenDims","applyGeoOverrides","ringFlaecheM2","geoEdSelKey","geoEdSelParse","geoEdSelObj","hazOn","toggleHaz","simAktiv","simStart","simStop","simSetzePosition","modiZeile","SPIELWEISE","WEDGE_ZONE","playAimChain","holeRef","geoDist","playMapInitView","heuteTests","heuteSport","caddyFuerPunkt","_watchPos","istAchtzehn","equipSet","equipAll","equipHtml","deDatumZuIso","isoZuDeDatum","ensureSeedTests","SEED","logWarn","logWarnEinmal","ERRLOG","condZeile","caddyClubs","clubPick","gearHat","gearSeed","gearAll","progVerfuegbar","GOLF_PROG","dauerUebungHtml","fitplanIdx","fitplanAll","fitplanSet","fitplanHeute","fitplanWocheGeschafft","wikiRelated","wikiToc","wikiTocId","wikiForSG","wikiTagsShow","SAT_SRC","satSrcFor","satTileUrl","satTileKey","SAT_META_SH","satMetaUrl","satMetaPick","DB","STRAT","GEOED"];
   const epilog = "\n;globalThis.__T={" +
     namen.map(n => `${n}: (typeof ${n}!=="undefined"?${n}:undefined)`).join(",") + "};";
   vm.runInContext(code + epilog, ctx, { timeout: 20000 });
@@ -11682,6 +11682,45 @@ group("Luftbild — Quellen und Format");
   ok("Quellen-Prüfung vorhanden", /async function satTestSrc\(idx\)/.test(src));
   ok("erkennt XML-Antwort als Layer-Fehler", /Layer-Name oder Gebiet falsch/.test(src));
   ok("Knopf in den Karten-Einstellungen", /id="mSatTest"/.test(src));
+}
+
+/* ============ 24ce. Bildflug-Datum (SH-Metadatendienst) ============ */
+group("Luftbild — Bildflug-Datum (SH)");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+  const M = G("SAT_META_SH"), U = G("satMetaUrl"), P = G("satMetaPick");
+
+  /* Eckdaten wie am 25.08.2026 in den Capabilities verifiziert: Dienst
+     WMS_SH_MD_DOP, Layer DOP20 (queryable), GeoJSON, EPSG:3857. */
+  ok("Dienst-Eckdaten hinterlegt", !!M && /WMS_SH_MD_DOP/.test(M.url) && M.layer === "DOP20");
+  ok("Quellenvermerk CC BY dabei", !!M && /CC BY 4\.0/.test(M.attr || ""));
+
+  if (typeof U === "function") {
+    const u = U(54.03, 10.75);   // Scharbeutz
+    ok("GetFeatureInfo nach WMS 1.3.0", /REQUEST=GetFeatureInfo/.test(u) && /VERSION=1\.3\.0/.test(u));
+    /* EPSG:3857 wie die Karte — bei 4326 dreht 1.3.0 die Achsen, der
+       Klassiker unter den stillen Fehlern. */
+    ok("fragt in EPSG:3857", /CRS=EPSG:3857/.test(u));
+    ok("Antwort als GeoJSON", /INFO_FORMAT=application\/geojson/.test(u));
+    ok("I/J zeigen in die Bildmitte", /WIDTH=101/.test(u) && /HEIGHT=101/.test(u) && /I=50/.test(u) && /J=50/.test(u));
+    ok("Layer auch als QUERY_LAYERS", /QUERY_LAYERS=DOP20/.test(u));
+    const m = u.match(/BBOX=([-\d.]+),([-\d.]+),([-\d.]+),([-\d.]+)/);
+    ok("BBOX gueltig und punktumschliessend", !!m && +m[1] < +m[3] && +m[2] < +m[4]);
+  }
+
+  /* Die Attributnamen der Antwort liessen sich von aussen nicht pruefen —
+     der Picker darf deshalb nicht auf EINEN Namen wetten. */
+  if (typeof P === "function") {
+    eq("findet AKTUALITAET", P({ AKTUALITAET: "2024-05-21" }), "2024-05-21");
+    eq("findet Bildflugdatum", P({ BILDFLUGDATUM: "21.05.2024" }), "21.05.2024");
+    eq("mehrere Treffer werden gebuendelt", P({ BEFLIEGUNG: "2024", AKTUALITAET: "2024" }), "2024");
+    ok("unbekannter Name, Jahreszahl im Wert genuegt", /2023/.test(P({ XY: "Flug 2023" }) || ""));
+    ok("notfalls zeigen, welche Felder da sind", /KACHEL/.test(P({ KACHEL: "A1", TYP: "x" }) || ""));
+    ok("leere Antwort bleibt leer", P(null) === null && P({}) === null);
+  }
+
+  ok("Knopf in der Kartenverwaltung", /id="mSatMeta"/.test(src));
+  ok("Abfrage nur fuer die SH-Quelle", /satCourseSrc\(geo\)\.id!=="sh"/.test(src));
 }
 
 /* ============ 24cc. Sicherungskopien & Versionssprung ============ */
