@@ -6807,6 +6807,28 @@ group("playAufholen — der Moment, in dem das Handy zurückkommt");
   ok("und der Bildschirmzustand", /Bildschirm "\+\(document\.visibilityState/.test(src));
   ok("mit Hinweis auf die Installation", /als App installiert wird seltener gedrosselt/.test(src));
   /* Eine Messung darf den Takt nie aufhalten. */
+  /* --- ANGEHALTEN IST NICHT GEDROSSELT (v4.77) ---
+     GEMELDET: „Die App war die ganze Zeit im Vordergrund, im Vollbild." Und
+     doch stand im Protokoll „Takt gedrosselt: 152 s statt 2 s · Bildschirm an".
+     Die Meldung war IRREFÜHREND: Der Takt wurde nicht gestreckt, ER LIEF GAR
+     NICHT. `playSyncTick` rief `playStopSync()`, sobald `PLAY.live` false war —
+     und das setzt jedes `closeSheet()`, also jedes Schließen eines Blattes
+     nach einer Eingabe.
+     Daher „erste Eingabe geht, dann bricht alles zusammen": Der Takt hält sich
+     selbst an, und nichts startet ihn wieder — bis ein `focus` das Aufholen
+     auslöst. Genau das steht im Protokoll: „Aufholen nach focus", dann 19
+     Aktionen auf einmal. */
+  ok("der Abgleich hängt nur noch an PLAY.active",
+     /if\(typeof PLAY==="undefined"\|\|!PLAY\.active\)\{ playStopSync\(\); return; \}/.test(src));
+  ok("PLAY.live hält ihn nicht mehr an",
+     !/!PLAY\.active\|\|!PLAY\.live\)\{ playStopSync/.test(src));
+  /* Und die Messung muss die beiden Ursachen UNTERSCHEIDEN — eine, die sie
+     gleich benennt, schickt in die falsche Richtung. Sie hat eine Fassung
+     gekostet. */
+  ok("stand still wird von gedrosselt unterschieden",
+     /logWarn\("Takt stand still"/.test(src));
+  ok("erkannt am fehlenden Zeitgeber", /if\(!playSyncTimer\)\{/.test(src));
+
   ok("die Messung kann nichts umwerfen",
      /catch\(e\)\{ \/\* eine Messung darf den Takt nie aufhalten \*\/ \}/.test(src));
 }
