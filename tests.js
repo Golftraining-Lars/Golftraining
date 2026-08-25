@@ -5897,7 +5897,36 @@ group("Gleichlauf Uhr ↔ App — dieselbe Frage, dieselbe Antwort");
        ein automatischer Zeiger. */
     ok("die Uhr merkt sich die EINGABE, nicht nur den Push",
        /private var ownHoleAt: String/.test(kt));
-    ok("und stempelt sie beim Blättern", /Net\.holeGewechselt\(\)/.test(kt));
+    /* GEMELDET: „Von Loch 1 bis 6 durchgeblättert, nur der erste Score kam an."
+       Im Puls: Kontext „Loch 2/18", gesendet aber „eigenes Loch 1".
+       URSACHE: `ownHoleAt` wurde NUR von den Pfeilen auf Seite 1 gesetzt. Wer
+       auf der Score-Seite blätterte oder einen Score eintrug, hinterließ keine
+       Marke — der nächste Abgleich sah einen Handy-Zeiger, der jünger war als
+       die LEERE Marke, und holte das Loch zurück. Alle weiteren Scores landeten
+       dort. Deshalb kam genau einer an.
+       EINE REGEL, DIE NUR AN EINER VON VIER STELLEN GILT, IST KEINE REGEL. */
+    {
+      const stellen = (kt.match(/Net\.holeGewechselt\(\)/g) || []).length;
+      ok("jede Lochwahl des Benutzers stempelt", stellen >= 5,
+         stellen + " Stellen (2 Pfeilpaare + Score-Eingabe + Definition)");
+    }
+    {
+      /* ABSTAND MESSEN, NICHT SCHAETZEN. Zum fünften Mal heute hat ein
+         geratenes Zeichenfenster richtigen Code als Fehler gemeldet — die
+         Begründung zwischen Anweisung und Stempel ist 1446 Zeichen lang.
+         Gemessen wird der Abstand und gegen eine großzügige Grenze geprüft. */
+      const nah = (von, bis, max) => {
+        const i = kt.indexOf(von); if (i < 0) return -1;
+        const j = kt.indexOf(bis, i); if (j < 0) return -1;
+        return (j - i) <= max ? (j - i) : -2;
+      };
+      ok("Score-Seite: zurück stempelt",
+         nah("                                idx--", "Net.holeGewechselt()", 2500) > 0);
+      ok("Score-Seite: vor stempelt",
+         nah("                                idx++", "Net.holeGewechselt()", 2500) > 0);
+      ok("und jede Score-Eingabe",
+         nah("lastEditMs = System.currentTimeMillis()\n        /*", "Net.holeGewechselt()", 1500) > 0);
+    }
     ok("das Handy überstimmt nur, wenn es jünger als die Eingabe ist",
        (kt.match(/at > ownLiveAt && at > ownHoleAt/g) || []).length === 2);
 
@@ -6272,7 +6301,7 @@ group("Live-Zeiger — beide Geräte, dieselbe Regel");
     /* (1) Welche Uhr-Fassung läuft? Sie stand nur im Fehlerprotokoll — also
        nur, wenn es Fehler gab. */
     ok("die Uhr nennt ihre Fassung im Live-Zeiger", /\.put\("app", WATCH_APP\)/.test(kt));
-    ok("und die Kennung ist aktuell", /WATCH_APP = "2026-08-25 \(18\)"/.test(kt));
+    ok("und die Kennung ist aktuell", /WATCH_APP = "2026-08-25 \(19\)"/.test(kt));
     ok("das Handy zeigt sie", /function watchFassung\(\)/.test(src));
     ok("ohne automatisches Urteil „veraltet“",
        /BEWUSST KEIN AUTOMATISCHER VERGLEICH/.test(src));
