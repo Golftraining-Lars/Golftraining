@@ -6083,6 +6083,26 @@ group("Gleichlauf Uhr ↔ App — dieselbe Frage, dieselbe Antwort");
        im Voll-Push. Dritter Namensfehler in drei Tagen; die Klammernbilanz
        stimmte jedes Mal, Namensauflösung prüft sie nicht. */
     ok("mit dem richtigen Namen", /prevLiveK\?\.let \{ pl ->/.test(kt));
+
+    /* --- DER DIENST HÄLT DEN PROZESS (2026-08-25 (25)) ---
+       GEMESSEN mit der Eingabespur: #1–#10 entstanden 14:34:55–14:35:45 und
+       kamen 15:03:11 an — 28 Minuten später, alle auf einmal. Die Uhr zeichnet
+       auf und sendet nicht, sobald man wegschaut.
+       URSACHE: `svcStart` lief nur `if (!Live.running)` — eine Bedingung, die
+       „läuft die Ortung" mit „läuft der Dienst" verwechselt. Der Dienst hält
+       aber den PARTIAL_WAKE_LOCK, und der hält den PROZESS am Leben. Bei
+       GPS-Quelle „Handy" startete er deshalb NIE. */
+    {
+      const i4 = kt.indexOf('svcStart(ctx, "Runde läuft")');
+      const vor = i4 < 0 ? "" : kt.slice(Math.max(0, i4 - 1600), i4);
+      ok("der Dienst startet während einer Runde immer",
+         i4 > 0 && !/if \(!Live\.running\) \{\s*$/.test(vor.trimEnd()));
+      ok("und die Begründung steht dabei", /haelt aber nicht nur GPS, sondern den/.test(kt));
+    }
+    ok("kein Live.running mehr als Bedingung für den Dienst",
+       kt.indexOf("if (!Live.running) {") < 0
+       || kt.indexOf("svcStart(ctx,", kt.indexOf("if (!Live.running) {"))
+          - kt.indexOf("if (!Live.running) {") > 400);
     /* Der Puls nennt beide Zahlen — eine Lücke ist damit auf den Schritt genau
        sichtbar statt „irgendwas kommt nicht an". */
     ok("der Puls zeigt beide Stände",
@@ -6408,7 +6428,7 @@ group("Live-Zeiger — beide Geräte, dieselbe Regel");
     /* (1) Welche Uhr-Fassung läuft? Sie stand nur im Fehlerprotokoll — also
        nur, wenn es Fehler gab. */
     ok("die Uhr nennt ihre Fassung im Live-Zeiger", /\.put\("app", WATCH_APP\)/.test(kt));
-    ok("und die Kennung ist aktuell", /WATCH_APP = "2026-08-25 \(24\)"/.test(kt));
+    ok("und die Kennung ist aktuell", /WATCH_APP = "2026-08-25 \(25\)"/.test(kt));
     ok("das Handy zeigt sie", /function watchFassung\(\)/.test(src));
 
     /* --- STARTBILDSCHIRM (2026-08-25 (20)) ---
@@ -6615,6 +6635,28 @@ group("MainActivity.kt — Changelog verlässlich halten");
     ok("keine Funktion beschrieben, die es nicht gibt",
        fehlend.length === 0, fehlend.slice(0, 6).join(", "));
   }
+}
+
+/* ============ 24ct. Erwartete Fälle sind keine Fehler ============ */
+group("satMetaTest — kein Lärm für einen vorgesehenen Fall");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+
+  /* IM PROTOKOLL VOM 25.08. stand NEUNMAL „Unexpected token '<'". Der
+     Metadatendienst antwortet je nach Punkt mit XML statt GeoJSON — das ist
+     vorgesehen und wird zwei Zeilen weiter sauber gemeldet. Der `catch` schrieb
+     es zusätzlich als Fehler, dreimal drei Punkte.
+     Jede solche Zeile verdrängt eine, die etwas bedeutet — genau daran ist die
+     Fehlersuche der letzten Tage mehrfach gescheitert. */
+  ok("kein logErr für eine XML-Antwort",
+     !/JSON\.parse\(txt\); json=true;[\s\S]{0,220}?logErr\("catch"/.test(src));
+  /* Erst prüfen, ob es überhaupt JSON sein kann — dann parsen. */
+  ok("erst die Form prüfen, dann parsen",
+     /if\(\/json\/i\.test\(typ\) \|\| \/\^\\s\*\[\\\[\{\]\/\.test\(txt\)\)\{/.test(src));
+  /* Der Fall wird weiterhin GEMELDET — nur eben einmal und als das, was er
+     ist: eine Auskunft über den Dienst, kein Programmfehler. */
+  ok("der Fall wird trotzdem benannt",
+     /Dienst antwortet mit "\+\(typ\.split/.test(src));
 }
 
 /* ============ 24bl. Caddy-Plan: Einheiten und Plausibilität ============ */
