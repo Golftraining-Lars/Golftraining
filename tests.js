@@ -6712,6 +6712,62 @@ group("satMetaTest — kein Lärm für einen vorgesehenen Fall");
      /Dienst antwortet mit "\+\(typ\.split/.test(src));
 }
 
+/* ============ 24cu. Aufholen beim Wiedersehen ============ */
+group("playAufholen — der Moment, in dem das Handy zurückkommt");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+
+  /* GEMESSEN am 25.08.: Die Uhr sendet einwandfrei — 24 Vorgänge, HTTP 200,
+     kein einziges „Schleife stand". Das HANDY liest nicht: Im Hintergrund
+     streckt der Browser seine Zeitgeber auf ein Vielfaches des eingestellten
+     Takts, aus 30 s wurden gemessene 144–207 s.
+     Dagegen ist nicht anzukommen und das ist richtig so. Beeinflussbar ist der
+     MOMENT DES WIEDERSEHENS. */
+  ok("es gibt einen Aufholvorgang", /function playAufholen\(grund\)/.test(src));
+
+  /* (1) Auf Android kommt je nach Browser `pageshow` ODER `focus` — wer nur
+     auf ein Ereignis hört, verpasst die Hälfte. */
+  ok("drei Ereignisse, nicht eines",
+     /\["visibilitychange","pageshow","focus"\]\.forEach/.test(src));
+  ok("visibilitychange am document, der Rest am window",
+     /const ziel = \(ev==="visibilitychange"\) \? document : window;/.test(src));
+
+  /* (2) Die alte Fassung übersprang das Aufholen, wenn der Live-Modus aus war
+     — dabei ist genau dann etwas nachzuholen. */
+  ok("keine PLAY.live-Bedingung mehr im Aufholen",
+     !/function playAufholen[\s\S]{0,700}?!PLAY\.live/.test(src));
+
+  /* (3) `pageshow` und `focus` kommen zusammen; ohne Sperre liefen zwei
+     Abgleiche gleichzeitig — der 409 im Protokoll. */
+  ok("entprellt gegen Doppelauslösung", /if\(jetzt-_aufholLetzt < 1500\) return;/.test(src));
+  /* Die Sperre wird gesetzt, BEVOR gearbeitet wird — sonst greift sie nicht. */
+  ok("die Marke steht vor der Arbeit",
+     /_aufholLetzt=jetzt;\s*\n\s*if\(typeof PLAY/.test(src));
+
+  /* Und die Bildschirmsperre wird neu angefordert: Der Browser gibt sie beim
+     Verstecken frei. */
+  ok("Bildschirmsperre wird neu geholt", /_aufholLetzt=jetzt;[\s\S]{0,200}?wakeAn\("runde"\)/.test(src));
+  ok("es hinterlässt eine Spur", /"⌚ Aufholen", "nach "\+grund/.test(src));
+
+  /* --- DROSSELUNG MESSEN STATT VERMUTEN (v4.75) ---
+     Auf der Uhr misst der Herzschlag seit (27), ob er stand. Hier fehlte das
+     Gegenstück — und ohne es haben wir zwei Tage über Drosselung GEREDET, ohne
+     sie je gemessen zu haben. */
+  ok("der Takt misst sich selbst", /function taktPruefen\(sollMs\)/.test(src));
+  ok("und wird im Abgleich aufgerufen", /taktPruefen\(playSyncMs\(\)\);/.test(src));
+  /* Erst ab dem Dreifachen UND mindestens 10 s — ein Durchlauf, der 200 ms zu
+     spät kommt, ist normal. */
+  ok("erst bei deutlicher Streckung", /ist > sollMs\*3 && ist > 10000/.test(src));
+  /* Die Meldung muss sagen, WORAN es liegen kann: drei Schalter am Gerät,
+     keiner im Code. */
+  ok("der Modus steht dabei", /display-mode: standalone/.test(src));
+  ok("und der Bildschirmzustand", /Bildschirm "\+\(document\.visibilityState/.test(src));
+  ok("mit Hinweis auf die Installation", /als App installiert wird seltener gedrosselt/.test(src));
+  /* Eine Messung darf den Takt nie aufhalten. */
+  ok("die Messung kann nichts umwerfen",
+     /catch\(e\)\{ \/\* eine Messung darf den Takt nie aufhalten \*\/ \}/.test(src));
+}
+
 /* ============ 24bl. Caddy-Plan: Einheiten und Plausibilität ============ */
 group("caddyPlan — kein Wedge vom Abschlag, Einheiten beschriftet");
 {
