@@ -5956,6 +5956,56 @@ group("Gleichlauf Uhr ↔ App — dieselbe Frage, dieselbe Antwort");
        /else if \(h > 0 && h != currentHole\)/.test(kt));
     ok("ein Worker ohne Kennung wird gemeldet",
        /Worker ohne X-Repo-Sha/.test(kt));
+
+    /* --- ABBRUCH IST KEIN FEHLER (2026-08-25 (10)) ---
+       Im echten Protokoll standen 27 von 60 Zeilen für EINEN Vorgang:
+       `LeftCompositionCancellationException` — Compose bricht die Coroutine ab,
+       wenn der Bildschirm wechselt. In Kotlin ist das eine ganz normale
+       `Exception`, also fing sie jedes `catch (e: Exception)` mit.
+       Folge 1: Das Protokoll lief voll und verdrängte genau die Zeilen, die man
+       sucht. Folge 2: Wer einen Abbruch fängt und NICHT weiterwirft, sagt dem
+       System „ich mache weiter", während Compose die Schleife für beendet
+       hält — zwei Schleifen, die dasselbe schreiben. */
+    ok("Abbrüche werden erkannt", /fun Throwable\.istAbbruch\(\)/.test(kt));
+    ok("und gar nicht erst protokolliert",
+       /if \(e != null && e\.istAbbruch\(\)\) return/.test(kt));
+    /* Der Riegel an EINER Stelle genügt nicht: Die Schleifen müssen den
+       Abbruch auch WEITERWERFEN, sonst bricht die strukturierte
+       Nebenläufigkeit. */
+    const wirft = (kt.match(/if \(e\.istAbbruch\(\)\) throw e/g) || []).length;
+    ok("jede Schleife wirft ihn weiter", wirft >= 15, wirft + " Stellen");
+    /* Und keine Fangstelle darf ihn noch schlucken. */
+    ok("kein Fehler.add mehr ohne Abbruchprüfung",
+       !/\} catch \(e: Exception\) \{ Fehler\.add\(/.test(kt));
+
+    /* --- DIAGNOSE (2026-08-25 (11)) ---
+       Die letzten fünf Fehlersuchen liefen gleich ab: Symptom, raten,
+       danebenliegen. Erst das Protokoll hat die Ursache geliefert. Die Lehre
+       ist nicht „mehr protokollieren", sondern: EINE Zeile, die den ganzen
+       Zustand zeigt, schlägt fünfzig Einzelmeldungen. */
+    ok("es gibt ein Diagnose-Objekt", /^object Diagnose \{/m.test(kt));
+    ok("mit Zustandsabzug", /fun abzug\(\): String/.test(kt));
+    ok("mit Abgleich-Verlauf", /fun syncNotiz\(art: String/.test(kt));
+    ok("mit Selbsttest", /suspend fun selbsttest\(\): List<String>/.test(kt));
+
+    /* DER ZEITVERSATZ ist der wichtigste Baustein: Der ganze Abgleich hängt an
+       Vergleichen wie `at > ownHoleAt`. Geht die Uhr zwei Minuten vor, gewinnt
+       sie JEDEN Vergleich — und das sieht aus wie „das Handy wird ignoriert".
+       Genau der Fehler, der viermal woanders gesucht wurde. */
+    ok("Zeitversatz wird gemessen", /fun versatzAus\(serverDatumKopf: String\?\)/.test(kt));
+    ok("aus dem Date-Kopf jeder Antwort, ohne eigenen Abruf",
+       /Diagnose\.versatzAus\(p\.getHeaderField\("Date"\)\)/.test(kt));
+    ok("und ab 30 s gewarnt — einmalig",
+       /abs\(v\) > 30_000\)\s*\{[\s\S]{0,120}?warnEinmal\("zeitversatz"/.test(kt));
+
+    /* Alles muss ins Protokoll — eine Diagnose, die man nur auf dem runden
+       Display lesen kann, wird nicht gelesen. */
+    ok("Diagnose geht ins Protokoll", /fun inProtokoll\(\)/.test(kt));
+    ok("der Selbsttest ebenso", /z\.forEach \{ Fehler\.warn\("Selbsttest", it\) \}/.test(kt));
+    /* Und jede Selbsttest-Zeile nennt die FOLGE, nicht nur den Befund. */
+    ok("Befunde nennen ihre Folge",
+       /kein Abgleich moeglich/.test(kt) && /wird dadurch falsch/.test(kt)
+       && /die Uhr kann nichts senden/.test(kt));
     ok("Wiederholungen werden gezählt", /\(×\$\{n \+ 1\}\)/.test(kt));
     ok("aber mischt es NICHT in das eigene Protokoll",
        !/ERRLOG\.push\([^)]*watchLog/.test(src));
@@ -6085,7 +6135,7 @@ group("Live-Zeiger — beide Geräte, dieselbe Regel");
     /* (1) Welche Uhr-Fassung läuft? Sie stand nur im Fehlerprotokoll — also
        nur, wenn es Fehler gab. */
     ok("die Uhr nennt ihre Fassung im Live-Zeiger", /\.put\("app", WATCH_APP\)/.test(kt));
-    ok("und die Kennung ist aktuell", /WATCH_APP = "2026-08-24 \(9\)"/.test(kt));
+    ok("und die Kennung ist aktuell", /WATCH_APP = "2026-08-25 \(11\)"/.test(kt));
     ok("das Handy zeigt sie", /function watchFassung\(\)/.test(src));
     ok("ohne automatisches Urteil „veraltet“",
        /BEWUSST KEIN AUTOMATISCHER VERGLEICH/.test(src));
