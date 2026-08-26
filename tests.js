@@ -10,6 +10,21 @@
       index.html, Changelog-Kopf in MainActivity.kt, dieser Kopf hier.
    2. Bei JEDER Änderung: diese Datei anpassen (Verträge und neue Prüfungen)
       und die Doku aktuell halten. Die Sperrklinken unten erzwingen beides.
+   3. PRUEFUNGEN AUF ABWESENHEIT laufen durch `ktOhneKommentar()` bzw.
+      `codeOhneDoku()`. Der Kommentar, der erklaert, warum etwas NICHT mehr
+      dasteht, enthaelt zwangslaeufig genau die Zeichenfolge, nach der die
+      Pruefung sucht. Beim Bau von (38) ist mir das an einem Nachmittag
+      DREIMAL passiert; Abschnitt 24ag haelt dieselbe Lehre seit dem 12.08.
+      fest. Wer eine `!/.../`-Pruefung schreibt, prueft den ausfuehrbaren
+      Code — sonst haelt ihn die Begruendung fuer den Befund.
+
+   ARBEITSTEILUNG HANDY / UHR (Vorgabe vom 26.08., Uhr-Fassung (38)):
+   Die UHR misst und nimmt entgegen. Sie rechnet nichts und empfiehlt nichts.
+   Jede gerechnete Groesse — Entfernung, „spielt wie", Wind, Hoehe, Schlaeger —
+   sitzt im HANDY. Der Abschnitt „Gleichlauf Uhr ↔ App" prueft das jetzt in
+   zwei Stufen: die alten Vergleiche halten `Wx`/`Caddy` deckungsgleich,
+   solange sie im Quelltext liegen (Abbau in (39)); die neuen Pruefungen
+   halten fest, dass es dafuer KEINE AUFRUFSTELLE mehr gibt.
 
    WARUM
    Die Doku fordert seit jeher, neue Logik als reine Funktion zu schreiben,
@@ -50,6 +65,20 @@ function codeOhneDoku(src){
   const cl=src.indexOf("## Changelog", dv); if(cl<0) return src;
   const end=src.indexOf("</script>", cl); if(end<0) return src;
   return src.slice(0,dv)+src.slice(end);
+}
+
+/* KOTLIN OHNE KOMMENTARE — fuer Pruefungen auf ABWESENHEIT.
+   Dieselbe Falle wie `codeOhneDoku` bei der index.html, und sie hat auch hier
+   beim ersten Lauf zugeschlagen: Der Kopf von `AmbientPlayScreen` ERKLAERT,
+   dass „spielt wie" dort seit (38) nicht mehr steht — und eine Suche nach
+   „spielt wie" findet genau diese Erklaerung. Wer auf Abwesenheit prueft, muss
+   im ausfuehrbaren Code pruefen; sonst haelt ihn die Begruendung fuer den
+   Befund. Beweisstelle: der Absatz „NUR im ausfuehrbaren Code pruefen" in
+   Abschnitt 24ag, wo mir dasselbe schon dreimal passiert ist. */
+function ktOhneKommentar(txt){
+  return String(txt||"")
+    .replace(/\/\*[\s\S]*?\*\//g, " ")
+    .replace(/^\s*\/\/[^\n]*$/gm, " ");
 }
 
 /* ---------------------------------------------------------------------------
@@ -5887,11 +5916,122 @@ group("Gleichlauf Uhr ↔ App — dieselbe Frage, dieselbe Antwort");
     /* Was die Uhr bewusst NICHT hat, muss auch nicht übereinstimmen — aber es
        gehört benannt, damit niemand es für eine Lücke hält. */
     ok("die Uhr rechnet keine Erwartungswerte", !/ES_BASE|esOffset/.test(kt));
-    ok("und sagt, dass sie den Gameplan des Handys zeigt",
-       /Gameplan/.test(kt) && /rechnet nur die Regel-Variante selbst/.test(kt));
 
-    /* Lochwechsel auf Seite 1 — und die Übertragung ans Handy. */
-    ok("Seite 1 kann das Loch wechseln", /onHolePrev/.test(kt) && /onHoleNext/.test(kt));
+    /* ======================================================================
+       AB (38) IST DER GLEICHLAUF KEIN ZIEL MEHR — DIE STILLE IST ES
+       ----------------------------------------------------------------------
+       Die Prüfungen darüber vergleichen `playsLike`-Konstanten und
+       Lagefaktoren zwischen Handy und Uhr. Sie waren richtig, solange BEIDE
+       rechneten: Zwei Antworten auf dieselbe Frage kosten das Vertrauen in
+       beide (nachgemessen am 24.08., Recovery 0,58 gegen 0,80).
+       Die Vorgabe vom 26.08. beendet die Frage statt die Antworten
+       anzugleichen: Die Uhr misst und nimmt entgegen, sie rechnet nicht.
+       Die Vergleiche bleiben STEHEN, weil `Wx` und `Caddy` bis (39) noch im
+       Quelltext liegen und dort nicht auseinanderlaufen dürfen, solange sie
+       da sind. Was hier dazukommt, ist die eigentliche Vorgabe: KEINE
+       AUFRUFSTELLE mehr.
+       Geprüft wird der Aufruf, nicht das Vorhandensein — genau das ist der
+       Unterschied zwischen (38) und (39). Wer die Reihenfolge vertauscht,
+       löscht Code, bevor er weiß, ob am Handgelenk etwas fehlt. */
+    {
+      const ktCode = ktOhneKommentar(kt);
+      /* EINE einzige `Caddy.plan`-Aufrufstelle bleibt: die Antwort auf den
+         Kopplungs-Prüfplan des Handys (`probe.json`, Aufgabe „caddy"). Sie
+         läuft nur, wenn das Handy danach fragt, nie während einer Runde.
+         Sie fällt mit der Gegenseite in (39)/PWA v4.82 — dort zusammen, weil
+         ein einseitiger Ausbau am Handy als Abweichung gemeldet würde. */
+      const rufe = (ktCode.match(/Caddy\.plan\(/g) || []).length;
+      ok("der Caddy wird auf der Bahn nicht mehr gerechnet", rufe === 1,
+         rufe + " Aufrufstellen (erwartet: nur der Kopplungstest)");
+      ok("und der Aufruf steht wirklich im Kopplungstest",
+         /"caddy" ->[\s\S]{0,900}?Caddy\.plan\(/.test(ktCode));
+      /* Die Raster-Schleife war die Stelle, die im 11-m-Takt rechnete. Ohne
+         Leser ist sie nur noch Akku, den man auf der 18. Bahn braucht. */
+      ok("die Caddy-Schleife ist weg",
+         !/LaunchedEffect\(gridLat, gridLng/.test(ktCode));
+      /* `liveOf` rechnete bei JEDEM GPS-Takt Ringgeometrie. */
+      const iL = ktCode.indexOf("fun liveOf(hole: Int): PlayLive");
+      const blkL = iL < 0 ? "" : ktCode.slice(iL, iL + 1200);
+      ok("liveOf misst nur noch, statt zu rechnen",
+         blkL.length > 0 && !/greenFMB|greenDims|pinPoint/.test(blkL));
+    }
+
+    /* --- ZWEI SEITEN STATT DREI (2026-08-26 (38)) --- */
+    ok("der Pager hat zwei Seiten",
+       /rememberPagerState\(initialPage = 0\) \{ 2 \}/.test(kt)
+       && /override val pageCount: Int\s*\n\s*get\(\) = 2/.test(kt));
+    {
+      /* Die entfallene Seite darf nicht durch die Hintertür zurückkommen:
+         `HolePage` liegt bis (39) noch im Quelltext, muss aber aus dem
+         `when(page)` verschwunden sein. */
+      const iW = kt.indexOf("when (page) {");
+      const blkW = iW < 0 ? "" : ktOhneKommentar(kt.slice(iW, iW + 3000));
+      ok("HolePage ist nicht mehr im Pager",
+         blkW.length > 0 && !/HolePage\(/.test(blkW));
+      ok("Seite 0 ist die Score-Seite", /0 -> ScorePage\(/.test(blkW));
+    }
+
+    /* --- WAS VON SEITE 0 MITKOMMEN MUSSTE ---
+       Lochwechsel und Schlagaufnahme sind die beiden Handlungen, die auf der
+       Bahn zählen. Beide saßen auf der entfallenen Seite; beide dürfen mit
+       ihr nicht verschwinden. */
+    ok("die Score-Seite kann das Loch wechseln", /onHolePrev/.test(kt) && /onHoleNext/.test(kt));
+    {
+      const iS2 = kt.indexOf("private fun ScorePage(");
+      const blkS2 = iS2 < 0 ? "" : kt.slice(iS2, kt.indexOf("private fun DetailPage(", iS2));
+      ok("die Lochpfeile stehen in ihrer Kopfzeile",
+         /onHolePrev\?\.invoke\(\)/.test(blkS2) && /onHoleNext\?\.invoke\(\)/.test(blkS2));
+      /* Die Schlagzeile MUSS fest sein: Man tippt sie beim Ball, mit
+         Handschuh, ohne hinzusehen. Eine Schaltfläche, die man erst
+         herscrollen muss, wird auf der Runde nicht benutzt — und dann fehlt
+         die Messung, die der einzige Zweck dieser App ist. */
+      ok("die Schlagzeile ist am unteren Rand verankert",
+         /\.align\(Alignment\.BottomCenter\)/.test(blkS2));
+      /* Und der Platz dafür wird als LETZTES LISTENELEMENT freigehalten, nicht
+         über contentPadding: `autoCentering` rechnet oben und unten eigenen
+         Platz dazu und überdeckt den Wert. Sonst läge ausgerechnet
+         „Sichern & abschließen" unter den Chips. */
+      /* ZUM DRITTEN MAL IN EINER SITZUNG: Die Abwesenheits-Prüfung traf den
+         KOMMENTAR, der erklärt, warum `contentPadding` hier NICHT steht.
+         Deshalb `ktOhneKommentar` — die Begründung darf nie der Befund sein. */
+      ok("und der Platz dafür als Spacer freigehalten",
+         /Spacer\(Modifier\.height\(56\.dp\)\)/.test(blkS2)
+         && !/contentPadding/.test(ktOhneKommentar(blkS2)));
+      ok("die GPS-Güte steht in der Kopfzeile", /gpsAcc/.test(blkS2) && /±\$it m/.test(blkS2));
+    }
+
+    /* --- ABLEHNUNG MUSS MAN SPÜREN (2026-08-26 (38)) ---
+       Ein Erfolg vibrierte seit jeher (`buzz`), ein Misserfolg nicht. Am
+       Handgelenk waren „nichts passiert" und „alles gut" damit nicht
+       unterscheidbar — man tippte, ging weiter und merkte am Loch danach,
+       dass nichts aufgenommen war. Seit (38) ist die Messung der einzige
+       Zweck der Uhr; ein stiller Fehlschlag ist damit der teuerste Fall. */
+    {
+      const ktCode2 = ktOhneKommentar(kt);
+      const stellen = (ktCode2.match(/GPS zu ungenau[\s\S]{0,220}?buzz\(ctx\)/g) || []).length;
+      ok("jede Ablehnung wegen GPS vibriert", stellen === 4,
+         stellen + " von 4 Stellen (recBegin/recStop, je Vorprüfung + Sammelfenster)");
+      /* Und ein abgelehnter STOP wirft die Aufnahme nicht weg: Wer beim Ball
+         keinen brauchbaren Fix hat, soll ein paar Schritte weiter erneut
+         tippen können, statt den ganzen Schlag zu verlieren. */
+      ok("ein abgelehnter Stop behält die Aufnahme",
+         /Schlag nicht erfasst[\s\S]{0,120}?return@launch/.test(ktCode2)
+         && !/Schlag nicht erfasst[\s\S]{0,120}?rec = null/.test(ktCode2));
+    }
+
+    /* --- WAS BLEIBT, OBWOHL ES NACH RECHNUNG AUSSIEHT ---
+       Das Wetter ist keine Anpassung, sondern eine MESSUNG der Bedingungen,
+       die mit der Runde gespeichert wird. Startet die Runde auf der Uhr und
+       liegt das Handy im Auto, ist sie die einzige Quelle dafür. Und
+       `live.pos` ist nach (38) der EINZIGE Weg, auf dem das Handy die
+       Position am Ball erfährt — vorher eine Verbesserung, jetzt tragend. */
+    ok("das Wetter wird weiter gemessen und mitgeschrieben",
+       /fun fetchWeather\(/.test(kt) && /c\.put\("windMs"/.test(kt));
+    ok("aber nicht mehr für „spielt wie“ benutzt",
+       !/Wx\.playsLike\(/.test(ktOhneKommentar(kt).replace(
+         /object Caddy \{[\s\S]*?\n\}/, "")));
+    ok("die Uhr meldet weiter ihre Position",
+       /\.put\(\s*"pos",/.test(kt) && /f\.acc <= FixQuality\.MAX_ACC/.test(kt));
     /* ÜBERSETZUNGSFEHLER 2026-08-24: Der erste Versuch schrieb `idx -= 1` und
        `cs.holes.lastIndex` direkt in `PlayPager` — dort ist `idx` aber ein
        `val`-Parameter und `cs` existiert gar nicht. Beides gehört der
@@ -6318,23 +6458,48 @@ group("Gleichlauf Uhr ↔ App — dieselbe Frage, dieselbe Antwort");
     ok("mit „übersprungen“ als Ausgangswert",
        /var pulsZeiger: String = "übersprungen"/.test(kt));
 
-    /* --- ANZEIGE (2026-08-25 (17)) --- */
-    ok("die Standby-Seite zeigt Front und Back",
-       /front: Int\?,\s*\n\s*back: Int\?,\s*\n\s*plays: Int\?/.test(kt));
-    ok("und wird auch damit versorgt", /front = live\.front,\s*\n\s*back = live\.back/.test(kt));
-    /* „spielt wie" nur bei Abweichung — neben einer gleichen Zahl ist es auf
-       einem runden Display verschenkter Platz. */
+    /* --- ANZEIGE ---
+       BIS (37) standen hier drei Pruefungen, die Front, Back und „spielt wie"
+       auf der Standby-Seite und auf Seite 1 EINFORDERTEN — (17) hatte sie
+       eigens dorthin geholt. Mit (38) ist die Vorgabe umgekehrt: Die Uhr zeigt
+       keine gerechnete Groesse mehr, weder im Ambient noch im Pager.
+       DIE PRUEFUNGEN WURDEN DESHALB GEDREHT, nicht geloescht. Eine geloeschte
+       Pruefung sagt nichts; eine gedrehte haelt fest, dass die Abwesenheit
+       GEWOLLT ist — und faengt den Rueckbau-Unfall, bei dem beim naechsten
+       Umbau „nur mal eben" wieder eine Distanz auftaucht. */
     {
-      /* Im HolePage-Block suchen, nicht global: „Front · Mitte · Back" steht
-         seit (17) auch auf der Standby-Seite, und die liegt 20 000 Zeichen
-         entfernt. Ein globales Muster misst dann den falschen Abstand. */
-      const iH = kt.indexOf("private fun HolePage(");
-      const blkH = iH < 0 ? "" : kt.slice(iH, kt.indexOf("private fun ", iH + 30));
-      ok("„spielt wie“ auf Seite 1 unter den Zahlen",
-         /Front · Mitte · Back/.test(blkH) && /spielt wie \$p m/.test(blkH));
+      const iA = kt.indexOf("private fun AmbientPlayScreen(");
+      const blkAroh = iA < 0 ? "" : kt.slice(iA, kt.indexOf("private fun ", iA + 30));
+      /* OHNE KOMMENTARE: Der Kopf dieser Composable erklaert, was dort nicht
+         mehr steht — die Erklaerung darf die Pruefung nicht bestehen lassen
+         bzw. durchfallen lassen. */
+      const blkA = ktOhneKommentar(blkAroh);
+      ok("die Standby-Seite bekommt gar keine Distanzen mehr",
+         blkA.length > 0 && !/front: Int\?/.test(blkA) && !/back: Int\?/.test(blkA)
+         && !/plays: Int\?/.test(blkA));
+      ok("und zeigt keine „spielt wie“-Zeile",
+         blkA.length > 0 && !/spielt wie/.test(blkA));
+      /* Was sie STATTDESSEN zeigen muss: eine laufende Aufnahme. Eine
+         vergessene haengt den naechsten Startpunkt an die falsche Stelle, und
+         bis (37) sah man sie im Ambient ueberhaupt nicht. */
+      ok("dafür aber eine laufende Schlagmessung",
+         /recActive: Boolean/.test(blkA) && /Aufnahme/.test(blkA));
+      ok("und wird auch damit versorgt",
+         /recActive = rec != null,\s*\n\s*recDist = recDist/.test(kt));
     }
-    ok("nur bei Abweichung ab 2 m",
-       (kt.match(/abs\(p - \(live\.mid \?: p\)\) >= 2/g) || []).length >= 1);
+    {
+      /* Die Score-Seite ist seit (38) Seite 0 und damit die Hauptseite. Dort
+         darf nichts Gerechnetes stehen — das ist die Vorgabe vom 26.08. in
+         ihrer pruefbaren Form. */
+      const iS = kt.indexOf("private fun ScorePage(");
+      const blkS = ktOhneKommentar(
+        iS < 0 ? "" : kt.slice(iS, kt.indexOf("private fun DetailPage(", iS)));
+      ok("die Score-Seite kennt keine „spielt wie“-Zeile",
+         blkS.length > 0 && !/spielt wie/.test(blkS));
+      ok("und keine Grün-Distanzen",
+         blkS.length > 0 && !/Front · Mitte · Back/.test(blkS)
+         && !/live\.mid/.test(blkS) && !/greenDepth/.test(blkS));
+    }
 
     /* --- WARNUNG NUR, WENN MAN AUF DEM PLATZ STEHT (v4.64) ---
        `_aimBuild` baut die Kette ab ABSCHLAG, die Kopfzeile misst ab der
@@ -6552,7 +6717,12 @@ group("Live-Zeiger — beide Geräte, dieselbe Regel");
     /* (1) Welche Uhr-Fassung läuft? Sie stand nur im Fehlerprotokoll — also
        nur, wenn es Fehler gab. */
     ok("die Uhr nennt ihre Fassung im Live-Zeiger", /\.put\("app", WATCH_APP\)/.test(kt));
-    ok("und die Kennung ist aktuell", /WATCH_APP = "2026-08-26 \(37\)"/.test(kt));
+    /* HANDGEPFLEGTE KENNUNG, mit Absicht: Sie faellt beim ersten Lauf nach
+       einer Aenderung auf und zwingt zum Mitziehen. Abschnitt 24cs prueft
+       zusaetzlich, dass der Changelog einen Eintrag fuer GENAU diese Kennung
+       hat — beides zusammen faengt „Code geaendert, Fassung vergessen" und
+       „Fassung gezogen, Changelog vergessen". */
+    ok("und die Kennung ist aktuell", /WATCH_APP = "2026-08-26 \(38\)"/.test(kt));
     ok("das Handy zeigt sie", /function watchFassung\(\)/.test(src));
 
     /* --- STARTBILDSCHIRM (2026-08-25 (20)) ---
