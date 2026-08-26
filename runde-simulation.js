@@ -148,6 +148,7 @@ kopf("draft.json — Handy → Uhr");
      DB._draftRound=dr; var v=playAdoptDraft(); var h2=(PLAY.holes||[]).find(function(x){return x.hole===2;});
      return {uebernommen:v, score2:h2&&h2.score, putts2:h2&&h2.putts, tee2:h2&&h2.tee,
              score1:(PLAY.holes[0]||{}).score}; })()`);
+
   pruef("Score von Loch 2 übernommen", merged.score2===4, JSON.stringify(merged));
   pruef("Tee-Ergebnis von Loch 2 übernommen", merged.tee2==="Grün getroffen", String(merged.tee2));
   pruef("eigene Eingabe auf Loch 1 bleibt", merged.score1===5, String(merged.score1));
@@ -553,7 +554,7 @@ kopf("draft.json — Handy → Uhr");
   /* ---------- Leitplanken: wirken sie auf echten Lagen? ---------- */
   kopf("Leitplanken über den ganzen Platz");
   const lp = JSON.parse(R(`(function(){
-    var geo=playGeo(), kippt=0, faelle=0, teeIron=0, aufschlaege=0, liste=[];
+    var geo=playGeo(), kippt=0, faelle=0, teeIron=0, teeDriver=0, aufschlaege=0, liste=[];
     for(var i=0;i<PLAY.holes.length;i++){
       PLAY.idx=i;
       var h=PLAY.holes[i], hr=holeRef(geo,h.hole);
@@ -591,9 +592,12 @@ kopf("draft.json — Handy → Uhr");
         }
         /* Und vom Boden nie ein Driving Iron. */
         if(/driving[\\s-]?iron|2[\\s-]?(iron|eisen)/i.test(ev.best.club.name||"")) teeIron++;
+        /* Seit v4.81.2 auch nie ein DRIVER — die Leitplanke kennt drei
+           Zustaende; hier ist die Position nachweislich vom Boden. */
+        if(/driver/i.test(ev.best.club.name||"")) teeDriver++;
       });
     }
-    return JSON.stringify({faelle:faelle, kippt:kippt, teeIron:teeIron, aufschlaege:aufschlaege, liste:liste});
+    return JSON.stringify({teeDriver:teeDriver, faelle:faelle, kippt:kippt, teeIron:teeIron, aufschlaege:aufschlaege, liste:liste});
   })()`));
   pruef("Lagen ohne Grün-Reichweite geprüft", lp.faelle>=20, lp.faelle+" Fälle");
   /* DIE REGEL, DIE DEN AUSSCHLAG GAB: Vorher gewann aus 240 m der 3 Wood mit
@@ -619,8 +623,40 @@ kopf("draft.json — Handy → Uhr");
   pruef("Aufschlag kippt keine klare Rechnung", lp.kippt===0,
     lp.kippt?`${lp.kippt}× · ${(lp.liste||[]).join(" | ")}`:"");
   pruef("vom Boden nie ein Driving Iron", lp.teeIron===0, String(lp.teeIron));
+  pruef("vom Boden nie ein Driver (v4.81.2)", lp.teeDriver===0, lp.teeDriver+" Fälle");
 
   /* ---------- Verwerfen wirkt auf beiden Seiten ---------- */
+
+  /* ---------- Mitspieler (v4.81): Namen und Endscores reisen mit ---------- */
+  kopf("Mitspieler — Namen und Endscores über den Entwurf");
+  const ms=R(`(function(){
+     PLAY.mitspieler=["Jan","Ute"];
+     var h=PLAY.holes[0]; h.msc1=6; if(typeof playTouchHole==="function") playTouchHole(h);
+     /* Der echte Pfad: mitspielerAdd()/playAdj() rufen playSaveDraft() —
+        erst das hebt den Stand in DB._draftRound, den draftPush sendet. */
+     if(typeof playSaveDraft==="function") playSaveDraft();
+     var r=playRound();
+     return {namen:r.mitspieler, msc:(r.holes[0]||{}).msc1}; })()`);
+  pruef("Namen stehen im Runden-Objekt", !!(ms&&ms.namen&&ms.namen.length===2&&ms.namen[0]==="Jan"),
+        JSON.stringify(ms&&ms.namen));
+  pruef("Endscore reist als Lochfeld", !!(ms&&ms.msc===6), String(ms&&ms.msc));
+  await R(`draftPush()`); await new Promise(r=>setImmediate(r));
+  let djM=null; try{ djM=JSON.parse(REPO["draft.json"]||"{}"); }catch(e){}
+  pruef("beides steht im Entwurf", !!(djM&&djM.round&&(djM.round.mitspieler||[]).length===2
+        && (djM.round.holes||[]).some(h=>h.hole===1&&h.msc1===6)),
+        JSON.stringify(djM&&djM.round&&djM.round.mitspieler));
+  /* Die "Uhr" traegt fuer Ute (msc2) nach — das Handy uebernimmt per Loch-ts,
+     ohne den eigenen msc1 zu verlieren (nimm-Regel, null loescht nichts). */
+  const uhrM=JSON.parse(REPO["draft.json"]);
+  const spaeterM=new Date(Date.now()+120000).toISOString();
+  uhrM.ts=spaeterM;
+  uhrM.round.holes=(uhrM.round.holes||[]).map(h=>h.hole===1?Object.assign({},h,{msc2:5,ts:spaeterM}):h);
+  REPO["draft.json"]=JSON.stringify(uhrM); SHAS["draft.json"]="sha-uhr-ms";
+  const msZ=R("(function(){ var dr=mergeDraft(DB._draftRound, "+JSON.stringify(uhrM)+", (DB.ui||{}).draftDiscardedTs||\"\");"+
+     " DB._draftRound=dr; playAdoptDraft();"+
+     " var h=(PLAY.holes||[])[0]||{}; return {m1:h.msc1, m2:h.msc2}; })()");
+  pruef("Uhr-Eintrag kommt an, eigener bleibt", !!(msZ&&msZ.m1===6&&msZ.m2===5), JSON.stringify(msZ));
+
   kopf("Runde verwerfen");
   R(`draftFinalize(); "ok"`);
   await new Promise(r=>setImmediate(r));

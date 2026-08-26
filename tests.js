@@ -2,8 +2,14 @@
 /* =============================================================================
    tests.js — Prüfstand für die reinen Funktionen aus index.html
    -----------------------------------------------------------------------------
-   AUFRUF:  node tests.js            (neben index.html ablegen)
+   AUFRUF:  node tests.js            (neben index.html UND MainActivity.kt ablegen)
    EXITCODE 0 = alles grün, 1 = mindestens ein Fehler → taugt als Commit-Gate.
+
+   ARBEITSREGELN (26.08.2026, ausnahmslos — gelten für JEDEN Bearbeiter):
+   1. Vor JEDER Änderung die gesamte Doku lesen: devdocs + Changelog in
+      index.html, Changelog-Kopf in MainActivity.kt, dieser Kopf hier.
+   2. Bei JEDER Änderung: diese Datei anpassen (Verträge und neue Prüfungen)
+      und die Doku aktuell halten. Die Sperrklinken unten erzwingen beides.
 
    WARUM
    Die Doku fordert seit jeher, neue Logik als reine Funktion zu schreiben,
@@ -168,7 +174,8 @@ try {
   /* WICHTIG: bei vm.runInContext landen nur `var` und `function` am Kontext —
      `const STRAT = {...}` bleibt im Blockscope unsichtbar. Deshalb ein Epilog,
      der die benoetigten Namen aktiv herausreicht. */
-  const namen = ["_phoneLive","playHoleStamp","PLAY","repairListenFormen","bagBewertung","clubNorm","_mergeObj","_leerWert","mergeDB","MERGE_KEY","EQUIP_FELDER","EQUIP_GRUPPEN","EQUIP_ALT_KEYS","equipAltRaeumen","ensureSeedGoals","_zielSchluessel","goalCurrent","trainingsEmpfehlung","goalIst","goalPlan","goalFortschritt","goalErreicht","goalHochIstGut","_zielMed","zielFeldDef","ZIEL_QUELLEN","ZIEL_FELDER","testZaehltNicht","testDefsAusgewertet","lmShotKey","lmNurNeue","lmDubletten","LM_ALLE","lmSetClub","playKopfraum","playKopfAnteil","aimUmweg","sgAbdeckungsQuote","sgPuttSchieflage","sgWarnHtml","sgRound","sgEnrich","turnierNaehe","wakeAn","wakeAus","_wakeGruende","kraftVerlauf","standNeuer","wetterSetzen","mobBaseline","MOB_KEYS","_fitMedian","_fitVergleich","isoWoche","kraftNorm","est1RM","kraftVerlauf","_dgmAbstandZuStrecke","gpFingerprint","_aimApproachEv","watchElevProfil","dgmSetzen","elevQuelle","elevQuelleText","dgmRahmen","dgmIdx","dgmZelleMitte","dgmZellen","dgmHoehe","dgmNeigung","dgmKey",
+  const namen = ["_phoneLive","playHoleStamp","PLAY","repairListenFormen","bagBewertung","clubNorm","_mergeObj","_leerWert","mergeDB","MERGE_KEY","EQUIP_FELDER","EQUIP_GRUPPEN","EQUIP_ALT_KEYS","equipAltRaeumen","ensureSeedGoals","_zielSchluessel","goalCurrent","trainingsEmpfehlung","goalIst","goalPlan","goalFortschritt","goalErreicht","goalHochIstGut","_zielMed","zielFeldDef","ZIEL_QUELLEN","ZIEL_FELDER","testZaehltNicht","testDefsAusgewertet","lmShotKey","lmNurNeue","lmDubletten","LM_ALLE","lmSetClub","playKopfraum","playKopfAnteil","aimUmweg","sgAbdeckungsQuote","sgPuttSchieflage","sgWarnHtml","sgRound","sgEnrich","turnierNaehe","wakeAn","wakeAus","_wakeGruende","kraftVerlauf","standNeuer","wetterSetzen","mobBaseline","MOB_KEYS","_fitMedian","_fitVergleich","isoWoche","kraftNorm","est1RM","kraftVerlauf","_dgmAbstandZuStrecke","gpFingerprint","_aimApproachEv","watchElevProfil","dgmSetzen",
+                 "schlagNeutral","neutralBasis","gpsShotsNachziehen","elevQuelle","elevQuelleText","dgmRahmen","dgmIdx","dgmZelleMitte","dgmZellen","dgmHoehe","dgmNeigung","dgmKey",
                  "STRAT","clubPick","playsLike","pinPoint","geoDist","playMapBox",
                  "selfCheck","PLAY","escShort","_short","clubShort","windRel","tempFactor","DB",
                  "courseTee","activeHoles","roundDurationMin","mergeDB","_mergeArr","_mergeTs",
@@ -3462,7 +3469,10 @@ group("DGM1 — Raster, Neigung und die Grenze zwischen zwei Quellen");
      nicht — dann stand „außerhalb des geladenen Streifens", obwohl alles
      geladen war. Geprüft wird die Breite, nicht die Konstante: Ein Punkt
      50 m neben der Linie muss im Rahmen liegen. */
-  ok("Streifen ist 120 m breit", /DGM_KORRIDOR=120\b/.test(fs.readFileSync(FILE, "utf8")));
+  /* 130 statt 120 (v4.82.2): Die Engine zielt bis ±10° neben die Linie und
+     die Neigungsmessung tastet darüber hinaus — ±60 war zu schmal (Landepunkt-
+     null trotz vollem Download); ±80/±70 sprengten den 16.000er-Ladelauf. */
+  ok("Streifen ist 130 m breit", /DGM_KORRIDOR=130\b/.test(fs.readFileSync(FILE, "utf8")));
 
   /* LADBARKEIT IST EINE EIGENSCHAFT (v4.7). Bei 5 m Maschenweite brauchte ein
      18-Loch-Platz rund 38.000 Punkte — zwei Stunden Quote und vierzehn Klicks.
@@ -3555,10 +3565,16 @@ group("DGM1 — Raster, Neigung und die Grenze zwischen zwei Quellen");
   const nE = neigung([tee[0] + R.dLa * 12, tee[1]], 0, eben);
   ok("ebenes Gelände = 0 %", nE && nE.betrag < 0.001);
 
-  /* Lücken dürfen NICHT stillschweigend zu 0 werden. */
+  /* Lücken dürfen NICHT stillschweigend zu 0 werden — aber EINE fehlende
+     Ecke (Streifenrand) trägt seit v4.82 auf den übrigen drei (26.08.:
+     Landepunkt-null trotz vollem Download). ZWEI fehlende bleiben null:
+     ein echtes Loch im Raster wird nicht überbrückt. */
   const loch = { ...rec, h: Int16Array.from(rec.h) };
   loch.h[0] = LEER;
-  ok("fehlende Ecke gibt null, nicht 0", hoehe(R.la0, R.lo0, loch) === null);
+  const eck = hoehe(R.la0 + R.dLa*0.5, R.lo0 + R.dLo*0.5, loch);
+  ok("EINE fehlende Ecke stützt auf die übrigen", eck !== null && isFinite(eck), String(eck));
+  loch.h[1] = LEER;
+  ok("ZWEI fehlende Ecken geben null", hoehe(R.la0 + R.dLa*0.5, R.lo0 + R.dLo*0.5, loch) === null);
   ok("außerhalb des Rasters gibt null", hoehe(53.0, 9.0, rec) === null);
   ok("ohne Raster gibt null", hoehe(tee[0], tee[1], null) === null);
 
@@ -3772,8 +3788,10 @@ group("sigmaHang — die eigene Lage, nicht das Ziel");
     const src = fs.readFileSync(FILE, "utf8");
     ok("nextShot misst die Neigung an der eigenen Position",
        /const hangVon=\(typeof dgmNeigung==="function"\)\?dgmNeigung\(from, brg\)/.test(src));
-    ok("und den Aufschlag weiterhin am Zielpunkt",
-       /const hangN=\(typeof dgmNeigung==="function"\)\?dgmNeigung\(aim,brg\)/.test(src));
+    /* v4.82: Fläche statt Punkt — neigungUmZiel mittelt drei Punkte entlang
+       der Ziellinie; der Einzelpunkt bleibt als Rückfall. */
+    ok("und den Aufschlag als Fläche um das Ziel",
+       /this\.neigungUmZiel\(from, brg, carry, sgH\.sigD, g\)/.test(src));
     ok("gestreut wird mit der angepassten Streuung",
        /S\[i\]\[1\]\*sgH\.sigD, side=sgH\.biasL\+S\[i\]\[0\]\*sgH\.sigL/.test(src));
     ok("der Abschlag bleibt außen vor — vom Tee steht man eben",
@@ -5980,7 +5998,7 @@ group("Gleichlauf Uhr ↔ App — dieselbe Frage, dieselbe Antwort");
        Kopf repariert, dreimal daneben. Jetzt schreibt sie auf, WAS sie
        entschieden hat — und der Puffer kommt seit (8) auch beim Handy an. */
     ok("verworfene Zeiger werden protokolliert",
-       /Handy-Loch \$h verworfen · at=\$at/.test(kt));
+       /Handy-Loch \$h verworfen · seq=/.test(kt));
     ok("nur bei Abweichung, nicht je Herzschlag",
        /else if \(h > 0 && h != currentHole\)/.test(kt));
     ok("ein Worker ohne Kennung wird gemeldet",
@@ -6203,6 +6221,14 @@ group("Gleichlauf Uhr ↔ App — dieselbe Frage, dieselbe Antwort");
     }
     ok("auch der Zeiger-Zustand", /Diagnose\.pulsZeiger = if \(currentHole != null\)/.test(kt));
     /* Und die Lehre steht dabei, damit sie nicht verlorengeht. */
+    /* GEMELDET: „Er erfasst immer nur die Eingaben bei Loch 1." In der Spur
+       steht „Eingabe L1" in jeder Zeile, obwohl „Loch → 2" dazwischen stand.
+       `getOrNull(idx) ?: firstOrNull()` fiel LAUTLOS auf Loch 1 zurück — und
+       dieses `hd` bestimmt, wohin `change()` schreibt.
+       EIN RÜCKFALL DARF EINE ANZEIGE RETTEN, NIEMALS EINE ZUORDNUNG. */
+    ok("der Rückfall auf Loch 1 wird gemeldet", /warnEinmal\("hdRueckfall"/.test(kt));
+    ok("mit beiden Zahlen", /idx \$idx neben \$\{cs\.holes\.size\} Loechern/.test(kt));
+
     ok("die Lehre ist festgehalten",
        /EINE DIAGNOSE, DIE NUR MANCHMAL AKTUALISIERT WIRD, LUEGT/.test(kt));
     ok("und sind nummeriert", /"#"\+_phPulsN\+" "\+was/.test(src));
@@ -6524,7 +6550,7 @@ group("Live-Zeiger — beide Geräte, dieselbe Regel");
     /* (1) Welche Uhr-Fassung läuft? Sie stand nur im Fehlerprotokoll — also
        nur, wenn es Fehler gab. */
     ok("die Uhr nennt ihre Fassung im Live-Zeiger", /\.put\("app", WATCH_APP\)/.test(kt));
-    ok("und die Kennung ist aktuell", /WATCH_APP = "2026-08-25 \(30\)"/.test(kt));
+    ok("und die Kennung ist aktuell", /WATCH_APP = "2026-08-26 \(37\)"/.test(kt));
     ok("das Handy zeigt sie", /function watchFassung\(\)/.test(src));
 
     /* --- STARTBILDSCHIRM (2026-08-25 (20)) ---
@@ -6575,7 +6601,14 @@ group("Live-Zeiger — beide Geräte, dieselbe Regel");
     /* Nur bei DERSELBEN Runde und nur, wenn die Marke jünger ist — sonst
        beendet eine fremde oder alte Meldung die eigene Runde. */
     ok("nur bei gleichem Platz", /gleichePlatz && juenger/.test(kt));
-    ok("und nur mit jüngerer Marke", /at > eigen/.test(kt));
+    /* Seit Uhr (35) führt das HANDY beim Beenden, bedingungslos: verglichen
+       wird nur noch gegen den RUNDENBEGINN (Alt-Marken-Schutz), nicht gegen
+       die letzte Eingabe — die hatte jede Eingabe nach dem Beenden zum
+       Veto gemacht. */
+    ok("und nur mit Marke jünger als der Rundenbeginn",
+       /at > isoOf\(roundStart \?: 0L\)/.test(kt));
+    ok("und der Gehorsam räumt vollständig auf",
+       /Runde ⇐ Handy beendet[\s\S]{0,400}?svcStop\(ctx\)/.test(kt));
 
     /* (4) STILL DARF NICHT WIE VERGESSEN AUSSEHEN — dieselbe Regel wie in der
        App seit v4.17. Auf der Uhr gab es acht `catch`-Blöcke ohne jede
@@ -8853,7 +8886,11 @@ group("Leitplanken — Regeln INNERHALB der Rechnung");
        0 und die Regel misst etwas anderes als die Engine. Die App liefert immer
        beide Werte; Prüfdaten, die das nicht tun, prüfen einen Fall, den es
        nicht gibt. */
-    const clubs = [{ name: "Driver", carry: 211, dist: 225 },
+    /* "3 Wood" statt "Driver" (v4.82.2): Der Driver ist seit v4.81.2 vom
+       Boden gestrichen (teeOnly) — die Stummel-Regel unten prüft einen
+       Bodenschlag, also braucht sie einen Schläger, der dort erlaubt ist.
+       Die Zahlen bleiben; die Regel misst Carry+Auslauf, nicht den Namen. */
+    const clubs = [{ name: "3 Wood", carry: 211, dist: 225 },
       { name: "2 Driving Iron", carry: 180, dist: 196 },
       { name: "7 Wood", carry: 169, dist: 174 }, { name: "PW", carry: 100, dist: 102 }];
 
@@ -8874,9 +8911,9 @@ group("Leitplanken — Regeln INNERHALB der Rechnung");
        Annäherungsschlag. Mit 260 m blieben 35 m, und das ist ein normaler
        Pitch, den die Regel zurecht in Ruhe lässt. */
     const stummel = LP(clubs, { vomTee: false, rest: 240, weitererSchlagFolgt: true });
-    ok("Stummel-Layup kostet Aufschlag", (stummel.aufschlag["Driver"] || 0) > 0,
-      String(stummel.aufschlag["Driver"]));
-    ok("mit nachlesbarem Grund", (stummel.gruende["Driver"] || []).length > 0);
+    ok("Stummel-Layup kostet Aufschlag", (stummel.aufschlag["3 Wood"] || 0) > 0,
+      String(stummel.aufschlag["3 Wood"]));
+    ok("mit nachlesbarem Grund", (stummel.gruende["3 Wood"] || []).length > 0);
     /* Und NICHT, wenn das Grün erreichbar ist — dann ist der kurze Rest der
        Annäherungsschlag selbst, kein Stummel. */
     const erreichbar = LP(clubs, { vomTee: false, rest: 260, weitererSchlagFolgt: false });
@@ -11178,6 +11215,89 @@ group("Ausrüstung — womit, und seit wann");
   ok("Eingaben werden gebunden", /equipBind\(\);/.test(src));
 }
 
+/* ============ 24cs. Neutralwerte & Caddy-Sicherheit (v4.80-4.82) ============ */
+group("schlagNeutral / neutralBasis / gpsShotsNachziehen — spielt-wie rückwärts");
+{
+  const sn=G("schlagNeutral"), nb=G("neutralBasis"), nz=G("gpsShotsNachziehen");
+  if (typeof sn==="function") {
+    /* Der EHRLICHKEITS-Vertrag: ohne Messkontext KEIN erfundener Neutralwert.
+       Im Sandkasten gibt es weder WEATHER noch Höhen-Cache — genau der Fall
+       "nichts zu rechnen": null, nicht der Rohwert, nicht 0. Der positive
+       Pfad ist Mathematik aus playsLike (eigene Gruppe) plus diese Weiche. */
+    eq("ohne Koordinaten null", sn(null,null,2,2,200,null), null);
+    eq("ohne Distanz null", sn(1,1,2,2,0,null), null);
+    eq("ohne jeden Kontext null", sn(54.0,10.7,54.001,10.7,200,null), null);
+    /* Wetter zaehlt nur zeitnah — ein alter ts darf den Wetterpfad nie oeffnen. */
+    eq("alter Zeitstempel öffnet kein Wetter", sn(54.0,10.7,54.001,10.7,200,"2020-01-01T00:00:00Z"), null);
+    /* Verdrahtung: die Umkehrung IST playsLike, an allen drei Entstehungsorten
+       plus dem Eintreff-Engpass der Uhr-Messungen. */
+    const src=fs.readFileSync(FILE,"utf8");
+    ok("rechnet über playsLike", /const n=playsLike\(dist, w\?w\.temp:null/.test(src));
+    ok("an den drei Entstehungsorten", (src.match(/schlagNeutral\(/g)||[]).length >= 4);
+    ok("und am Eintreff-Engpass", /gpsShotsNachziehen\(DB\.gpsShots\)/.test(src));
+  }
+  if (typeof nb==="function") {
+    eq("gespeicherter Neutralwert hat Vorrang", nb({distNeutral:190,dist:200}), 190);
+    eq("ohne Kontext ehrlich der Rohwert", nb({dist:200}), 200);
+    eq("ohne Schlag null", nb(null), null);
+  }
+  if (typeof nz==="function") {
+    const arr=[{distNeutral:190,dist:200},{dist:150},null];
+    /* Im Sandkasten kann schlagNeutral nichts rechnen -> nichts wird erfunden,
+       Vorhandenes nicht angefasst, und die Anzahl sagt die Wahrheit. */
+    eq("erfindet nichts ohne Kontext", nz(arr), 0);
+    eq("fasst Vorhandenes nicht an", arr[0].distNeutral, 190);
+  }
+}
+
+group("STRAT.sicherheitsWahl — Gleichstand entscheidet die Sicherheit");
+{
+  const S=G("STRAT");
+  if (S && typeof S.sicherheitsWahl==="function") {
+    /* 26.08., Loch 2: Driver an die Engstelle. Innerhalb von 0.06 ES
+       (Rauschniveau bei N=100) gewinnt die höhere Fairway-/Grünquote. */
+    const c1=[{club:{name:"Driver"},score:5.00,frac:{1:21,4:0}},
+              {club:{name:"3 Wood"},score:5.04,frac:{1:50,4:5}},
+              {club:{name:"5 Iron"},score:5.30,frac:{1:70,4:0}}];
+    S.sicherheitsWahl(c1,100);
+    eq("im Rauschband gewinnt die Sicherheit", c1[0].club.name, "3 Wood");
+    ok("und ist als Sicherheitswahl markiert", c1[0].sicherheitsWahl===true);
+    /* Ein ECHTER ES-Vorteil darf weiterhin Risiko kaufen. */
+    const c2=[{club:{name:"Driver"},score:5.00,frac:{1:21}},
+              {club:{name:"3 Wood"},score:5.10,frac:{1:60}}];
+    S.sicherheitsWahl(c2,100);
+    eq("echter Vorteil bleibt vorn", c2[0].club.name, "Driver");
+    ok("leere Liste stürzt nicht", S.sicherheitsWahl([],100)!==undefined || true);
+  }
+}
+
+group("STRAT.neigungUmZiel / ohneHoehe — Fläche statt Punkt, laut statt still");
+{
+  const S=G("STRAT"), setze=G("dgmSetzen");
+  if (S && typeof S.neigungUmZiel==="function" && typeof setze==="function") {
+    /* Synthetisches Raster: 2 % nach Norden, 40×40 Zellen à 10 m. */
+    const mLat=110540, mLng=68000, G0=10;
+    const R={course:"T",la0:54.0,lo0:10.0,dLa:G0/mLat,dLo:G0/mLng,mLat,mLng,nx:40,ny:40,h:new Int16Array(1600)};
+    for(let y=0;y<40;y++) for(let x=0;x<40;x++) R.h[y*40+x]=Math.round((100+y*G0*0.02)*10);
+    setze(R);
+    const von=[54.0+10*R.dLa, 10.0+20*R.dLo];
+    const n=S.neigungUmZiel(von, 0, 100, 20, {mLat,mLng});
+    ok("mittelt zur echten Steigung", n && Math.abs(n.laengs-0.02)<0.004, n&&String(n.laengs));
+    ok("über mehrere Punkte", n && n.punkte>=2, n&&String(n.punkte));
+    setze(null);
+    eq("ohne Raster ehrlich null", S.neigungUmZiel(von,0,100,20,{mLat,mLng}), null);
+  }
+  if (S && typeof S.ohneHoehe==="function") {
+    /* Einmal je Loch und Grund — die Meldung ist Diagnose, kein Spam. */
+    S._ohneHoeheGemeldet={};
+    S.ohneHoehe(7,"Prüfstand"); S.ohneHoehe(7,"Prüfstand");
+    eq("meldet einmal je Loch und Grund", Object.keys(S._ohneHoeheGemeldet).length, 1);
+    S.ohneHoehe(8,"Prüfstand");
+    eq("neues Loch meldet neu", Object.keys(S._ohneHoeheGemeldet).length, 2);
+    S._ohneHoeheGemeldet={};
+  }
+}
+
 /* ============ 24ct. Changelog-Archiv ============ */
 group("Changelog — aktuell in der Datei, älteres im Archiv");
 {
@@ -13177,8 +13297,10 @@ group("Caddy — zweiter Zug und die Gewichte, die ihn tragen");
     ok("_ply2 existiert", typeof S._ply2 === "function");
     /* Fenster vergroessert (v3.76): Dogleg-Knick und Wetter-Umrechnung stehen
        vor der zweiten Ebene. */
+    /* Fenster vergrößert (v4.82.2): Flächen-Hang und Sicherheitswahl stehen
+       mit Begründung vor der zweiten Ebene — wie schon v3.76. */
     const te = src.slice(src.indexOf("  tee(geo,courseName,holeNo,mode,hcp,von,nurClub)"),
-                         src.indexOf("  tee(geo,courseName,holeNo,mode,hcp,von,nurClub)") + 10500);
+                         src.indexOf("  tee(geo,courseName,holeNo,mode,hcp,von,nurClub)") + 13500);
     ok("zweite Ebene nur für die Spitze", /Math\.min\(5,cands\.length\)/.test(te));
     ok("Korrektur gedämpft (Mittelpunkt statt Verteilung)", /0\.7\s*\*\s*c\.ply2/.test(te));
     ok("Korrektur ist Gelände minus Tabelle", /p2\.sc\s*-\s*generisch/.test(te));
