@@ -4665,8 +4665,10 @@ group("Golf-Grundlagen — Streuung skaliert, Spielvorgabe rechnet im Turniermod
 
   /* (3) SPIELVORGABE MIT 95 % — IMMER, ohne Schalter. */
   ok("Allowance ist benannt", /const VORGABE_ALLOWANCE=0\.95;/.test(src));
+  /* Seit v4.82.3 traegt der HI-Term die 9-Loch-Halbierung — die
+     REIHENFOLGE (runden, 95 %, runden) ist der Vertrag und bleibt. */
   ok("erst runden, dann 95 %, dann runden",
-     /const CHcpVoll=Math\.round\(HI\*SL\/113\+\(CR-PAR\)\);[\s\S]{0,80}?Math\.round\(CHcpVoll\*VORGABE_ALLOWANCE\)/.test(src));
+     /const CHcpVoll=Math\.round\(\(is9\?HI\/2:HI\)\*SL\/113\+\(CR-PAR\)\);[\s\S]{0,80}?Math\.round\(CHcpVoll\*VORGABE_ALLOWANCE\)/.test(src));
   /* Der Begründungstext NENNT den Schalter, um zu erklären, warum es ihn
      nicht gibt — geprüft wird deshalb der ausführbare Teil, nicht die Prosa. */
   {
@@ -11213,6 +11215,38 @@ group("Ausrüstung — womit, und seit wann");
   }
   ok("unter Schläger eingehängt", /h \+= equipHtml\(\);/.test(src));
   ok("Eingaben werden gebunden", /equipBind\(\);/.test(src));
+}
+
+/* ============ 24cr2. 9-Loch-Spielvorgabe (v4.82.3) ============ */
+group("computeRound — 9 Löcher spielen mit halbem HI (WHS)");
+{
+  const cr=G("_computeRoundRoh"), DB=G("DB");
+  if (typeof cr==="function" && DB) {
+    /* Befund 26.08.: Front 9, +4 brutto, Anzeige "38 Punkte / Course HCP 24" —
+       das volle 18-Loch-HI ging in die 9-Loch-Formel. WHS: HI/2 × Slope9/113
+       + (CR9 − Par9). Fixture: Slope 126, CR 35.6, Par 36, HI 22
+       -> 9 Loch: round(11 × 126/113 − 0.4) = 12; 18 Loch (Slope 126,
+       CR 71.2, Par 72): round(22 × 126/113 − 0.8) = 24. */
+    const alt=DB.courses;
+    DB.courses=[{name:"VG-Test", tees:{Gelb:{
+      cr18:71.2, slope18:126, par18:72,
+      sides:{"Front 9":{cr:35.6, slope:126, par:36}},
+      holes:Array.from({length:18},(_,i)=>({hole:i+1, par:4, si:i+1}))
+    }}}];
+    const neun={id:"VG9", date:"2026-08-26", course:"VG-Test", tee:"Gelb",
+      side:"Front 9", hi:22,
+      holes:Array.from({length:9},(_,i)=>({hole:i+1, par:4, score:4, putts:2}))};
+    const e9=cr(neun);
+    eq("9-Loch-Course-HCP ist halbiert", e9.CHcp, 12);
+    /* 9× Par mit 12 Schlägen: 9×2 + 12 = 30 Punkte netto. */
+    eq("Netto-Stableford rechnet mit der halben Vorgabe", e9.stblN, 30);
+    const achtzehn={id:"VG18", date:"2026-08-26", course:"VG-Test", tee:"Gelb",
+      side:"18 Loch", hi:22,
+      holes:Array.from({length:18},(_,i)=>({hole:i+1, par:4, score:4, putts:2}))};
+    const e18=cr(achtzehn);
+    eq("18 Löcher rechnen unverändert mit vollem HI", e18.CHcp, 24);
+    DB.courses=alt;
+  }
 }
 
 /* ============ 24cs. Neutralwerte & Caddy-Sicherheit (v4.80-4.82) ============ */
