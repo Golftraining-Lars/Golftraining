@@ -235,6 +235,7 @@ try {
   const namen = ["_phoneLive","playHoleStamp","PLAY","repairListenFormen","bagBewertung","clubNorm","_mergeObj","_leerWert","mergeDB","MERGE_KEY","EQUIP_FELDER","EQUIP_GRUPPEN","EQUIP_ALT_KEYS","equipAltRaeumen","ensureSeedGoals","_zielSchluessel","goalCurrent","trainingsEmpfehlung","goalIst","goalPlan","goalFortschritt","goalErreicht","goalHochIstGut","_zielMed","zielFeldDef","ZIEL_QUELLEN","ZIEL_FELDER","testZaehltNicht","testDefsAusgewertet","lmShotKey","lmNurNeue","lmDubletten","LM_ALLE","lmSetClub","playKopfraum","playKopfAnteil","aimUmweg","sgAbdeckungsQuote","sgPuttSchieflage","sgWarnHtml","sgRound","sgEnrich","turnierNaehe","wakeAn","wakeAus","_wakeGruende","kraftVerlauf","standNeuer","wetterSetzen","mobBaseline","MOB_KEYS","_fitMedian","_fitVergleich","isoWoche","kraftNorm","est1RM","kraftVerlauf","_dgmAbstandZuStrecke","gpFingerprint","_aimApproachEv","watchElevProfil","dgmSetzen",
                  "schlagNeutral","neutralBasis","gpsShotsNachziehen","elevQuelle","elevQuelleText","dgmRahmen","dgmIdx","dgmZelleMitte","dgmZellen","dgmHoehe","dgmNeigung","dgmKey",
                  "STRAT","clubPick","playsLike","pinPoint","geoDist","playMapBox",
+                 "liveStart","liveStop","liveStopAll","liveVerbraucher","LIVEPOS",
                  "selfCheck","PLAY","escShort","_short","clubShort","windRel","tempFactor","DB",
                  "courseTee","activeHoles","roundDurationMin","mergeDB","_mergeArr","_mergeTs",
                  "whsIndexOf","classifyProps","holeRefFromTags","bearingDeg","dataScore",
@@ -11985,7 +11986,10 @@ group("Kopplungstest — hat die Uhr, was sie braucht?");
   ok("zählt bestanden gegen abgewichen", /von "\+\(gut\+schlecht\)\+" Prüfungen bestanden/.test(src));
 
   const doc = (src.match(/<script[^>]*devdocs[^>]*>([\s\S]*?)<\/script>/) || [])[1] || "";
-  ok("Worker kennt probe.json", /"watch\.json", "probe\.json"/.test(doc));
+  /* Nicht mehr auf die REIHENFOLGE im Text prüfen (v4.87) — der Abzug ist
+     jetzt eine wörtliche Kopie der Datei, und die bricht ihre Liste über zwei
+     Zeilen um. Geprüft wird das Vorkommen, nicht das Layout. */
+  ok("Worker kennt probe.json", /"probe\.json"/.test(doc));
 }
 
 /* ============ 24cq. Die Uhr bekommt die AUFGELÖSTE Karte ============ */
@@ -12254,8 +12258,11 @@ group("watch.json — die Uhr trägt nicht 3 MB");
   ok("einmal nach dem Start", /setTimeout\(\(\)=>\{ watchFilePush\(\); \}, 6000\)/.test(src));
 
   const doc = (src.match(/<script[^>]*devdocs[^>]*>([\s\S]*?)<\/script>/) || [])[1] || "";
-  ok("Worker kennt watch.json", /"draft\.json", "watch\.json"/.test(doc));
-  ok("Worker-Fassung hochgezählt", /Fassung v2\.8/.test(doc));
+  ok("Worker kennt watch.json", /"watch\.json"/.test(doc));
+  /* Die Fassungsnummer wird in 24ca gegen `worker.js` verglichen, statt hier
+     eine Zahl abzuschreiben, die mitveraltet. */
+  ok("Worker-Fassung wird gegen die Datei geprüft",
+     /und sie stimmt mit worker\.js überein/.test(fs.readFileSync(__filename, "utf8")));
 }
 
 /* ============ 24ch. Abgleich prüfen ============ */
@@ -12430,6 +12437,143 @@ group("gpsShots — die Messungen der Uhr überleben den Abgleich");
 }
 
 /* ============ 24ce. GPS-Tick und Runden-Sync ============ */
+/* ============ 24cy. Kein Worker-Aufruf ohne Frist ============ */
+group("Funk — jeder Aufruf darf verloren gehen, keiner darf hängen");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+
+  /* ====================================================================
+     BEFUND AUS DEM AUDIT VOM 27.08.2026 (behoben in v4.87)
+     --------------------------------------------------------------------
+     `fetchMitFrist()` gibt es seit v4.83 — mit einem Kommentar, der den
+     Schaden genau beschreibt: „Handy wach, Vollbild, Takt läuft — und ab dem
+     einen hängenden Durchlauf drei Minuten Totenstille, während die Uhr 26
+     Aktionen mit HTTP 200 ablieferte."
+     Behoben wurde damals die FUNDSTELLE. Sieben weitere Worker-Aufrufe blieben
+     ohne Frist stehen, darunter `watchFilePush` — der läuft während der Runde,
+     also genau dann, wenn ein Funkloch wahrscheinlich ist.
+     EINE BEHEBUNG AN DER FUNDSTELLE IST KEINE REGEL. Diese Prüfung macht eine
+     daraus: `fetch(_workerBase()` ohne `fetchMitFrist` gibt es nicht mehr, und
+     wer den nächsten Aufruf schreibt, erfährt es beim ersten Prüfstandslauf. */
+  const roh = codeOhneDoku(src);
+  const ohneFrist = (roh.match(/(?<!Frist)\bfetch\(_workerBase\(\)/g) || []).length;
+  ok("kein Worker-Aufruf ohne Frist", ohneFrist === 0, ohneFrist + " Stellen");
+  ok("und die Frist ist eine echte Abbruchsteuerung",
+     /function fetchMitFrist\(url, opts, ms\)\{[\s\S]{0,320}?new AbortController\(\)[\s\S]{0,320}?ac\.abort\(\)/.test(roh));
+  /* Ohne `clearTimeout` bliebe je Aufruf ein Zeitgeber liegen — bei einem
+     60-s-Takt über vier Stunden sind das 240 Stück. */
+  ok("und räumt ihren Zeitgeber auf", /\.finally\(\(\)=>clearTimeout\(t\)\)/.test(roh));
+  /* Die Vorgabe darf großzügig sein, aber es muss eine geben. */
+  /* Die Vorgabe AUS DER FUNKTION lesen, nicht global suchen: `ms || 600`
+     kommt anderswo im Quelltext vor (Entprellung), und das erste Vorkommen
+     ist nicht das gesuchte. Ein Muster, das irgendwo trifft, prüft nichts. */
+  const fmf = (roh.match(/function fetchMitFrist\(url, opts, ms\)\{[\s\S]{0,400}?\n\}/) || [""])[0];
+  const vorgabe = (fmf.match(/ms\s*\|\|\s*(\d+)/) || [])[1];
+  ok("mit einer Vorgabe, die niemand vergisst", +vorgabe >= 5000 && +vorgabe <= 30000,
+     vorgabe + " ms");
+}
+
+/* ============ 24cz. Ortung: ein Waechter, mehrere Verbraucher ============ */
+group("Live-Ortung — wer sie anhaelt, haelt sie nicht für alle an");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+  const LS = G("liveStart"), LX = G("liveStop"), LA = G("liveStopAll"),
+        LV = G("liveVerbraucher"), LP = G("LIVEPOS");
+
+  /* ====================================================================
+     BEFUND AUS DEM AUDIT VOM 27.08.2026 (behoben in v4.87)
+     --------------------------------------------------------------------
+     `LIVEPOS` hielt GENAU EINEN Rückruf, und `liveStart(cb)` setzte ihn,
+     BEVOR geprüft wurde, ob schon ein Wächter läuft. Zwei Verbraucher gibt
+     es: den Spielmodus und die On-Course-Ansicht des Caddys. Wer als
+     ZWEITER startete, übernahm die Ortung stillschweigend — und `liveStop()`
+     aus einem der beiden hielt sie für BEIDE an.
+     ERREICHBAR OHNE ZUTUN: `openCaddyPosition()` rief in seiner ersten Zeile
+     `liveStop()`. Wer während einer laufenden Runde die On-Course-Ansicht
+     öffnete, spielte danach ohne Live-Position weiter — ohne Loch-Erkennung,
+     ohne Positionsmeldung an die Uhr, ohne jede Meldung.
+     DIESE PRÜFUNGEN SIND VERHALTENSPRÜFUNGEN, keine Textsuche: Sie melden
+     zwei Verbraucher an und sehen nach, was nach dem Abmelden übrig ist. */
+  if (typeof LS === "function" && typeof LX === "function" && LP) {
+    /* Ortung im Prüfstand nachbauen — `sandbox.navigator.geolocation` ist
+       `undefined`, sonst würde `liveStart` sofort mit `false` umkehren.
+       NICHT über `global.navigator`: Das ist in Node 22 schreibgeschützt
+       (`Cannot set property navigator of #<Object> which has only a getter`),
+       und der App-Code liest ohnehin die Sandbox, nicht das Node-Global. */
+    const nav = sandbox.navigator;
+    const alt = nav.geolocation;
+    let gestartet = 0, gestoppt = 0, melde = null;
+    nav.geolocation = {
+      watchPosition(ok){ gestartet++; melde = ok; return 42; },
+      clearWatch(){ gestoppt++; }
+    };
+    try {
+      LIVEPOS_reset();
+      const gesehen = { play: 0, cp: 0 };
+      LS("play", () => gesehen.play++);
+      LS("caddypos", () => gesehen.cp++);
+      ok("zwei Verbraucher, EIN Wächter", gestartet === 1, String(gestartet));
+      ok("und beide sind eingetragen",
+         typeof LV === "function" && LV().sort().join(",") === "caddypos,play",
+         typeof LV === "function" ? LV().join(",") : "keine Auskunft");
+
+      melde({ coords: { latitude: 54, longitude: 10 } });
+      ok("beide bekommen die Position", gesehen.play === 1 && gesehen.cp === 1,
+         JSON.stringify(gesehen));
+
+      /* DER KERN: Der eine geht, der andere bleibt versorgt. */
+      LX("caddypos");
+      ok("ein Abmelden hält den Wächter nicht an", gestoppt === 0, String(gestoppt));
+      melde({ coords: { latitude: 54, longitude: 10 } });
+      ok("der verbliebene Verbraucher wird weiter versorgt", gesehen.play === 2,
+         String(gesehen.play));
+      ok("der abgemeldete nicht mehr", gesehen.cp === 1, String(gesehen.cp));
+
+      LX("play");
+      ok("erst der letzte hält ihn an", gestoppt === 1, String(gestoppt));
+
+      /* Ein Rückruf, der sich WÄHREND der Zustellung abmeldet, darf die
+         Schleife nicht zerreißen — genau das tun sie, wenn ihre Ansicht weg
+         ist (`if(!document.getElementById("cpLive")) liveStop(...)`). */
+      LIVEPOS_reset(); gestartet = 0; gestoppt = 0;
+      let a = 0, b = 0;
+      LS("eins", () => { a++; LX("eins"); });
+      LS("zwei", () => { b++; });
+      melde({ coords: { latitude: 54, longitude: 10 } });
+      ok("Abmelden während der Zustellung zerreißt nichts", a === 1 && b === 1,
+         "a=" + a + " b=" + b);
+
+      /* `liveStopAll` ist die ehrliche Fassung für „Blatt schließen". */
+      if (typeof LA === "function") {
+        LIVEPOS_reset(); gestoppt = 0;
+        LS("x", () => {}); LS("y", () => {});
+        LA();
+        ok("liveStopAll räumt alle ab",
+           gestoppt === 1 && (typeof LV !== "function" || LV().length === 0));
+      }
+      /* Alter Aufruf mit nur einem Argument bleibt bedienbar — ein übersehener
+         Aufrufer soll die Ortung nicht ganz verlieren. */
+      LIVEPOS_reset(); gestartet = 0;
+      LS(() => {});
+      ok("ein-Argument-Aufruf funktioniert weiter", gestartet === 1);
+    } finally {
+      try { LIVEPOS_reset(); } catch (e) {}
+      nav.geolocation = alt;
+    }
+    function LIVEPOS_reset(){ try { LP.cbs.clear(); LP.watchId = null; } catch (e) {} }
+  }
+
+  /* Und die Aufrufstellen müssen ihre Kennung mitgeben, sonst nützt der
+     Umbau nichts. `openCaddyPosition` ist die Stelle, an der es weh tat. */
+  ok("der Spielmodus meldet sich als „play“ an", /liveStart\("play",/.test(src));
+  ok("die On-Course-Ansicht als „caddypos“", /liveStart\("caddypos",/.test(src));
+  ok("und openCaddyPosition hält nur die eigene an",
+     /function openCaddyPosition\([\s\S]{0,600}?liveStop\("caddypos"\)/.test(src));
+  ok("das Rundenende meldet „play“ ab",
+     (src.match(/liveStop\("play"\)/g) || []).length >= 4,
+     String((src.match(/liveStop\("play"\)/g) || []).length));
+}
+
 group("Spielbetrieb — Rechenzeit und Funk auf der Runde");
 {
   const src = fs.readFileSync(FILE, "utf8");
@@ -12722,7 +12866,64 @@ group("Worker-Code in der Doku");
      serverseitig — tatsächlich ist er im benutzten Modus ein SHA-Türsteher.
      Eine Aussage über Code, den man nicht sieht, ist eine Vermutung. */
   ok("Abschnitt vorhanden", /## 28\. `worker\.js` — vollstaendiger Stand/.test(doc));
-  ok("Fassung benannt", /Fassung v2\.8/.test(doc));
+
+  /* ====================================================================
+     DIE FASSUNG WIRD NICHT MEHR ABGESCHRIEBEN, SONDERN VERGLICHEN (v4.87)
+     --------------------------------------------------------------------
+     Bis hierher stand `/Fassung v2\.8/` — eine von Hand gepflegte Zahl, die
+     nur sagte, was jemand einmal getippt hat. Beim Audit am 27.08.2026 kam
+     heraus, wie teuer das ist: Bei Cloudflare lief v2.11, dieser Abzug stand
+     auf v2.8, und die Datei `worker.js` im Repo auf **v2.1** — mit einer
+     Whitelist ohne `draft.json`, `watch.json`, `probe.json` und
+     `watchlog.json`. Dieser Worker hätte JEDEN Rundenentwurf mit 403
+     abgewiesen; dass der Abgleich lief, war der Beleg dafür, dass niemand
+     mehr wusste, welcher Code dort arbeitet.
+     DREI KOPIEN OHNE ABGLEICH sind schlimmer als eine unsichtbare: Man
+     glaubt zu wissen, was läuft. Deshalb wird ab v4.87 die Zahl aus der
+     DATEI gelesen und gegen die Überschrift gehalten. Eine Prüfung, die
+     zwei Artefakte vergleicht, kann nicht mitveralten. */
+  {
+    const wPfad = path.join(__dirname, "worker.js");
+    if (!fs.existsSync(wPfad)) {
+      console.log("   Hinweis: worker.js liegt nicht daneben — Kopplung ungeprüft.");
+    } else {
+      const w = fs.readFileSync(wPfad, "utf8");
+      const wVer = (w.match(/SYNC-WORKER\s+(v[\d.]+)/) || [])[1] || null;
+      const dVer = (doc.match(/## 28\. `worker\.js` — vollstaendiger Stand \(Fassung (v[\d.]+)/) || [])[1] || null;
+      ok("Fassung benannt", !!dVer, String(dVer));
+      ok("und sie stimmt mit worker.js überein", !!wVer && wVer === dVer,
+         "Datei " + wVer + " / Doku " + dVer);
+
+      /* ================================================================
+         JEDER PFAD, DEN JEMAND SENDET, MUSS IN DER WHITELIST STEHEN
+         ----------------------------------------------------------------
+         Das ist der eigentliche Riegel gegen den Befund von oben. Er greift
+         auch dann, wenn niemand die Fassungsnummer anfasst: Wer einen neuen
+         `X-Path` einführt und den Worker vergisst, bekommt es hier gesagt —
+         und nicht auf der Runde durch ein stilles 403. */
+      const wl = new Set(((w.match(/PATHS:\s*\[([\s\S]*?)\]/) || [])[1] || "")
+        .split(",").map(x => x.trim().replace(/^["']|["']$/g, "")).filter(Boolean));
+      const gesendet = new Set();
+      [src, fs.existsSync(path.join(__dirname, "MainActivity.kt"))
+              ? fs.readFileSync(path.join(__dirname, "MainActivity.kt"), "utf8") : ""]
+        .forEach(t => {
+          (t.match(/X-Path"?\s*[,:)]\s*"([\w.-]+\.json)"/g) || []).forEach(m => {
+            const n = (m.match(/"([\w.-]+\.json)"/) || [])[1]; if (n) gesendet.add(n);
+          });
+        });
+      /* Die Pfade stecken meist hinter Konstanten (DRAFT_PATH, WATCH_PATH) —
+         die werden hier direkt nachgeschlagen statt sie zu erraten. */
+      ["DRAFT_PATH", "WATCH_PATH", "PROBE_PATH"].forEach(k => {
+        const m = src.match(new RegExp(k + '\\s*=\\s*"([\\w.-]+\\.json)"'));
+        if (m) gesendet.add(m[1]);
+      });
+      const fehlt = [...gesendet].filter(x => !wl.has(x));
+      ok("die Whitelist kennt alle gesendeten Pfade", fehlt.length === 0,
+         fehlt.length ? "fehlt: " + fehlt.join(", ") : [...gesendet].sort().join(", "));
+      ok("und der Abzug zeigt dieselbe Whitelist",
+         [...wl].every(x => doc.indexOf('"' + x + '"') > 0), [...wl].join(", "));
+    }
+  }
   /* Beim Bau von v2.87 landete eine mergeDB-Änderung im Worker-ABZUG statt in
      der App — eine Suche nach `function mergeDB(` findet den Abzug zuerst,
      weil die Doku im Dokument vor dem Code steht. Der Hinweis muss dastehen. */
@@ -12743,9 +12944,14 @@ group("Worker-Code in der Doku");
     ok("nicht mehr im Worker: " + t.slice(0, 30), doc.indexOf(t) < 0));
 
 
-  /* Der Unterschied NEU-/ALT-Modus ist der Kern jeder Fehleinschätzung. */
-  ok("NEU-Modus als Türsteher benannt", /NEU-Modus, den diese App benutzt[\s\S]{0,200}merged NICHT/.test(doc));
-  ok("ALT-Modus als Spiegelungsstelle", /ALT-Modus[\s\S]{0,160}Spiegelung des App-Merges/.test(doc));
+  /* Der Unterschied NEU-/ALT-Modus war der Kern jeder Fehleinschätzung —
+     bis Worker v2.9 den ALT-Modus entfernt hat. Geprüft wird deshalb nicht
+     mehr, dass beide Modi beschrieben sind, sondern dass die Begründung für
+     den Wegfall dasteht: Sie ist der Grund, warum es nur noch EINE
+     Merge-Logik gibt, und sie darf beim nächsten Abzug nicht verlorengehen. */
+  ok("Wegfall des ALT-Modus begründet",
+     /ES GIBT NUR NOCH EINE MERGE-LOGIK/.test(doc) && /Spiegelungs-Zwang entfaellt/.test(doc));
+  ok("und die Folgen sind benannt", /erstehen wieder auf/.test(doc) && doc.includes("426"));
 
   /* Und die Pflicht, ihn zu lesen und zu pflegen. */
   ok("Regel: erst lesen", /Diesen Abschnitt LESEN/.test(doc));
@@ -13500,7 +13706,9 @@ group("Runde verwerfen — der zweite Ausgang");
   ok("erst inaktiv, dann Ansicht", pd.indexOf("PLAY.active=false") < pd.indexOf("pfRestoreView()"));
   ok("dann erst schließen", pd.indexOf("pfRestoreView()") < pd.indexOf("closeSheet()"));
   ok("Spielmodus wird verlassen", /pfRestoreView\(\)/.test(pd));
-  ok("GPS wird freigegeben", /liveStop\(\)/.test(pd));
+  /* Seit v4.87 mit Kennung: Das Rundenende meldet den Verbraucher „play" ab
+     und laesst andere Ansichten in Ruhe (siehe 24cz). */
+  ok("GPS wird freigegeben", /liveStop\("play"\)/.test(pd));
   /* Der Grabstein muss sofort ins Repo, sonst holt der nächste Merge den
      Entwurf vom anderen Gerät zurück (Fehlerklasse aus v1.60). */
   ok("Grabstein sofort ins Repo", /flushCloudNow\(\)/.test(pd));

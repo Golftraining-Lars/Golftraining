@@ -13,6 +13,26 @@
 
 ---
 
+- **v4.53.0 · 2026-08-24** — **Abgleich beschleunigt — dort, wo es nichts kostet.** Erst gemessen,
+  dann gedreht. Die vier Wege und ihre Verzögerung:
+  · Uhr → Repo: 1,5 s Entprellung · Repo → Handy: bis zu 5 s Takt → **bis 6,5 s**
+  · Handy → Repo: 2 s Entprellung · Repo → Uhr: bis zu 5 s Takt → **bis 7 s**
+  Zusammen fühlt sich das an wie „reagiert nicht": Man blättert, schaut aufs andere Gerät und sieht
+  noch das alte Loch.
+  **Drei Stellschrauben, jede mit Begründung:**
+  · **Handy-Takt vorn 5 s → 2 s.** Der Bildschirm ist an, jemand schaut hin. Die Abfrage ist billig
+  — `?sha=1` liefert ein paar hundert Byte, und nur bei geänderter Kennung wird wirklich geladen.
+  **Hinten bleiben 30 s**, dort schaut niemand hin.
+  · **Uhr-Entprellung 1500 → 600 ms.** Sie fasst schnelle Taps zusammen, das bleibt richtig — aber
+  ein Lochwechsel ist kein schneller Tap: Man drückt einmal und schaut dann hin.
+  · **Uhr liest den Entwurf alle 2 s statt 5 s — nur bei angehobenem Arm.** Im Ambientmodus bleiben
+  30 s. Der Akku merkt den Unterschied dort, wo die Uhr die meiste Zeit ist, und das ist der Arm
+  unten.
+  **Bewusst nicht schneller als 2 s:** Der Entwurfs-Push ist zwei Sekunden entprellt. Wer häufiger
+  abfragt als geschrieben wird, erzeugt nur Verkehr — und im ungünstigen Fall genau die Konflikte,
+  die beide Seiten danach aussitzen müssen. Der Prüfstand hält diese Kopplung jetzt fest.
+  **Erwartung: 1–3 s statt 5–7 s.**
+
 - **v4.52.0 · 2026-08-24** — **Der Spiegelfehler: Das Handy löschte den Zeiger der Uhr, bevor er
   gesehen wurde.** v4.51 hat die Uhr repariert — und das Umschalten funktionierte trotzdem nicht,
   weil **beide** Geräte denselben Fehler machten.
