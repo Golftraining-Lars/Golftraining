@@ -226,7 +226,7 @@ try {
                  "holeGir","holeUpDown","holeSandSave","platzAnalyse","taskFortschritt",
                  "warmupSchedule","warmupKorrektiv","WARMUP_PLANS","medianSplit","pearson",
                  "rKrit","gpKey","gpLabel","gpTotalES","pickClub","_aimClub","_aimLerp",
-                 "geoEdSelHat","geoEdVertHandles","snapshot","_nearest","_reaching","heuteJetzt","dispOvalFrom","dispChipHtml","dispRingPath","pathTopPoint","dispHitShare","dispText","dispSchemaSvg","dispSigmaFor","_erf","gpClubFracs","measureOrigin","geoEdMinW","editMinW","vegMask","maskMorph","maskBlobs","blobRing","ringSimplify","detectVeg","gpFingerprint","gpStale","_hash32","vegOn","viewBoxFor","troubleFeatures","geoEdPunktVon","_mergeCourses","snapBehalten","playVecKey","syncFinger","courseSVG","mergeDB","mergeDraft","watchPayload","shotZaehlt","playTouchHole","watchGeo","probeFrage","probePlan","cardBlock","playCardHtml","playAutoView","playBegin","pfCaddyKurz","_mergeCourses","_mergeCourses","caddyPositionPlan","geoEdPunktVon","gpTotalN","geoEdKeinMenu","pinFuer","pinPunkt","pinZeile","pinSetz","greenDims","applyGeoOverrides","ringFlaecheM2","geoEdSelKey","geoEdSelParse","geoEdSelObj","hazOn","toggleHaz","simAktiv","simStart","simStop","simSetzePosition","modiZeile","SPIELWEISE","WEDGE_ZONE","playAimChain","holeRef","geoDist","playMapInitView","heuteTests","heuteSport","caddyFuerPunkt","_watchPos","istAchtzehn","equipSet","equipAll","equipHtml","deDatumZuIso","isoZuDeDatum","ensureSeedTests","SEED","logWarn","logWarnEinmal","ERRLOG","condZeile","caddyClubs","clubPick","gearHat","gearSeed","gearAll","progVerfuegbar","GOLF_PROG","dauerUebungHtml","fitplanIdx","fitplanAll","fitplanSet","fitplanHeute","fitplanWocheGeschafft","wikiRelated","wikiToc","wikiTocId","wikiForSG","wikiTagsShow","SAT_SRC","satSrcFor","satTileUrl","satTileKey","SAT_META_SH","satMetaUrl","satMetaPick","DB","STRAT","GEOED"];
+                 "geoEdSelHat","geoEdVertHandles","snapshot","_nearest","_reaching","heuteJetzt","dispOvalFrom","dispChipHtml","dispRingPath","pathTopPoint","dispHitShare","dispText","dispSchemaSvg","dispSigmaFor","_erf","gpClubFracs","measureOrigin","geoEdMinW","editMinW","vegMask","maskMorph","maskBlobs","blobRing","ringSimplify","detectVeg","gpFingerprint","gpStale","_hash32","vegOn","viewBoxFor","troubleFeatures","geoEdPunktVon","_mergeCourses","snapBehalten","playVecKey","syncFinger","courseSVG","mergeDB","mergeDraft","watchPayload","shotZaehlt","playTouchHole","watchGeo","probePlan","cardBlock","playCardHtml","playAutoView","playBegin","pfCaddyKurz","_mergeCourses","_mergeCourses","caddyPositionPlan","geoEdPunktVon","gpTotalN","geoEdKeinMenu","pinFuer","pinPunkt","pinZeile","pinSetz","greenDims","applyGeoOverrides","ringFlaecheM2","geoEdSelKey","geoEdSelParse","geoEdSelObj","hazOn","toggleHaz","simAktiv","simStart","simStop","simSetzePosition","modiZeile","SPIELWEISE","WEDGE_ZONE","playAimChain","holeRef","geoDist","playMapInitView","heuteTests","heuteSport","caddyFuerPunkt","_watchPos","istAchtzehn","equipSet","equipAll","equipHtml","deDatumZuIso","isoZuDeDatum","ensureSeedTests","SEED","logWarn","logWarnEinmal","ERRLOG","condZeile","caddyClubs","clubPick","gearHat","gearSeed","gearAll","progVerfuegbar","GOLF_PROG","dauerUebungHtml","fitplanIdx","fitplanAll","fitplanSet","fitplanHeute","fitplanWocheGeschafft","wikiRelated","wikiToc","wikiTocId","wikiForSG","wikiTagsShow","SAT_SRC","satSrcFor","satTileUrl","satTileKey","SAT_META_SH","satMetaUrl","satMetaPick","DB","STRAT","GEOED"];
   const epilog = "\n;globalThis.__T={" +
     namen.map(n => `${n}: (typeof ${n}!=="undefined"?${n}:undefined)`).join(",") + "};";
   vm.runInContext(code + epilog, ctx, { timeout: 20000 });
@@ -5877,83 +5877,93 @@ group("Gleichlauf Uhr ↔ App — dieselbe Frage, dieselbe Antwort");
   if (!kt) {
     ok("MainActivity.kt liegt neben der App", false, "nicht gefunden");
   } else {
-    /* NACHGEMESSEN am 24.08.2026: `playsLike` stimmte auf die Stelle, die
-       LAGEFAKTOREN nicht — Sand 0,72 gegen 0,75, Recovery 0,58 gegen 0,80.
-       Bei Recovery sind das 22 Prozentpunkte: Aus demselben Erholungsschlag
-       empfahl die Uhr einen deutlich kürzeren Schläger als das Handy, und der
-       Spieler hätte nicht sagen können, welchem Gerät er glauben soll.
-       Zwei Antworten auf dieselbe Frage sind schlimmer als eine falsche, weil
-       sie das Vertrauen in BEIDE kosten. */
-    const zahl = (txt, re) => { const m = txt.match(re); return m ? m[1] : null; };
-
-    [["Temperatur je °C", /\(temp-20\)\*([\d.]+)/, /\(temp - 20\.0\) \* ([\d.]+)/],
-     ["Gegenwind je m/s", /dist\*\(-w\.head\)\*([\d.]+)/, /distM \* \(-rel\.head\) \* ([\d.]+)/],
-     ["Rückenwind je m/s", /dist\*w\.head\*([\d.]+)/, /distM \* rel\.head \* ([\d.]+)/],
-     ["Höhe bergab", /dElev\*([\d.]+)/, /dElev \* ([\d.]+)/]
-    ].forEach(([name, rj, rk]) => {
-      const a = zahl(src, rj), b = zahl(kt, rk);
-      ok("playsLike · " + name + " gleich", a != null && a === b, "App " + a + " / Uhr " + b);
-    });
-
-    /* Lagefaktoren: die App führt sie über Codes, die Uhr über Namen. */
-    const m = src.match(/LAGE_FAKTOR:\{([^}]*)\}/);
-    const app = {};
-    if (m) for (const p2 of m[1].matchAll(/(\d+):([\d.]+)/g)) app[p2[1]] = parseFloat(p2[2]);
-    const lf = kt.slice(kt.indexOf("fun lieFactor"), kt.indexOf("fun lieFactor") + 700);
-    const uhr = {};
-    for (const p2 of lf.matchAll(/"(\w+)"(?:\s*,\s*"(\w+)")?\s*->\s*([\d.]+)/g)) {
-      uhr[p2[1]] = parseFloat(p2[3]);
-      if (p2[2]) uhr[p2[2]] = parseFloat(p2[3]);
-    }
-    [["1","fairway"],["2","rough"],["3","bunker"],["4","green"],
-     ["5","penalty"],["6","ob"],["7","recovery"]].forEach(([code, name]) => {
-      const a = app[code], b = uhr[name];
-      ok("Lage „" + name + "“ gleich gewichtet",
-         a != null && b != null && Math.abs(a - b) < 1e-9,
-         "App " + a + " / Uhr " + b);
-    });
-
+    /* ======================================================================
+       DER GLEICHLAUF IST KEIN ZIEL MEHR — DIE STILLE IST ES (Uhr 40)
+       ----------------------------------------------------------------------
+       HIER STANDEN ELF VERGLEICHE: vier `playsLike`-Konstanten und sieben
+       Lagefaktoren, Handy gegen Uhr. Sie waren richtig und wichtig, solange
+       BEIDE rechneten — nachgemessen am 24.08.2026, als die Uhr Recovery mit
+       0,58 statt 0,80 gewichtete: 22 Prozentpunkte, aus demselben
+       Erholungsschlag ein deutlich kürzerer Schläger, und der Spieler hätte
+       nicht sagen können, welchem Gerät er glauben soll. Zwei Antworten auf
+       dieselbe Frage sind schlimmer als eine falsche, weil sie das Vertrauen
+       in BEIDE kosten.
+       Die Vorgabe vom 26.08. beendet die Frage, statt die Antworten
+       anzugleichen. Mit Fassung 40 sind `Wx` und `Caddy` aus dem Quelltext
+       der Uhr gelöscht; es gibt nichts mehr, was auseinanderlaufen könnte.
+       Ein Vergleich mit einer Seite ist keiner — die Prüfungen meldeten
+       zuletzt „App 0.0022 / Uhr null" und hätten das für einen Fehler
+       gehalten.
+       AN IHRE STELLE TRITT DIE PRÜFUNG AUF ABWESENHEIT, weiter unten: kein
+       Rechenwerk, keine Aufrufstelle, keine Geometrie. Das ist die Form, in
+       der sich diese Vorgabe überhaupt noch prüfen lässt. */
     /* Was die Uhr bewusst NICHT hat, muss auch nicht übereinstimmen — aber es
        gehört benannt, damit niemand es für eine Lücke hält. */
     ok("die Uhr rechnet keine Erwartungswerte", !/ES_BASE|esOffset/.test(kt));
 
     /* ======================================================================
-       AB (38) IST DER GLEICHLAUF KEIN ZIEL MEHR — DIE STILLE IST ES
+       KEIN RECHENWERK MEHR AUF DER UHR (Abbau, Fassung 40)
        ----------------------------------------------------------------------
-       Die Prüfungen darüber vergleichen `playsLike`-Konstanten und
-       Lagefaktoren zwischen Handy und Uhr. Sie waren richtig, solange BEIDE
-       rechneten: Zwei Antworten auf dieselbe Frage kosten das Vertrauen in
-       beide (nachgemessen am 24.08., Recovery 0,58 gegen 0,80).
-       Die Vorgabe vom 26.08. beendet die Frage statt die Antworten
-       anzugleichen: Die Uhr misst und nimmt entgegen, sie rechnet nicht.
-       Die Vergleiche bleiben STEHEN, weil `Wx` und `Caddy` bis (39) noch im
-       Quelltext liegen und dort nicht auseinanderlaufen dürfen, solange sie
-       da sind. Was hier dazukommt, ist die eigentliche Vorgabe: KEINE
-       AUFRUFSTELLE mehr.
-       Geprüft wird der Aufruf, nicht das Vorhandensein — genau das ist der
-       Unterschied zwischen (38) und (39). Wer die Reihenfolge vertauscht,
-       löscht Code, bevor er weiß, ob am Handgelenk etwas fehlt. */
+       (38) hat die AUFRUFSTELLEN entfernt und den Quelltext stehenlassen —
+       bewusst, damit eine Verhaltensänderung und ein Rückbau nicht in
+       derselben Fassung liegen und ein fehlendes Stück am Handgelenk
+       zuzuordnen bleibt. (40) löscht ihn.
+       Die Prüfungen gehen deshalb von „wird nicht aufgerufen" auf „ist nicht
+       da". Das ist der schärfere Riegel: Solange der Quelltext dasteht, ist
+       der nächste Einbau ein Einzeiler — und dann gibt es wieder zwei
+       Antworten auf dieselbe Frage. */
     {
       const ktCode = ktOhneKommentar(kt);
-      /* EINE einzige `Caddy.plan`-Aufrufstelle bleibt: die Antwort auf den
-         Kopplungs-Prüfplan des Handys (`probe.json`, Aufgabe „caddy"). Sie
-         läuft nur, wenn das Handy danach fragt, nie während einer Runde.
-         Sie fällt mit der Gegenseite in (39)/PWA v4.82 — dort zusammen, weil
-         ein einseitiger Ausbau am Handy als Abweichung gemeldet würde. */
-      const rufe = (ktCode.match(/Caddy\.plan\(/g) || []).length;
-      ok("der Caddy wird auf der Bahn nicht mehr gerechnet", rufe === 1,
-         rufe + " Aufrufstellen (erwartet: nur der Kopplungstest)");
-      ok("und der Aufruf steht wirklich im Kopplungstest",
-         /"caddy" ->[\s\S]{0,900}?Caddy\.plan\(/.test(ktCode));
-      /* Die Raster-Schleife war die Stelle, die im 11-m-Takt rechnete. Ohne
-         Leser ist sie nur noch Akku, den man auf der 18. Bahn braucht. */
-      ok("die Caddy-Schleife ist weg",
-         !/LaunchedEffect\(gridLat, gridLng/.test(ktCode));
-      /* `liveOf` rechnete bei JEDEM GPS-Takt Ringgeometrie. */
-      const iL = ktCode.indexOf("fun liveOf(hole: Int): PlayLive");
-      const blkL = iL < 0 ? "" : ktCode.slice(iL, iL + 1200);
-      ok("liveOf misst nur noch, statt zu rechnen",
-         blkL.length > 0 && !/greenFMB|greenDims|pinPoint/.test(blkL));
+      ok("kein `object Caddy` mehr", !/object Caddy \{/.test(ktCode));
+      ok("kein `object Wx` mehr", !/object Wx \{/.test(ktCode));
+      ok("kein playsLike, kein Lagefaktor",
+         !/fun playsLike|fun lieFactor|fun windRel|fun tempFactor/.test(ktCode));
+      /* Die Geometrie beantwortete Fragen, die die Uhr nicht mehr stellt:
+         Wie weit aufs Grün, wie liegt der Ball, was liegt auf der Linie. */
+      ok("keine Grün- und Gefahren-Geometrie",
+         !/greenFMB|greenDims|greenRingFor|hazardsOnLine|lieAt|pointInRing/.test(ktCode));
+      ok("kein Karten-Parser", !/fun parseGeo/.test(ktCode));
+      ok("und keine Karten-Datentypen",
+         !/data class CourseGeo|data class HoleGeo|data class GeoFeature|data class ElevProfil/.test(ktCode));
+      /* `dist` MUSS bleiben: Sie misst die Luftlinie zwischen Start und Ende
+         eines Schlags. Das ist keine Anpassung, sondern der Messwert selbst —
+         und damit der einzige Zweck, für den die Uhr überhaupt rechnet. */
+      ok("aber die Haversine-Messung bleibt", /fun dist\(a: LL, b: LL\)/.test(ktCode));
+      /* Die Platzkarte reiste bis (39) in `CourseDef` mit und wurde bei jedem
+         lokalen Sichern als Text serialisiert — ein paar hundert kB je Platz
+         in den SharedPreferences, für Distanzen, die es nicht mehr gibt. */
+      ok("die Platzkarte steckt nicht mehr im Datenmodell",
+         !/geoRaw|geoObj/.test(ktCode));
+      /* Die Schwungerkennung war seit (35) außer Betrieb: Sie erkannte Putts
+         prinzipbedingt nicht und die meisten Chips ebenso wenig, und ein
+         erfundener Schlag fällt erst auf, wenn die gelernten Längen falsch
+         sind. */
+      ok("die Schwungerkennung ist gelöscht",
+         !/object Swing \{/.test(ktCode) && !/recBeginAuto|recStopAuto/.test(ktCode));
+      ok("und ihre Sensor-Importe mit", !/import android\.hardware\.Sensor/.test(ktCode));
+      /* Die entfallene Seite 0 selbst. */
+      ok("HolePage ist gelöscht", !/fun HolePage\(/.test(ktCode));
+
+      /* --- GAMEPLAN-ANSICHT (auf Wunsch vom 26.08.) ---
+         Sie rechnete nie etwas — die Pläne kamen fertig vom Handy. Trotzdem
+         raus: Nach 0. ZWECK zeigt die Uhr keine EMPFEHLUNG mehr, und ein
+         vorab gefasster Plan ist eine, nur älteren Datums. Dass die Rechnung
+         woanders stattfand, macht die Anzeige nicht zu etwas anderem. */
+      ok("die Gameplan-Ansicht ist gelöscht",
+         !/fun GameplanScreen\(/.test(ktCode) && !/"gameplan"/.test(ktCode));
+      ok("samt ihrer Daten", !/PlanHole|parsePlans/.test(ktCode));
+
+      /* --- KOPPLUNGSTEST ---
+         Die Aufgaben „geo", „caddy" und „lie" verglichen Rechnungen. Sie
+         fallen mit dem Rechenwerk; die Gegenseite muss ZEITGLEICH fallen
+         (PWA v4.84), sonst meldet ein Prüflauf eine Abweichung, wo keine ist.
+         Was bleibt, ist die Frage, die sich noch stellt: WELCHE DATEN hat die
+         Uhr. */
+      ok("der Kopplungstest fragt keine Rechnungen mehr ab",
+         !/"caddy" ->/.test(ktCode) && !/"lie" ->/.test(ktCode)
+         && !/"geo" ->/.test(ktCode));
+      ok("aber weiter nach dem Datenbestand",
+         /"club" ->/.test(ktCode) && /"quelle" ->/.test(ktCode));
     }
 
     /* --- ZWEI SEITEN STATT DREI (2026-08-26 (38)) --- */
@@ -6119,20 +6129,15 @@ group("Gleichlauf Uhr ↔ App — dieselbe Frage, dieselbe Antwort");
 
     /* Puffer und Wiederholungen — eine Schleife darf die Vorgeschichte nicht
        löschen, und die ist das, was man sucht. */
-    /* Anzeige: F · Mitte · B nebeneinander (2026-08-24 (9)). Die Mitte bleibt
-       größer — drei gleich große Zahlen zwingen zum Suchen. */
-    {
-      /* Auf den BLOCK schauen statt auf einen Zeichenabstand — ein festes
-         Fenster bricht bei jeder Ergänzung, ohne etwas über die Sache zu
-         sagen. Dieselbe Lehre wie beim Lochwechsel. */
-      const i2 = kt.indexOf("live.front?.toString()");
-      const blk2 = i2 < 0 ? "" : kt.slice(i2, i2 + 900);
-      ok("Front, Mitte und Back in einer Reihe",
-         /live\.back\?\.toString\(\)/.test(blk2) && /\$\{live\.mid\}/.test(blk2));
-    }
-    ok("die Mitte bleibt die größte Zahl",
-       /"  \$\{live\.mid\}  ",\s*\n\s*fontSize = 32\.sp/.test(kt));
-    ok("und ist beschriftet", /"Front · Mitte · Back"/.test(kt));
+    /* Die Reihe „F · Mitte · B" (2026-08-24 (9)) mit der Mitte als großer Zahl
+       gibt es nicht mehr — sie war das Herzstück der entfallenen Seite 0.
+       Die drei Prüfungen dafür sind GEDREHT statt gelöscht: `PlayLive` trägt
+       seit Fassung 40 nur noch, was gemessen ist, und eine gedrehte Prüfung
+       hält fest, dass die Abwesenheit gewollt ist. */
+    ok("PlayLive trägt keine Distanzfelder mehr",
+       !/val front: Int\?/.test(ktOhneKommentar(kt))
+       && !/val greenDepth/.test(ktOhneKommentar(kt)));
+    ok("und niemand liest sie", !/live\.front|live\.mid|live\.back/.test(ktOhneKommentar(kt)));
 
     ok("Puffer auf 60 erhöht", /private const val MAX = 60/.test(kt));
 
@@ -6722,7 +6727,7 @@ group("Live-Zeiger — beide Geräte, dieselbe Regel");
        zusaetzlich, dass der Changelog einen Eintrag fuer GENAU diese Kennung
        hat — beides zusammen faengt „Code geaendert, Fassung vergessen" und
        „Fassung gezogen, Changelog vergessen". */
-    ok("und die Kennung ist aktuell", /WATCH_APP = "2026-08-26 \(38\)"/.test(kt));
+    ok("und die Kennung ist aktuell", /WATCH_APP = "2026-08-26 \(40\)"/.test(kt));
     ok("das Handy zeigt sie", /function watchFassung\(\)/.test(src));
 
     /* --- STARTBILDSCHIRM (2026-08-25 (20)) ---
@@ -11141,6 +11146,102 @@ group("Bilder — drei Wege, eine Verarbeitung");
   ok("filtert auf Bilder", /filter\(f=>f && \/\^image\\\//.test(src));
 }
 
+/* ============ 24db. Mitspieler stehen auf der Karte ============ */
+group("Mitspieler — der Platz trägt die Zahlen, der Name nur das Etikett");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+  const ktPfad = path.join(__dirname, "MainActivity.kt");
+  const kt = fs.existsSync(ktPfad) ? fs.readFileSync(ktPfad, "utf8") : "";
+  const CB = G("cardBlock");
+
+  /* GEMELDET am 26.08.: „Wenn Mitspieler mitspielen, sollen sie auch auf der
+     Scorekarte auftauchen." Sie wurden seit v4.81 gespeichert und reisten
+     über den Entwurf — auf der KARTE standen sie nie. Erfassung auf der Bahn
+     ohne Ertrag ist schlimmer als keine Erfassung: Man tippt achtzehnmal und
+     bekommt nichts dafür. */
+  if (typeof CB === "function") {
+    const hs = [
+      { hole:1, par:4, score:5, putts:2, msc1:6, msc2:4 },
+      { hole:2, par:3, score:3, putts:1, msc1:4, msc2:3 }
+    ];
+    const mit = CB(hs, 1, 9, "OUT", ["Jörg", "Ines"]);
+    ok("die Namen stehen als Zeilenetikett", /Jörg/.test(mit) && /Ines/.test(mit));
+    ok("und die Summe je Spieler stimmt", /10/.test(mit) && /7/.test(mit));
+
+    /* DER KERN DER LÖSUNG: Gespeichert wird nach PLATZ, nicht nach Person.
+       Die Uhr kann deshalb einen Platz eröffnen, ohne einen Namen zu kennen
+       (Tastatur auf dem Handgelenk gibt es nicht) — und das Handy benennt ihn
+       nachträglich, rückwirkend für alle schon eingetragenen Löcher. Ohne
+       Namen muss die Karte trotzdem stimmen. */
+    const ohne = CB(hs, 1, 9, "OUT", []);
+    ok("ohne Namen trägt der Platz die Zeile", /Mitspieler 1/.test(ohne));
+    ok("und die Zahlen stehen trotzdem da", /10/.test(ohne));
+    const nurEiner = CB(hs, 1, 9, "OUT", ["Jörg"]);
+    ok("ein benannter und ein unbenannter Platz nebeneinander",
+       /Jörg/.test(nurEiner) && /Mitspieler 2/.test(nurEiner));
+
+    /* LEERE PLÄTZE BEKOMMEN KEINE ZEILE — dieselbe Regel wie bei den
+       Strafschlägen (`penAny`): Ein Block leerer Zellen verdeckt die Zeilen,
+       auf die es ankommt. */
+    const solo = CB([{ hole:1, par:4, score:4, putts:2 }], 1, 9, "OUT", ["Jörg"]);
+    ok("ein leerer Platz bekommt keine Zeile", !/Jörg/.test(solo));
+
+    /* KEINE BIRDIE/BOGEY-FARBEN für fremde Scores. Die Farben sind die
+       Sprache der EIGENEN Runde; ein Mitspieler-Score ist Kontext, keine
+       Auswertung — dieselbe Linie wie „bewusst keine Putts/Statistik/SG". */
+    const msZeile = (mit.match(/<tr class="sc-ms">[\s\S]*?<\/tr>/g) || []).join("");
+    ok("fremde Scores werden nicht eingefärbt",
+       msZeile.length > 0 && !/sc-birdie|sc-bogey|sc-eagle|sc-dbl/.test(msZeile));
+  }
+
+  /* Und beim Teilen — da sitzen die Leute meist noch am Tisch. */
+  ok("der Teilen-Text nennt die Mitspieler", /const msZ=\[0,1,2\]\.map/.test(src));
+
+  /* --- DIE SCHARFE KANTE: PLÄTZE RÜCKEN AUF ---
+     `mitspielerName(i)` mit leerem Namen entfernt einen Spieler und schiebt
+     die folgenden auf. Trägt die Uhr in derselben Minute auf Platz 2 ein,
+     landen ihre Werte danach unter dem Namen des bisherigen Spielers 3 —
+     lautlos, und erst auf der fertigen Karte sichtbar. Der saubere Riegel
+     wäre eine Kennung je Person; dafür müsste die Uhr Namen kennen, und
+     genau das soll sie nicht. Also die billige Sicherung: nachfragen. */
+  ok("Entfernen mit Zahlen im Rücken fragt nach",
+     /const zahlen=\(PLAY\.holes\|\|\[\]\)\.filter/.test(src)
+     && /ruecken auf Platz/.test(src));
+
+  /* --- DIE UHR ERÖFFNET PLÄTZE, SIE VERGIBT KEINE NAMEN --- */
+  if (kt) {
+    const ktC = ktOhneKommentar(kt);
+    /* BIS FASSUNG 38 hingen die Zeilen an den NAMEN, und Namen vergibt allein
+       das Handy. Wer die Runde auf der Uhr begann (Handy im Bag), bekam gar
+       keine Zeile — der Mitspieler war dort schlicht nicht erfassbar. */
+    ok("die Zeilen hängen an den Plätzen, nicht an den Namen",
+       !/if \(Mitspieler\.namen\.isNotEmpty\(\)\) \{\s*\n\s*Mitspieler\.namen\.forEachIndexed/.test(ktC)
+       && /repeat\(mitspielerN/.test(ktC));
+    ok("ein Platz ohne Namen heißt nach seiner Nummer",
+       /"Mitspieler \$\{i \+ 1\}"/.test(ktC));
+    ok("die Uhr kann einen Platz eröffnen", /onMitspielerN/.test(ktC));
+    /* Ein benannter Mitspieler ohne Zeile wäre ein Widerspruch, den niemand
+       auflösen kann: `setzen` hebt die Platzzahl deshalb mit an. */
+    ok("Namen vom Handy heben die Platzzahl an",
+       /if \(n\.size > plaetze\) plaetzeSetzen\(ctx, n\.size\)/.test(ktC));
+    /* KEIN ZWEITES DATENFELD: Das Handy sieht die Belegung an den Daten
+       (gibt es irgendwo ein `msc2`, ist Platz 2 in Gebrauch). Ein eigenes
+       Feld im Entwurf wäre eine zweite Wahrheit über denselben Sachverhalt —
+       und zwei Wahrheiten laufen auseinander, sobald beide Seiten schreiben. */
+    ok("die Platzzahl reist NICHT im Entwurf mit",
+       !/put\("mitspielerN"/.test(ktC) && /prefSet\(ctx, "mitspielerN"/.test(ktC));
+    /* Compose abonniert kein `@Volatile var` — ohne Spiegel-State würde die
+       Liste beim Eröffnen eines Platzes nicht neu gezeichnet. Denselben
+       Fehler hat der Lochzeiger schon einmal gekostet. */
+    ok("und die Oberfläche liest einen echten Compose-State",
+       /var mitspielerN by remember \{ mutableIntStateOf\(0\) \}/.test(ktC));
+    /* Schließen darf NICHTS löschen: Ein Fehlgriff mit Handschuh wäre sonst
+       eine gelöschte Runde. */
+    ok("einen Platz schließen löscht keine Zahlen",
+       !/onMitspielerN[\s\S]{0,400}?msc1 = null/.test(ktC));
+  }
+}
+
 /* ============ 24da. Eine Vorlage für alle Scorekarten ============ */
 group("Scorekarte — im Spielmodus dieselbe wie in der Runde");
 {
@@ -11151,7 +11252,22 @@ group("Scorekarte — im Spielmodus dieselbe wie in der Runde");
      Spielmodus. Dieselbe Sache zweimal gebaut heißt: Jede Verbesserung muss
      man zweimal machen, und beim zweiten Mal vergisst man es. Die Pfeile und
      Quoten aus v3.20 fehlten im Spielmodus komplett. */
-  ok("Spielmodus baut über roundCardHtml", /function playCardHtml\(\)\{[\s\S]{0,400}return roundCardHtml\(r\)/.test(src));
+  /* AUF DEN BLOCK SCHAUEN, NICHT AUF EIN ZEICHENFENSTER. Das feste
+     400-Zeichen-Fenster ist beim Nachziehen von v4.83 gerissen — ein
+     Kommentar davor genügte. Zum dritten Mal in dieser Datei dieselbe
+     Ursache; die Lehre steht seit dem Lochwechsel im Kopf des Abschnitts.
+     Ein Prüfstand, der bei einer harmlosen Ergänzung Alarm schlägt, bringt
+     einem bei, den Alarm zu ignorieren. */
+  {
+    const iP = src.indexOf("function playCardHtml()");
+    const blkP = iP < 0 ? "" : src.slice(iP, src.indexOf("\nfunction ", iP + 10));
+    ok("Spielmodus baut über roundCardHtml",
+       blkP.length > 0 && /return roundCardHtml\(r\)/.test(blkP));
+    /* UND ER MUSS `mitspieler` MITGEBEN (v4.83). Dieses Objekt ist eine
+       Abschrift von PLAY; was beim Abschreiben fehlt, fehlt auf der Karte,
+       obwohl die Daten längst da sind. Genau so war es bis v4.82. */
+    ok("und gibt die Mitspieler mit", /mitspieler:PLAY\.mitspieler/.test(blkP));
+  }
   if (typeof P === "function" && PLAY0) {
     /* Eigener Zustand, und im `finally` zurück: Läuft davor eine Gruppe, die
        `playBegin` benutzt, erbt man sonst deren Lochliste — und die Prüfung
@@ -11587,10 +11703,12 @@ group("Seed-Tests nachziehen");
 }
 
 /* ============ 24cr. Kopplungstest App ↔ Uhr ============ */
-group("Kopplungstest — rechnen beide dasselbe?");
+/* Seit v4.84 nicht mehr „rechnen beide dasselbe?" — die Uhr rechnet nicht.
+   Die Frage lautet jetzt: hat sie die Daten, die sie zum Erfassen braucht? */
+group("Kopplungstest — hat die Uhr, was sie braucht?");
 {
   const src = fs.readFileSync(FILE, "utf8");
-  const F = G("probeFrage"), DB0 = G("DB");
+  const DB0 = G("DB");
 
   /* Die Rundensimulation prüft nur DIESE App. Ob die Uhr dieselben Zahlen
      rechnet, zeigte bisher erst die Bahn — dort ist es aufgefallen. */
@@ -11599,48 +11717,70 @@ group("Kopplungstest — rechnen beide dasselbe?");
   ok("Antwort lesen", /async function probeLesen\(\)/.test(src));
   ok("Test-Knopf vorhanden", /id="cfgKoppel"/.test(src));
 
-  /* Gefragt wird bevorzugt ein Loch mit VERTAUSCHTEM Tee/Grün — genau dort
-     ist der Fehler aufgetreten, also wird genau dort geprüft. */
-  if (typeof F === "function" && DB0) {
+  /* `probeFrage()` ist mit v4.84 entfernt — der Vorläufer von `probePlan`,
+     eine einzelne Distanzfrage. Ohne Aufrufer seit v3.09, und sie fragte nach
+     einer Rechnung, die es auf der Uhr nicht mehr gibt. */
+  ok("die einzelne Distanzfrage ist weg", !/function probeFrage\(\)/.test(src));
+  if (DB0) {
     const alt = DB0.courses;
     const mLat = 110540;
     const tee = [54.0, 10.75], green = [54.0 + 300 / mLat, 10.75];
     DB0.courses = [{ name: "T", tees: {}, geo: { holes: {
       1: { tee, green, line: [tee, green] },
       2: { tee: green, green: tee, swap: true, line: [tee, green] } }, features: [] } }];
-    const q = F();
-    ok("Frage gebildet", !!q, JSON.stringify(q));
-    eq("nimmt das vertauschte Loch", q.hole, 2);
-    ok("Testpunkt liegt ~150 m vor dem Grün", Math.abs(q.erwartet - 150) <= 3, String(q.erwartet));
-    ok("Position ist ein Punkt", Array.isArray(q.pos) && q.pos.length === 2);
-    /* Der Plan muss das vertauschte Loch ENTHALTEN — dort war der Fehler. */
+    /* ==================================================================
+       DER PLAN FRAGT KEINE RECHNUNGEN MEHR AB (v4.84 / Uhr-Fassung 40)
+       --------------------------------------------------------------------
+       Hier wurde geprüft, dass der Plan das vertauschte Loch enthält, drei
+       Positionen je Loch abfragt und die Erwartungen zum Grün hin fallen —
+       daran fiel ein Vorzeichenfehler auf. Das war richtig, solange die Uhr
+       rechnete.
+       Sie rechnet nicht mehr und hat seit Fassung 40 kein Rechenwerk mehr im
+       Quelltext. Die Aufgaben „geo", „caddy" und „lie" blieben unbeantwortet,
+       und der Prüflauf hätte drei Abweichungen gemeldet, wo keine sind.
+       Was bleibt, ist die Frage, die sich noch stellt: WELCHE DATEN hat die
+       Uhr — Schläger, Auswahllisten, Datenquelle. Genau das entscheidet, ob
+       eine Runde auf der Uhr brauchbar wird. */
     const P = G("probePlan");
     if (typeof P === "function") {
       const pl = P();
-      ok("Plan gebildet", !!pl && (pl.aufgaben || []).length >= 6, pl && String(pl.aufgaben.length));
-      const geoAuf = (pl.aufgaben || []).filter(x => x.k === "geo");
-      ok("mehrere Geo-Prüfungen", geoAuf.length >= 3, String(geoAuf.length));
-      ok("das vertauschte Loch ist dabei", geoAuf.some(x => x.hole === 2));
-      ok("jede Geo-Prüfung trägt die Erwartung", geoAuf.every(x => x.soll > 0));
-      /* Am Abschlag ist die Erwartung fast die volle Lochlänge, kurz vor dem
-         Grün fast null — genau daran fällt ein Vorzeichenfehler auf. */
-      const l2 = geoAuf.filter(x => x.hole === 2).map(x => x.soll);
-      ok("Erwartungen fallen zum Grün hin", l2.length === 3 && l2[0] > l2[1] && l2[1] > l2[2], l2.join(" > "));
+      ok("Plan gebildet", !!pl && (pl.aufgaben || []).length >= 3,
+         pl && String(pl.aufgaben.length));
+      const arten = (pl.aufgaben || []).map(x => x.k);
+      ok("keine Rechenaufgaben mehr",
+         !arten.includes("geo") && !arten.includes("caddy") && !arten.includes("lie"),
+         arten.join(","));
+      ok("aber der Datenbestand wird geprüft",
+         arten.includes("clubs") && arten.includes("quelle"));
+      /* Jede Aufgabe trägt weiter die ERWARTUNG dieser App — verglichen wird
+         nicht „hat geantwortet", sondern „hat dasselbe". */
+      ok("jede Zähl-Aufgabe trägt ihre Erwartung",
+         (pl.aufgaben || []).filter(x => x.k === "clubs" || x.k === "liste")
+           .every(x => typeof x.soll === "number"));
+      /* KEIN PLATZ NÖTIG: Ohne Geometrie läuft der Test auch für jemanden,
+         der noch keinen Platz eingezeichnet hat. */
+      const altC = DB0.courses; DB0.courses = [];
+      ok("läuft auch ohne eingezeichneten Platz", !!P());
+      DB0.courses = altC;
     }
     DB0.courses = alt;
   }
 
   /* Der Wert des Tests liegt im VERGLEICH — „ok" allein prüft nichts. */
   ok("zeigt beide Zahlen", /App "\+auf\.soll\+" m · Uhr "/.test(src));
-  ok("meldet Abweichung deutlich", /ABWEICHUNG /.test(src));
   ok("meldet beide Fassungen", /App "\+APP_VERSION\+" · Uhr "/.test(src));
   ok("wartet begrenzt", /for\(let i=0;i<20;i\+\+\)/.test(src));
   /* Ein PLAN statt einer einzelnen Frage: Eine Distanz kann auf einem
      harmlosen Loch zufällig stimmen. */
   ok("Prüfplan vorhanden", /function probePlan\(\)/.test(src));
-  ok("prüft mehrere Positionen je Loch", /am Abschlag[\s\S]{0,120}kurz vor dem Grün/.test(src));
-  ok("prüft Schläger, Listen, Caddy und Quelle",
-    /k:"club"/.test(src) && /k:"liste"/.test(src) && /k:"caddy"/.test(src) && /k:"quelle"/.test(src));
+  ok("prüft Schläger, Listen und Quelle",
+    /k:"club"/.test(src) && /k:"liste"/.test(src) && /k:"quelle"/.test(src));
+  /* Ohne Schläger kann die Aufnahmezeile der Uhr keinen zuordnen, und eine
+     Messung ohne Schläger ist für die gelernten Längen wertlos. Ohne die
+     Listen steht ein auf der Uhr gewählter Wert am Handy in keiner Auswahl —
+     es sieht aus, als würde nichts übertragen (Lehre aus v2.99). */
+  ok("die Uhr wird nicht mehr nach Gerechnetem gefragt",
+    !/k:"caddy"/.test(src) && !/k:"lie"/.test(src) && !/auf\.k==="geo"/.test(src));
   /* Listen: Anzahl ALLEIN würde zwei verschiedene Listen gleicher Länge nicht
      unterscheiden — deshalb auch der erste Eintrag. */
   ok("Listen mit erstem Eintrag", /ersteSoll:String\(l\[0\]\)/.test(src));
@@ -11683,7 +11823,12 @@ group("watchGeo — was die Uhr sieht, ist was die App sieht");
                    features: [{ kind: "green", ring }] };
     ok("fehlendes Grün wird ergänzt", !!W(geo2).holes["3"].green);
   }
-  ok("Uhr-Datei nutzt die aufgelöste Karte", /o\.geo=watchGeo\(c\.geo\)/.test(src));
+  /* `watchGeo` LIEFERT NICHT MEHR AN DIE UHR (v4.84). Sie löst vertauschte
+     Tee/Grün-Paare auf und rechnet das Höhenprofil je Bahn — beides braucht
+     `schlagNeutral` hier weiter, deshalb bleibt die Funktion. Was entfällt,
+     ist ihre Rolle als Zulieferer: `watchPayload` schickt keine Geometrie
+     mehr, weil die Uhr seit Fassung 40 keine liest. */
+  ok("watch.json trägt keine Karte mehr", !/o\.geo=watchGeo\(c\.geo\)/.test(src));
 }
 
 /* ============ 24cn. Verwerfen gilt auf beiden Geräten ============ */
@@ -11854,15 +11999,27 @@ group("watch.json — die Uhr trägt nicht 3 MB");
     ];
     const p = WP();
     eq("alle Plätze sind dabei", (p.courses || []).length, 4);
-    const mitGeo = (p.courses || []).filter(c => c.geo).map(c => c.name).sort().join(",");
-    /* Die Geometrie ist der Löwenanteil — nur die zuletzt gespielten drei. */
-    eq("Geometrie nur für die zuletzt gespielten", mitGeo, "A,B,C");
-    ok("nie gespielter Platz ohne Geometrie", !(p.courses.find(c => c.name === "D") || {}).geo);
+    /* ==================================================================
+       GAR KEINE GEOMETRIE MEHR (v4.84 / Uhr-Fassung 40)
+       --------------------------------------------------------------------
+       Bis v4.83 bekamen die zuletzt gespielten Plätze ihre Karte mit — sie
+       war der Grund, warum die Uhr überhaupt Distanzen zeigen konnte, und
+       zugleich der Löwenanteil der Datei.
+       Die Uhr hat mit Fassung 40 Geometrie, Karten-Parser und Caddy
+       gelöscht; `parseGeo` gibt es dort nicht mehr. Eine Karte zu schicken,
+       die niemand liest, kostet bei JEDEM Push eine Serialisierung des
+       größten Datenteils.
+       Die Prüfung ist deshalb gedreht: nicht mehr „die richtigen drei haben
+       eine", sondern „keiner hat eine". */
+    ok("kein Platz trägt noch Geometrie", !(p.courses || []).some(c => c.geo));
     /* Und das Schwere fehlt. */
     ["rounds", "tests", "notes", "wiki", "lmSessions", "fitnessSessions"].forEach(k =>
       ok("nicht enthalten: " + k, !(k in p)));
     ok("Schläger enthalten", "clubDistances" in p);
-    ok("Gameplans enthalten", !!(p.strat || {}).gameplans);
+    /* Die Gameplan-Ansicht der Uhr ist mit Fassung 40 entfernt (Wunsch vom
+       26.08. — auch ein vorab gefasster Plan ist eine Empfehlung). Geplant
+       wird am Handy, angezeigt auch. */
+    ok("keine Gameplans mehr", !("strat" in p));
     /* DIE AUSWAHLLISTEN: Die Uhr liest sie aus der OBERSTEN Ebene. Fehlten
        sie, fiel sie auf ihre eingebauten Vorgaben zurück — „100-150m" statt
        „110-140" —, und ein auf der Uhr gewählter Wert stand am Handy in keiner
@@ -11874,17 +12031,12 @@ group("watch.json — die Uhr trägt nicht 3 MB");
       ok("Liste mitgegeben: " + k, !da || Array.isArray(p[k]));
     });
 
-    /* DIE KARTE IST DER GRUND, WARUM DIE UHR DISTANZEN ZEIGT (v3.05).
-       Vorher bekamen nur die drei zuletzt GESPIELTEN Plätze eine — beim ersten
-       Mal auf einem Platz gibt es aber noch keine Runde, also stand man ohne
-       Karte auf der Bahn. */
-    DB0.rounds = [{ date: "2026-08-10", course: "A" }];
-    const vorher = DB0._draftRound;
-    DB0._draftRound = { ts: "x", round: { course: "D", date: "2026-08-15" } };
-    const p2 = WP();
-    const mitGeo2 = (p2.courses || []).filter(c => c.geo).map(c => c.name).sort().join(",");
-    ok("Platz der laufenden Runde ist dabei", mitGeo2.indexOf("D") >= 0, mitGeo2);
-    DB0._draftRound = vorher;
+    /* Was von den Plätzen ÜBRIG bleibt, muss vollständig sein: Name und Tees.
+       Ohne die Tees hat die Uhr keine Lochliste — und dann nützt ihr die
+       schlanke Datei nichts. Wer eine schlanke Fassung baut, muss alles
+       mitnehmen, was der EMPFÄNGER liest (Lehre aus v2.99, siehe unten). */
+    ok("Name und Tees bleiben",
+       (p.courses || []).every(c => c.name && c.tees));
     DB0.courses = alt.courses; DB0.rounds = alt.rounds; DB0.clubDistances = alt.clubDistances;
   }
 
