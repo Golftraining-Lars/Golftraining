@@ -11683,8 +11683,46 @@ group("Changelog — aktuell in der Datei, älteres im Archiv");
   /* Das Changelog war auf 283 kB gewachsen — ein Achtel einer Datei, die bei
      jedem Start geladen und geparst wird. Die Begründungen bleiben erhalten,
      sie stehen nur woanders. */
-  ok("Changelog bleibt handlich", eintraege <= 45, eintraege + " Einträge");
+  /* WENN DIESE PRUEFUNG ROT IST, IST DER NAECHSTE SCHRITT EIN BEFEHL, kein
+     Ausschneiden von Hand: `node changelog-archiv.js`. Das steht hier, weil
+     der Handbetrieb vier Wochen lang „ich mache das gleich" hiess — und am
+     27.08.2026 stellte sich heraus, dass `changelog-archiv.md` im Repo GAR
+     NICHT EXISTIERTE. Die Sperrklinke verwies auf eine Datei, die nie angelegt
+     wurde; 366 Fassungen an Begruendungen mussten aus der Git-Historie
+     zurueckgeholt werden.
+     Ein Arbeitsschritt, den man von Hand macht, wird irgendwann nicht gemacht.
+     Eine Sperrklinke, die auf einen Handgriff zeigt, ist deshalb nur halb so
+     viel wert wie eine, die auf einen Befehl zeigt. */
+  ok("Changelog bleibt handlich — sonst: node changelog-archiv.js",
+     eintraege <= 45, eintraege + " Einträge");
   ok("Archiv ist benannt", /changelog-archiv\.md/.test(cl));
+  /* Und das Werkzeug dazu muss es GEBEN. Genau diese Pruefung hat gefehlt:
+     Der Verweis auf das Archiv war da, das Archiv nicht. */
+  {
+    const skript = path.join(__dirname, "changelog-archiv.js");
+    ok("das Archivierungs-Skript liegt daneben", fs.existsSync(skript));
+    const arch = path.join(__dirname, "changelog-archiv.md");
+    /* Das Archiv selbst liegt im Repo, nicht zwingend im Arbeitsordner —
+       deshalb nur eine Meldung, wenn es fehlt, und keine harte Sperre. */
+    if (!fs.existsSync(arch))
+      console.log("   Hinweis: changelog-archiv.md liegt nicht daneben (steht im Repo).");
+    else {
+      const a = fs.readFileSync(arch, "utf8");
+      const n = (a.match(/\n- \*\*v/g) || []).length;
+      ok("das Archiv trägt die älteren Einträge", n >= 300, n + " Einträge");
+      /* KEINE FASSUNG ZWEIMAL. Das Skript ist wiederholbar gebaut; wenn hier
+         doch etwas doppelt steht, wurde von Hand nachgeholfen. */
+      const vs = (a.match(/\n- \*\*(v[\d.]+)/g) || []);
+      ok("und keine Fassung doppelt", new Set(vs).size === vs.length,
+         (vs.length - new Set(vs).size) + " Doppelte");
+      /* Kein Eintrag darf an BEIDEN Orten stehen — sonst liest man dieselbe
+         Begründung zweimal und weiß nicht, welche die gepflegte ist. */
+      const drin = new Set((cl.match(/\n- \*\*(v[\d.]+)/g) || []));
+      const doppelt = vs.filter(v => drin.has(v));
+      ok("und nichts steht an beiden Orten", doppelt.length === 0,
+         doppelt.slice(0, 5).join(", "));
+    }
+  }
   ok("aktuelle Fassung steht drin", cl.indexOf("v" + (src.match(/APP_VERSION="([\d.]+)"/) || [])[1]) > 0);
 
   /* NACH FASSUNGSNUMMER sortiert, nicht nach Reihenfolge im Text — beim
