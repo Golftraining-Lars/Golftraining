@@ -262,6 +262,7 @@ try {
                  "STRAT","clubPick","playsLike","pinPoint","geoDist","playMapBox",
                  "liveStart","liveStop","liveStopAll","liveVerbraucher","LIVEPOS",
                  "kalibrierBericht","kalibrierText","_kalibMedian","_kalibMad","_kalibTauglich",
+                 "_playKey","playMarkEnded","playClearEnded","watchLiveDarfOeffnen",
                  "KALIB_MIN_JE_CLUB","KALIB_MIN_GESAMT",
                  "selfCheck","PLAY","escShort","_short","clubShort","windRel","tempFactor","DB",
                  "courseTee","activeHoles","roundDurationMin","mergeDB","_mergeArr","_mergeTs",
@@ -1437,6 +1438,44 @@ group("playTooFar — der Caddy schweigt außerhalb des Platzes");
     ok("ohne Lochlänge: 587 m zum Grün noch erlaubt", tf()===null, "d="+tf());
     P.here=at(-1400);
     ok("ohne Lochlänge: 1400 m unterdrückt", tf()!==null);
+
+    /* ====================================================================
+       ALLE DREI F/M/B-ANZEIGEN BEFOLGEN DIE REGEL (v4.89)
+       --------------------------------------------------------------------
+       GEMELDET am 27.08. mit Bildschirmfoto: Loch 2, Par 5, 499 m — und in
+       der Kopfzeile des Vollbilds stand „F 2384 · M 2395 · B 2407". Das Handy
+       lag zu Hause, 2,4 km vom Grün.
+       GERECHNET WAR NICHTS FALSCH: Front zu Back waren 23 m auseinander, eine
+       normale Grüntiefe; nur der Bezugspunkt war zweieinhalb Kilometer weg.
+       `playInfoHtml` und `pfCaddyKurz` befolgten `playTooFar()` korrekt — die
+       Kurzzeile im selben Bild sagte „2,4 km — zu weit". Die Kopfzeile wurde
+       beim Einbau übersehen.
+       DAS IST DIE SCHLIMMERE SORTE FEHLER: nicht falsch gerechnet, sondern
+       INKONSISTENT angezeigt. Zwei Felder desselben Bildschirms geben
+       verschiedene Auskünfte über dieselbe Lage.
+       Diese Prüfung zählt deshalb die AUFRUFSTELLEN von `greenFMB` in der
+       Anzeige und verlangt, dass jede einzelne hinter `playTooFar` liegt. Sie
+       greift auch bei einer VIERTEN Anzeige, die noch niemand gebaut hat. */
+    {
+      const src=fs.readFileSync(FILE,"utf8");
+      const roh=codeOhneDoku(src);
+      const stellen=[...roh.matchAll(/greenFMB\(PLAY\.here/g)].map(m=>m.index);
+      ok("es gibt genau drei F/M/B-Anzeigen", stellen.length===3, String(stellen.length));
+      /* Zwei liegen hinter einem frühen `return` des tooFar-Zweigs, die dritte
+         prüft direkt in der Zuweisung. Beides zählt — gesucht wird `playTooFar`
+         im umgebenden Block. */
+      const ungeschuetzt=stellen.filter(i=>{
+        const um=roh.slice(Math.max(0,i-1800), i+120);
+        return !/playTooFar\(\)/.test(um);
+      });
+      ok("jede von ihnen ist an playTooFar gebunden", ungeschuetzt.length===0,
+         ungeschuetzt.length+" ungeschützt");
+      /* Und die Kopfzeile zeigt Striche statt zu verschwinden — eine fehlende
+         Zeile sieht aus wie fehlendes GPS, drei Striche sagen „gemessen, aber
+         hier ohne Aussage". */
+      ok("von weit weg stehen Striche statt Zahlen", /pf-fmb-fern/.test(roh));
+      ok("und die Klasse ist gestaltet", /\.pf-fmb-fern\s*\{/.test(src));
+    }
 
     /* WICHTIG: Die Zielkette startet am ABSCHLAG, nicht an der eigenen
        Position — sie ist also auch von weit weg korrekt und soll dann NICHT
@@ -6120,6 +6159,23 @@ group("Gleichlauf Uhr ↔ App — dieselbe Frage, dieselbe Antwort");
            haeufige Handlung (Stoppen) bekommt den kurzen Weg. */
         ok("Abbrechen liegt auf dem Langdruck",
            /onLongClick = \{[\s\S]{0,220}?onShotCancel\(\)/.test(knopf));
+        /* ================================================================
+           WAEHREND DER AUFNAHME STEHT DIE METERZAHL IM KNOPF (Uhr 45)
+           ----------------------------------------------------------------
+           VORGABE VOM 27.08.: „Bei einem Schlagtracken soll in dem Button die
+           Meterzahl angezeigt werden und nicht das Stopp-Rechteck."
+           (44) zeigte dort „■". Das sagte nur, DASS eine Aufnahme läuft — was
+           die grüne Fläche ohnehin aus dem Augenwinkel sagt. Die Zahl ist die
+           Auskunft, die man im Gehen will, und sie stand in der Kopfzeile,
+           also dort, wo man beim Laufen nicht hinsieht.
+           EINE FLÄCHE, ZWEI AUSSAGEN: Farbe = Zustand, Zahl = Messwert. */
+        ok("im Knopf steht die gelaufene Strecke",
+           /if \(recActive\) meter\.toString\(\)/.test(knopf));
+        ok("und nicht mehr das Stopp-Rechteck", !/if \(recActive\) "\u25A0"/.test(knopf));
+        /* Ein abgeschnittener Messwert waere schlimmer als gar keiner: Bei
+           48 dp passen drei grosse Ziffern nicht, ein Drive ueber 200 m aber
+           schon. Also schrumpft die Schrift ab 100. */
+        ok("die Schrift schrumpft ab dreistellig", /meter >= 100 -> 15\.sp/.test(knopf));
         /* Bei 48 dp Durchmesser ist jeder Text ein Stummel — die gelaufene
            Strecke gehoert in die Kopfzeile, wo Platz dafuer ist. */
         ok("die gelaufene Strecke steht in der Kopfzeile",
@@ -6855,7 +6911,7 @@ group("Live-Zeiger — beide Geräte, dieselbe Regel");
        zusaetzlich, dass der Changelog einen Eintrag fuer GENAU diese Kennung
        hat — beides zusammen faengt „Code geaendert, Fassung vergessen" und
        „Fassung gezogen, Changelog vergessen". */
-    ok("und die Kennung ist aktuell", /WATCH_APP = "2026-08-27 \(44\)"/.test(kt));
+    ok("und die Kennung ist aktuell", /WATCH_APP = "2026-08-27 \(45\)"/.test(kt));
     ok("das Handy zeigt sie", /function watchFassung\(\)/.test(src));
 
     /* --- STARTBILDSCHIRM (2026-08-25 (20)) ---
@@ -12756,6 +12812,126 @@ group("STRAT-Bausteine — Mathematik, die man nachrechnen kann");
       } finally { DB0.rounds = alt; S._esPlayCache = altC; }
     }
   }
+}
+
+/* ============ 24cx. Eine beendete Runde kommt nicht zurück ============ */
+group("Runde beendet — und bleibt es");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+  const PK = G("_playKey"), DARF = G("watchLiveDarfOeffnen");
+
+  /* ====================================================================
+     GEMELDET am 27.08.2026 (behoben in v4.90)
+     --------------------------------------------------------------------
+     „Wenn ich auf dem Handy eine Runde verwerfe oder speichere und beende,
+     wird sie danach ganz oft trotzdem wieder aufgerufen — ich springe
+     grundlos wieder in den Spielmodus."
+     ZWEI URSACHEN:
+     (1) `playFinish`/`playDiscard` setzten `watchAutoOpenedFor=""` — den
+         Riegel gegen Wieder-Aufspringen — mit dem Kommentar „nächste darf
+         wieder aufspringen". Die Absicht stimmte, der ORT nicht: Die Uhr
+         meldet DIESELBE Runde noch bis zu VIER STUNDEN weiter
+         (`WATCH_LIVE_MAX_AGE_MS`), und der Wächter läuft jede Minute plus bei
+         jedem Aufwecken des Handys. Wer den Riegel beim Aufhören löst, lädt
+         genau die Runde wieder ein, die er gerade beendet hat.
+     (2) Der Grabstein verglich ZEITSTEMPEL: durchgelassen wurde alles mit
+         `d.ts > draftDiscardedTs` — und die Uhr schreibt weiter mit frischem
+         Zeitstempel, bis sie den Grabstein selbst gelesen hat. Ein Wettrennen,
+         das der Grabstein nicht gewinnen kann.
+     WARUM ES SO LANGE UNBEMERKT BLIEB: Die Regel war nur über
+     `watchLiveMaybeOpen` erreichbar — also nur zusammen mit `PLAY`, `DB` und
+     einem echten Bildschirmwechsel. Eine Entscheidung, die man nicht einzeln
+     befragen kann, wird nicht geprüft. Sie steckt jetzt in
+     `watchLiveDarfOeffnen(d, ui, jetzt, maxAlter, weggetippt)` — rein, ohne
+     eine einzige Globale, mit Begründung im Rückgabewert. */
+  if (typeof DARF === "function" && typeof PK === "function") {
+    const jetzt = Date.parse("2026-08-27T12:00:00.000Z");
+    const lv = { src: "watch", hole: 3, course: "T", date: "2026-08-27",
+                 side: "18 Loch", tee: "Gelb", at: "2026-08-27T11:59:30.000Z" };
+    const draft = { ts: "2026-08-27T11:59:30.000Z", live: lv,
+                    round: { course: "T", date: lv.date, side: lv.side } };
+    const MAX = 4 * 60 * 60 * 1000;
+
+    ok("_playKey fasst Platz, Datum und Umfang zusammen",
+       PK(lv) === "T|2026-08-27|18 Loch", PK(lv));
+    ok("und ist für verschiedene Runden verschieden",
+       PK(lv) !== PK(Object.assign({}, lv, { date: "2026-08-28" })));
+
+    /* ---- Der Normalfall: Die Uhr spielt, das Handy soll aufspringen ---- */
+    ok("eine frische Uhr-Meldung darf öffnen",
+       DARF(draft, {}, jetzt, MAX, "").ok === true);
+
+    /* ---- DAS WETTRENNEN, das der gemeldete Fehler war ----
+       Grabstein eine Minute ALT, Uhr-Meldung von JETZT. Der reine
+       Zeitvergleich lässt sie durch — die Identität nicht. */
+    const grab = { draftDiscardedTs: "2026-08-27T11:58:00.000Z" };
+    ok("der Zeitvergleich allein lässt sie durch (der alte Zustand)",
+       DARF(draft, grab, jetzt, MAX, "").ok === true);
+    const beendet = Object.assign({}, grab, { playEndedKey: PK(lv) });
+    ok("die Identität hält sie auf — trotz frischerer Meldung",
+       DARF(draft, beendet, jetzt, MAX, "").ok === false);
+    ok("und nennt den Grund", DARF(draft, beendet, jetzt, MAX, "").grund === "beendet",
+       DARF(draft, beendet, jetzt, MAX, "").grund);
+
+    /* ---- Auch wiederholtes Klopfen hilft nicht ----
+       Der Wächter läuft jede Minute; daran hing das „ganz oft". Der Zeitpunkt
+       wandert, die Entscheidung darf nicht kippen. */
+    let auf = 0;
+    for (let i = 0; i < 10; i++) {
+      const t = jetzt + i * 60000;
+      const d2 = { ts: new Date(t).toISOString(), live: Object.assign({}, lv, { at: new Date(t).toISOString() }),
+                   round: draft.round };
+      if (DARF(d2, beendet, t, MAX, "").ok) auf++;
+    }
+    ok("zehn Wächter-Durchläufe öffnen sie nicht", auf === 0, auf + " von 10");
+
+    /* ---- EINE ANDERE Runde ist unberührt — sonst wäre die Sperre eine
+       Falle statt eines Riegels. ---- */
+    const lv2 = Object.assign({}, lv, { date: "2026-08-28" });
+    const draft2 = { ts: draft.ts, live: lv2, round: { course: "T", date: lv2.date, side: lv2.side } };
+    ok("eine andere Runde darf weiterhin öffnen",
+       DARF(draft2, beendet, jetzt, MAX, "").ok === true);
+    /* Auch ein anderer PLATZ am selben Tag. */
+    const lv3 = Object.assign({}, lv, { course: "Süd" });
+    ok("und ein anderer Platz ebenso",
+       DARF({ ts: draft.ts, live: lv3, round: draft.round }, beendet, jetzt, MAX, "").ok === true);
+
+    /* ---- Die übrigen Riegel bleiben wirksam ---- */
+    ok("ohne Zeiger passiert nichts", DARF({ ts: draft.ts }, {}, jetzt, MAX, "").ok === false);
+    ok("ein Zeiger vom Handy selbst öffnet nicht",
+       DARF({ ts: draft.ts, live: Object.assign({}, lv, { src: "phone" }) }, {}, jetzt, MAX, "").ok === false);
+    /* Vier Stunden alt heißt: Die Runde ist vorbei, auch ohne Grabstein. */
+    ok("eine alte Meldung öffnet nicht",
+       DARF(draft, {}, jetzt + 5 * 60 * 60 * 1000, MAX, "").grund === "zu alt");
+    /* Manuell weggetippt: derselbe Riegel, andere Quelle. */
+    ok("weggetippt bleibt weggetippt",
+       DARF(draft, {}, jetzt, MAX, PK(lv)).grund === "weggetippt");
+    /* Ein älterer Entwurf als der Grabstein ist der Fall, den v1.60 schon
+       kannte — er muss weiter greifen. */
+    ok("ein älterer Entwurf als der Grabstein öffnet nicht",
+       DARF({ ts: "2026-08-27T11:57:00.000Z", live: lv, round: draft.round },
+            grab, jetzt, MAX, "").grund === "verworfen");
+  }
+
+  /* Die Aufrufstellen: Beenden und Verwerfen müssen MERKEN, nicht LÖSCHEN —
+     und freigegeben wird beim Start der nächsten Runde. */
+  const roh = codeOhneDoku(src);
+  ok("das Beenden merkt sich die Runde", /playMarkEnded\(r\)/.test(roh));
+  ok("das Verwerfen ebenso", /playMarkEnded\(playRound\(\)\)/.test(roh));
+  ok("und playBegin gibt frei", /playClearEnded\(\)/.test(roh));
+  /* Die Sperre muss PERSISTENT sein: `watchAutoOpenedFor` ist eine Variable
+     und überlebt kein Neuladen der Seite — was auf dem Handy ständig
+     passiert, wenn der Browser die Karte aus dem Speicher wirft. */
+  ok("die Sperre liegt in ui, nicht nur im Speicher",
+     /DB\.ui\.playEndedKey\s*=/.test(roh));
+  /* DER RÜCKFALL, den es zu verhindern gilt: Wer beim Beenden wieder
+     `watchAutoOpenedFor=""` schreibt, baut den gemeldeten Fehler neu ein. */
+  ok("der Riegel wird beim Beenden nicht mehr gelöst",
+     !/watchAutoOpenedFor\s*=\s*""[\s\S]{0,200}?closeSheet\(\)/.test(roh));
+  /* Und der Wächter benutzt wirklich die reine Entscheidung — sonst driften
+     Prüfung und Verhalten auseinander. */
+  ok("watchLiveMaybeOpen fragt watchLiveDarfOeffnen",
+     /watchLiveMaybeOpen\(\)\{[\s\S]{0,400}?watchLiveDarfOeffnen\(/.test(roh));
 }
 
 /* ============ 24cy. Kein Worker-Aufruf ohne Frist ============ */

@@ -13,6 +13,49 @@
 
 ---
 
+- **v4.56.0 · 2026-08-24** — **„Mal geht es, mal nicht" — ein Wettlauf, den ich in v4.52 selbst
+  eingebaut habe.** Zwei Ursachen, beide auf der Handy-Seite.
+  **(1) Das Handy schickte eine alte Kopie des Uhr-Zeigers zurück.** v4.52 gab den fremden Zeiger
+  **unverändert** aus `_phoneLive` zurück — lokal war er damit gerettet. Aber die Aufrufer
+  **schreiben und pushen** das Ergebnis: `caddyLivePush` alle 10 s, `playSaveDraft` bei jeder
+  Eingabe. Das Handy schickte also eine **veraltete** Kopie ins Repo und überschrieb dort den
+  frischen Zeiger, den die Uhr eine Sekunde zuvor geschrieben hatte. Wer zuletzt schrieb, gewann —
+  daher „mal geht es, mal nicht".
+  **Richtig ist: den Lochwert übernehmen, aber mit eigenem, frischem Zeitstempel senden.** Dann
+  steht im Repo nie eine alte Kopie, beide Geräte sind sich über das Loch einig, und der nächste
+  Vergleich rechnet mit einer Zeit, die stimmt.
+  **(2) `playLiveSeenAt` wurde gesetzt, bevor feststand, ob das Loch abweicht.** Ein Zeiger, der beim
+  Ankommen noch auf dasselbe Loch zeigte, galt damit als „gesehen" — und ein Lochwechsel im selben
+  Zeitstempel war **bereits abgehakt, bevor er ausgewertet wurde.** Seit die Uhr sofort sendet
+  (2026-08-24 (5)), kommen mehrere Zeiger je Sekunde; genau dort schlug das zu. Abgehakt wird jetzt
+  nur, was **wirkt** — oder was zweifelsfrei nichts mehr bringt (Loch gibt es hier nicht).
+  **Zur Einordnung:** Das ist die dritte Fassung an derselben Stelle. v4.51 hat die Uhr repariert,
+  v4.52 das Handy — und dabei einen neuen Fehler eingeführt, der schwerer zu sehen war als der
+  ursprüngliche, weil er nur unter Zeitdruck auftritt. **Eine Reparatur, die einen Wettlauf
+  erzeugt, ist schlechter als der Fehler, den sie behebt**, denn sie versagt unregelmäßig.
+
+- **v4.55.0 · 2026-08-24** — **Zusammenarbeit Uhr ↔ Handy: drei Lücken geschlossen, zwei entwarnt.**
+  **(1) Welche Uhr-Fassung läuft?** `WATCH_APP` stand nur im Fehlerprotokoll — also nur sichtbar,
+  wenn es Fehler gab. Wir haben diese Woche mehrfach geraten, ob eine Reparatur schon drüben ist.
+  Die Uhr trägt ihre Kennung jetzt im **Live-Zeiger**, der bei jedem Herzschlag rausgeht; das Handy
+  zeigt sie im Protokoll. **Nebenbefund:** Sie stand noch auf „2026-08-15 (13)", obwohl seither
+  fünfmal geändert wurde. **Bewusst kein automatisches „veraltet":** Die Uhr wird von Hand gebaut,
+  ein solches Urteil wäre oft falsch — die Kennung wird gezeigt, den Schluss zieht der Mensch.
+  **(2) Das Handy quittiert die Schlagmessungen.** Die Uhr schickte sie bei jedem Vorgang mit, weil
+  sie nie erfuhr, ob sie angekommen sind. `shotAck` nennt die Kennungen, die das Handy sicher hat;
+  nur die räumt die Uhr aus. **Nur Kennungen, keine Messwerte:** Geht die Quittung verloren, schickt
+  die Uhr noch einmal — der harmlose Fall. Umgekehrt wäre es Datenverlust.
+  **(3) „Runde beendet" kommt jetzt bei der Uhr an.** Bis hierher kannte sie nur *verworfen*. Eine
+  normal beendete Runde sah für sie aus wie eine laufende, die nur nichts mehr meldet: Sie funkte
+  weiter Herzschläge für etwas, das es nicht mehr gab, und zeigte Loch 18, während am Handy die
+  Karte schon gespeichert war. Übernommen wird nur bei **gleichem Platz** und nur, wenn die Marke
+  **jünger** ist als die letzte eigene Eingabe — beides Lehren vom 15.08., wo eine alte Marke jede
+  neue Runde sofort wieder beendet hat.
+  **Zwei Befunde aus meiner eigenen Analyse haben sich beim Nachsehen erledigt:** Die Uhr holt ihr
+  Wetter **selbst** (`Net.fetchWeather`, alle 20 min bei Bedarf) — meine Behauptung, sie hänge dafür
+  am Handy, war falsch. Und die Schlagmessungen laufen über `draft.json` und werden in `draftPull`
+  nach ID vereinigt, nicht über den stillgelegten Voll-Push. Zwei von fünf „Lücken" waren keine.
+
 - **v4.54.0 · 2026-08-24** — **Der letzte Rest der Schieflage: Die Uhr wartete auch nach einer
   Eingabe auf ihren Takt.**
   **Zuerst eine Richtigstellung in eigener Sache:** v4.53 hatte die Takte bereits gedreht — ich habe

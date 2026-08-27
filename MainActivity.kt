@@ -375,6 +375,26 @@ import kotlin.math.sqrt
  *  ------------------------------------------------------------------------
  *  CHANGELOG (neueste zuerst — bei JEDER Änderung ergänzen: Datum · was · wo)
  *  ------------------------------------------------------------------------
+ *  2026-08-27 (45) · DER SCHLAG-KNOPF ZEIGT METER, NICHT „STOPP".
+ *     VORGABE VOM 27.08.: „Bei einem Schlagtracken soll in dem Button die
+ *     Meterzahl angezeigt werden und nicht das Stopp-Rechteck."
+ *     (44) hatte hier zu knapp gedacht. Das „■" sagte nur, DASS eine Aufnahme
+ *     laeuft — und genau das sagt die gruene Flaeche ohnehin, aus dem
+ *     Augenwinkel und ohne Lesen. Das Zeichen war also die zweite Auskunft
+ *     ueber denselben Zustand, waehrend die einzige Zahl, die man im Gehen
+ *     wirklich will, in der Kopfzeile der Liste stand — dort, wo man beim
+ *     Laufen nicht hinsieht.
+ *     EINE FLAECHE, ZWEI AUSSAGEN: Farbe = Zustand, Zahl = Messwert.
+ *     OHNE EINHEIT: Bei 48 dp Durchmesser kostet jedes zusaetzliche Zeichen
+ *     eine Schriftgroesse, und dass Meter gemeint sind, weiss man.
+ *     DIE SCHRIFT SCHRUMPFT MIT DER STELLENZAHL — bis 99 gross (18 sp), ab
+ *     100 kleiner (15 sp). Drei grosse Ziffern passen nicht in den Kreis, und
+ *     ein abgeschnittener Messwert waere schlimmer als gar keiner.
+ *     Die Strecke steht zusaetzlich weiter in der Kopfzeile; dort liest man
+ *     sie im Stehen, im Knopf im Gehen.
+ *     PRUEFSTAND: 24cp haelt fest, dass im Knopf die Strecke steht und NICHT
+ *     mehr das Stopp-Zeichen, und dass die Schrift ab dreistellig schrumpft.
+ *
  *  2026-08-27 (44) · DAS HANDY BESITZT DIE RUNDE. SCHLAG-KNOPF OBEN LINKS.
  *     VIER VORGABEN VOM 27.08., mit drei Fotos belegt:
  *     (1) SCHLAG-KNOPF ALS RUNDER BUTTON OBEN LINKS — „da behindert er am
@@ -2825,7 +2845,7 @@ import kotlin.math.sqrt
 /* Fassungskennung der Uhr-App — steht im Kopplungstest neben der der PWA.
    Bei JEDER Aenderung hier mitziehen; sonst vergleicht man zwei Staende und
    glaubt, sie seien gleich (2026-08-15 (13)). */
-private const val WATCH_APP = "2026-08-27 (44)"
+private const val WATCH_APP = "2026-08-27 (45)"
 /* ==========================================================================
    WAS HAT DIESE FASSUNG GEAENDERT? (2026-08-25 (22))
    --------------------------------------------------------------------------
@@ -10947,11 +10967,12 @@ private fun ScorePage(
            78 dp am Listenende sind wieder frei), und die Liste laeuft unter
            ihm durch. Im Ruhezustand steht das erste Listenelement wegen
            `autoCentering` ohnehin tiefer.
-           KEINE BESCHRIFTUNG, nur ein Zeichen — bei 48 dp Durchmesser ist
-           jeder Text ein Stummel. Der Zustand steckt in Farbe und Zeichen:
-           grau „📐" heisst bereit, gruen „■" heisst Aufnahme laeuft. Die
-           gelaufene Strecke steht waehrend der Aufnahme in der Kopfzeile der
-           Liste, wo Platz dafuer ist.
+           IM RUHEZUSTAND NUR EIN ZEICHEN, WAEHREND DER AUFNAHME DIE ZAHL (45):
+           grau „📐" heisst bereit; gruen mit der gelaufenen Strecke heisst,
+           dass gemessen wird. Die Farbe traegt den Zustand, die Zahl den
+           Messwert — eine Flaeche, zwei Auskuenfte. Die Strecke steht
+           zusaetzlich in der Kopfzeile der Liste, aber dorthin sieht man beim
+           Laufen nicht.
            LANGDRUCK BRICHT AB, mit Vibration — unveraendert aus (43). */
         Box(
             modifier = Modifier
@@ -10973,9 +10994,31 @@ private fun ScorePage(
                 ),
             contentAlignment = Alignment.Center
         ) {
+            /* ==============================================================
+               WAEHREND DER AUFNAHME STEHT DIE METERZAHL IM KNOPF (45)
+               --------------------------------------------------------------
+               VORGABE VOM 27.08.: „Bei einem Schlagtracken soll in dem Button
+               die Meterzahl angezeigt werden und nicht das Stopp-Rechteck."
+               Richtig, und (44) hatte hier zu knapp gedacht: Das „■" sagte
+               nur, DASS eine Aufnahme laeuft — das sagt die gruene Flaeche
+               ohnehin, und zwar aus dem Augenwinkel. Die Zahl dagegen ist die
+               einzige Auskunft, die man im Gehen wirklich will, und sie stand
+               in der Kopfzeile, also dort, wo man beim Laufen nicht hinsieht.
+               EINE FLAECHE, ZWEI AUSSAGEN: Farbe = Zustand, Zahl = Messwert.
+               Ohne Einheit — bei 48 dp ist jedes zusaetzliche Zeichen eine
+               Schriftgroesse weniger, und dass Meter gemeint sind, weiss man.
+               DIE SCHRIFT SCHRUMPFT MIT DER STELLENZAHL, damit auch ein Drive
+               ueber 200 m ganz dasteht: bis 99 gross, ab 100 kleiner. Ein
+               abgeschnittener Messwert waere schlimmer als gar keiner. */
+            val meter = recDist ?: 0
             Text(
-                if (recActive) "■" else "📐",
-                fontSize = if (recActive) 18.sp else 20.sp,
+                if (recActive) meter.toString() else "📐",
+                fontSize = when {
+                    !recActive -> 20.sp
+                    meter >= 100 -> 15.sp
+                    else -> 18.sp
+                },
+                fontWeight = if (recActive) FontWeight.Bold else FontWeight.Normal,
                 color = if (recActive) Color.Black else GoldText,
                 maxLines = 1
             )
