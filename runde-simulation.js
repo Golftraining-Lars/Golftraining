@@ -1,4 +1,13 @@
-/* Aufruf:  node runde-simulation.js   (im selben Ordner wie index.html) */
+/* Aufruf:  node runde-simulation.js   (im selben Ordner wie index.html)
+   BRAUCHT `runde-harness.js` DANEBEN — ohne sie bricht der Lauf sofort mit
+   MODULE_NOT_FOUND ab, und das sieht aus wie „hier nicht pruefbar".
+   ES IST ABER NUR EINE FEHLENDE DATEI: Alle aktuellen Dateien liegen im Repo
+   und werden bei Bedarf dort abgerufen (Arbeitsregel 0, 27.08.2026):
+     https://raw.githubusercontent.com/golftraining-lars/Golftraining/main/runde-harness.js
+   ANLASS DER REGEL: Genau dieser Abbruch hat am 27.08. ZWEI echte rote
+   Pruefungen verdeckt — die Simulation forderte die Platzkarte in
+   `watch.json`, die PWA v4.84 gerade entfernt hatte. Ein Tor, das nicht
+   faehrt, meldet nichts; das ist schlimmer als ein rotes. */
 const {G,R,pruef,kopf,REPO,SHAS,sandbox,bilanz}=require("./runde-harness.js");
 
 /* ---------- Platz anlegen: Nordplatz Timmendorfer Strand ---------- */
@@ -70,23 +79,44 @@ const d4=R(`(function(){ const hr=holeRef(playGeo(),4);
 pruef("App: Distanz zum Grün ≈ 332 m", Math.abs(d4.mitte-332)<=5, JSON.stringify(d4));
 pruef("ROH gelesen wären es nur wenige Meter (der alte Uhr-Fehler)", d4.roh<20, "roh="+d4.roh+" m");
 
-/* ---------- watch.json: bekommt die Uhr die AUFGELÖSTE Karte? ---------- */
+/* ---------- watch.json: was die Uhr bekommt ---------- */
+/* ==========================================================================
+   KEINE KARTE MEHR (PWA v4.84 / Uhr-Fassung 40)
+   --------------------------------------------------------------------------
+   Hier wurde geprueft, dass die Uhr die AUFGELOESTE Karte bekommt: Loch 4 mit
+   dem echten Gruen statt des vertauschten, `swap` angewendet und entfernt,
+   `distM` neu gerechnet, Gruen-Ringe fuer F/M/B dabei. Das war die Antwort auf
+   einen echten Feldfehler — die Uhr las die Rohwerte und zeigte auf einem
+   vertauschten Loch wenige Meter statt 332.
+   Die Uhr zeigt seit Fassung 38 keine Distanzen mehr und hat seit 40 weder
+   Geometrie noch Karten-Parser. Eine Karte zu schicken, die niemand liest,
+   kostet bei JEDEM Push eine Serialisierung des groessten Datenteils.
+   Die Pruefung ist deshalb GEDREHT, nicht geloescht: Sie haelt jetzt fest,
+   dass die Karte NICHT mitreist — und faengt damit den Rueckfall, bei dem sie
+   unbemerkt wieder in die Datei rutscht.
+   Die Aufloesung selbst (`watchGeo`, `holeRef`) bleibt geprueft, wo sie noch
+   gebraucht wird: in tests.js, Abschnitt 24cq — `schlagNeutral` rechnet die
+   Hoehe ueber dieselben Profile. Der Feldfehler von damals ist also weiter
+   abgedeckt, nur an der Stelle, wo er heute noch auftreten kann. */
 kopf("watch.json — was die Uhr bekommt");
 const wp=R(`watchPayload()`);
 pruef("Platz enthalten", (wp.courses||[]).length===1);
 const wgeo=(wp.courses[0]||{}).geo;
-pruef("Karte mitgegeben", !!wgeo, wgeo?"ja":"FEHLT");
-if(wgeo){
-  const wh4=wgeo.holes["4"]||wgeo.holes[4];
-  pruef("Loch 4 aufgelöst: Grün ist das echte Grün",
-    Math.abs(wh4.green[0]-hr4.green[0])<1e-6 && Math.abs(wh4.green[1]-hr4.green[1])<1e-6,
-    JSON.stringify(wh4.green)+" vs "+JSON.stringify(hr4.green));
-  pruef("swap-Marke entfernt", !("swap" in wh4));
-  pruef("distM stimmt (≈332)", Math.abs(wh4.distM-332)<=3, String(wh4.distM));
-  pruef("Grün-Ringe für F/M/B enthalten", (wgeo.features||[]).some(f=>f.kind==="green"&&f.ring));
-}
+pruef("Karte NICHT mehr mitgegeben", !wgeo, wgeo?"immer noch da":"richtig weg");
+pruef("aber Name und Tees bleiben",
+  !!(wp.courses[0]||{}).name && !!(wp.courses[0]||{}).tees);
+/* Ohne die Listen steht ein auf der Uhr gewaehlter Wert am Handy in keiner
+   Auswahl — es sieht aus, als wuerde nichts uebertragen (Lehre aus v2.99).
+   Ohne Schlaeger kann die Aufnahmezeile keinen zuordnen, und eine Messung
+   ohne Schlaeger ist fuer die gelernten Laengen wertlos. */
 pruef("Auswahllisten dabei", Array.isArray(wp.approachBuckets)&&Array.isArray(wp.firstPuttDist));
 pruef("Schläger dabei", (wp.clubDistances||[]).length>10);
+pruef("keine Gameplans mehr", !("strat" in wp));
+/* DER ZWECK DER SCHLANKEN DATEI IST IHRE GROESSE. Mit der Karte lag sie bei
+   einigen hundert kB; ohne sie muss sie klein bleiben, sonst hat der Rueckbau
+   nichts gebracht. */
+pruef("Datei bleibt klein", JSON.stringify(wp).length < 60000,
+  Math.round(JSON.stringify(wp).length/1024)+" kB");
 console.log(JSON.stringify(bilanz()));
 
 /* ---------- Caddy ---------- */
@@ -263,9 +293,14 @@ kopf("draft.json — Handy → Uhr");
   await new Promise(r=>setImmediate(r));
   pruef("watch.json geschrieben", !!REPO["watch.json"]);
   let wj=null; try{ wj=JSON.parse(REPO["watch.json"]||"{}"); }catch(e){}
-  pruef("enthält den gespielten Platz MIT Karte",
-    !!(wj && (wj.courses||[]).some(c=>c.name===R(`PLAY.course`) && c.geo)),
-    (wj&&(wj.courses||[]).map(c=>c.name+(c.geo?"+Karte":"")).join(", "))||"-");
+  /* Der gespielte Platz MUSS drin sein — ohne ihn hat die Uhr keine Lochliste.
+     Seine Karte darf es seit v4.84 NICHT mehr sein (siehe oben). */
+  pruef("enthält den gespielten Platz",
+    !!(wj && (wj.courses||[]).some(c=>c.name===R(`PLAY.course`))),
+    (wj&&(wj.courses||[]).map(c=>c.name).join(", "))||"-");
+  pruef("und zwar ohne Karte",
+    !!(wj && !(wj.courses||[]).some(c=>c.geo)),
+    (wj&&(wj.courses||[]).filter(c=>c.geo).map(c=>c.name).join(", "))||"keiner");
 
   /* ==========================================================================
      ALLE 18 LOECHER DURCHFAHREN (v3.53)

@@ -6,6 +6,25 @@
    EXITCODE 0 = alles grün, 1 = mindestens ein Fehler → taugt als Commit-Gate.
 
    ARBEITSREGELN (26.08.2026, ausnahmslos — gelten für JEDEN Bearbeiter):
+   0. DIE AKTUELLEN DATEIEN LIEGEN IM REPO (27.08.2026) und koennen dort
+      jederzeit abgerufen werden — auch von einem Bearbeiter, dem nur ein Teil
+      hochgeladen wurde:
+        https://raw.githubusercontent.com/golftraining-lars/Golftraining/main/<datei>
+      Dort liegen `index.html`, `MainActivity.kt`, `tests.js`,
+      `runde-simulation.js`, `runde-harness.js` und `worker.js`.
+      WOZU DIESE REGEL: Am 27.08. liess sich `runde-simulation.js` nicht
+      fahren, weil `runde-harness.js` fehlte — der Lauf brach mit
+      MODULE_NOT_FOUND ab und ZWEI echte rote Pruefungen blieben unentdeckt
+      (`watch.json` trug nach v4.84 keine Karte mehr, die Simulation forderte
+      sie noch). Eine fehlende Datei heisst also nicht „nicht pruefbar",
+      sondern „holen".
+      DABEI GILT: Vor dem Arbeiten pruefen, ob der Repo-Stand wirklich der
+      neueste ist — Kennungen vergleichen (`APP_VERSION`, `WATCH_APP`) und im
+      Zweifel den HOCHGELADENEN Stand nehmen und sagen, welchen man benutzt.
+      Am 26.08. lag im Repo noch Uhr-Fassung (13), hochgeladen war (37); wer
+      blind zieht, arbeitet an 24 Fassungen alt vorbei.
+      Die GitHub-API (`api.github.com`) laeuft ohne Token schnell ins
+      Rate-Limit; die Rohdateien gehen problemlos.
    1. Vor JEDER Änderung die gesamte Doku lesen: devdocs + Changelog in
       index.html, Changelog-Kopf in MainActivity.kt, dieser Kopf hier.
    2. Bei JEDER Änderung: diese Datei anpassen (Verträge und neue Prüfungen)
@@ -18,13 +37,14 @@
       fest. Wer eine `!/.../`-Pruefung schreibt, prueft den ausfuehrbaren
       Code — sonst haelt ihn die Begruendung fuer den Befund.
 
-   ARBEITSTEILUNG HANDY / UHR (Vorgabe vom 26.08., Uhr-Fassung (38)):
+   ARBEITSTEILUNG HANDY / UHR (Vorgabe vom 26.08., Uhr-Fassung (38)/(40)):
    Die UHR misst und nimmt entgegen. Sie rechnet nichts und empfiehlt nichts.
    Jede gerechnete Groesse — Entfernung, „spielt wie", Wind, Hoehe, Schlaeger —
-   sitzt im HANDY. Der Abschnitt „Gleichlauf Uhr ↔ App" prueft das jetzt in
-   zwei Stufen: die alten Vergleiche halten `Wx`/`Caddy` deckungsgleich,
-   solange sie im Quelltext liegen (Abbau in (39)); die neuen Pruefungen
-   halten fest, dass es dafuer KEINE AUFRUFSTELLE mehr gibt.
+   sitzt im HANDY. (38) hat die AUFRUFSTELLEN entfernt, (40) den Quelltext:
+   `Caddy`, `Wx`, die Geometrie in `Geo`, den Karten-Parser, `HolePage` und die
+   Gameplan-Ansicht. Der Abschnitt „Gleichlauf Uhr ↔ App" prueft deshalb nicht
+   mehr auf GLEICHHEIT, sondern auf ABWESENHEIT — `Geo.dist` ausgenommen, die
+   misst die Luftlinie eines Schlags und ist der Messwert selbst.
 
    WARUM
    Die Doku fordert seit jeher, neue Logik als reine Funktion zu schreiben,

@@ -312,6 +312,19 @@ import kotlin.math.sqrt
  *     · recBegin()/recClub()/recSwing()/recStop()/recUndo().
  *
  *  8. ÄNDERUNGS-/KI-REGELN
+ *     - ALLE AKTUELLEN DATEIEN LIEGEN IM REPO (Regel vom 27.08.2026) und
+ *       koennen dort abgerufen werden, wenn nur ein Teil vorliegt:
+ *         https://raw.githubusercontent.com/golftraining-lars/Golftraining/main/<datei>
+ *       Dort liegen index.html, MainActivity.kt, tests.js,
+ *       runde-simulation.js, runde-harness.js und worker.js.
+ *       ANLASS: Am 27.08. brach `runde-simulation.js` mit MODULE_NOT_FOUND ab,
+ *       weil `runde-harness.js` fehlte — und ZWEI echte rote Pruefungen blieben
+ *       unentdeckt. Eine fehlende Datei heisst nicht „nicht pruefbar", sondern
+ *       „holen".
+ *       NICHT BLIND ZIEHEN: erst `APP_VERSION`/`WATCH_APP` vergleichen. Liegt
+ *       hochgeladen ein neuerer Stand vor, gilt DIESER — am 26.08. stand im
+ *       Repo noch Fassung (13), hochgeladen war (37). Die GitHub-API laeuft
+ *       ohne Token schnell ins Rate-Limit, die Rohdateien gehen problemlos.
  *     - Additiv arbeiten, bestehende Feld-Parität zur PWA erhalten.
  *     - Neue Eingaben immer über change() führen (sichert + synct automatisch).
  *     - Netzwerk nie im Main-Thread (withContext(Dispatchers.IO)).
@@ -422,6 +435,13 @@ import kotlin.math.sqrt
  *     dass die Abwesenheit GEWOLLT ist.
  *     WER ETWAS DAVON SUCHT: Es lebt in der PWA. Dort wird gerechnet, dort
  *     wird geplant, dort steht es.
+ *     NACHTRAG 27.08. (Doku, kein Code): ARBEITSREGEL 0 in Kapitel 8 — alle
+ *     aktuellen Dateien liegen im Repo und werden bei Bedarf dort abgerufen.
+ *     Anlass war der Rueckbau selbst: `runde-simulation.js` liess sich ohne
+ *     `runde-harness.js` nicht fahren, und die Simulation hatte ZWEI echte
+ *     rote Pruefungen (sie forderte die Platzkarte in `watch.json`, die
+ *     PWA v4.84 gerade entfernt hatte). Beide sind nachgeholt und gedreht;
+ *     `runde-simulation.js` steht bei 81 ok, 0 fail. Siehe PWA v4.84.1.
  *
  *  2026-08-26 (39) · MITSPIELER OHNE NAMEN: DIE UHR EROEFFNET PLAETZE.
  *     GEMELDET am 26.08.: „Auf der Smartwatch kann man keinen Mitspieler
