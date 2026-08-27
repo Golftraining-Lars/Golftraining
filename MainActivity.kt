@@ -28,10 +28,8 @@ import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.pager.HorizontalPager
@@ -40,8 +38,6 @@ import androidx.compose.foundation.pager.PagerSnapDistance
 import androidx.compose.foundation.pager.PagerState
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -51,7 +47,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.rotary.onRotaryScrollEvent
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
@@ -361,6 +356,40 @@ import kotlin.math.sqrt
  *  ------------------------------------------------------------------------
  *  CHANGELOG (neueste zuerst — bei JEDER Änderung ergänzen: Datum · was · wo)
  *  ------------------------------------------------------------------------
+ *  2026-08-27 (41) · NACHGEREICHT: VIER COMPILERFEHLER AUS (40).
+ *     GEMELDET mit Bildschirmfoto: `:app:compileDebugKotlin` bricht mit vier
+ *     Fehlern ab, alle an derselben Stelle:
+ *         var plan by remember { mutableStateOf<Caddy.Plan?>(null) }
+ *     „Unresolved reference 'Caddy'". Der Zustand, den die geloeschte
+ *     Caddy-Schleife fuellte und die geloeschte Seite 0 anzeigte, stand noch da.
+ *     WARUM ES DURCHRUTSCHTE — und das ist die eigentliche Lehre: Beim Abbau
+ *     wurde nach AUFRUFEN gesucht (`Caddy.plan(`, `GameplanScreen(`). Eine
+ *     TYP-ANGABE ist kein Aufruf und faellt durch dieses Raster; ein Zustand,
+ *     den niemand mehr liest, meldet sich beim Compiler nur als WARNUNG — bis
+ *     sein Typ verschwindet, dann als Fehler. Der Pruefstand war gruen, weil er
+ *     Node ist und kein Kotlin uebersetzt.
+ *     EBENFALLS VERWAIST GEFUNDEN, mit derselben Suche nach Typen statt
+ *     Aufrufen:
+ *       · `gpKurs` — merkte sich den im Gameplan-Bildschirm gewaehlten Platz.
+ *       · `alterSek(iso)` — gab das Alter eines Zeitstempels in Sekunden und
+ *         hatte GENAU EINEN Aufrufer: die Pruefung, ob die Caddy-Empfehlung
+ *         des Handys noch frisch genug ist (≤ 90 s).
+ *       · fuenf Importe, die nur `HolePage` brauchte: `border`,
+ *         `RoundedCornerShape`, `rememberScrollState`, `verticalScroll`,
+ *         `clip`. (`android.widget.Toast` war schon vor (38) unbenutzt und
+ *         bleibt liegen — nicht meine Baustelle.)
+ *     Dazu zwei Kommentare im Praesens ueber Verschwundenes: der Erklaertext
+ *     zur automatischen Schlagerfassung (Funktion weg seit (35), der genannte
+ *     Schalter seit (38)) und der Kopf des Kopplungstests, der noch „Caddy"
+ *     unter den Aufgaben fuehrte.
+ *     PRUEFSTAND: neue Sperrklinke in „Gleichlauf Uhr ↔ App" — sie sucht nach
+ *     TYPEN (`Caddy.Plan`, `CourseGeo?`, `HoleGeo?`, `GeoFeature`,
+ *     `ElevProfil`, `PlanHole`) und nach Zustand fuer geloeschte Bildschirme,
+ *     nicht nach Aufrufen. Dazu Arbeitsregel 2b im Kopf von `tests.js`:
+ *     Bei einem Kotlin-Rueckbau NACH TYPEN SUCHEN, und einmal am Rechner
+ *     uebersetzen, bevor man ihn fuer fertig haelt. Ein gruener Pruefstand ist
+ *     hier kein Beweis — er kann diese Fehlerklasse gar nicht sehen.
+ *
  *  2026-08-26 (40) · ABBAU: DAS RECHENWERK IST GELOESCHT, NICHT NUR STILLGELEGT.
  *     Die zweite Haelfte der Vorgabe vom 26.08. (38) hatte die AUFRUFSTELLEN
  *     entfernt und den Quelltext bewusst stehenlassen — damit eine
@@ -2629,7 +2658,7 @@ import kotlin.math.sqrt
 /* Fassungskennung der Uhr-App — steht im Kopplungstest neben der der PWA.
    Bei JEDER Aenderung hier mitziehen; sonst vergleicht man zwei Staende und
    glaubt, sie seien gleich (2026-08-15 (13)). */
-private const val WATCH_APP = "2026-08-26 (40)"
+private const val WATCH_APP = "2026-08-27 (41)"
 /* ==========================================================================
    WAS HAT DIESE FASSUNG GEAENDERT? (2026-08-25 (22))
    --------------------------------------------------------------------------
@@ -2644,8 +2673,8 @@ private const val WATCH_APP = "2026-08-26 (40)"
    das seine eigenen Kommentare liest, bricht beim naechsten Umbau lautlos.
    Der Pruefstand haelt stattdessen fest, dass beides zusammenpasst. */
 private const val WATCH_NOTE =
-    "Rueckbau: Caddy, Wetter-Physik, Platzkarte und Gameplan-Ansicht sind " +
-    "geloescht. Rund 2000 Zeilen leichter (braucht PWA 4.84)"
+    "Baut wieder: vier Compilerfehler aus dem Rueckbau (40) behoben " +
+    "(braucht PWA 4.84)"
 
 private const val WORKER_URL = "https://golftraining-save.larsdohrmann24.workers.dev"
 /* DER RUNDENENTWURF ALS EIGENE, KLEINE DATEI (2026-08-14, Worker ab v2.6)
@@ -3038,16 +3067,12 @@ private fun isoNow(): String {
 
 /* Zeitstempel EINES Zeitpunkts im selben Format wie `isoNow` — gebraucht, um
    den Rundenbeginn mit der Verworfen-Marke zu vergleichen (2026-08-15 (9)). */
-/* Alter eines ISO-Zeitstempels in Sekunden. Nicht parsebar -> sehr gross,
-   damit ein unlesbarer Wert NIE als frisch gilt (2026-08-16 (3)). */
-private fun alterSek(iso: String): Long {
-    return try {
-        val f = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.US)
-        f.timeZone = TimeZone.getTimeZone("UTC")
-        val t = f.parse(iso.take(19) + "Z")?.time ?: return 99999
-        (System.currentTimeMillis() - t) / 1000
-    } catch (e: Exception) { 99999 }
-}
+/* `alterSek` entfernt (40, nachgereicht). Sie gab das Alter eines
+   ISO-Zeitstempels in Sekunden und hatte GENAU EINEN Aufrufer: die Pruefung,
+   ob die Caddy-Empfehlung des Handys noch frisch genug ist (≤ 90 s), bevor die
+   Uhr sie der eigenen vorzieht. Mit der Caddy-Schleife ist der Aufrufer weg.
+   Wer wieder ein Alter braucht: `Fehler`/`Net` fuehren ihre eigenen
+   Zeitvergleiche ueber `isoNow`/`isoOf`. */
 
 private fun isoOf(ms: Long): String {
     val f = SimpleDateFormat(
@@ -6601,14 +6626,16 @@ fun GolfWatchApp(
        der Uhr, den es nicht mehr gibt. Der Pref-Schluessel bleibt liegen und
        schadet nicht; das Handy fuehrt seinen eigenen. */
 
-    /* Automatische Schlagerfassung. Vorbelegt AN — sie nimmt einem den haeufig-
-       sten Handgriff der Runde ab, und ein zu viel erkannter Schlag ist mit
-       „↶ letzten Schlag" in zwei Tipps weg. Wer sie nicht will, schaltet sie
-       auf der Details-Seite aus; die Wahl ueberlebt die Runde. */
-
-    var plan by remember {
-        mutableStateOf<Caddy.Plan?>(null)
-    }
+    /* `plan` UND DER ERKLAERTEXT ZUR AUTOMATIK SIND WEG (40, nachgereicht).
+       Hier stand `var plan by remember { mutableStateOf<Caddy.Plan?>(null) }` —
+       der Zustand, den die geloeschte Caddy-Schleife fuellte und die geloeschte
+       Seite 0 anzeigte. Beim Abbau uebersehen, weil er von keiner
+       Aufrufstelle mehr gelesen wurde: `Caddy.Plan` als TYP-Angabe faellt bei
+       einer Suche nach `Caddy.plan(` durch das Raster.
+       Darueber stand noch der Erklaertext zur automatischen Schlagerfassung —
+       ein Absatz im Praesens ueber eine Funktion, die es seit (35) nicht mehr
+       gibt, und ueber einen Schalter auf einer Seite, die es seit (38) nicht
+       mehr gibt. */
 
     var rec by remember {
         mutableStateOf<Rec?>(null)
@@ -7293,13 +7320,15 @@ fun GolfWatchApp(
        IHREN Formeln und legt die Ergebnisse zurueck; das Handy vergleicht.
        WOZU: Eine einzelne Distanz kann auf einem harmlosen Loch zufaellig
        stimmen. Der Plan prueft dort, wo es weh tut — vertauschtes Loch,
-       laengstes und kuerzestes, je drei Positionen — und dazu Schlaeger,
-       Auswahllisten, Caddy und die Quelle der eigenen Daten.
+       Schlaeger, Auswahllisten und die Quelle der eigenen Daten — also WELCHE
+       DATEN die Uhr hat. Die Rechenaufgaben („geo", „caddy", „lie") sind mit
+       (40)/PWA v4.84 auf beiden Seiten entfallen.
        Alles ohne laufende Runde und ohne Spieldaten anzufassen. */
-    /* Welcher Platz wird im Gameplan-Bildschirm gezeigt? Leer = Auswahl. */
-    var gpKurs by remember { mutableStateOf<String?>(null) }
+    /* `gpKurs` entfaellt (40, nachgereicht) — er merkte sich den im
+       Gameplan-Bildschirm gewaehlten Platz, und den Bildschirm gibt es nicht
+       mehr. */
 
-    /* Der zuletzt gelesene Handy-Entwurf — traegt dessen Caddy-Empfehlung. */
+    /* Der zuletzt gelesene Handy-Entwurf. */
     var repoDraft by remember { mutableStateOf<RepoDraft?>(null) }
 
     /* Ort fuer das Fehlerprotokoll: Bei jedem Bildschirmwechsel neu (2026-08-16

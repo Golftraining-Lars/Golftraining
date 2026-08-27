@@ -29,6 +29,15 @@
       index.html, Changelog-Kopf in MainActivity.kt, dieser Kopf hier.
    2. Bei JEDER Änderung: diese Datei anpassen (Verträge und neue Prüfungen)
       und die Doku aktuell halten. Die Sperrklinken unten erzwingen beides.
+   2b. RUECKBAU: NACH TYPEN SUCHEN, NICHT NUR NACH AUFRUFEN. Wer etwas
+      loescht, sucht die Aufrufstellen (`Caddy.plan(`) — und uebersieht die
+      TYP-Angaben (`mutableStateOf<Caddy.Plan?>(null)`). Genau daran ist der
+      erste Bau von Uhr-Fassung (40) mit vier Compilerfehlern gescheitert,
+      NACH einem gruenen Pruefstand. Der Pruefstand ist Node und kann kein
+      Kotlin uebersetzen; deshalb prueft Abschnitt „Gleichlauf Uhr ↔ App"
+      jetzt zusaetzlich auf verwaisten Zustand mit geloeschten Typen. Bei
+      einem Kotlin-Rueckbau gilt trotzdem: einmal am Rechner uebersetzen,
+      bevor man ihn fuer fertig haelt.
    3. PRUEFUNGEN AUF ABWESENHEIT laufen durch `ktOhneKommentar()` bzw.
       `codeOhneDoku()`. Der Kommentar, der erklaert, warum etwas NICHT mehr
       dasteht, enthaelt zwangslaeufig genau die Zeichenfolge, nach der die
@@ -5973,6 +5982,30 @@ group("Gleichlauf Uhr ↔ App — dieselbe Frage, dieselbe Antwort");
          !/fun GameplanScreen\(/.test(ktCode) && !/"gameplan"/.test(ktCode));
       ok("samt ihrer Daten", !/PlanHole|parsePlans/.test(ktCode));
 
+      /* ====================================================================
+         KEIN VERWAISTER ZUSTAND — DIE LÜCKE, DIE (40) GEKOSTET HAT
+         --------------------------------------------------------------------
+         Der erste Bau von (40) brach mit vier Compilerfehlern ab: In
+         `GolfWatchApp` stand noch
+             var plan by remember { mutableStateOf<Caddy.Plan?>(null) }
+         und daneben `var gpKurs` für den gelöschten Gameplan-Bildschirm.
+         WARUM ES DURCHRUTSCHTE: Beim Abbau wurde nach AUFRUFEN gesucht —
+         `Caddy.plan(`, `GameplanScreen(`. Eine TYP-Angabe (`Caddy.Plan?`) ist
+         kein Aufruf und fällt durch dieses Raster; ein Zustand, den niemand
+         mehr liest, meldet sich von selbst nur als Warnung, nicht als Fehler.
+         Erst der Compiler auf dem Rechner hat es gefunden — also nach dem
+         grünen Prüfstand, was der teuerste Zeitpunkt ist.
+         DIESE PRÜFUNG SUCHT DESHALB NACH TYPEN, nicht nach Aufrufen. Sie
+         greift auch dann, wenn beim nächsten Abbau wieder nur die
+         Aufrufstellen gesucht werden.
+         (Ein echter Compilerlauf ginge hier nicht — der Prüfstand ist Node,
+         kein Kotlin. Diese Prüfung ist der Ersatz dafür, und sie deckt genau
+         die Fehlerklasse ab, die aufgetreten ist.) */
+      ok("kein verwaister Zustand mit gelöschtem Typ",
+         !/Caddy\.Plan|CourseGeo\?|HoleGeo\?|GeoFeature|ElevProfil|PlanHole/.test(ktCode));
+      ok("und kein Zustand für gelöschte Bildschirme",
+         !/gpKurs/.test(ktCode));
+
       /* --- KOPPLUNGSTEST ---
          Die Aufgaben „geo", „caddy" und „lie" verglichen Rechnungen. Sie
          fallen mit dem Rechenwerk; die Gegenseite muss ZEITGLEICH fallen
@@ -6747,7 +6780,7 @@ group("Live-Zeiger — beide Geräte, dieselbe Regel");
        zusaetzlich, dass der Changelog einen Eintrag fuer GENAU diese Kennung
        hat — beides zusammen faengt „Code geaendert, Fassung vergessen" und
        „Fassung gezogen, Changelog vergessen". */
-    ok("und die Kennung ist aktuell", /WATCH_APP = "2026-08-26 \(40\)"/.test(kt));
+    ok("und die Kennung ist aktuell", /WATCH_APP = "2026-08-27 \(41\)"/.test(kt));
     ok("das Handy zeigt sie", /function watchFassung\(\)/.test(src));
 
     /* --- STARTBILDSCHIRM (2026-08-25 (20)) ---
