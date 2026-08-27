@@ -28,7 +28,9 @@ import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.background
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.clickable
+import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.gestures.scrollBy
@@ -51,7 +53,6 @@ import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.app.NotificationCompat
@@ -171,6 +172,8 @@ import kotlin.math.sqrt
  *     android:foregroundServiceType="location"> (siehe Kommentar unten).
  *
  *  3. ANZEIGE  (NEU GEFASST 2026-08-26 (38))
+ *     ZWEI WEGE IN EINE RUNDE, BEIDE VOM HANDY (44): „Runde vom Handy holen"
+ *     und „Fortsetzen". Einen Alleinstart auf der Uhr gibt es nicht.
  *     ZWEI SEITEN, gewischt: Seite 0 SCORE, Seite 1 DETAILS. Eine dritte
  *     Seite mit Entfernungen und Caddy gab es bis (37); sie ist entfallen,
  *     siehe 0. ZWECK.
@@ -184,13 +187,21 @@ import kotlin.math.sqrt
  *         Abgleich („⟳12m"). Die Guete ist seit (38) die einzige
  *         Qualitaetsgroesse der Uhr: Start- und Endpunkt einer Messung gehen
  *         direkt in die gelernten Schlaegerlaengen des Handys ein.
+ *       · KEIN „Sichern & abschliessen" und kein Verwerfen (44) — beides
+ *         passiert am Handy. Der Fortschritt steht als Auskunft da.
  *       · Score, Putts, Tee-Ergebnis, Tee-Schlaeger, Approach-Block,
  *         Rest zur Fahne, Putt-Felder, Bunker/Strafen, Mitspieler (je
  *         EROEFFNETEM Platz eine Zeile, Beschriftung vom Handy oder
  *         „Mitspieler 2" — siehe `object Mitspieler`),
  *         Rubrik „Runde" (Lochpfeile, „+ Mitspieler", ↶ letzter Schlag,
  *         Abschluss, Übersicht).
- *       · UNTEN FEST VERANKERT EIN EINZIGER SCHLAG-KNOPF (43):
+ *       · OBEN LINKS EIN RUNDER SCHLAG-KNOPF (44, 48 dp): grau „📐" bereit,
+ *         gruen „■" waehrend der Aufnahme, Langdruck bricht ab. Er liegt UEBER
+ *         der Liste und kostet keine Freihaltung. Die gelaufene Strecke steht
+ *         waehrend der Aufnahme in der Kopfzeile.
+ *         SCHLAEGER UND SCHWUNG stehen waehrend einer Aufnahme GANZ OBEN in
+ *         der Liste; sie springt beim Aufnahmestart dorthin.
+ *         ÜBERHOLT — so war es in (43):
  *         „📐 Schlag 4" bzw. „■ 47 m", mittig auf 72 % der Breite. Er scrollt
  *         NICHT mit: Man tippt ihn beim Ball, mit Handschuh, ohne hinzusehen.
  *         LANGDRUCK bricht eine laufende Aufnahme ab.
@@ -364,6 +375,63 @@ import kotlin.math.sqrt
  *  ------------------------------------------------------------------------
  *  CHANGELOG (neueste zuerst — bei JEDER Änderung ergänzen: Datum · was · wo)
  *  ------------------------------------------------------------------------
+ *  2026-08-27 (44) · DAS HANDY BESITZT DIE RUNDE. SCHLAG-KNOPF OBEN LINKS.
+ *     VIER VORGABEN VOM 27.08., mit drei Fotos belegt:
+ *     (1) SCHLAG-KNOPF ALS RUNDER BUTTON OBEN LINKS — „da behindert er am
+ *         wenigsten". Dritter Anlauf, und die Reihenfolge ist die Lehre:
+ *           (38) vier Chips ueber die volle Breite unten -> auf einem RUNDEN
+ *                Display blieben Stummel („1", „✕ S", „Pu", „Sch").
+ *           (43) EIN breiter Knopf unten, 72 % -> lesbar, kostete aber 78 dp
+ *                Freihaltung und lag im Weg.
+ *           (44) EIN RUNDER Knopf, 48 dp, oben links, UEBER der Liste.
+ *         WARUM RUND DIE RICHTIGE FORM IST: Ein Kreis hat keine Ecken, die
+ *         ueber die Bildrundung hinausragen koennen — genau das war der
+ *         Fehler von (38). Und er kostet KEINE Freihaltung: Die Liste laeuft
+ *         unter ihm durch, im Ruhezustand steht das erste Element wegen
+ *         `autoCentering` ohnehin tiefer. Die 78 dp am Listenende sind wieder
+ *         frei.
+ *         KEINE BESCHRIFTUNG, nur ein Zeichen: grau „📐" heisst bereit, gruen
+ *         „■" heisst Aufnahme laeuft. Bei 48 dp ist jeder Text ein Stummel;
+ *         die gelaufene Strecke steht waehrend der Aufnahme in der KOPFZEILE,
+ *         wo Platz dafuer ist. Langdruck bricht ab (unveraendert aus (43)).
+ *     (2) KEIN „SICHERN & ABSCHLIESSEN" AUF DER UHR. `finishAndClose`, der
+ *         Chip in der Rubrik „Runde" und `onFinish` sind weg. Der Fortschritt
+ *         bleibt als Auskunft stehen („12 von 18 Loechern erfasst ·
+ *         Abschliessen am Handy") — er war der Grund, warum man dorthin
+ *         scrollt.
+ *     (3) KEIN VERWERFEN UND KEIN ALLEINSTART. `onDiscard`, `pushDiscarded`,
+ *         `onNew`, `PickScreen`, der Bildschirm „pick" und `onSide` sind
+ *         entfernt. Es bleiben ZWEI Wege in eine Runde, beide vom Handy aus:
+ *         „Runde vom Handy holen" und „Fortsetzen".
+ *         WARUM DAS MEHR IST ALS AUFRAEUMEN: Solange eine Runde an ZWEI Orten
+ *         entstehen und enden konnte, gab es zwei Zustaende ueber dieselbe
+ *         Sache. Genau daran hingen die Mitspieler-Meldung von heute (die Uhr
+ *         fuehrte eine eigene Liste) und die offene Frage, wer bei
+ *         Rundenumfang und EDS fuehrt. Ein Weg weniger ist kein Verlust an
+ *         Funktion, sondern einer an Widerspruchsmoeglichkeit.
+ *         LESEN UND SCHREIBEN BLEIBEN GETRENNT: Die Uhr LIEST die
+ *         Verworfen-Marke weiter (`discardedTs`) und beendet ihre Runde, wenn
+ *         das Handy sie setzt — nur schreiben tut sie sie nicht mehr.
+ *         `side` bleibt als Zustand, wird aber nur noch UEBERNOMMEN
+ *         (`side = dr.side`), nie auf der Uhr gesetzt.
+ *     (4) EINE AUF DER UHR BEGONNENE MESSUNG ERSCHEINT AM HANDY.
+ *         `recLiveJson()` schickte den Live-Zeiger erst, wenn ein SCHLAEGER
+ *         gewaehlt war — mit der Begruendung „vorher hat das Handy nichts
+ *         anzuzeigen". Das war falsch: Anzuzeigen ist, DASS eine Messung
+ *         laeuft und WO sie begann. Und die Bedingung traf ausgerechnet den
+ *         wichtigsten Moment — man tippt „Schlag hier", geht los und waehlt
+ *         den Schlaeger unterwegs; seit (43) faellt beides in dieselben
+ *         Sekunden. `club` und `swing` reisen jetzt NUR MIT, WENN SIE SCHON
+ *         DA SIND.
+ *         DIE ZWEITE URSACHE LAG AM HANDY: Das Band fuer die Uhr-Aufnahme gibt
+ *         es dort seit PWA v1.68 und hatte KEINEN EINZIGEN Aufrufer — nur das
+ *         Vollbild baute sich ein eigenes. In der Eingabemaske, wo man die
+ *         halbe Runde verbringt, stand nichts. Behoben in PWA v4.86.
+ *     PRUEFSTAND: neue Riegel in 24cp — kein Alleinstart, kein Abschliessen,
+ *     kein Verwerfen auf der Uhr, aber die Verworfen-Marke wird weiter
+ *     befolgt; Rundenumfang nur uebernommen; Live-Zeiger ohne
+ *     Schlaeger-Bedingung; Knopf oben links, rund, ohne `fillMaxWidth()`.
+ *
  *  2026-08-27 (43) · SCHLAGTRACKEN: EIN KNOPF STATT VIER STUMMEL.
  *     GEMELDET mit Foto: „Die Art wie das Schlagtracken auf der Uhr
  *     integriert ist, ist nicht gut. Ich kann kaum was erkennen." Auf dem Bild
@@ -2757,7 +2825,7 @@ import kotlin.math.sqrt
 /* Fassungskennung der Uhr-App — steht im Kopplungstest neben der der PWA.
    Bei JEDER Aenderung hier mitziehen; sonst vergleicht man zwei Staende und
    glaubt, sie seien gleich (2026-08-15 (13)). */
-private const val WATCH_APP = "2026-08-27 (43)"
+private const val WATCH_APP = "2026-08-27 (44)"
 /* ==========================================================================
    WAS HAT DIESE FASSUNG GEAENDERT? (2026-08-25 (22))
    --------------------------------------------------------------------------
@@ -2772,8 +2840,8 @@ private const val WATCH_APP = "2026-08-27 (43)"
    das seine eigenen Kommentare liest, bricht beim naechsten Umbau lautlos.
    Der Pruefstand haelt stattdessen fest, dass beides zusammenpasst. */
 private const val WATCH_NOTE =
-    "Schlagtracken: EIN grosser Knopf unten statt vier Stummel. " +
-    "Schlaeger und Schwung stehen waehrend der Aufnahme oben in der Liste."
+    "Runder Schlag-Knopf oben links. Runde anlegen, abschliessen und " +
+    "verwerfen nur noch am Handy (braucht PWA 4.86)."
 
 private const val WORKER_URL = "https://golftraining-save.larsdohrmann24.workers.dev"
 /* DER RUNDENENTWURF ALS EIGENE, KLEINE DATEI (2026-08-14, Worker ab v2.6)
@@ -3562,10 +3630,11 @@ private object Net {
         } catch (e: Exception) { if (e.istAbbruch()) throw e; Fehler.add("probe.json schreiben", e); false }
     }
 
-    /** Schreibt NUR die Verworfen-Marke — damit ist die Runde auf beiden
-     *  Geraeten beendet. */
-    fun pushDiscarded(): Boolean =
-        pushDraftFile { JSONObject().put("discardedTs", isoNow()) }
+    /* `pushDiscarded` entfernt (2026-08-27 (44)) — sie schrieb die
+       Verworfen-Marke ins Repo. Verwerfen passiert nur noch am Handy.
+       DIE UHR LIEST DIE MARKE WEITERHIN (`RepoDraft.discardedTs`) und beendet
+       ihre Runde, wenn das Handy sie setzt — nur schreiben tut sie sie nicht
+       mehr. Lesen und Schreiben sind hier zwei verschiedene Rechte. */
 
     /* ------------------------------------------------------------------
        KRITISCHER FIX (2026-08-08): openData() hat vorher eine BEREITS
@@ -6705,7 +6774,9 @@ fun GolfWatchApp(
         mutableStateOf<String?>(null)
     }
 
-    // Rundenumfang: "18 Loch" | "Front 9" | "Back 9" (Vokabular der PWA)
+    /* Rundenumfang: "18 Loch" | "Front 9" | "Back 9" (Vokabular der PWA).
+       SEIT (44) NUR NOCH UEBERNOMMEN, nie auf der Uhr gesetzt — er steht in
+       der Runde des Handys (`dr.side`) und wird beim Holen mitgezogen. */
     var side by remember {
         mutableStateOf("18 Loch")
     }
@@ -6986,18 +7057,30 @@ fun GolfWatchApp(
        Build mit „Unresolved reference 'recLiveJson'" in syncNow() ab.
        `rec` ist weiter oben als remember-Zustand deklariert, passt also.
 
-       Nur wenn bereits ein Schlaeger gewaehlt ist — vorher hat das Handy
-       nichts anzuzeigen. */
+       KEIN SCHLAEGER MEHR VORAUSGESETZT (2026-08-27 (44)).
+       Hier stand `val c = r.club ?: return null` mit der Begruendung „vorher
+       hat das Handy nichts anzuzeigen". Das war falsch: Das Handy hat sehr
+       wohl etwas anzuzeigen, naemlich DASS eine Aufnahme laeuft und WO sie
+       begonnen hat. Genau das war die Meldung vom 27.08. — eine auf der Uhr
+       eingeleitete Messung soll am Handy erscheinen.
+       Und die Bedingung traf ausgerechnet den wichtigsten Moment: Man tippt
+       „Schlag hier", geht los und waehlt den Schlaeger unterwegs; bis dahin
+       wusste das Handy nichts. Mit Fassung (43) faellt die Schlaegerwahl in
+       dieselben Sekunden, also blieb der Zeiger oft die halbe Strecke leer.
+       `club` reist jetzt NUR MIT, WENN ES SCHON DA IST. Das Handy kommt damit
+       zurecht (`watchRecBanner` zeigt „Schläger offen") und bietet das
+       Abschliessen erst an, wenn ein Schlaeger feststeht — ein Schlag ohne
+       Schlaeger ist fuer die gelernten Laengen wertlos. */
     fun recLiveJson(): JSONObject? {
         val r = rec ?: return null
         val st = r.start ?: return null
-        val c = r.club ?: return null
         return JSONObject()
             .put("src", "watch")
-            .put("club", c)
             .put("at", r.at)
             .put("lat", st.lat)
             .put("lng", st.lng)
+            .also { o -> r.club?.let { o.put("club", it) } }
+            .also { o -> r.swing?.let { o.put("swing", it) } }
     }
 
     /* ==========================================================================
@@ -7190,54 +7273,21 @@ fun GolfWatchApp(
     }
 
     // Speichern und – bei Erfolg – die App schließen
-    fun finishAndClose() {
-
-        val cs = course ?: return
-
-        status = "sichere…"
-
-        val pending = measurements.toList()
-
-        // Gleiche Momentaufnahme wie in syncNow — die StateMap darf nicht vom
-        // IO-Thread aus durchlaufen werden.
-        val snapEntries = HashMap(entries)
-        val snapTee = tee
-        val snapHi = hi
-        val snapWeather = weather
-        val snapId = roundId
-        val snapSide = side
-
-        scope.launch {
-
-            val res = try {
-                withContext(Dispatchers.IO) {
-                    Net.pushDraft(
-                        buildRoundJson(
-                            cs,
-                            snapTee,
-                            snapHi,
-                            false,
-                            snapEntries,
-                            snapWeather,
-                            snapId,
-                            snapSide
-                        ),
-                        pending
-                    )
-                }
-            } catch (e: Exception) { if (e.istAbbruch()) throw e; Fehler.add("Rundenende senden", e); Net.PushResult(false) }
-
-            if (res.ok) {
-                status = "✓ gespeichert – schließe…"
-                svcStop(ctx)
-                delay(700)
-                activity?.finish()
-            } else {
-                status =
-                    "⚠ Sync-Fehler – nicht geschlossen"
-            }
-        }
-    }
+    /* ==========================================================================
+       `finishAndClose` IST ENTFERNT (2026-08-27 (44))
+       --------------------------------------------------------------------------
+       VORGABE VOM 27.08.: Sichern, Abschliessen und Verwerfen einer Runde
+       passieren AUSSCHLIESSLICH am Handy.
+       Die Uhr schrieb hier die fertige Runde ins Repo und schloss sich
+       danach selbst. Das war der zweite Weg, auf dem eine Runde entstehen und
+       enden konnte — und ein zweiter Weg heisst zwei Zustaende, die
+       auseinanderlaufen koennen. Die Runde liegt ohnehin vollstaendig im
+       Entwurf (`draft.json`); das Handy macht daraus die gespeicherte Runde,
+       mit Auswertung, Scorekarte und Handicap.
+       WAS DIE UHR STATTDESSEN TUT: nichts. Sie hoert auf zu funken, wenn das
+       Handy den Grabstein setzt (`discardedTs`) oder die Runde abschliesst —
+       genau wie bisher.
+       ========================================================================== */
 
     /* ==========================================================================
        EIGENE SCHLEIFE FUER DAS PROTOKOLL (2026-08-25 (15))
@@ -8327,7 +8377,6 @@ fun GolfWatchApp(
     // -> der PositionIndicator im Scaffold kann den aktiven State anzeigen,
     // -> Drehkrone/Lünette scrollen über rotaryScrollModifier().
     val homeListState = rememberScalingLazyListState()
-    val pickListState = rememberScalingLazyListState()
     val playListState = rememberScalingLazyListState()
     val pickerListState = rememberScalingLazyListState()
 
@@ -8371,7 +8420,6 @@ fun GolfWatchApp(
             }
 
             // 4. Platzauswahl und Gameplan -> Startbildschirm
-            screen == "pick" -> screen = "home"
 
             // 5. Startbildschirm -> App schließen
             else -> activity?.finish()
@@ -8400,7 +8448,6 @@ fun GolfWatchApp(
 
     // Kurs-Liste und Picker starten immer oben
     LaunchedEffect(screen) {
-        if (screen == "pick") pickListState.scrollToItem(0)
     }
     LaunchedEffect(picker) {
         if (picker != null) pickerListState.scrollToItem(0)
@@ -8420,7 +8467,6 @@ fun GolfWatchApp(
             PositionIndicator(
                 scalingLazyListState = when {
                     picker != null -> pickerListState
-                    screen == "pick" -> pickListState
                     screen == "play" && pagerState.currentPage == 1 -> scoreListState
                     screen == "play" -> playListState
                     else -> homeListState
@@ -8750,50 +8796,23 @@ fun GolfWatchApp(
                     activity?.finish()
                 },
 
-                // ---- Weg 2: Alleinstart ohne Handy ----
-                // Geht IMMER direkt zur Platzauswahl. Kein Blick auf Entwürfe.
-                onNew = {
-
-                    askPerms()
-                    roundId = null
-                    status = ""
-
-                    if (data == null) {
-                        loading = true
-                        scope.launch {
-                            /* SICHERHEITSNETZ (2026-08-16 (12)): Eine Ausnahme in einer
-                               Nebenlaeufigkeit landet beim globalen Auffang und beendet die
-                               GANZE App — nicht nur diesen Ablauf. Auf der Bahn ist das der
-                               schlimmste Fall. Notiert und weiterleben statt abstuerzen. */
-                            try {
-                            val (d, fresh) =
-                                withContext(Dispatchers.IO) { loadData(ctx) }
-                            loading = false
-                            if (d == null || d.courses.isEmpty()) {
-                                status = lastLoadError
-                                    ?: "Keine Plätze — einmal mit Netz starten"
-                            } else {
-                                data = d
-                                dataFresh = fresh
-                                hi = d.hi
-                                if (d.clubs.isNotEmpty()) clubs = d.clubs
-                                screen = "pick"
-                            }
-                        
-                            } catch (e: Exception) {
-            /* ABBRUCH DURCHLASSEN (2026-08-24 (10)): Wer ihn faengt und nicht
-               weiterwirft, sagt dem System „ich mache weiter" — waehrend Compose
-               die Schleife fuer beendet haelt. Zwei Schleifen, die dasselbe
-               schreiben, sind genau der Zustand, in dem „einmal geht es, dann
-               nicht mehr" entsteht. */
-            if (e.istAbbruch()) throw e
-            Fehler.add("Rundenende", e)
-        }
-                        }
-                    } else {
-                        screen = "pick"
-                    }
-                },
+                /* ==========================================================
+                   KEIN ALLEINSTART MEHR (2026-08-27 (44))
+                   ------------------------------------------------------------
+                   VORGABE VOM 27.08.: „Eine Runde nur mit Uhr und ohne Handy
+                   gibt es nicht."
+                   Hier stand `onNew` — Platzauswahl auf der Uhr, Rundenumfang
+                   waehlen, Runde beginnen. Damit gab es ZWEI Orte, an denen
+                   eine Runde entstehen konnte, und zwei Orte heissen zwei
+                   Zustaende, die auseinanderlaufen. Genau daran hingen die
+                   Mitspieler-Meldung vom 27.08. und die Frage, wer bei
+                   Rundenumfang und Namen fuehrt.
+                   ES BLEIBEN ZWEI WEGE, und beide beginnen am Handy:
+                     · „Runde vom Handy holen" (`onFetchPhone`) — der Normalfall,
+                     · „Fortsetzen" (`onResume`) — eine bereits uebernommene
+                       Runde nach App-Neustart oder Akkuwechsel.
+                   `side`/`onSide` (Rundenumfang) faellt mit: Der Umfang steht
+                   in der Runde des Handys und wird uebernommen. */
 
                 onResume = {
 
@@ -8856,24 +8875,11 @@ fun GolfWatchApp(
                     }
                 },
 
-                onDiscard = {
-                    /* GRABSTEIN INS REPO (2026-08-15 (9)): Sonst spielt das
-                       Handy weiter, sein naechster Push legt die Runde wieder
-                       an — und weil der juenger ist, kaeme sie auch hier
-                       zurueck. */
-                    scope.launch { withContext(Dispatchers.IO) { Net.pushDiscarded() } }
-                    clearLocal(ctx)
-                    svcStop(ctx)
-                    // Ohne diese Zeile blieb der Fortsetzen-Button stehen und
-                    // arbeitete weiter mit der gerade gelöschten Runde.
-                    resume = null
-                    entries.clear()
-                    measurements.clear()
-                    course = null
-                    idx = 0
-                    roundStart = null
-                    status = "Runde verworfen"
-                },
+                /* KEIN VERWERFEN AUF DER UHR (44). Es schrieb einen
+                   Grabstein ins Repo und raeumte den lokalen Stand — die
+                   zerstoerendste Handlung der App, ausgeloest mit zwei Tippern
+                   an einem Handgelenk. Verwerfen passiert am Handy, wo man
+                   sieht, was man wegwirft. */
 
                 onKeepScreen = { v ->
                     prefSetB(ctx, "keepScreen", v)
@@ -8891,53 +8897,11 @@ fun GolfWatchApp(
                 }
             )
 
-            "pick" -> PickScreen(
-                data?.courses
-                    ?: emptyList(),
-
-                listState = pickListState,
-
-                side = side,
-
-                onSide = {
-                    side = when (side) {
-                        "18 Loch" -> "Front 9"
-                        "Front 9" -> "Back 9"
-                        else -> "18 Loch"
-                    }
-                },
-
-                onPick = { c ->
-
-                    // Rundenumfang anwenden: die Löcher werden gefiltert,
-                    // damit Zähler, Fortschritt und Abschluss stimmen.
-                    // Filter identisch zu activeHoles() der PWA
-                    val picked = when (side) {
-                        "Front 9" -> c.copy(holes = c.holes.filter { it.hole <= 9 })
-                        "Back 9" -> c.copy(holes = c.holes.filter { it.hole >= 10 })
-                        else -> c
-                    }
-
-                    course = if (picked.holes.isEmpty()) c else picked
-                    tee = c.tee
-
-
-                    entries.clear()
-                    measurements.clear()
-
-                    idx = 0
-                    roundStart = System.currentTimeMillis()
-
-                    clearLocal(ctx)
-                    resume = null
-
-                    screen = "play"
-                },
-
-                onBack = {
-                    screen = "home"
-                }
-            )
+            /* KEIN BILDSCHIRM „pick" MEHR (2026-08-27 (44)) — Platzauswahl und
+               Rundenumfang auf der Uhr sind entfallen. Beides kommt mit der
+               Runde des Handys (`dr.side`, `dr.course`, `dr.tee`); `side`
+               bleibt als Zustand erhalten, WIRD ABER NUR NOCH UEBERNOMMEN,
+               nicht mehr gesetzt. */
 
             "play" -> {
 
@@ -9384,10 +9348,6 @@ fun GolfWatchApp(
                                 lastEditMs = System.currentTimeMillis()
                                 syncNow()
                             }
-                        },
-
-                        onFinish = {
-                            finishAndClose()
                         }
                     )
                 }
@@ -9577,9 +9537,9 @@ private fun HomeScreen(
     /* App wirklich beenden (2026-08-25 (20)). Der Wisch nach rechts schiebt sie
        nur in den Hintergrund, wo GPS und Abgleich weiterlaufen. */
     onQuit: () -> Unit = {},
-    onNew: () -> Unit,
+    /* KEIN `onNew` und KEIN `onDiscard` MEHR (44) — Runden entstehen und enden
+       am Handy. */
     onResume: () -> Unit,
-    onDiscard: () -> Unit,
     onKeepScreen: (Boolean) -> Unit,
     onGpsSource: (String) -> Unit
 ) {
@@ -9592,18 +9552,6 @@ private fun HomeScreen(
         mutableStateOf(gpsSource)
     }
 
-    // „Verwerfen" nur mit Bestätigung (zweiter Tap innerhalb von 4 s) —
-    // schützt die lokal gesicherte Runde vor einem versehentlichen Tipper.
-    var confirmDiscard by remember {
-        mutableStateOf(false)
-    }
-
-    LaunchedEffect(confirmDiscard) {
-        if (confirmDiscard) {
-            delay(4000)
-            confirmDiscard = false
-        }
-    }
 
     ScalingLazyColumn(
         state = listState,
@@ -9689,45 +9637,11 @@ private fun HomeScreen(
                 )
             }
 
-            item {
-
-                Chip(
-                    onClick = {
-                        if (confirmDiscard) {
-                            confirmDiscard = false
-                            onDiscard()
-                        } else {
-                            confirmDiscard = true
-                        }
-                    },
-                    label = {
-                        Text(
-                            if (confirmDiscard)
-                                "Wirklich verwerfen?"
-                            else
-                                "Verwerfen",
-                            color =
-                                if (confirmDiscard)
-                                    RedC
-                                else
-                                    Color.Unspecified
-                        )
-                    },
-                    secondaryLabel = {
-                        Text(
-                            if (confirmDiscard)
-                                "erneut tippen = endgültig löschen"
-                            else
-                                "gespeicherte Runde löschen",
-                            maxLines = 1
-                        )
-                    },
-                    colors =
-                        ChipDefaults.secondaryChipColors(),
-                    modifier =
-                        Modifier.fillMaxWidth()
-                )
-            }
+            /* KEIN „VERWERFEN" MEHR (2026-08-27 (44)). Es war die
+               zerstoerendste Handlung der App, ausgeloest mit zwei Tippern am
+               Handgelenk — und es schrieb einen Grabstein ins Repo, der die
+               Runde auch am Handy beendete. Verwerfen passiert dort, wo man
+               sieht, was man wegwirft. */
         }
 
         // Der Normalweg: Runde am Handy anlegen (Platz, Tee, Umfang, EDS)
@@ -9769,22 +9683,15 @@ private fun HomeScreen(
             )
         }
 
-        // Notnagel: Handy vergessen oder leer. Bewusst kleiner und
-        // sekundär — mit den Einschränkungen im Nebentext.
-        item {
-
-            Chip(
-                onClick = onNew,
-                label = {
-                    Text("⌚ ohne Handy starten", fontSize = 12.sp, maxLines = 1)
-                },
-                colors = ChipDefaults.secondaryChipColors(),
-                /* 48 dp statt der 32 dp eines CompactChip (2026-08-14 (7)):
-                   Wear-Mindestmass fuer Tippflaechen. Das hier ist der Einstieg
-                   in eine Runde OHNE Handy — kein Ziel, das man suchen soll. */
-                modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
-            )
-        }
+        /* KEIN „⌚ OHNE HANDY STARTEN" MEHR (2026-08-27 (44)).
+           VORGABE VOM 27.08.: „Eine Runde nur mit Uhr und ohne Handy gibt es
+           nicht." Der Chip war als Notnagel gedacht und stand mit seinen
+           Einschraenkungen im Nebentext — aber ein zweiter Weg, auf dem eine
+           Runde entsteht, ist ein zweiter Zustand, der auseinanderlaufen kann.
+           Genau daran hingen die Mitspieler-Meldung vom 27.08. und die Frage,
+           wer bei Rundenumfang und EDS fuehrt.
+           ES BLEIBEN ZWEI WEGE, beide vom Handy aus: „Runde vom Handy holen"
+           und „Fortsetzen". */
 
         /* EINSTELLUNGEN NACH UNTEN (2026-08-15 (16)).
            „Display an" und „GPS-Quelle" standen zwischen den Handlungen — auf
@@ -9937,89 +9844,8 @@ private fun HomeScreen(
     }
 }
 
-@Composable
-private fun PickScreen(
-    courses: List<CourseDef>,
-    listState: ScalingLazyListState,
-    side: String,
-    onSide: () -> Unit,
-    onPick: (CourseDef) -> Unit,
-    onBack: () -> Unit
-) {
-
-    ScalingLazyColumn(
-        state = listState,
-        modifier =
-            Modifier
-                .fillMaxSize()
-                .then(rotaryScrollModifier(listState)),
-        horizontalAlignment =
-            Alignment.CenterHorizontally
-    ) {
-
-        item {
-
-            Text(
-                "Platz & Tee",
-                fontWeight =
-                    FontWeight.Bold,
-                style =
-                    MaterialTheme.typography.title3
-            )
-        }
-
-        // Rundenumfang: beim Alleinstart die einzige Stelle, an der er
-        // gesetzt werden kann. Vorher war "18 Loch" hart verdrahtet.
-        item {
-
-            Chip(
-                onClick = onSide,
-                label = { Text(side, fontSize = 12.sp, maxLines = 1) },
-                colors = ChipDefaults.secondaryChipColors(),
-                // 48 dp — Wear-Mindestmass, siehe oben (2026-08-14 (7))
-                modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
-            )
-        }
-
-        items(courses) { c ->
-
-            Chip(
-                onClick = {
-                    onPick(c)
-                },
-                label = {
-                    Text(
-                        c.name,
-                        maxLines = 2
-                    )
-                },
-                secondaryLabel = {
-                    Text(
-                        "${c.tee} · ${c.holes.size} Loch"
-                    )
-                },
-                colors =
-                    ChipDefaults.primaryChipColors(),
-                modifier =
-                    Modifier.fillMaxWidth()
-            )
-        }
-
-        item {
-
-            Chip(
-                onClick = onBack,
-                label = {
-                    Text("Zurück")
-                },
-                colors =
-                    ChipDefaults.secondaryChipColors(),
-                modifier =
-                    Modifier.fillMaxWidth()
-            )
-        }
-    }
-}
+/* `PickScreen` ist entfernt (2026-08-27 (44)) — Platzliste, Tee und
+   Rundenumfang auf der Uhr. Eine Runde entsteht nur noch am Handy. */
 
 @Composable
 private fun PickerScreen(
@@ -10312,8 +10138,8 @@ private fun PlayPager(
     onShotUndo: () -> Unit,
     mitspielerNamen: List<String> = emptyList(),
     onPrev: () -> Unit,
-    onNext: () -> Unit,
-    onFinish: () -> Unit
+    onNext: () -> Unit
+    /* KEIN `onFinish` MEHR (44) — Abschliessen passiert am Handy. */
 ) {
 
     val scope = rememberCoroutineScope()
@@ -10396,7 +10222,6 @@ private fun PlayPager(
                             onPick = onPick,
                             onPrev = onPrev,
                             onNext = onNext,
-                            onFinish = onFinish,
                             onHome = onHome,
                             shotCount = shotCount,
                             onShotUndo = onShotUndo,
@@ -10512,7 +10337,7 @@ private fun ScorePage(
     ) -> Unit,
     onPrev: () -> Unit,
     onNext: () -> Unit,
-    onFinish: () -> Unit,
+    /* KEIN `onFinish` MEHR (44) — Abschliessen passiert am Handy. */
     onHome: () -> Unit,
     /* ZURUECKNEHMEN sitzt jetzt HIER statt auf der Loch-Seite. Dort teilte es
        sich den Platz mit „Aufnahme abbrechen" — zwei zerstoerende Aktionen an
@@ -10581,7 +10406,7 @@ private fun ScorePage(
         if (recActive) listState.scrollToItem(0)
     }
 
-    var confirmFinish by remember { mutableStateOf(false) }
+    /* `confirmFinish` entfaellt (44) — es gibt nichts mehr zu bestaetigen. */
 
     var confirmUndo by remember { mutableStateOf(false) }
 
@@ -10589,13 +10414,6 @@ private fun ScorePage(
         if (confirmUndo) {
             delay(4000)
             confirmUndo = false
-        }
-    }
-
-    LaunchedEffect(confirmFinish) {
-        if (confirmFinish) {
-            delay(4000)
-            confirmFinish = false
         }
     }
 
@@ -10710,12 +10528,22 @@ private fun ScorePage(
                         else if (toPar < 0) PineText
                         else GoldText
                 )
+                /* WAEHREND EINER AUFNAHME STEHT HIER DIE GELAUFENE STRECKE (44).
+                   Der runde Knopf oben links ist zu klein fuer eine Zahl; die
+                   Kopfzeile hat den Platz, und man schaut dort ohnehin hin.
+                   Sonst wie bisher die GPS-Guete — die einzige
+                   Qualitaetsgroesse der Uhr. */
                 Text(
-                    (gpsAcc?.let { "±$it m" } ?: (gpsErr ?: "warte auf GPS…")) +
-                            (if (syncStale) syncAge?.let { " · ⟳$it" } ?: "" else ""),
+                    if (recActive)
+                        "■ ${recDist ?: 0} m" +
+                                (recClubName?.let { " · $it" } ?: " · Schläger?")
+                    else
+                        (gpsAcc?.let { "±$it m" } ?: (gpsErr ?: "warte auf GPS…")) +
+                                (if (syncStale) syncAge?.let { " · ⟳$it" } ?: "" else ""),
                     fontSize = 11.sp,
                     color =
-                        if (syncStale) RedC
+                        if (recActive) PineText
+                        else if (syncStale) RedC
                         else if (gpsAcc == null || gpsAcc >= 10) RedC
                         else InkFaint,
                     maxLines = 1
@@ -11047,31 +10875,19 @@ private fun ScorePage(
             }
         }
 
+        /* KEIN „SICHERN & ABSCHLIESSEN" MEHR (2026-08-27 (44)).
+           VORGABE VOM 27.08.: Sichern, Abschliessen und Verwerfen passieren
+           AUSSCHLIESSLICH am Handy.
+           Der Fortschritt bleibt aber sichtbar — er war der eigentliche Grund,
+           warum man hier hinunterscrollt. Er steht jetzt als reine Auskunft
+           da, ohne Knopf dahinter. */
         item {
-            Chip(
-                onClick = {
-                    if (confirmFinish) {
-                        confirmFinish = false
-                        onFinish()
-                    } else {
-                        confirmFinish = true
-                    }
-                },
-                label = {
-                    Text(
-                        if (confirmFinish) "Wirklich abschließen?"
-                        else "Sichern & abschließen"
-                    )
-                },
-                secondaryLabel = {
-                    Text(
-                        if (confirmFinish) "erneut tippen — App schließt sich"
-                        else "$thru von $total Löchern erfasst",
-                        maxLines = 1
-                    )
-                },
-                colors = ChipDefaults.primaryChipColors(),
-                modifier = Modifier.fillMaxWidth()
+            Text(
+                "$thru von $total Löchern erfasst\nAbschließen am Handy",
+                fontSize = 11.sp,
+                color = InkFaint,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.padding(horizontal = 10.dp)
             )
         }
 
@@ -11107,64 +10923,45 @@ private fun ScorePage(
             }
         }
 
-        /* FREIHALTUNG FUER DEN VERANKERTEN KNOPF (52 dp + 18 dp Rand, (43)).
-           Ohne sie liegt die letzte Zeile der Liste darunter — und das ist
-           ausgerechnet „Sichern & abschliessen". */
-        item { Spacer(Modifier.height(78.dp)) }
+        /* KEINE FREIHALTUNG MEHR NOETIG (44): Der Schlag-Knopf sitzt oben
+           links ueber der Liste und verdeckt unten nichts. Eine kleine
+           Reserve bleibt, damit die letzte Zeile nicht am Rand klebt. */
+        item { Spacer(Modifier.height(12.dp)) }
     }
 
         /* ======================================================================
-           EIN KNOPF, NICHT VIER — DIE RUNDUNG BESTIMMT DIE BREITE (43)
+           RUNDER KNOPF OBEN LINKS (2026-08-27 (44))
            ----------------------------------------------------------------------
-           GEMELDET am 27.08. mit Foto: „Ich kann kaum was erkennen." Zu Recht.
-           (38) setzte hier eine Reihe aus bis zu VIER Chips ueber die volle
-           Breite an den unteren Rand — auf ein RUNDES Display. Uebrig blieben
-           Stummel: „1", „✕ S", „Pu", „Sch"; die Chips liefen ueber die Rundung
-           hinaus und lagen auf den Seitenpunkten des Pagers.
-           DIE RECHNUNG, die ich (38) nicht gemacht habe: Auf einem Kreis mit
-           Radius r ist die nutzbare Breite in der Hoehe y ueber der Mitte
-           2·√(r²−y²). Ein Streifen, dessen Mitte 0,8 r unter der Bildmitte
-           liegt, hat noch rund 60 % der Bildbreite — nicht 100 %. Vier
-           Tippflaechen passen dort nicht, egal wie man sie anordnet.
-           DESHALB: EIN Knopf, mittig, auf 72 % der Breite, mit Abstand ueber
-           den Seitenpunkten. Kurze Beschriftung, damit sie auch bei 60 %
-           nutzbarer Breite ganz dasteht.
-           SCHLAEGER UND SCHWUNG ZIEHEN IN DIE LISTE — dorthin, wo der Kreis am
-           breitesten ist und eine Zeile die volle Breite hat. Sie erscheinen
-           NUR waehrend einer Aufnahme, ganz oben, und die Liste springt beim
-           Start dorthin: „Schlag hier" tippen, Schlaeger waehlen, losgehen.
-           Dieselbe Zahl an Handgriffen wie vorher, nur mit Flaechen, die man
-           mit Handschuh trifft.
-           ABBRECHEN: LANGDRUCK auf denselben Knopf, mit Vibration. Ein
-           fuenfter Chip waere wieder ein Stummel; und Abbrechen ist selten,
-           Stoppen ist der Normalfall — die haeufige Handlung bekommt den
-           kurzen Weg. */
-        Chip(
-            onClick = { if (recActive) onShotStop() else onShotBegin() },
-            label = {
-                Text(
-                    if (recActive) "■ ${recDist ?: 0} m"
-                    else "📐 Schlag ${shotCount + 1}",
-                    fontSize = 16.sp,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.fillMaxWidth()
-                )
-            },
-            colors =
-                if (recActive) ChipDefaults.primaryChipColors()
-                else ChipDefaults.secondaryChipColors(),
+           (43) hatte den Knopf unten breit gemacht — lesbar, aber er nahm dort
+           78 dp Freihaltung und lag im Weg. VORGABE VOM 27.08.: „oben links
+           als runder Button, da behindert er am wenigsten."
+           DIE GEOMETRIE STIMMT DORT BESSER, als sie klingt: Ein Kreis von
+           48 dp, dessen Mittelpunkt rund 0,26 der Bildbreite von links und
+           0,24 der Hoehe von oben liegt, hat vom Bildmittelpunkt etwa 0,74 r
+           Abstand und bleibt mit seinem Rand innerhalb von 0,85 r — also
+           vollstaendig auf der Scheibe. Ein RUNDER Knopf ist hier genau
+           richtig: Er hat keine Ecken, die ueber die Rundung hinausragen
+           koennen, und das war der Fehler von (38).
+           ER LIEGT UEBER DER LISTE. Das ist gewollt und der Grund, warum er
+           „am wenigsten behindert": Er kostet KEINE Freihaltung mehr (die
+           78 dp am Listenende sind wieder frei), und die Liste laeuft unter
+           ihm durch. Im Ruhezustand steht das erste Listenelement wegen
+           `autoCentering` ohnehin tiefer.
+           KEINE BESCHRIFTUNG, nur ein Zeichen — bei 48 dp Durchmesser ist
+           jeder Text ein Stummel. Der Zustand steckt in Farbe und Zeichen:
+           grau „📐" heisst bereit, gruen „■" heisst Aufnahme laeuft. Die
+           gelaufene Strecke steht waehrend der Aufnahme in der Kopfzeile der
+           Liste, wo Platz dafuer ist.
+           LANGDRUCK BRICHT AB, mit Vibration — unveraendert aus (43). */
+        Box(
             modifier = Modifier
-                .align(Alignment.BottomCenter)
-                /* 72 % — siehe die Rechnung oben. NICHT auf `fillMaxWidth()`
-                   zurueckstellen; genau das war der gemeldete Fehler. */
-                .fillMaxWidth(0.72f)
-                // 18 dp: die Seitenpunkte des Pagers bleiben darunter frei
-                .padding(bottom = 18.dp)
-                // 52 dp statt der 48 dp Mindestmass: Dies ist der einzige
-                // Knopf, den man beim Ball ohne Hinsehen trifft.
-                .heightIn(min = 52.dp)
+                .align(Alignment.TopStart)
+                .padding(start = 16.dp, top = 18.dp)
+                .size(48.dp)
+                .clip(CircleShape)
+                .background(
+                    if (recActive) PineText else Color(0xFF2A2A2A)
+                )
                 .combinedClickable(
                     onClick = { if (recActive) onShotStop() else onShotBegin() },
                     onLongClick = {
@@ -11173,8 +10970,16 @@ private fun ScorePage(
                             onShotCancel()
                         }
                     }
-                )
-        )
+                ),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                if (recActive) "■" else "📐",
+                fontSize = if (recActive) 18.sp else 20.sp,
+                color = if (recActive) Color.Black else GoldText,
+                maxLines = 1
+            )
+        }
     }
 }
 

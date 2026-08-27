@@ -13,6 +13,24 @@
 
 ---
 
+- **v4.52.0 · 2026-08-24** — **Der Spiegelfehler: Das Handy löschte den Zeiger der Uhr, bevor er
+  gesehen wurde.** v4.51 hat die Uhr repariert — und das Umschalten funktionierte trotzdem nicht,
+  weil **beide** Geräte denselben Fehler machten.
+  **Auf dem Handy sitzt er in `playSaveDraft`:** Dort wird `DB._draftRound = {round, ts,
+  live:_phoneLive(r)}` gebaut — der Zeiger wird also **vollständig ersetzt**, samt dem, was gerade
+  von der Uhr kam. Und weil das Handy bei **jeder Eingabe und jedem GPS-Takt** speichert, war der
+  Zeiger der Uhr weg, bevor `playAdoptRemoteHole` ihn überhaupt sehen konnte. Die Follower-Logik war
+  da und richtig — sie kam nur nie zum Zug.
+  **Wer öfter schreibt, gewinnt — das ist keine Regel, das ist ein Zufall.** Jetzt hält
+  `playHoleStamp()` in `PLAY.holeAt` fest, wann auf **diesem** Gerät zuletzt geblättert wurde.
+  `_phoneLive` übernimmt einen fremden Zeiger **unverändert**, wenn er jünger ist als diese Marke.
+  Spiegelbildlich zu `ownHoleAt` auf der Uhr: **Eine Handlung des Benutzers wiegt schwerer als ein
+  automatischer Zeiger — und das muss auf beiden Geräten gelten.**
+  **Fünf Fälle im Prüfstand**, alle mit echten Werten gerechnet: frischer Uhr-Zeiger überlebt ·
+  eigene jüngere Wahl gewinnt · fremde Runde wird ignoriert · veralteter Zeiger wird nicht
+  wiederbelebt · ohne eigene Marke gewinnt die Uhr (sonst verlöre sie direkt nach dem Rundenstart).
+  Gegenprobe mit zurückgebauter Regel: „erwartet 7, bekommen 1" — genau das gemeldete Symptom.
+
 - **v4.51.0 · 2026-08-24** — **Zwei Sync-Fehler: Das Handy überstimmte immer, und der Abgleich
   brach ein. Beide gefunden, beide behoben.**
   **(1) Der Lochzeiger.** `ownLiveAt` wurde bei **jedem Push** gesetzt — verglichen wurde aber der

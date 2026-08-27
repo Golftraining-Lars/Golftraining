@@ -1545,7 +1545,22 @@ group("Keine Doppelungen zwischen Karten- und Eingabemodus");
      doppelte Rechnung. Die Eingabemaske ist reine Eingabe. */
   ok("Eingabemaske ohne Caddy/Distanzen", form.indexOf("playInfoHtml()")<0);
   ok("Eingabemaske ohne Schlagaufnahme", form.indexOf("shotRecHtml()")<0);
-  ok("Eingabemaske ohne Uhr-Aufnahmeband", form.indexOf("watchRecBanner()")<0);
+  /* ==================================================================
+     DAS UHR-BAND IST DIE AUSNAHME VON DER v2.08-REGEL (v4.86)
+     --------------------------------------------------------------------
+     v2.08 hat Karte, Caddy, Distanzen und Aufnahme aus der Eingabemaske
+     geworfen: alles doppelt, alles teuer (Monte-Carlo, Geo-Raster).
+     DIESE PRÜFUNG IST GEDREHT, weil das Uhr-Band nichts davon ist. Es rechnet
+     nicht und dupliziert nicht — es meldet einen ZUSTAND des ANDEREN Geräts:
+     „auf der Uhr läuft gerade eine Messung".
+     GEMELDET am 27.08.: Genau diese Anzeige fehlte. `watchRecBanner()` gab es
+     seit v1.68 und hatte KEINEN EINZIGEN Aufrufer — nur das Vollbild baute
+     sich ein eigenes Band. In der Eingabemaske, wo man die halbe Runde
+     verbringt, stand nichts.
+     WARUM ES DORT HINGEHÖRT: Wer eine laufende Messung übersieht, lässt sie
+     über das halbe Loch weiterlaufen, und der Endpunkt landet irgendwo. Das
+     ist teurer als eine Zeile HTML. */
+  ok("Eingabemaske ZEIGT das Uhr-Aufnahmeband", form.indexOf("watchRecBanner()")>=0);
   /* Der Weg zur Karte MUSS bleiben, sonst käme man nicht mehr hin. */
   ok("Knopf zur Vollbild-Karte bleibt", form.indexOf("playToggleFocusMap()")>=0);
   /* Fahnensteuerung v1.90 KOMPLETT entfernt: sie war eine Handeingabe pro
@@ -6044,53 +6059,54 @@ group("Gleichlauf Uhr ↔ App — dieselbe Frage, dieselbe Antwort");
       const blkS2 = iS2 < 0 ? "" : kt.slice(iS2, kt.indexOf("private fun DetailPage(", iS2));
       ok("die Lochpfeile stehen in ihrer Kopfzeile",
          /onHolePrev\?\.invoke\(\)/.test(blkS2) && /onHoleNext\?\.invoke\(\)/.test(blkS2));
-      /* Der Schlag-Knopf MUSS fest sein: Man tippt ihn beim Ball, mit
-         Handschuh, ohne hinzusehen. Eine Schaltfläche, die man erst
-         herscrollen muss, wird auf der Runde nicht benutzt — und dann fehlt
-         die Messung, die der einzige Zweck dieser App ist. */
-      ok("der Schlag-Knopf ist am unteren Rand verankert",
-         /\.align\(Alignment\.BottomCenter\)/.test(blkS2));
       /* ==================================================================
-         EIN KNOPF, NICHT VIER — DIE RUNDUNG BESTIMMT DIE BREITE (43)
+         RUNDER KNOPF OBEN LINKS (2026-08-27 (44))
          --------------------------------------------------------------------
-         GEMELDET am 27.08. mit Foto: „Ich kann kaum was erkennen." (38) setzte
-         dort eine Reihe aus bis zu vier Chips über die VOLLE Breite — auf ein
-         RUNDES Display. Übrig blieben Stummel: „1", „✕ S", „Pu", „Sch".
-         Die Rechnung, die (38) nicht gemacht hat: Auf einem Kreis mit Radius r
-         ist die nutzbare Breite in der Höhe y über der Mitte 2·√(r²−y²). Ein
-         Streifen weit unten hat noch rund 60 % der Bildbreite, nicht 100 %.
-         Diese Prüfung ist der Riegel dagegen — sie schlägt an, sobald dort
-         wieder `fillMaxWidth()` ohne Anteil steht. */
+         DRITTER ANLAUF, und die Reihenfolge ist die Lehre:
+           (38) vier Chips ueber die volle Breite unten — auf einem RUNDEN
+                Display blieben Stummel uebrig („1", „✕ S", „Pu", „Sch").
+           (43) ein breiter Knopf unten, 72 % — lesbar, aber er kostete 78 dp
+                Freihaltung und lag im Weg.
+           (44) EIN RUNDER Knopf oben links, ueber der Liste. Vorgabe vom
+                27.08.: „da behindert er am wenigsten."
+         WARUM RUND DIE RICHTIGE FORM IST: Ein Kreis hat keine Ecken, die
+         ueber die Bildrundung hinausragen koennen — genau das war der Fehler
+         von (38). Und er kostet KEINE Freihaltung: Die Liste laeuft unter ihm
+         durch, im Ruhezustand steht das erste Element wegen `autoCentering`
+         ohnehin tiefer.
+         Diese Pruefungen sind der Riegel gegen einen vierten Anlauf zurueck
+         nach unten. */
       {
         const knopf = ktOhneKommentar(blkS2);
-        ok("und nimmt nicht die volle Breite (rundes Display)",
-           /\.fillMaxWidth\(0\.72f\)/.test(knopf));
-        ok("es ist ein einzelner Knopf, keine Reihe",
-           !/Row\([\s\S]{0,150}?\.align\(Alignment\.BottomCenter\)/.test(knopf));
-        /* Abbrechen liegt auf dem LANGDRUCK desselben Knopfes: Ein zweiter
-           Chip wäre wieder ein Stummel, und Abbrechen ist selten — die
-           häufige Handlung (Stoppen) bekommt den kurzen Weg. */
+        ok("der Schlag-Knopf sitzt oben links",
+           /\.align\(Alignment\.TopStart\)/.test(knopf));
+        ok("und ist rund", /\.clip\(CircleShape\)/.test(knopf) && /\.size\(48\.dp\)/.test(knopf));
+        ok("er ist ein einzelner Knopf, keine Reihe",
+           !/Row\([\s\S]{0,150}?\.align\(Alignment\.(TopStart|BottomCenter)\)/.test(knopf));
+        /* KEIN `fillMaxWidth()` mehr an einem verankerten Element — auf einem
+           runden Display ist die volle Breite am Rand schlicht gelogen. */
+        ok("und nimmt keine volle Breite in Anspruch",
+           !/\.align\(Alignment\.(TopStart|BottomCenter)\)[\s\S]{0,200}?\.fillMaxWidth\(\)/.test(knopf));
+        /* Abbrechen liegt auf dem LANGDRUCK desselben Knopfes: Ein zweites
+           Ziel waere wieder ein Stummel, und Abbrechen ist selten — die
+           haeufige Handlung (Stoppen) bekommt den kurzen Weg. */
         ok("Abbrechen liegt auf dem Langdruck",
            /onLongClick = \{[\s\S]{0,220}?onShotCancel\(\)/.test(knopf));
+        /* Bei 48 dp Durchmesser ist jeder Text ein Stummel — die gelaufene
+           Strecke gehoert in die Kopfzeile, wo Platz dafuer ist. */
+        ok("die gelaufene Strecke steht in der Kopfzeile",
+           /if \(recActive\)\s*\n\s*"■ \$\{recDist \?: 0\} m"/.test(knopf));
+        /* Und die Freihaltung unten ist wieder frei geworden. */
+        ok("unten wird kein Platz mehr freigehalten",
+           !/Spacer\(Modifier\.height\(7\d\.dp\)\)/.test(knopf)
+           && !/contentPadding/.test(knopf));
       }
-      /* SCHLÄGER UND SCHWUNG ZOGEN IN DIE LISTE, wo eine Zeile die volle
-         Breite hat — und nur während einer Aufnahme, ganz oben. */
+      /* SCHLÄGER UND SCHWUNG stehen während einer Aufnahme in der Liste, wo
+         eine Zeile die volle Breite hat — und nur dann, ganz oben. */
       ok("Schläger und Schwung stehen während der Aufnahme in der Liste",
          /SelectRow\("⛳ Schläger"/.test(blkS2) && /SelectRow\("↗ Schwung"/.test(blkS2));
-      /* Ohne den Sprung nach oben stünden sie beim Aufnahmestart irgendwo —
-         und beim Ball sucht niemand. */
       ok("und die Liste springt beim Aufnahmestart dorthin",
          /LaunchedEffect\(recActive\)[\s\S]{0,120}?listState\.scrollToItem\(0\)/.test(blkS2));
-      /* Der Platz dafür wird als LETZTES LISTENELEMENT freigehalten, nicht
-         über contentPadding: `autoCentering` rechnet oben und unten eigenen
-         Platz dazu und überdeckt den Wert. Sonst läge ausgerechnet
-         „Sichern & abschließen" darunter.
-         (Und die Abwesenheits-Prüfung läuft durch `ktOhneKommentar` — der
-         Kommentar, der erklärt, warum `contentPadding` hier NICHT steht,
-         darf nicht der Befund sein.) */
-      ok("und der Platz dafür als Spacer freigehalten",
-         /Spacer\(Modifier\.height\(78\.dp\)\)/.test(blkS2)
-         && !/contentPadding/.test(ktOhneKommentar(blkS2)));
       ok("die GPS-Güte steht in der Kopfzeile", /gpsAcc/.test(blkS2) && /±\$it m/.test(blkS2));
     }
 
@@ -6811,7 +6827,7 @@ group("Live-Zeiger — beide Geräte, dieselbe Regel");
        zusaetzlich, dass der Changelog einen Eintrag fuer GENAU diese Kennung
        hat — beides zusammen faengt „Code geaendert, Fassung vergessen" und
        „Fassung gezogen, Changelog vergessen". */
-    ok("und die Kennung ist aktuell", /WATCH_APP = "2026-08-27 \(43\)"/.test(kt));
+    ok("und die Kennung ist aktuell", /WATCH_APP = "2026-08-27 \(44\)"/.test(kt));
     ok("das Handy zeigt sie", /function watchFassung\(\)/.test(src));
 
     /* --- STARTBILDSCHIRM (2026-08-25 (20)) ---
@@ -11309,6 +11325,50 @@ group("Mitspieler — der Platz trägt die Zahlen, der Name nur das Etikett");
      gewollt war. Wer (39) wiederbeleben will, liest zuerst diesen Absatz. */
   if (kt) {
     const ktC = ktOhneKommentar(kt);
+    /* ======================================================================
+       DAS HANDY BESITZT DIE RUNDE — ANFANG WIE ENDE (2026-08-27 (44))
+       ----------------------------------------------------------------------
+       VORGABE VOM 27.08.: „Sichern, Abschließen und Verwerfen ausschließlich
+       über das Handy." Und: „Eine Runde nur mit Uhr und ohne Handy gibt es
+       nicht."
+       WARUM DAS MEHR IST ALS AUFRÄUMEN: Solange eine Runde an ZWEI Orten
+       entstehen und enden konnte, gab es zwei Zustände über dieselbe Sache.
+       Genau daran hingen die Mitspieler-Meldung vom 27.08. (die Uhr führte
+       eine eigene Liste) und die offene Frage, wer bei Rundenumfang und EDS
+       führt. Ein Weg weniger ist hier kein Verlust an Funktion, sondern einer
+       an Widerspruchsmöglichkeit.
+       ES BLEIBEN ZWEI WEGE IN EINE RUNDE, beide vom Handy aus:
+       „Runde vom Handy holen" und „Fortsetzen". */
+    ok("kein Alleinstart auf der Uhr",
+       !/PickScreen/.test(ktC) && !/onNew/.test(ktC) && !/"pick"/.test(ktC));
+    ok("kein Abschließen auf der Uhr",
+       !/finishAndClose/.test(ktC) && !/onFinish/.test(ktC)
+       && !/Sichern & abschließen/.test(ktC));
+    ok("kein Verwerfen auf der Uhr",
+       !/onDiscard/.test(ktC) && !/pushDiscarded/.test(ktC));
+    /* ABER: LESEN UND SCHREIBEN SIND ZWEI VERSCHIEDENE RECHTE. Die Uhr muss
+       die Verworfen-Marke weiterhin LESEN und ihre Runde beenden, wenn das
+       Handy sie setzt — sonst funkt sie für eine Runde weiter, die es nicht
+       mehr gibt, und ihr nächster Push legt sie wieder an. */
+    ok("aber die Verworfen-Marke wird weiter befolgt", /discardedTs/.test(ktC));
+    /* Der Rundenumfang kommt mit der Runde des Handys und wird nur noch
+       übernommen — auf der Uhr gibt es nichts mehr zu wählen. */
+    ok("der Rundenumfang wird nur noch übernommen",
+       !/onSide/.test(ktC) && /side = dr\.side/.test(ktC));
+    /* ======================================================================
+       EINE AUF DER UHR BEGONNENE MESSUNG MUSS AM HANDY ERSCHEINEN (44)
+       ----------------------------------------------------------------------
+       GEMELDET am 27.08. `recLiveJson()` schickte den Zeiger erst, wenn ein
+       SCHLÄGER gewählt war („vorher hat das Handy nichts anzuzeigen"). Das war
+       falsch: Anzuzeigen ist, DASS eine Messung läuft und WO sie begann. Und
+       die Bedingung traf den wichtigsten Moment — man tippt „Schlag hier",
+       geht los und wählt den Schläger unterwegs. */
+    ok("die laufende Messung reist ohne Schläger-Bedingung",
+       /fun recLiveJson\(\): JSONObject\? \{[\s\S]{0,400}?\}/.test(ktC)
+       && !/val c = r\.club \?: return null/.test(ktC));
+    ok("der Schläger reist mit, sobald er feststeht",
+       /r\.club\?\.let \{[\s\S]{0,60}?put\("club"/.test(ktC));
+
     ok("die Zeilen hängen an den Namen des Handys",
        /mitspielerNamen\.take\(3\)\.forEachIndexed/.test(ktC)
        && !/repeat\(mitspielerN/.test(ktC));
