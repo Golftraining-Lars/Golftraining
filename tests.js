@@ -152,10 +152,35 @@ const COVERAGE_BASELINE_FUNCS = ("dgmAktiv dgmStatus " +
     "wikiHydrateMedia wikiNormTag wikiPlayYt wikiSuggest wikiTagsOf windArrowChar ytIdFrom"
 ).split(" ");
 
+/* ==========================================================================
+   ABDECKUNGS-SPERRKLINKE MIT RUECKWEG (v4.88, Audit W-2)
+   --------------------------------------------------------------------------
+   Bis hierher war die Sperrklinke einseitig: Sie verhinderte, dass NEUE
+   ungetestete Funktionen dazukommen — aber nichts drueckte den Altbestand
+   nach unten. Beim Audit am 27.08.2026 standen 202 reine Funktionen und 17
+   der 43 STRAT-Methoden ohne Verhaltenstest da, und die Zahl bewegte sich
+   seit Wochen nicht.
+   ZWEI AENDERUNGEN:
+   1. Acht STRAT-Methoden sind abgedeckt und HIER GESTRICHEN — `_halton`,
+      `_interp`, `_invNorm`, `_off`, `_segDist`, `esOffset`, `playingLevel`,
+      `samples` (Abschnitt 24da2). Dort sitzt die Golf-Fachlichkeit: Streuung,
+      Erwartungswerte, Zielverschiebung.
+   2. Die Laenge beider Listen ist gedeckelt (`ABDECKUNG_DECKEL` unten). Der
+      Deckel darf nur SINKEN. Wer eine Altlast abdeckt, streicht sie hier und
+      senkt den Deckel; wer eine ungetestete Funktion nachtraegt, kommt nicht
+      daran vorbei.
+   WARUM EIN DECKEL UND KEINE QUOTE: Eine Quote steigt auch, wenn jemand
+   getestete Funktionen hinzufuegt — sie belohnt Wachstum statt Abdeckung.
+   Die Laenge dieser Liste ist die ehrliche Zahl: Sie zaehlt genau das, was
+   noch offen ist.
+   ========================================================================== */
 const COVERAGE_BASELINE_STRAT = (
-    "_fp _halton _interp _invNorm _off _segDist esOffset grid learnFromGps" +" "+
-    "learnLateralFromRounds planCourse planFor planHole playingLevel pointESTo samples shotEV"
+    "_fp grid learnFromGps" +" "+
+    "learnLateralFromRounds planCourse planFor planHole pointESTo shotEV"
 ).split(" ");
+
+/* NUR SENKEN, NIE ANHEBEN. Stand 27.08.2026 nach Abschnitt 24da2. */
+const ABDECKUNG_DECKEL = { funcs: 202, strat: 9 };
 
 let pass = 0, fail = 0;
 const fails = [];
@@ -236,6 +261,8 @@ try {
                  "schlagNeutral","neutralBasis","gpsShotsNachziehen","elevQuelle","elevQuelleText","dgmRahmen","dgmIdx","dgmZelleMitte","dgmZellen","dgmHoehe","dgmNeigung","dgmKey",
                  "STRAT","clubPick","playsLike","pinPoint","geoDist","playMapBox",
                  "liveStart","liveStop","liveStopAll","liveVerbraucher","LIVEPOS",
+                 "kalibrierBericht","kalibrierText","_kalibMedian","_kalibMad","_kalibTauglich",
+                 "KALIB_MIN_JE_CLUB","KALIB_MIN_GESAMT",
                  "selfCheck","PLAY","escShort","_short","clubShort","windRel","tempFactor","DB",
                  "courseTee","activeHoles","roundDurationMin","mergeDB","_mergeArr","_mergeTs",
                  "whsIndexOf","classifyProps","holeRefFromTags","bearingDeg","dataScore",
@@ -12437,6 +12464,300 @@ group("gpsShots — die Messungen der Uhr überleben den Abgleich");
 }
 
 /* ============ 24ce. GPS-Tick und Runden-Sync ============ */
+/* ============ 24db2. Kalibrierung — rechnet playsLike für MICH richtig? ============ */
+group("Kalibrierung — die Rechnung an den eigenen Schlägen gemessen");
+{
+  const KB = G("kalibrierBericht"), KT = G("kalibrierText"),
+        KM = G("_kalibMedian"), KMAD = G("_kalibMad"), KTG = G("_kalibTauglich"),
+        MIN_C = G("KALIB_MIN_JE_CLUB"), MIN_G = G("KALIB_MIN_GESAMT");
+
+  /* ====================================================================
+     WARUM DIESE GRUPPE (Audit vom 27.08.2026, W-3)
+     --------------------------------------------------------------------
+     Die Koeffizienten in `playsLike` sind plausibel, aber GESETZT — nie an
+     Lars' eigenen Schlägen gemessen. Seit v4.80.1 liegen die Daten dafür da.
+     DIE PRÜFBARE BEHAUPTUNG: Wenn `playsLike` richtig rechnet, streuen die
+     neutralisierten Werte je Schläger WENIGER als die rohen. Wird die
+     Streuung durch die Rechnung größer, ist ein Koeffizient falsch oder ein
+     Vorzeichen verdreht.
+     Diese Prüfungen füttern den Bericht mit KONSTRUIERTEN Daten, bei denen
+     die richtige Antwort feststeht — sonst prüfte er sich selbst. */
+  if (typeof KM === "function") {
+    ok("_kalibMedian bei ungerader Anzahl", KM([3, 1, 2]) === 2);
+    ok("und bei gerader Anzahl mittelt", KM([1, 2, 3, 4]) === 2.5);
+    ok("leer liefert null", KM([]) === null);
+    /* MAD einer symmetrischen Reihe: Median 3, Abweichungen 2,1,0,1,2 ->
+       Median davon ist 1. */
+    ok("_kalibMad rechnet die robuste Streuung", KMAD([1, 2, 3, 4, 5]) === 1,
+       String(KMAD([1, 2, 3, 4, 5])));
+    /* DER GRUND FÜR MAD STATT STANDARDABWEICHUNG: Ein einzelner
+       GPS-Ausreißer darf das Urteil nicht kippen. Die Standardabweichung
+       dieser Reihe springt von 1,4 auf über 30 — der MAD bleibt bei 1. */
+    ok("und ein Ausreißer kippt sie nicht", KMAD([1, 2, 3, 4, 5, 200]) <= 2,
+       String(KMAD([1, 2, 3, 4, 5, 200])));
+  }
+
+  if (typeof KTG === "function") {
+    const gut = { club: "7 Iron", dist: 150, distNeutral: 152 };
+    ok("ein voller Schlag zählt", KTG(gut));
+    ok("ein Teilschwung nicht", !KTG(Object.assign({}, gut, { swing: "Halb" })));
+    /* Ein Chip von 12 m sagt über die Länge eines Schlägers nichts — und
+       verzerrt die Streuung nach unten. */
+    ok("ein kurzer Schlag nicht", !KTG(Object.assign({}, gut, { dist: 12 })));
+    ok("ohne Neutralwert nicht", !KTG({ club: "7 Iron", dist: 150 }));
+    ok("ohne Schläger nicht", !KTG({ dist: 150, distNeutral: 150 }));
+  }
+
+  if (typeof KB === "function" && typeof KT === "function") {
+    const mk = (club, dist, neutral, extra) =>
+      Object.assign({ club, dist, distNeutral: neutral }, extra || {});
+
+    /* ---- Zu wenig Daten: schweigen, nicht raten ---- */
+    const wenig = KB([mk("7 Iron", 150, 150)]);
+    ok("zu wenig Schläge -> kein Urteil", wenig.genug === false, JSON.stringify(wenig));
+    ok("und der Text sagt, was fehlt", /Zu wenig gemessene Schläge/.test(KT(wenig)));
+
+    /* ---- Genug Schläge, aber auf zu viele Schläger verteilt ----
+       Zwanzig Messungen über zwanzig Schläger sagen über Streuung nichts. */
+    const verteilt = KB(Array.from({ length: 24 }, (_, i) =>
+      mk("Club" + i, 150, 150)));
+    ok("ohne Schläger mit genug Messungen -> kein Urteil", verteilt.genug === false);
+    ok("und der Text nennt den Grund", /genug Messungen/.test(KT(verteilt)));
+
+    /* ---- DER KERNFALL: Die Rechnung HILFT ----
+       Rohe Werte streuen um ±20 m (Wind), die neutralisierten liegen eng
+       beieinander. Erwartung: deutliche Verbesserung, positives Urteil. */
+    /* MINDESTENS `KALIB_MIN_GESAMT` Schläge — mein erster Anlauf nahm zwölf,
+       der Bericht urteilte deshalb gar nicht, und `bh.madRoh` war undefined.
+       Die Schwelle steht in der App; hier wird sie GELESEN, nicht abgeschrieben. */
+    const hilft = [];
+    for (let i = 0; i < Math.max(24, MIN_G); i++)
+      hilft.push(mk("7 Iron", 150 + (i % 2 ? 20 : -20), 150 + (i % 2 ? 1 : -1)));
+    const bh = KB(hilft);
+    ok("Bericht kommt zustande", bh.genug === true, JSON.stringify(bh.n));
+    /* Das Detail-Argument wird IMMER ausgewertet, auch wenn die Prüfung
+       besteht — `undefined.toFixed()` reißt dann den ganzen Lauf ab statt
+       eine Zeile rot zu färben. Deshalb hier durchweg abgesichert. */
+    const z1 = v => (v == null ? "—" : (+v).toFixed(1));
+    ok("rohe Streuung ist groß", bh.madRoh >= 15, z1(bh.madRoh));
+    ok("neutralisierte Streuung ist klein", bh.madNeutral <= 3, z1(bh.madNeutral));
+    ok("die Verbesserung wird als Prozent gemeldet", bh.besserProzent > 80,
+       z1(bh.besserProzent) + " %");
+    ok("und der Text urteilt positiv", /hilft deutlich/.test(KT(bh)), KT(bh).split("\n")[0]);
+
+    /* ---- DER FALL, DER WEHTUT: Die Rechnung SCHADET ----
+       Genau dafür ist der Bericht da. Wäre ein Vorzeichen im Wind verdreht,
+       sähe es so aus: rohe Werte eng, neutralisierte weit. Das MUSS als
+       Warnung herauskommen und nicht als Zahl unter vielen. */
+    const schadet = [];
+    for (let i = 0; i < Math.max(24, MIN_G); i++)
+      schadet.push(mk("7 Iron", 150 + (i % 2 ? 1 : -1), 150 + (i % 2 ? 25 : -25)));
+    const bs = KB(schadet);
+    ok("eine verschlechternde Rechnung fällt auf", bs.besserProzent < -50,
+       z1(bs.besserProzent) + " %");
+    ok("und wird als Warnung ausgesprochen", /⚠[\s\S]*GRÖSSER/.test(KT(bs)),
+       KT(bs).split("\n")[0]);
+
+    /* ---- Gewichtung: viele Messungen wiegen schwerer ----
+       Ein Schläger mit 30 sauberen Messungen darf nicht von einem mit sechs
+       verrauschten überstimmt werden. */
+    const gemischt = [];
+    for (let i = 0; i < 30; i++) gemischt.push(mk("Driver", 240 + (i % 2 ? 2 : -2), 240 + (i % 2 ? 1 : -1)));
+    for (let i = 0; i < 6; i++)  gemischt.push(mk("PW", 100 + (i % 2 ? 30 : -30), 100 + (i % 2 ? 30 : -30)));
+    const bg = KB(gemischt);
+    ok("beide Schläger sind im Bericht", bg.clubs.length === 2, String(bg.clubs.length));
+    ok("der mit mehr Messungen steht vorn", bg.clubs[0].n === 30, String(bg.clubs[0].n));
+    ok("und die Gesamtstreuung folgt ihm", bg.madNeutral < 8, z1(bg.madNeutral));
+
+    /* ---- Ehrlichkeit über die eigene Grundlage ----
+       Ein Koeffizienten-Fit braucht die Bedingungen JE SCHLAG. Altdaten
+       haben sie nicht — der Bericht muss das sagen statt zu raten. */
+    ok("ohne Bedingungen kein Fit", bh.fitMoeglich === false);
+    ok("und der Text erklärt, warum", /fehlen die Bedingungen je Schlag/.test(KT(bh)));
+    const mitWx = hilft.map(x => Object.assign({}, x, { wx: { t: 15, w: 5, d: 180, b: 0 } }));
+    const bw = KB(mitWx.concat(mitWx.slice(0, 10)));
+    ok("mit Bedingungen wird ein Fit möglich", bw.fitMoeglich === true,
+       bw.mitBedingungen + " Schläge");
+  }
+}
+
+/* ============ 24da2. STRAT-Bausteine — gegen bekannte Wahrheiten ============ */
+group("STRAT-Bausteine — Mathematik, die man nachrechnen kann");
+{
+  const S = G("STRAT");
+
+  /* ====================================================================
+     WARUM DIESE GRUPPE (Audit vom 27.08.2026, W-2)
+     --------------------------------------------------------------------
+     17 der 43 STRAT-Methoden hatten keinen Verhaltenstest — und dort sitzt
+     die Golf-Fachlichkeit: Streuung, Erwartungswerte, Zielwahl. Der
+     Prüfstand bewachte sie nur als Namen in der Abdeckungs-Sperrklinke.
+     GEPRÜFT WIRD GEGEN BEKANNTE WAHRHEITEN, nicht gegen sich selbst: Die
+     Quantile der Normalverteilung stehen in jeder Tabelle, eine Halton-Folge
+     hat bekannte erste Glieder, und ein Punkt 100 m nach Norden liegt
+     0,000905° weiter nördlich. So findet die Prüfung einen Vorzeichenfehler
+     auch dann, wenn die Funktion sich selbst gegenüber konsistent bleibt. */
+  if (S) {
+    /* ---- _invNorm: Quantile der Standardnormalverteilung ----
+       Feste Anker aus der Tabelle. Die Acklam-Näherung ist auf rund 1e-9
+       genau; 1e-4 ist großzügig und findet trotzdem jeden Vorzeichen- oder
+       Skalenfehler. */
+    if (typeof S._invNorm === "function") {
+      [[0.5, 0], [0.975, 1.959964], [0.025, -1.959964],
+       [0.84134, 1.0], [0.15866, -1.0], [0.99, 2.326348]].forEach(([p2, soll]) => {
+        const ist = S._invNorm(p2);
+        ok("_invNorm(" + p2 + ") ≈ " + soll, Math.abs(ist - soll) < 1e-4, String(ist));
+      });
+      /* Symmetrie ist die Eigenschaft, die ein halber Tippfehler zerstört. */
+      ok("_invNorm ist punktsymmetrisch",
+         Math.abs(S._invNorm(0.3) + S._invNorm(0.7)) < 1e-6);
+      ok("und monoton steigend", S._invNorm(0.2) < S._invNorm(0.4) && S._invNorm(0.4) < S._invNorm(0.6));
+    }
+
+    /* ---- _halton: van-der-Corput-Folge, erste Glieder sind bekannt ----
+       Basis 2: 1/2, 1/4, 3/4, 1/8 … Basis 3: 1/3, 2/3, 1/9 …
+       Diese Folge trägt die GANZE Monte-Carlo-Rechnung: Wäre sie falsch,
+       wären alle Streuungsergebnisse schief, ohne dass irgendetwas auffällt. */
+    if (typeof S._halton === "function") {
+      [[1, 2, 0.5], [2, 2, 0.25], [3, 2, 0.75], [4, 2, 0.125],
+       [1, 3, 1 / 3], [2, 3, 2 / 3], [3, 3, 1 / 9]].forEach(([i, b, soll]) => {
+        ok("_halton(" + i + "," + b + ") = " + soll.toFixed(4),
+           Math.abs(S._halton(i, b) - soll) < 1e-12, String(S._halton(i, b)));
+      });
+      /* Sie muss im Einheitsintervall bleiben — sonst liefert `_invNorm`
+         später ±Unendlich und die Streuung kippt. */
+      let drin = true;
+      for (let i = 1; i <= 300; i++) { const v = S._halton(i, 2); if (!(v >= 0 && v < 1)) drin = false; }
+      ok("_halton bleibt in [0,1)", drin);
+    }
+
+    /* ---- samples: 150 Punktepaare für die Monte-Carlo-Streuung ----
+       Der Mittelwert muss nahe null liegen und die Streuung nahe eins —
+       sonst ist die simulierte Streuung systematisch zu eng oder zu weit,
+       und der Caddy empfiehlt durchgehend zu mutig oder zu brav. */
+    if (typeof S.samples === "function") {
+      const sm = S.samples();
+      ok("samples liefert 150 Paare", Array.isArray(sm) && sm.length === 150, String(sm && sm.length));
+      const xs = sm.map(x => x[0]), ys = sm.map(x => x[1]);
+      const mit = a => a.reduce((s2, v) => s2 + v, 0) / a.length;
+      const sd = a => { const m = mit(a); return Math.sqrt(a.reduce((s2, v) => s2 + (v - m) * (v - m), 0) / a.length); };
+      ok("Mittelwert nahe null", Math.abs(mit(xs)) < 0.15 && Math.abs(mit(ys)) < 0.15,
+         mit(xs).toFixed(3) + " / " + mit(ys).toFixed(3));
+      ok("Streuung nahe eins", Math.abs(sd(xs) - 1) < 0.2 && Math.abs(sd(ys) - 1) < 0.2,
+         sd(xs).toFixed(3) + " / " + sd(ys).toFixed(3));
+      ok("und ist zwischenspeichert (gleiche Folge)", S.samples() === sm);
+    }
+
+    /* ---- _off: Punkt verschieben, vorwärts und seitlich ----
+       mLat/mLng sind Meter je Grad. Ein Punkt 100 m nach NORDEN (brg 0)
+       liegt 100/110540 = 0,000905° weiter nördlich, die Länge bleibt.
+       SEITWÄRTS IST RECHTS POSITIV — genau das Vorzeichen, das man bei einer
+       Zielverschiebung vertauscht, und dann zielt der Caddy spiegelverkehrt. */
+    if (typeof S._off === "function") {
+      const mLat = 110540, mLng = 111320 * Math.cos(54 * Math.PI / 180);
+      const p0 = [54, 10];
+      const n100 = S._off(p0, 0, 100, 0, mLat, mLng);
+      ok("_off: 100 m nach Norden", Math.abs(n100[0] - (54 + 100 / mLat)) < 1e-9
+         && Math.abs(n100[1] - 10) < 1e-9, JSON.stringify(n100));
+      const o100 = S._off(p0, 90, 100, 0, mLat, mLng);
+      ok("_off: 100 m nach Osten", Math.abs(o100[1] - (10 + 100 / mLng)) < 1e-9
+         && Math.abs(o100[0] - 54) < 1e-9, JSON.stringify(o100));
+      /* Blickrichtung Norden, 50 m nach rechts = nach Osten. */
+      const r50 = S._off(p0, 0, 0, 50, mLat, mLng);
+      ok("_off: seitlich rechts zeigt nach Osten", r50[1] > 10 && Math.abs(r50[0] - 54) < 1e-9,
+         JSON.stringify(r50));
+      ok("und links nach Westen", S._off(p0, 0, 0, -50, mLat, mLng)[1] < 10);
+    }
+
+    /* ---- _segDist: Abstand Punkt zu Strecke, in Metern ----
+       Trägt die Sichtlinien-Prüfung (steht ein Baum im Weg?) und die
+       Fairway-Korridor-Näherung. Ein Fehler hier macht aus einem blockierten
+       Schlag einen freien. */
+    if (typeof S._segDist === "function") {
+      const mLat = 110540, mLng = 111320 * Math.cos(54 * Math.PI / 180);
+      const a = [54, 10], b = [54 + 200 / mLat, 10];        // 200 m nach Norden
+      /* Punkt 100 m nördlich, 30 m östlich -> lotrechter Abstand 30 m. */
+      const p1 = [54 + 100 / mLat, 10 + 30 / mLng];
+      ok("_segDist: lotrecht neben der Strecke ≈ 30 m",
+         Math.abs(S._segDist(p1, a, b, mLat, mLng) - 30) < 0.5,
+         S._segDist(p1, a, b, mLat, mLng).toFixed(2));
+      /* Punkt AUF der Strecke -> 0. */
+      ok("auf der Strecke ≈ 0",
+         S._segDist([54 + 50 / mLat, 10], a, b, mLat, mLng) < 0.01);
+      /* HINTER dem Ende: Der Abstand misst zum ENDPUNKT, nicht zur
+         verlängerten Geraden — sonst gälte ein Baum 100 m hinter dem Grün
+         als „auf der Linie". */
+      const p2 = [54 + 300 / mLat, 10];
+      ok("hinter dem Ende zählt der Endpunkt",
+         Math.abs(S._segDist(p2, a, b, mLat, mLng) - 100) < 0.5,
+         S._segDist(p2, a, b, mLat, mLng).toFixed(2));
+      /* Entartete Strecke (a==b) darf nicht durch null teilen. */
+      ok("Punktstrecke liefert den reinen Abstand",
+         Math.abs(S._segDist([54 + 10 / mLat, 10], a, a, mLat, mLng) - 10) < 0.5);
+    }
+
+    /* ---- _interp: Stützstellen linear verbinden, außerhalb extrapolieren ----
+       Damit werden ALLE Erwartungstabellen gelesen. */
+    if (typeof S._interp === "function") {
+      const tab = [[0, 1], [10, 2], [20, 4]];
+      ok("_interp trifft die Stützstelle", S._interp(tab, 10) === 2);
+      ok("und interpoliert dazwischen", Math.abs(S._interp(tab, 5) - 1.5) < 1e-9,
+         String(S._interp(tab, 5)));
+      ok("unterhalb gilt der erste Wert", S._interp(tab, -5) === 1);
+      /* OBERHALB WIRD EXTRAPOLIERT, nicht gedeckelt — ein 450-m-Loch soll
+         nicht die Erwartung eines 420-m-Lochs bekommen. */
+      ok("oberhalb wird extrapoliert", S._interp(tab, 30) > 4, String(S._interp(tab, 30)));
+    }
+
+    /* ---- esOffset: der HCP-Zuschlag auf die Scratch-Baseline ----
+       Er ist die einzige Stelle, an der DEIN Niveau in die Erwartung eingeht.
+       Richtungen, die stimmen müssen: mehr HCP -> mehr Zuschlag; weiter weg
+       -> mehr Zuschlag; schwerere Lage -> mehr Zuschlag; Scratch -> null. */
+    if (typeof S.esOffset === "function") {
+      ok("Scratch bekommt keinen Zuschlag", S.esOffset(150, "fairway", 0) === 0);
+      ok("mehr Handicap, mehr Zuschlag",
+         S.esOffset(150, "fairway", 20) > S.esOffset(150, "fairway", 10));
+      ok("weiter weg, mehr Zuschlag",
+         S.esOffset(200, "fairway", 20) > S.esOffset(80, "fairway", 20));
+      ok("Sand kostet mehr als Fairway",
+         S.esOffset(100, "sand", 20) > S.esOffset(100, "fairway", 20));
+      ok("Grün kostet am wenigsten",
+         S.esOffset(20, "green", 20) < S.esOffset(20, "fairway", 20));
+      /* Größenordnung: Ein 20er-Spieler braucht rund einen Schlag je Loch
+         mehr als Scratch. Aus 150 m Fairway sollte der Zuschlag also im
+         Bereich weniger Zehntel liegen — nicht 0,01 und nicht 2. */
+      const z = S.esOffset(150, "fairway", 20);
+      ok("und bleibt in plausibler Größenordnung", z > 0.15 && z < 1.2, z.toFixed(3));
+    }
+
+    /* ---- playingLevel: das eigene Niveau aus den letzten Runden ----
+       Ohne Runden darf es nicht abstürzen und muss etwas Brauchbares
+       liefern — sonst steht der Caddy beim ersten Gebrauch ohne Grundlage da. */
+    if (typeof S.playingLevel === "function") {
+      const DB0 = G("DB");
+      const alt = DB0.rounds, altC = S._esPlayCache;
+      try {
+        S._esPlayCache = null; DB0.rounds = [];
+        const leer = S.playingLevel();
+        ok("playingLevel ohne Runden liefert eine Zahl", isFinite(leer), String(leer));
+        /* Zwölf Runden mit je +18 über Par -> Niveau um 18. */
+        S._esPlayCache = null;
+        DB0.rounds = Array.from({ length: 12 }, (_, i) => ({
+          date: "2026-08-" + String(10 + i).padStart(2, "0"),
+          holes: Array.from({ length: 18 }, () => ({ par: 4, score: 5 }))
+        }));
+        const v = S.playingLevel();
+        ok("und folgt den eigenen Ergebnissen", isFinite(v) && Math.abs(v - 18) < 6, String(v));
+        /* Runden mit weniger als neun gewerteten Löchern zählen nicht —
+           eine abgebrochene Runde ist keine Standortbestimmung. */
+        S._esPlayCache = null;
+        DB0.rounds = [{ date: "2026-08-20", holes: [{ par: 4, score: 9 }, { par: 4, score: 9 }] }];
+        ok("kurze Runden verzerren es nicht", isFinite(S.playingLevel()), String(S.playingLevel()));
+      } finally { DB0.rounds = alt; S._esPlayCache = altC; }
+    }
+  }
+}
+
 /* ============ 24cy. Kein Worker-Aufruf ohne Frist ============ */
 group("Funk — jeder Aufruf darf verloren gehen, keiner darf hängen");
 {
@@ -14450,9 +14771,38 @@ group("Abdeckung — verhindert, dass der Prüfstand veraltet");
     console.log("   Hinweis: aus der Sperrklinke streichbar (nicht mehr vorhanden): " +
       totF.concat(totS).slice(0, 12).join(", "));
 
-  const abgedeckt = kandidaten.length - COVERAGE_BASELINE_FUNCS.filter(n=>n&&alleF.has(n)).length;
+  const offenF = COVERAGE_BASELINE_FUNCS.filter(n=>n&&alleF.has(n)).length;
+  const offenS = COVERAGE_BASELINE_STRAT.filter(n=>n&&alleS.has(n)).length;
+  const abgedeckt = kandidaten.length - offenF;
   console.log(`   Abdeckung: ${abgedeckt}/${kandidaten.length} reine Funktionen, ` +
-    `${stratNamen.length - COVERAGE_BASELINE_STRAT.filter(n=>n&&alleS.has(n)).length}/${stratNamen.length} STRAT-Methoden`);
+    `${stratNamen.length - offenS}/${stratNamen.length} STRAT-Methoden`);
+
+  /* ====================================================================
+     DER DECKEL DARF NUR SINKEN (v4.88, Audit W-2)
+     --------------------------------------------------------------------
+     Die Sperrklinke darüber verhindert NEUE ungetestete Funktionen. Sie
+     verhindert nicht, dass der Altbestand liegen bleibt — und genau das tat
+     er: 202 reine Funktionen und 17 von 43 STRAT-Methoden ohne
+     Verhaltenstest, seit Wochen unbewegt.
+     `ABDECKUNG_DECKEL` ist die Zahl der noch offenen Altlasten. Sie darf
+     nicht wachsen. Wer eine abdeckt, streicht sie oben aus der Liste und
+     senkt den Deckel um eins — das ist ein Handgriff und macht den
+     Fortschritt sichtbar. Wer eine ungetestete Funktion nachträgt, kommt
+     nicht daran vorbei.
+     KEINE QUOTE: Eine Prozentzahl steigt auch, wenn jemand getestete
+     Funktionen hinzufügt — sie belohnt Wachstum statt Abdeckung. Die
+     absolute Zahl der offenen Posten ist die ehrliche Größe. */
+  ok("Deckel für offene reine Funktionen nicht überschritten",
+     offenF <= ABDECKUNG_DECKEL.funcs,
+     offenF + " offen, Deckel " + ABDECKUNG_DECKEL.funcs);
+  ok("Deckel für offene STRAT-Methoden nicht überschritten",
+     offenS <= ABDECKUNG_DECKEL.strat,
+     offenS + " offen, Deckel " + ABDECKUNG_DECKEL.strat);
+  /* Und die Gegenrichtung: Steht der Deckel deutlich ÜBER dem Ist-Stand,
+     wurde beim Abdecken das Nachziehen vergessen. Dann ist er wirkungslos —
+     eine Sperrklinke mit Luft ist keine. */
+  if (offenF < ABDECKUNG_DECKEL.funcs || offenS < ABDECKUNG_DECKEL.strat)
+    console.log(`   Hinweis: Deckel nachziehen auf { funcs: ${offenF}, strat: ${offenS} }`);
 }
 
 /* ========================= Ergebnis ========================= */

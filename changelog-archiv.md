@@ -13,6 +13,26 @@
 
 ---
 
+- **v4.54.0 · 2026-08-24** — **Der letzte Rest der Schieflage: Die Uhr wartete auch nach einer
+  Eingabe auf ihren Takt.**
+  **Zuerst eine Richtigstellung in eigener Sache:** v4.53 hatte die Takte bereits gedreht — ich habe
+  das beim Messen übersehen und die alten Werte zugrunde gelegt (10 s Uhr-Push, 5 s Handy-Takt). Die
+  **Entprellung 1500 → 600 ms stammt aus v4.53**, nicht von hier. Was dort noch fehlte, ist der
+  eigentliche Punkt:
+  **Das Handy sendet bei einer Eingabe sofort** — `playLivePush` ruft `draftPush()` direkt,
+  ausdrücklich „nicht entprellt". **Die Uhr tat das nicht.** Ein Lochwechsel setzte den Zustand und
+  wartete dann auf den nächsten Herzschlag. Selbst mit den kürzeren Takten aus v4.53 bleibt das ein
+  Unterschied zwischen „sofort" und „beim nächsten Mal".
+  **Die Regel, die gefehlt hat:** Eine Handlung des Benutzers sendet **sofort**, sie wartet nicht auf
+  den Takt. Dieselbe Regel wie beim Zeiger-Vorrang in v4.51/v4.52 — nur beim Senden statt beim
+  Übernehmen. Der Lochwechsel setzt jetzt `lastEditMs` und stößt `scheduleSync()` an.
+  **Und eine Doppel-Sperre, damit der Gewinn nicht mit Akku bezahlt wird:** Der Herzschlag lässt
+  einen Durchlauf aus, wenn der letzte Vorgang weniger als 5 s zurückliegt (`Net.letzterPushMs`).
+  Ohne sie schickte jede Eingabe zweimal — einmal sofort, einmal im nächsten Takt.
+  **Der Riegel aus v4.21.1 hat übrigens funktioniert:** Mein Eintrag trug zunächst dieselbe Nummer
+  wie der bestehende, und der Prüfstand hat es gemeldet („keine Fassungsnummer doppelt vergeben").
+  Genau dafür war er gedacht.
+
 - **v4.53.0 · 2026-08-24** — **Abgleich beschleunigt — dort, wo es nichts kostet.** Erst gemessen,
   dann gedreht. Die vier Wege und ihre Verzögerung:
   · Uhr → Repo: 1,5 s Entprellung · Repo → Handy: bis zu 5 s Takt → **bis 6,5 s**
