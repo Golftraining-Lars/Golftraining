@@ -29,7 +29,6 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.pager.HorizontalPager
@@ -356,6 +355,54 @@ import kotlin.math.sqrt
  *  ------------------------------------------------------------------------
  *  CHANGELOG (neueste zuerst — bei JEDER Änderung ergänzen: Datum · was · wo)
  *  ------------------------------------------------------------------------
+ *  2026-08-27 (42) · MITSPIELER: DAS HANDY FUEHRT, DIE UHR SPIEGELT.
+ *     GEMELDET: „Auf der Uhr werden mehr Mitspieler angezeigt als in der
+ *     index.html." Stimmte, und zwar aus ZWEI Gruenden — beide stammten aus
+ *     (39), wo die Uhr selbst Plaetze eroeffnen durfte:
+ *       1. `Mitspieler.plaetze` lag in den Prefs und WUCHS NUR. Wer einmal
+ *          drei Plaetze aufgemacht hatte, sah drei Zeilen — auch auf der
+ *          naechsten Runde, auch wenn das Handy niemanden mehr kannte. Ein
+ *          Zaehler, der nur eine Richtung kennt, ist kein Zustand, sondern
+ *          eine Hochwassermarke.
+ *       2. Uebernommen wurde nur eine NICHT LEERE Liste
+ *          (`if (dr.mitspieler.isNotEmpty())`). Ein am Handy ENTFERNTER
+ *          Mitspieler kam damit NIE auf der Uhr an: Entfernen war die einzige
+ *          Aenderung, die nicht reiste. Fuer sich genommen schon ein Fehler,
+ *          zusammen mit (1) die gemeldete Beobachtung.
+ *     VORGABE VOM 27.08., und sie ist die ganze Fassung: NUR DIE IN DER PWA
+ *     FUER DIESE RUNDE HINTERLEGTEN SPIELER ERSCHEINEN AUF DER UHR.
+ *     UMSETZUNG:
+ *       · `Mitspieler.plaetze`, `plaetzeSetzen` und `label` sind weg; die
+ *         Zeilen entstehen wieder aus `namen`. Die Pref `mitspielerN` wird
+ *         nicht mehr gelesen (sie darf auf alten Geraeten liegen bleiben).
+ *       · Der Chip „+ Mitspieler" in der Rubrik „Runde" ist entfernt.
+ *       · `RepoDraft.mitspieler` ist `List<String>?` statt `List<String>`.
+ *         DAS IST DER KERN: `null` heisst „nicht gesagt" — der Schluessel
+ *         fehlte, der Entwurf stammt von der Uhr selbst; eine LEERE LISTE
+ *         heisst „ausdruecklich keine Mitspieler" und wird uebernommen. Das
+ *         alte `?: emptyList()` machte aus dem einen das andere und haette
+ *         beim naiven Beheben jede Namensliste geloescht.
+ *       · Der Compose-Spiegel traegt jetzt die NAMEN (`mitspielerNamen`)
+ *         statt einer Platzzahl.
+ *       · `buildRoundJson` ECHOT DIE NAMEN NICHT MEHR. (37) tat es aus Sorge,
+ *         der Merge am Handy koennte sie verlieren — nachgemessen in der
+ *         Rundensimulation (v4.84.2, Abschnitt „Entwurfs-Merge") stimmt das
+ *         Gegenteil: Ein FEHLENDER Schluessel wird von `Object.assign`
+ *         uebergangen und die Namen bleiben; ein mitgeschickter, aber
+ *         VERALTETER Stand ueberschreibt sie. Schweigen ist hier der sichere
+ *         Weg. Die Loch-Scores `msc1..msc3` reisen unveraendert weiter — die
+ *         traegt die Uhr ein, sie sind ihre eigene Aussage.
+ *     DER PREIS, ausdruecklich benannt: (39) ist damit wieder weg. Wer die
+ *     Runde auf der Uhr beginnt und das Handy im Bag laesst, kann keinen
+ *     Mitspieler erfassen — die Zeile entsteht erst, wenn das Handy einen
+ *     Namen vergeben hat. Das ist die Kehrseite von „eine Wahrheit", und sie
+ *     ist billiger als zwei Listen, die auseinanderlaufen. Die Meldung vom
+ *     27.08. ist der Beleg dafuer.
+ *     PRUEFSTAND: Abschnitt 24db gedreht — die Pruefungen aus (39) verlangten
+ *     genau das Gegenteil und halten jetzt fest, dass die Umkehr gewollt war.
+ *     Neu geprueft: leere Liste kommt an, fehlender Schluessel nicht, die Uhr
+ *     echot keine Namen, die Loch-Scores reisen weiter.
+ *
  *  2026-08-27 (41) · NACHGEREICHT: VIER COMPILERFEHLER AUS (40).
  *     GEMELDET mit Bildschirmfoto: `:app:compileDebugKotlin` bricht mit vier
  *     Fehlern ab, alle an derselben Stelle:
@@ -2658,7 +2705,7 @@ import kotlin.math.sqrt
 /* Fassungskennung der Uhr-App — steht im Kopplungstest neben der der PWA.
    Bei JEDER Aenderung hier mitziehen; sonst vergleicht man zwei Staende und
    glaubt, sie seien gleich (2026-08-15 (13)). */
-private const val WATCH_APP = "2026-08-27 (41)"
+private const val WATCH_APP = "2026-08-27 (42)"
 /* ==========================================================================
    WAS HAT DIESE FASSUNG GEAENDERT? (2026-08-25 (22))
    --------------------------------------------------------------------------
@@ -2673,8 +2720,8 @@ private const val WATCH_APP = "2026-08-27 (41)"
    das seine eigenen Kommentare liest, bricht beim naechsten Umbau lautlos.
    Der Pruefstand haelt stattdessen fest, dass beides zusammenpasst. */
 private const val WATCH_NOTE =
-    "Baut wieder: vier Compilerfehler aus dem Rueckbau (40) behoben " +
-    "(braucht PWA 4.84)"
+    "Mitspieler: Das Handy fuehrt. Nur die dort fuer diese Runde " +
+    "hinterlegten Spieler erscheinen auf der Uhr."
 
 private const val WORKER_URL = "https://golftraining-save.larsdohrmann24.workers.dev"
 /* DER RUNDENENTWURF ALS EIGENE, KLEINE DATEI (2026-08-14, Worker ab v2.6)
@@ -2807,8 +2854,17 @@ data class RepoDraft(
     /* Lochwahl-ZAEHLER (PWA ab v4.79, siehe (34)): hoehere Nummer = juengerer
        Benutzerwille. Fehlt er, greifen wahlAt bzw. at als Netz. */
     val liveHoleSeq: Int? = null,
-    /* Namen der Mitspieler (37) — vergibt das Handy, die Uhr uebernimmt. */
-    val mitspieler: List<String> = emptyList(),
+    /* Namen der Mitspieler — vergibt das Handy, die Uhr uebernimmt (37/42).
+       `null` UND LEERE LISTE SIND VERSCHIEDENE AUSKUENFTE, und der Unterschied
+       traegt seit (42) die ganze Regel:
+         null        = der Schluessel stand nicht im Entwurf. Keine Aussage —
+                       die Uhr behaelt, was sie hat.
+         emptyList() = das Handy sagt ausdruecklich „keine Mitspieler".
+                       Die Uhr raeumt ihre Zeilen weg.
+       Die PWA schreibt das Feld IMMER (`playRound()` -> `mitspieler:[...]`),
+       auch leer. Ein Entwurf ohne den Schluessel stammt also von der Uhr
+       selbst oder aus einer aelteren Fassung. */
+    val mitspieler: List<String>? = null,
     // round.id — NUR das Handy vergibt eine roundId. Sie ist damit zugleich
     // das Erkennungsmerkmal "diese Runde kommt vom Handy" und der Schlüssel,
     // unter dem die PWA Commits/Schläge ablegt.
@@ -2882,54 +2938,45 @@ data class ShotPt(
    merkt sie sich in den Prefs, damit die Zeilen einen Neustart ueberleben.
    Global statt durchgereicht: erspart drei Signaturen (PlayPager, ScorePage,
    DetailPage) einen Parameter, den nur eine Zeile braucht. */
-/* ==========================================================================
-   MITSPIELER: DER PLATZ IST DIE WAHRHEIT, DER NAME NUR EIN ETIKETT (39)
-   --------------------------------------------------------------------------
-   (37) band die Zeilen an die NAMEN, und Namen vergibt allein das Handy.
-   Folge: Wer die Runde auf der Uhr beginnt (Handy im Bag), bekam gar keine
-   Zeile — der Mitspieler war auf der Uhr schlicht nicht erfassbar. Genau die
-   Luecke, die am 26.08. gemeldet wurde.
-   `msc1..msc3` sind aber reine Zahlen an FESTEN PLAETZEN. Um Platz 1 zu
-   fuellen, braucht die Uhr keinen Namen, sondern eine Zeile. Der Name ist
-   Beschriftung und darf jederzeit nachtraeglich dazukommen — er wirkt
-   rueckwirkend auf alle schon eingetragenen Loecher, weil nach PLATZ
-   gespeichert wird und nicht nach Person.
-   DIE UHR VERGIBT DESHALB KEINE NAMEN, SONDERN EROEFFNET PLAETZE. Die Regel
-   vom 26.08. bleibt unangetastet: Namen kommen weiter allein vom Handy.
-   `plaetze` GEHT NICHT IN DEN ENTWURF, mit Absicht: Das Handy sieht die
-   Belegung an den Daten (gibt es irgendwo ein `msc2`, ist Platz 2 in
-   Gebrauch). Ein zusaetzliches Feld waere eine zweite Wahrheit ueber
-   denselben Sachverhalt — und zwei Wahrheiten laufen auseinander, sobald
-   eine von beiden Seiten geschrieben wird.
-   ========================================================================== */
 object Mitspieler {
+    /* ==========================================================================
+       DAS HANDY IST FUEHREND — AUSNAHMSLOS (2026-08-27 (42))
+       --------------------------------------------------------------------------
+       GEMELDET: Auf der Uhr standen MEHR Mitspieler als in der PWA.
+       ZWEI URSACHEN, beide hier:
+         1. (39) liess die Uhr PLAETZE eroeffnen (`plaetze`, Chip „+ Mitspieler"),
+            gespeichert in den Prefs. Die Zahl wuchs, sank aber nie: Wer einmal
+            drei Plaetze aufgemacht hatte, sah drei Zeilen — auch auf der
+            naechsten Runde, auch wenn das Handy niemanden mehr kannte.
+         2. Uebernommen wurde nur, wenn die Liste des Handys NICHT LEER war
+            (`if (dr.mitspieler.isNotEmpty())`). Ein am Handy ENTFERNTER
+            Mitspieler kam damit nie auf der Uhr an — Entfernen war die einzige
+            Aenderung, die nicht reiste.
+       VORGABE VOM 27.08.: Nur die in der PWA fuer DIESE Runde hinterlegten
+       Spieler erscheinen auf der Uhr. Die Uhr fuehrt keine eigene Liste mehr,
+       weder Namen noch Plaetze — sie zeigt, was das Handy sagt, und sonst
+       nichts.
+       DAMIT FAELLT (39) WIEDER WEG, und das ist der Preis, ausdruecklich
+       benannt: Wer die Runde auf der Uhr beginnt und das Handy im Bag laesst,
+       kann keinen Mitspieler erfassen — die Zeile entsteht erst, wenn das
+       Handy einen Namen vergeben hat. Das ist die Kehrseite von „eine
+       Wahrheit", und sie ist billiger als zwei Listen, die auseinanderlaufen.
+       DIE PREF `mitspielerN` WIRD NICHT MEHR GELESEN. Sie darf auf alten
+       Geraeten liegen bleiben; ein Wert dort hat keine Wirkung mehr.
+       ========================================================================== */
     @Volatile var namen: List<String> = emptyList()
 
-    /* Wie viele Zeilen die Uhr zeigt. Immer mindestens so viele, wie das Handy
-       Namen kennt — ein benannter Mitspieler ohne Zeile waere ein Widerspruch,
-       den niemand aufloesen kann. */
-    @Volatile var plaetze: Int = 0
-
+    /* `neu` ist die Liste des HANDYS, wie sie im Entwurf steht — auch eine
+       LEERE Liste ist eine Aussage („keine Mitspieler") und wird uebernommen.
+       Wer hier wieder ein `isNotEmpty()` einbaut, baut Ursache 2 von oben
+       wieder ein. */
     fun setzen(ctx: Context, neu: List<String>) {
         val n = neu.map { it.trim() }.filter { it.isNotBlank() }.take(3)
         if (n != namen) { namen = n; prefSetS(ctx, "mitspieler", n.joinToString("|")) }
-        if (n.size > plaetze) plaetzeSetzen(ctx, n.size)
     }
-
-    fun plaetzeSetzen(ctx: Context, n: Int) {
-        val v = n.coerceIn(0, 3)
-        if (v != plaetze) { plaetze = v; prefSet(ctx, "mitspielerN", v.toString()) }
-    }
-
-    /* Beschriftung einer Zeile: Name, wenn das Handy einen geliefert hat,
-       sonst die Platznummer. „Mitspieler 2" ist keine Notloesung, sondern die
-       ehrliche Auskunft — die Zahlen stehen dort richtig, nur der Name fehlt
-       noch. */
-    fun label(i: Int): String = namen.getOrNull(i)?.takeIf { it.isNotBlank() } ?: "Mitspieler ${i + 1}"
 
     fun laden(ctx: Context) {
         namen = prefGetS(ctx, "mitspieler", "").split("|").filter { it.isNotBlank() }.take(3)
-        plaetze = max(namen.size, prefGet(ctx, "mitspielerN", "0").toIntOrNull() ?: 0).coerceIn(0, 3)
     }
 }
 
@@ -3204,9 +3251,13 @@ private object Net {
             liveAt = lv?.optString("at")?.ifEmpty { null },
             liveWahlAt = lv?.optString("wahlAt")?.ifEmpty { null },
             liveHoleSeq = lv?.optInt("holeSeq", 0)?.takeIf { it > 0 },
+            /* KEIN `?: emptyList()` MEHR (42): Das machte aus „nicht gesagt"
+               ein „ausdruecklich keine" und haette beim Uebernehmen jede
+               Namensliste geloescht, sobald ein Entwurf ohne den Schluessel
+               kam — etwa der eigene der Uhr. */
             mitspieler = r.optJSONArray("mitspieler")?.let { a ->
                 (0 until a.length()).mapNotNull { a.optString(it).ifBlank { null } }.take(3)
-            } ?: emptyList(),
+            },
             roundId = r.optString("id").ifEmpty { null },
             tee = r.optString("tee").ifEmpty { null },
             recSrc = lv?.optJSONObject("rec")?.optString("src")?.ifEmpty { null },
@@ -4447,11 +4498,15 @@ private fun buildRoundJson(
     val r = JSONObject()
 
     roundId?.let { r.put("id", it) }
-    /* Namen ECHOEN (37): mergeDraft am Handy nimmt bei gleicher Runde
-       Object.assign(alt, neu) — fehlte der Schluessel im juengeren
-       Uhr-Entwurf, hinge der Erhalt der Namen am Zufall des Zweigs. */
-    if (Mitspieler.namen.isNotEmpty())
-        r.put("mitspieler", JSONArray().also { a -> Mitspieler.namen.forEach { a.put(it) } })
+    /* DIE UHR ECHOT DIE NAMEN NICHT MEHR (42). (37) tat es aus Sorge, der
+       Merge am Handy koennte sie sonst verlieren — nachgemessen in der
+       Rundensimulation stimmt das Gegenteil: `Object.assign(alt, neu)`
+       UEBERGEHT einen fehlenden Schluessel und behaelt die Namen; ein
+       MITGESCHICKTER, aber veralteter Stand ueberschreibt sie dagegen.
+       Schweigen ist hier also der sichere Weg — und die Regel vom 27.08.
+       verlangt ihn ohnehin: Das Handy fuehrt, die Uhr sagt zu Namen nichts.
+       (Die Loch-Scores `msc1..msc3` reisen unveraendert weiter — die trägt
+       die Uhr ein, und sie sind ihre eigene Aussage.) */
     r.put("date", today())
     r.put("course", course.name)
     r.put("tee", tee)
@@ -6644,14 +6699,16 @@ fun GolfWatchApp(
     // laeuft gerade ein 3-Sekunden-Messfenster? Sperrt Doppelausloesung.
     /* Mitspieler-Namen und Platzzahl aus den Prefs, bevor der erste Pull sie
        liefert (37/39). */
-    /* SPIEGEL DES SINGLETONS ALS COMPOSE-STATE (39): `Mitspieler.plaetze` ist
+    /* SPIEGEL DES SINGLETONS ALS COMPOSE-STATE (39/42): `Mitspieler.namen` ist
        ein `@Volatile var` — Compose abonniert es nicht und zeichnet beim
-       Aufmachen eines Platzes nicht neu. Dieser State ist die einzige Groesse,
-       die die Oberflaeche liest; das Singleton bleibt der Speicher. */
-    var mitspielerN by remember { mutableIntStateOf(0) }
+       Eintreffen neuer Namen nicht neu. Dieser State ist die einzige Groesse,
+       die die Oberflaeche liest; das Singleton bleibt der Speicher.
+       Seit (42) sind es die NAMEN und nicht mehr eine Platzzahl: Die Uhr
+       fuehrt keine eigene Liste, sie spiegelt die des Handys. */
+    var mitspielerNamen by remember { mutableStateOf<List<String>>(emptyList()) }
     LaunchedEffect(Unit) {
         Mitspieler.laden(ctx)
-        mitspielerN = Mitspieler.plaetze
+        mitspielerNamen = Mitspieler.namen
     }
 
     var measuring by remember {
@@ -7832,13 +7889,15 @@ fun GolfWatchApp(
                 continue
             }
             if (dr != null && dr.course == cn && dr.date == today()) {
-                // Namen kommen vom Handy — hier uebernehmen und merken (37).
-                if (dr.mitspieler.isNotEmpty()) {
-                    /* `setzen` hebt die Platzzahl mit an — ein benannter
-                       Mitspieler ohne Zeile waere ein Widerspruch, den
-                       niemand aufloesen kann. Der Spiegel muss mit. */
-                    Mitspieler.setzen(ctx, dr.mitspieler)
-                    if (Mitspieler.plaetze != mitspielerN) mitspielerN = Mitspieler.plaetze
+                /* Namen kommen vom Handy — hier uebernehmen und merken.
+                   `?.let` STATT `isNotEmpty()` (42): Eine leere Liste ist die
+                   Aussage „keine Mitspieler" und muss ankommen, sonst laesst
+                   sich am Handy kein Spieler mehr entfernen. Uebergangen wird
+                   nur ein Entwurf, in dem der Schluessel GAR NICHT steht —
+                   der stammt von der Uhr selbst. */
+                dr.mitspieler?.let {
+                    Mitspieler.setzen(ctx, it)
+                    if (Mitspieler.namen != mitspielerNamen) mitspielerNamen = Mitspieler.namen
                 }
                 adoptHoles(dr.holes)
 
@@ -9035,18 +9094,13 @@ fun GolfWatchApp(
                         recDist = recDist,
                         shotCount = max(0, e.shots.size - 1),
 
-                        /* Compose-State fuer die Platzzahl (39). `Mitspieler`
-                           ist ein Singleton mit @Volatile — davon erfaehrt die
+                        /* Compose-State fuer die Namen (39/42). `Mitspieler` ist
+                           ein Singleton mit @Volatile — davon erfaehrt die
                            Neuzeichnung nichts. Deshalb hier ein echter State,
-                           der das Singleton nur SPIEGELT. */
-                        mitspielerN = mitspielerN,
-                        onMitspielerN = { n ->
-                            Mitspieler.plaetzeSetzen(ctx, n)
-                            mitspielerN = Mitspieler.plaetze
-                            status =
-                                if (Mitspieler.plaetze == 0) "keine Mitspieler"
-                                else "${Mitspieler.plaetze} Mitspieler"
-                        },
+                           der das Singleton nur SPIEGELT.
+                           KEIN `onMitspielerN` MEHR: Die Uhr eroeffnet keine
+                           Plaetze; das Handy fuehrt (42). */
+                        mitspielerNamen = mitspielerNamen,
 
                         onScore = { d ->
                             change(hd.hole) {
@@ -10204,8 +10258,7 @@ private fun PlayPager(
     onShotStop: () -> Unit,
     onShotCancel: () -> Unit,
     onShotUndo: () -> Unit,
-    mitspielerN: Int = 0,
-    onMitspielerN: (Int) -> Unit = {},
+    mitspielerNamen: List<String> = emptyList(),
     onPrev: () -> Unit,
     onNext: () -> Unit,
     onFinish: () -> Unit
@@ -10295,8 +10348,7 @@ private fun PlayPager(
                             onHome = onHome,
                             shotCount = shotCount,
                             onShotUndo = onShotUndo,
-                            mitspielerN = mitspielerN,
-                            onMitspielerN = onMitspielerN,
+                            mitspielerNamen = mitspielerNamen,
                             /* Die Lochpfeile der Kopfzeile gehen ueber
                                denselben Rueckruf wie frueher auf Seite 1:
                                Die Grenzen prueft die aufrufende Composable,
@@ -10454,12 +10506,14 @@ private fun ScorePage(
     onShotSwing: () -> Unit = {},
     onShotStop: () -> Unit = {},
     onShotCancel: () -> Unit = {},
-    /* Anzahl der Mitspieler-PLAETZE (39). Als Parameter und nicht direkt aus
-       `Mitspieler.plaetze` gelesen: Ein `@Volatile var` ist kein Compose-State
-       — die Liste wuerde beim Aufmachen eines Platzes nicht neu gezeichnet.
-       Denselben Fehler hat der Lochzeiger schon einmal gekostet. */
-    mitspielerN: Int = 0,
-    onMitspielerN: (Int) -> Unit = {}
+    /* Namen der Mitspieler, wie das HANDY sie fuer diese Runde fuehrt (42).
+       Als Parameter und nicht direkt aus `Mitspieler.namen` gelesen: Ein
+       `@Volatile var` ist kein Compose-State — die Liste wuerde beim
+       Eintreffen neuer Namen nicht neu gezeichnet. Denselben Fehler hat der
+       Lochzeiger schon einmal gekostet.
+       LEERE LISTE HEISST KEINE ZEILE. Das ist die ganze Regel vom 27.08.:
+       Was in der PWA nicht steht, steht auch hier nicht. */
+    mitspielerNamen: List<String> = emptyList()
 ) {
 
     val haptics = LocalHapticFeedback.current
@@ -10816,10 +10870,9 @@ private fun ScorePage(
            Handys, ersatzweise „Mitspieler 2".
            Auswahl statt Stepper: ein Tipp, ein Raster, fertig — und "–"
            loescht, ohne dass ein Stepper bei 1 haengenbleibt. */
-        if (mitspielerN > 0) {
-            repeat(mitspielerN.coerceIn(0, 3)) { mi -> item {
+        if (mitspielerNamen.isNotEmpty()) {
+            mitspielerNamen.take(3).forEachIndexed { mi, name -> item {
                 val wert = when (mi) { 0 -> entry.msc1; 1 -> entry.msc2; else -> entry.msc3 }
-                val name = Mitspieler.label(mi)
                 SelectRow("⛳ $name", wert?.toString()) {
                     onPick(
                         "Score $name",
@@ -10867,48 +10920,13 @@ private fun ScorePage(
 
         item { SectionLabel("Runde") }
 
-        /* PLATZ AUFMACHEN — die einzige Mitspieler-Handlung, die auf der Uhr
-           moeglich ist und noetig war. Kein Name, keine Tastatur: ein Tipp
-           eroeffnet Platz n, ein LANGDRUCK schliesst den letzten wieder.
-           HIER und nicht oben bei den Zeilen: Man macht den Platz einmal je
-           Runde auf, nicht einmal je Loch. Oben stuende der Knopf achtzehnmal
-           im Weg.
-           SCHLIESSEN LOESCHT NICHTS. Die Zahlen bleiben in `msc*` stehen —
-           sonst waere ein Fehlgriff mit Handschuh eine geloeschte Runde. Wer
-           wirklich loeschen will, setzt die Zeile auf „–", und das Aufraeumen
-           macht ohnehin das Handy beim Entfernen des Spielers. */
-        if (mitspielerN < 3 || mitspielerN > 0) {
-            item {
-                Chip(
-                    onClick = { if (mitspielerN < 3) onMitspielerN(mitspielerN + 1) },
-                    label = {
-                        Text(
-                            if (mitspielerN >= 3) "Mitspieler: 3 (max)"
-                            else if (mitspielerN == 0) "+ Mitspieler"
-                            else "+ Mitspieler ($mitspielerN)",
-                            fontSize = 12.sp,
-                            maxLines = 1
-                        )
-                    },
-                    colors =
-                        if (mitspielerN > 0) ChipDefaults.primaryChipColors()
-                        else ChipDefaults.secondaryChipColors(),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        // 48 dp — Wear-Mindestmass (2026-08-14 (7))
-                        .heightIn(min = 48.dp)
-                        .combinedClickable(
-                            onClick = { if (mitspielerN < 3) onMitspielerN(mitspielerN + 1) },
-                            onLongClick = {
-                                if (mitspielerN > 0) {
-                                    haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                                    onMitspielerN(mitspielerN - 1)
-                                }
-                            }
-                        )
-                )
-            }
-        }
+        /* KEIN „+ MITSPIELER"-CHIP MEHR (2026-08-27 (42)). (39) liess die Uhr
+           hier Plaetze eroeffnen; das Handy fuehrt seit (42) allein. Wer einen
+           Mitspieler erfassen will, legt ihn in der PWA an — die Zeile steht
+           dann beim naechsten Abgleich auf der Uhr.
+           NICHT WIEDER EINBAUEN, ohne die Meldung vom 27.08. zu lesen: Eine
+           auf der Uhr gepflegte Platzzahl wuchs, sank aber nie, und danach
+           standen dort mehr Mitspieler als in der PWA. */
 
         // Letzten gemessenen Schlag zuruecknehmen. Nur sichtbar, wenn es
         // ueberhaupt etwas zurueckzunehmen gibt — ein Knopf ohne Wirkung ist

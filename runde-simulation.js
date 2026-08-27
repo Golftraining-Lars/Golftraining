@@ -959,6 +959,17 @@ kopf("draft.json — Handy → Uhr");
      " var h=(PLAY.holes||[])[0]||{}; return {m1:h.msc1, m2:h.msc2}; })()");
   pruef("Uhr-Eintrag kommt an, eigener bleibt", !!(msZ&&msZ.m1===6&&msZ.m2===5), JSON.stringify(msZ));
 
+  /* ACHTUNG FUER SPAETERE ABSCHNITTE: Die Pruefung darueber datiert den
+     Uhr-Entwurf ABSICHTLICH zwei Minuten in die Zukunft — anders liesse sich
+     „die Uhr hat spaeter geschrieben" nicht nachstellen. Der Wert bleibt
+     danach am lokalen Entwurf UND in `REPO["draft.json"]` haengen und gewinnt
+     jeden folgenden Merge.
+     Ich habe zuerst versucht, ihn hier zurueckzudrehen — das verschob nur den
+     Schaden: Die Kennung der Datei wanderte, und die Verwerfen-Pruefung
+     darunter wurde rot. WER NACH DIESEM ABSCHNITT ETWAS AM ENTWURF PRUEFEN
+     WILL, faengt besser mit einer FRISCHEN Runde an (siehe „Runde
+     abschliessen") statt an Zeitstempeln zu drehen. */
+
   kopf("Runde verwerfen");
   R(`draftFinalize(); "ok"`);
   await new Promise(r=>setImmediate(r));
@@ -1002,6 +1013,30 @@ kopf("draft.json — Handy → Uhr");
          h.msc1=h.par+1; h.msc2=h.par;
          if(typeof playTouchHole==="function") playTouchHole(h); }
        if(typeof playSaveDraft==="function") playSaveDraft(); return "ok"; })()`);
+
+    /* ENTFERNEN MUSS AUCH REISEN (27.08.2026, Uhr-Fassung 42).
+       GEMELDET: Auf der Uhr standen mehr Mitspieler als in der PWA. Eine der
+       beiden Ursachen sass genau hier: Das Handy schreibt die Namensliste
+       IMMER, auch leer — die Uhr uebernahm sie aber nur, wenn sie NICHT leer
+       war. Entfernen war damit die einzige Aenderung, die nicht ankam.
+       Geprueft wird, dass das Handy das Entfernen ueberhaupt AUSSPRICHT:
+       Steht `mitspieler` als leeres Feld im Entwurf, kann die Uhr es
+       befolgen; fehlte das Feld, wuesste sie nur „nicht gesagt" — und genau
+       diesen Unterschied traegt `RepoDraft.mitspieler: List<String>?`. */
+    await R(`draftPush()`); await new Promise(r=>setImmediate(r));
+    R(`PLAY.mitspieler=[]; if(typeof playSaveDraft==="function") playSaveDraft(); "ok"`);
+    await R(`draftPush()`); await new Promise(r=>setImmediate(r));
+    let djL=null; try{ djL=JSON.parse(REPO["draft.json"]||"{}"); }catch(e2){}
+    pruef("das Entfernen des letzten Mitspielers steht im Entwurf",
+      !!(djL && djL.round && Array.isArray(djL.round.mitspieler) && djL.round.mitspieler.length===0),
+      JSON.stringify(djL&&djL.round&&djL.round.mitspieler));
+    /* Und die Loch-Scores bleiben stehen: Das Aufraeumen macht
+       `mitspielerName` ueber die Maske, nicht der Abgleich. Ein Merge, der
+       nebenbei Zahlen loescht, waere nicht nachvollziehbar. */
+    pruef("die Loch-Scores werden dabei nicht nebenbei gelöscht",
+      !!(djL && (djL.round.holes||[]).some(h=>h.hole===1 && h.msc1!=null)));
+    R(`PLAY.mitspieler=["Jan","Ute"]; if(typeof playSaveDraft==="function") playSaveDraft(); "ok"`);
+    await R(`draftPush()`); await new Promise(r=>setImmediate(r));
 
     /* Die Scorekarte VOR dem Abschluss — im Spielmodus liest sie `PLAY`, und
        genau dort fehlte bis v4.83 das Feld `mitspieler` beim Abschreiben. */

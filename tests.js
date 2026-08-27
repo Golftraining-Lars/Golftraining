@@ -6780,7 +6780,7 @@ group("Live-Zeiger — beide Geräte, dieselbe Regel");
        zusaetzlich, dass der Changelog einen Eintrag fuer GENAU diese Kennung
        hat — beides zusammen faengt „Code geaendert, Fassung vergessen" und
        „Fassung gezogen, Changelog vergessen". */
-    ok("und die Kennung ist aktuell", /WATCH_APP = "2026-08-27 \(41\)"/.test(kt));
+    ok("und die Kennung ist aktuell", /WATCH_APP = "2026-08-27 \(42\)"/.test(kt));
     ok("das Handy zeigt sie", /function watchFassung\(\)/.test(src));
 
     /* --- STARTBILDSCHIRM (2026-08-25 (20)) ---
@@ -11261,37 +11261,53 @@ group("Mitspieler — der Platz trägt die Zahlen, der Name nur das Etikett");
      /const zahlen=\(PLAY\.holes\|\|\[\]\)\.filter/.test(src)
      && /ruecken auf Platz/.test(src));
 
-  /* --- DIE UHR ERÖFFNET PLÄTZE, SIE VERGIBT KEINE NAMEN --- */
+  /* --- DAS HANDY FÜHRT, DIE UHR SPIEGELT (2026-08-27, Uhr-Fassung 42) ---
+     GEMELDET: Auf der Uhr standen MEHR Mitspieler als in der PWA.
+     ZWEI URSACHEN, beide aus Fassung 39, die die Uhr Plätze eröffnen ließ:
+       1. `Mitspieler.plaetze` lag in den Prefs und WUCHS NUR. Wer einmal drei
+          Plätze aufgemacht hatte, sah drei Zeilen — auch auf der nächsten
+          Runde, auch wenn das Handy niemanden mehr kannte.
+       2. Übernommen wurde nur eine NICHT LEERE Liste
+          (`if (dr.mitspieler.isNotEmpty())`). Ein am Handy ENTFERNTER
+          Mitspieler kam damit nie an: Entfernen war die einzige Änderung, die
+          nicht reiste.
+     VORGABE VOM 27.08.: Nur die in der PWA für diese Runde hinterlegten
+     Spieler erscheinen auf der Uhr.
+     DIE PRÜFUNGEN AUS (39) SIND GEDREHT, nicht gelöscht — sie verlangten
+     genau das Gegenteil, und eine gedrehte Prüfung hält fest, dass die Umkehr
+     gewollt war. Wer (39) wiederbeleben will, liest zuerst diesen Absatz. */
   if (kt) {
     const ktC = ktOhneKommentar(kt);
-    /* BIS FASSUNG 38 hingen die Zeilen an den NAMEN, und Namen vergibt allein
-       das Handy. Wer die Runde auf der Uhr begann (Handy im Bag), bekam gar
-       keine Zeile — der Mitspieler war dort schlicht nicht erfassbar. */
-    ok("die Zeilen hängen an den Plätzen, nicht an den Namen",
-       !/if \(Mitspieler\.namen\.isNotEmpty\(\)\) \{\s*\n\s*Mitspieler\.namen\.forEachIndexed/.test(ktC)
-       && /repeat\(mitspielerN/.test(ktC));
-    ok("ein Platz ohne Namen heißt nach seiner Nummer",
-       /"Mitspieler \$\{i \+ 1\}"/.test(ktC));
-    ok("die Uhr kann einen Platz eröffnen", /onMitspielerN/.test(ktC));
-    /* Ein benannter Mitspieler ohne Zeile wäre ein Widerspruch, den niemand
-       auflösen kann: `setzen` hebt die Platzzahl deshalb mit an. */
-    ok("Namen vom Handy heben die Platzzahl an",
-       /if \(n\.size > plaetze\) plaetzeSetzen\(ctx, n\.size\)/.test(ktC));
-    /* KEIN ZWEITES DATENFELD: Das Handy sieht die Belegung an den Daten
-       (gibt es irgendwo ein `msc2`, ist Platz 2 in Gebrauch). Ein eigenes
-       Feld im Entwurf wäre eine zweite Wahrheit über denselben Sachverhalt —
-       und zwei Wahrheiten laufen auseinander, sobald beide Seiten schreiben. */
-    ok("die Platzzahl reist NICHT im Entwurf mit",
-       !/put\("mitspielerN"/.test(ktC) && /prefSet\(ctx, "mitspielerN"/.test(ktC));
+    ok("die Zeilen hängen an den Namen des Handys",
+       /mitspielerNamen\.take\(3\)\.forEachIndexed/.test(ktC)
+       && !/repeat\(mitspielerN/.test(ktC));
+    ok("die Uhr kennt keine Plätze mehr",
+       !/plaetze/.test(ktC) && !/plaetzeSetzen/.test(ktC));
+    ok("und kann keine eröffnen", !/onMitspielerN/.test(ktC));
+    ok("die Pref mitspielerN wird nicht mehr gelesen",
+       !/prefGet\(ctx, "mitspielerN"/.test(ktC) && !/prefSet\(ctx, "mitspielerN"/.test(ktC));
+    /* DER KERN DER BEHEBUNG: `null` und LEERE LISTE sind verschiedene
+       Auskünfte. `null` heißt „nicht gesagt" (der Schlüssel fehlte — der
+       Entwurf stammt von der Uhr selbst); eine leere Liste heißt
+       „ausdrücklich keine Mitspieler" und MUSS ankommen, sonst lässt sich am
+       Handy kein Spieler mehr entfernen. */
+    ok("eine leere Liste des Handys kommt an",
+       /dr\.mitspieler\?\.let/.test(ktC)
+       && !/if \(dr\.mitspieler\.isNotEmpty\(\)\)/.test(ktC));
+    ok("ein fehlender Schlüssel bleibt „nicht gesagt“",
+       /val mitspieler: List<String>\? = null/.test(ktC));
+    /* SCHWEIGEN IST SICHERER ALS ECHOEN. (37) schickte die Namen zurück, aus
+       Sorge, der Merge am Handy verliere sie. Nachgemessen in der
+       Rundensimulation stimmt das Gegenteil: Ein FEHLENDER Schlüssel wird von
+       `Object.assign` übergangen und die Namen bleiben; ein mitgeschickter,
+       aber veralteter Stand überschreibt sie. */
+    ok("die Uhr echot die Namen nicht mehr", !/put\("mitspieler",/.test(ktC));
+    /* Die Loch-Scores bleiben ihre eigene Aussage — die trägt die Uhr ein. */
+    ok("die Loch-Scores reisen weiter", /put\("msc1"/.test(ktC));
     /* Compose abonniert kein `@Volatile var` — ohne Spiegel-State würde die
-       Liste beim Eröffnen eines Platzes nicht neu gezeichnet. Denselben
-       Fehler hat der Lochzeiger schon einmal gekostet. */
+       Liste beim Eintreffen neuer Namen nicht neu gezeichnet. */
     ok("und die Oberfläche liest einen echten Compose-State",
-       /var mitspielerN by remember \{ mutableIntStateOf\(0\) \}/.test(ktC));
-    /* Schließen darf NICHTS löschen: Ein Fehlgriff mit Handschuh wäre sonst
-       eine gelöschte Runde. */
-    ok("einen Platz schließen löscht keine Zahlen",
-       !/onMitspielerN[\s\S]{0,400}?msc1 = null/.test(ktC));
+       /var mitspielerNamen by remember \{ mutableStateOf<List<String>>\(emptyList\(\)\) \}/.test(ktC));
   }
 }
 

@@ -13,6 +13,28 @@
 
 ---
 
+- **v4.51.0 · 2026-08-24** — **Zwei Sync-Fehler: Das Handy überstimmte immer, und der Abgleich
+  brach ein. Beide gefunden, beide behoben.**
+  **(1) Der Lochzeiger.** `ownLiveAt` wurde bei **jedem Push** gesetzt — verglichen wurde aber der
+  Wert von **vorher**. Die Uhr sendet im Minutentakt, das Handy schreibt seinen Zeiger alle paar
+  Sekunden: `at > ownLiveAt` war damit praktisch immer wahr. Und die zweite Bedingung machte es
+  vollends verkehrt: `h != currentHole` traf ausgerechnet dann zu, wenn die Uhr-Eingabe **frisch**
+  war — also wurde genau die verworfen.
+  Neu merkt sich die Uhr die **Eingabe** (`ownHoleAt`, gesetzt beim Blättern). Das Handy übernimmt
+  nur noch, wenn sein Zeiger jünger ist als die letzte Handlung auf der Uhr. **Eine Handlung des
+  Benutzers wiegt schwerer als ein automatischer Zeiger** — diese Regel hat gefehlt.
+  **(2) Der Einbruch des Abgleichs.** Nach einem **erfolgreichen** Schreibvorgang hat die Datei eine
+  **neue** Kennung. Der Client kannte sie nicht und schickte beim nächsten Mal die alte: 409, neu
+  lesen, neu senden — bei **jedem** Push. Schreibt parallel das andere Gerät, ist die
+  Wiederholungsschleife der Uhr nach vier Versuchen erschöpft, und sie meldet „4× Konflikt (409) —
+  Abgleich ausgesetzt". Genau der gemeldete Einbruch.
+  **Worker v2.10** gibt die neue Kennung jetzt zurück (Kopf `X-Repo-Sha` und `sha` im Rumpf); App
+  und Uhr übernehmen sie. GitHub liefert sie ohnehin in der PUT-Antwort mit — es hat nur niemand
+  durchgereicht. Fehlt sie (älterer Worker), bleibt es beim alten Verhalten: ein Umlauf mehr, aber
+  kein Abbruch.
+  **Der Prüfstand vergleicht jetzt beide Bedingungen im Kt-Quelltext**, weil sich diese Klasse
+  Fehler nur an der Struktur ablesen lässt — ausführen kann ich Kotlin hier nicht.
+
 - **v4.50.0 · 2026-08-24** — **Der Lochwechsel ließ sich nicht übersetzen — und der Prüfstand hält
   jetzt fest, warum.** Der Compiler meldete `'val' cannot be reassigned` und
   `Unresolved reference 'cs'`: Mein Code schrieb `idx -= 1` und `cs.holes.lastIndex` **in**
