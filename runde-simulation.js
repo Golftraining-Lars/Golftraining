@@ -1,3 +1,41 @@
+/* =============================================================================
+   RUNDENSIMULATION — WAS SIE PRUEFT UND WARUM SIE NEBEN `tests.js` STEHT
+   -----------------------------------------------------------------------------
+   `tests.js` prueft FUNKTIONEN: Man gibt etwas hinein, vergleicht, was
+   herauskommt. Diese Datei prueft die KETTE: eine Runde von der ersten
+   Eingabe bis zum Grabstein, ueber die echten Wege — `playBegin`,
+   `playSaveDraft`, `draftPush`, `draftPull`, `playFinish` — gegen einen
+   nachgebauten Worker mit echtem Kennungs-Tuersteher.
+   DER UNTERSCHIED IST NICHT AKADEMISCH: Die teuersten Fehler dieses Projekts
+   waren nie falsche Funktionen, sondern richtige Funktionen an der falschen
+   Stelle der Kette — ein Zeitstempel, der nach dem Kopieren gesetzt wurde
+   (v3.07), ein Feld, das beim Abschreiben von PLAY vergessen wurde (v4.84),
+   ein Push, der die Messungen des anderen Geraets ueberschrieb.
+   AUSBAU 27.08.2026 — was dazugekommen ist und warum:
+     · SCHLAGMESSUNG DER UHR (roh -> Neutralwert -> Lern-Basis). Seit
+       Uhr-Fassung 38/40 ist das der EINZIGE Zweck der Uhr, und es war hier
+       ueberhaupt nicht abgedeckt: geprueft wurden Distanzen und Caddy, also
+       genau das, was die Uhr nicht mehr tut.
+     · SCHREIBKONFLIKT (409). Uhr und Handy schreiben im Sekundenabstand;
+       „vereinen statt ueberschreiben" war nur im glatten Fall geprueft.
+     · NETZAUSFALL. Regel 1 der Architektur lautet „Repo-Push NIE als
+       Bedingung fuers Weiterarbeiten" — ungeprueft ist das eine Absichts-
+       erklaerung.
+     · RUNDENABSCHLUSS. Die Lage, die man achtzehnmal von zwanzig erreicht,
+       war ungeprueft; das Verwerfen dagegen doppelt.
+     · ENTWURFS-MERGE MIT LEEREN LISTEN. Haelt eine Schwaeche fest, die beim
+       Bau auffiel (siehe dort).
+   ZWEI FALLEN, die beim Bau je eine halbe Stunde gekostet haben und deshalb
+   hier oben stehen:
+     1. KEIN ZEITSTEMPEL IN DER ZUKUNFT. Ein Entwurf, der spaeter datiert ist
+        als „jetzt", gewinnt JEDEN folgenden Merge und schleppt seinen Inhalt
+        durch alle weiteren Abschnitte. Der Fehlschlag erscheint dann an einer
+        Stelle, die nichts damit zu tun hat.
+     2. ASYNCHRONES AUSTRUDELN LASSEN. `playSaveDraft` stoesst ueber
+        `maybeCheckpointDraft` einen Abgleich an, der spaeter zu Ende laeuft.
+        Wer den naechsten Abschnitt beginnt, bevor er durch ist, bekommt dort
+        seine Werte ueberschrieben.
+   ============================================================================= */
 /* Aufruf:  node runde-simulation.js   (im selben Ordner wie index.html)
    BRAUCHT `runde-harness.js` DANEBEN — ohne sie bricht der Lauf sofort mit
    MODULE_NOT_FOUND ab, und das sieht aus wie „hier nicht pruefbar".
@@ -662,6 +700,234 @@ kopf("draft.json — Handy → Uhr");
 
   /* ---------- Verwerfen wirkt auf beiden Seiten ---------- */
 
+  /* ======================================================================
+     SCHLAGMESSUNG DER UHR — DER GANZE WEG (neu 27.08.2026)
+     ----------------------------------------------------------------------
+     WARUM DAS HIER FEHLTE UND DIE GROESSTE LUECKE WAR: Seit Uhr-Fassung 38/40
+     ist das Schlagtracken der EINZIGE Zweck der Uhr. Sie misst rohe Meter und
+     schickt sie herueber; die gesamte Anpassungslogik sitzt im Handy
+     (`schlagNeutral`, `gpsShotsNachziehen`, v4.80.1). Diese Kette war in der
+     Simulation ueberhaupt nicht abgedeckt — geprueft wurden Distanzen, Caddy
+     und Eingaben, also genau das, was die Uhr NICHT mehr tut.
+     GEPRUEFT WIRD DER ECHTE WEG: ein Schlag in EXAKT der Form, die
+     `MainActivity.kt` schreibt (id/ts/club/dist/accA/accB/latA..lngB/hole),
+     liegt in `draft.json` — und dann laeuft `draftPull()`, nicht ein direkter
+     Aufruf. Ein Test, der die Zwischenfunktion aufruft, prueft die Funktion;
+     ein Test, der die Datei fuellt, prueft die KETTE. */
+  kopf("Schlagmessung der Uhr — roh rein, neutral raus");
+
+  /* Wetter setzen: GEGENWIND aus Norden auf eine Bahn, die nach Norden
+     spielt. Ein Schlag gegen den Wind war MEHR wert, als er aussah — sein
+     Neutralwert muss also GROESSER sein als die gemessene Strecke. Das ist
+     die Richtung, die man beim Vorzeichen am leichtesten verdreht, und ein
+     verdrehtes Vorzeichen lehrt die Schlaegerlaengen systematisch falsch. */
+  R(`wetterSetzen({temp:12, windMs:8, windDir:0, gustMs:10, at:Date.now()}); "ok"`);
+  const hr1=R(`(function(){ const hr=holeRef(playGeo(),1); return {tee:hr.tee, green:hr.green}; })()`);
+  /* Startpunkt Tee, Endpunkt 150 m Richtung Gruen — dieselbe Achse wie die
+     Bahn, damit die Windrichtung eindeutig Gegenwind ist. */
+  const pA=hr1.tee;
+  const pB=[hr1.tee[0]+150/mLat, hr1.tee[1]];
+  const uhrSchlag={ id:"W1", ts:new Date().toISOString(), club:"7 Iron", dist:150,
+                    accA:3.2, accB:2.8, latA:pA[0], lngA:pA[1], latB:pB[0], lngB:pB[1], hole:1 };
+
+  /* DIE UHR TRAEGT IHRE MESSUNGEN MIT, BIS SIE QUITTIERT SIND — sie schickt
+     also nicht „den neuen Schlag", sondern IHRE GANZE OFFENE LISTE. Genau
+     deshalb muss der Puffer hier kumulieren: Ein Test, der jedes Mal nur den
+     letzten Schlag legt, prueft einen Ablauf, den es nicht gibt, und die
+     Quittung (`shotAck`) sieht dann immer nur einen einzigen Namen.
+     UND DER ZEITSTEMPEL DARF NICHT IN DER ZUKUNFT LIEGEN. Mein erster Anlauf
+     stempelte `Date.now()+1000` — damit gewann der Repo-Entwurf jeden Merge
+     und ueberschrieb spaeter die gerade eingetragenen Mitspieler. Das sah aus
+     wie ein Fehler in `playSaveDraft` und war einer im Pruefaufbau; ein Test,
+     der die Uhr unrealistisch schnell macht, findet Fehler, die es nicht
+     gibt, und verdeckt die echten. */
+  const uhrPuffer=[];
+  async function uhrSchickt(neue, mitRunde){
+    (neue||[]).forEach(x=>{ if(!uhrPuffer.some(y=>y.id===x.id)) uhrPuffer.push(x); });
+    const d=JSON.parse(REPO["draft.json"]||"{}");
+    d.gpsShots=uhrPuffer.slice();
+    d.ts=new Date().toISOString();
+    if(mitRunde===false) delete d.round;
+    REPO["draft.json"]=JSON.stringify(d); SHAS["draft.json"]="sha-uhr-"+Math.random();
+    await R(`draftPull()`); await new Promise(r=>setImmediate(r));
+  }
+
+  await R(`draftPush()`); await new Promise(r=>setImmediate(r));
+  const vorher=R(`(DB.gpsShots||[]).length`);
+  await uhrSchickt([uhrSchlag]);
+  const g1=R(`(DB.gpsShots||[]).find(x=>x.id==="W1")||null`);
+  pruef("die Messung der Uhr kommt an", !!g1, JSON.stringify(g1&&g1.id));
+  pruef("die rohe Strecke bleibt unangetastet", !!(g1&&g1.dist===150), String(g1&&g1.dist));
+  pruef("Neutralwert wird beim Eintreffen gerechnet",
+    !!(g1&&g1.distNeutral!=null&&isFinite(g1.distNeutral)), String(g1&&g1.distNeutral));
+  /* DIE RICHTUNG IST DIE AUSSAGE: gegen den Wind gemessen heisst „war mehr
+     wert" — der Neutralwert liegt UEBER der gemessenen Strecke. */
+  pruef("gegen den Wind: Neutralwert größer als gemessen",
+    !!(g1&&g1.distNeutral>150), (g1&&g1.distNeutral)+" vs 150 m");
+
+  /* Rueckenwind muss das Vorzeichen umdrehen — sonst waere die Pruefung oben
+     auch mit einer Rechnung gruen, die IMMER nach oben korrigiert. */
+  R(`wetterSetzen({temp:12, windMs:8, windDir:180, gustMs:10, at:Date.now()}); "ok"`);
+  const rueck={...uhrSchlag, id:"W2"};
+  await uhrSchickt([rueck]);
+  const g2=R(`(DB.gpsShots||[]).find(x=>x.id==="W2")||null`);
+  pruef("mit dem Wind: Neutralwert kleiner als gemessen",
+    !!(g2&&g2.distNeutral<150), (g2&&g2.distNeutral)+" vs 150 m");
+
+  /* IDEMPOTENZ: Dieselbe Messung zweimal geschickt darf sie nicht verdoppeln.
+     Die Uhr trägt ihre Schläge bis zur Quittung (`shotAck`) mit — sie kommen
+     also regelmäßig mehrfach an. Eine Verdopplung wäre unsichtbar und würde
+     die gelernte Länge in Richtung dieses einen Schlags ziehen. */
+  await uhrSchickt([uhrSchlag, rueck]);
+  const n1=R(`(DB.gpsShots||[]).filter(x=>x.id==="W1").length`);
+  pruef("dieselbe Messung zweimal ändert nichts", n1===1, String(n1));
+  pruef("beide Messungen sind da", R(`(DB.gpsShots||[]).length`)===vorher+2,
+    R(`(DB.gpsShots||[]).length`)+" statt "+(vorher+2));
+
+  /* EINMAL GERECHNET, DANN FEST: `gpsShotsNachziehen` überspringt, was schon
+     einen Neutralwert hat. Sonst würde derselbe Schlag bei jedem Pull mit dem
+     Wetter von JETZT neu gerechnet — und der Lernwert wanderte mit dem
+     Wetter, statt den Moment des Schlags festzuhalten. */
+  const festVor=R(`(DB.gpsShots||[]).find(x=>x.id==="W1").distNeutral`);
+  R(`wetterSetzen({temp:30, windMs:0, windDir:0, at:Date.now()}); "ok"`);
+  await uhrSchickt([]);
+  pruef("ein gerechneter Neutralwert wird nicht neu gerechnet",
+    R(`(DB.gpsShots||[]).find(x=>x.id==="W1").distNeutral`)===festVor,
+    festVor+" -> "+R(`(DB.gpsShots||[]).find(x=>x.id==="W1").distNeutral`));
+
+  /* SPAETE ANKUNFT — die 3-Stunden-Sperre. Ein Schlag von gestern darf nicht
+     mit dem Wetter von heute gerechnet werden; dann bleibt nur die Hoehe.
+     Ohne Hoehenraster und ohne frisches Wetter ist die ehrliche Antwort
+     `null` — KEIN Neutralwert, nicht etwa der Rohwert unter falschem Namen. */
+  R(`wetterSetzen({temp:12, windMs:8, windDir:0, at:Date.now()}); "ok"`);
+  const alt={...uhrSchlag, id:"W3", ts:new Date(Date.now()-5*3600*1000).toISOString()};
+  await uhrSchickt([alt]);
+  const g3=R(`(DB.gpsShots||[]).find(x=>x.id==="W3")||null`);
+  const hatRaster=R(`typeof elevDelta==="function" && elevDelta([${pA[0]},${pA[1]}],[${pB[0]},${pB[1]}])!=null`);
+  pruef("ein Schlag von vor Stunden nimmt das Wetter von jetzt NICHT",
+    !!(g3 && (hatRaster ? g3.distNeutral!==g1.distNeutral : g3.distNeutral==null)),
+    "Raster="+hatRaster+" · neutral="+(g3&&g3.distNeutral));
+  pruef("und seine rohe Strecke bleibt trotzdem stehen", !!(g3&&g3.dist===150));
+
+  /* WAS DAS HANDY DARAUS LERNT. `clubMeasured` ist die Stelle, an der ein
+     Vorzeichenfehler oder ein mitgezaehlter Teilschwung sichtbar wird — und
+     zwar erst Wochen spaeter an einer zu kurzen Empfehlung. */
+  pruef("die Messung landet in der Lern-Basis",
+    R(`neutralBasis((DB.gpsShots||[]).find(x=>x.id==="W1"))`)===festVor,
+    String(R(`neutralBasis((DB.gpsShots||[]).find(x=>x.id==="W1"))`)));
+  /* Ein TEILSCHWUNG darf die gelernte Laenge nicht nach unten ziehen: ein
+     halber Wedge fliegt 55 statt 92 m. Die Uhr setzt `swing` nur, wenn es
+     KEIN voller Schwung war — fehlt das Feld, gilt „Voll". */
+  const halb={...uhrSchlag, id:"W4", swing:"Halb", dist:70,
+              latB:hr1.tee[0]+70/mLat, lngB:hr1.tee[1]};
+  await uhrSchickt([halb]);
+  pruef("der Teilschwung wird gespeichert",
+    !!R(`(DB.gpsShots||[]).some(x=>x.id==="W4")`));
+  /* ABER ER ZAEHLT NICHT MIT. `shotsProKlasse` wirft ihn heraus, und
+     `clubMeasured` sieht ihn nie. Das ist der Sinn des Schwung-Chips auf der
+     Uhr: Ein halber Wedge fliegt 55 statt 92 m; zaehlte er mit, zoege er die
+     gelernte Laenge nach unten und der Caddy empfaehle systematisch zu kurz.
+     MEIN ERSTER ANLAUF PRUEFTE DAS FALSCHHERUM — ich erwartete W4 in der
+     Lern-Liste „als Teilschwung markiert". Er steht dort gar nicht, und das
+     ist richtig. Notiert, weil die falsche Erwartung beim naechsten Lesen
+     sonst wiederkommt. */
+  const lernListe=R(`(function(){ const k=clubNorm("7 Iron");
+     return ((shotsProKlasse().gps[k])||[]).map(x=>x.id); })()`);
+  pruef("aber er zählt nicht für die gelernte Länge",
+    Array.isArray(lernListe) && lernListe.indexOf("W4")<0, JSON.stringify(lernListe));
+  pruef("die vollen Schwünge dagegen schon",
+    Array.isArray(lernListe) && lernListe.indexOf("W1")>=0, JSON.stringify(lernListe));
+
+  /* QUITTUNG: Die Uhr traegt ihre Schlaege mit, bis das Handy sie bestaetigt.
+     Ohne `shotAck` funkt sie die ganze Runde dieselben vierzig Messungen. */
+  await R(`draftPush()`); await new Promise(r=>setImmediate(r));
+  let djA=null; try{ djA=JSON.parse(REPO["draft.json"]||"{}"); }catch(e){}
+  pruef("das Handy quittiert die übernommenen Messungen",
+    !!(djA && Array.isArray(djA.shotAck) && djA.shotAck.indexOf("W1")>=0),
+    JSON.stringify(djA&&djA.shotAck));
+  /* UND ES DARF SIE NICHT LOESCHEN: Beim eigenen Push gibt `DRAFT_SHOTS` die
+     Uhr-Messungen unveraendert zurueck. Schriebe das Handy hier eine leere
+     Liste, waeren die Messungen weg, bevor die Uhr sie quittiert bekommt. */
+  pruef("und schreibt die Messungen der Uhr nicht weg",
+    !!(djA && Array.isArray(djA.gpsShots) && djA.gpsShots.some(x=>x.id==="W1")),
+    JSON.stringify((djA&&djA.gpsShots||[]).map(x=>x.id)));
+
+  /* ======================================================================
+     SCHREIBKONFLIKT — BEIDE GERAETE GLEICHZEITIG (neu 27.08.2026)
+     ----------------------------------------------------------------------
+     Der Worker antwortet mit 409, wenn sich die Kennung seit dem Lesen
+     geaendert hat. Das ist der Alltag auf der Bahn: Uhr und Handy schreiben
+     im Sekundenabstand. Die Regel lautet VEREINEN, nicht ueberschreiben —
+     und geprueft wurde bisher nur der glatte Fall.
+     DER VERLUST WAERE STILL: Wer den 409 mit „nochmal draufschreiben"
+     beantwortet, loescht die Messungen des anderen Geraets, ohne dass es
+     jemand meldet. */
+  kopf("Schreibkonflikt (409) — vereinen statt überschreiben");
+  {
+    const fremd=JSON.parse(REPO["draft.json"]||"{}");
+    fremd.gpsShots=(fremd.gpsShots||[]).concat([{...uhrSchlag, id:"W9"}]);
+    /* KEIN ZEITSTEMPEL IN DER ZUKUNFT — siehe die Begruendung bei
+       `uhrSchickt`. Ein Entwurf, der spaeter datiert ist als „jetzt", gewinnt
+       JEDEN folgenden Merge und schleppt seinen Inhalt durch alle weiteren
+       Abschnitte. Beim Bau kostete genau das eine halbe Stunde Suche an einer
+       Mitspieler-Pruefung, die nichts damit zu tun hatte. */
+    fremd.ts=new Date().toISOString();
+    REPO["draft.json"]=JSON.stringify(fremd);
+    SHAS["draft.json"]="sha-fremd-neu";        // Kennung wandert -> naechster Push bekommt 409
+    R(`PLAY.holes[2].score=5; if(typeof playTouchHole==="function") playTouchHole(PLAY.holes[2]);
+       if(typeof playSaveDraft==="function") playSaveDraft(); "ok"`);
+    await R(`draftPush()`); await new Promise(r=>setImmediate(r));
+    let dk=null; try{ dk=JSON.parse(REPO["draft.json"]||"{}"); }catch(e){}
+    pruef("der eigene Eintrag ist im Repo angekommen",
+      !!(dk&&dk.round&&(dk.round.holes||[]).some(h=>h.hole===3&&h.score===5)));
+    pruef("die Messung des anderen Geräts überlebt den Konflikt",
+      !!(dk&&(dk.gpsShots||[]).some(x=>x.id==="W9")),
+      JSON.stringify((dk&&dk.gpsShots||[]).map(x=>x.id)));
+  }
+
+  /* ======================================================================
+     NETZAUSFALL — WEITERSPIELEN GEHT IMMER (neu 27.08.2026)
+     ----------------------------------------------------------------------
+     Regel 1 der Architektur, in beiden Doku-Koepfen: „Repo-Push NIE als
+     Bedingung fuers Weiterarbeiten." Auf dem Platz ist Funkloch der
+     Normalfall, nicht die Ausnahme — und ein Eingabefeld, das ohne Netz
+     klemmt, kostet die Runde.
+     Geprueft wird beides: dass Eingaben ohne Netz durchgehen, UND dass sie
+     nach der Rueckkehr von selbst im Repo landen. Nur das zweite macht den
+     Ausfall harmlos. */
+  kopf("Netzausfall — Eingaben laufen weiter, Nachschub kommt später");
+  {
+    const echtesFetch=sandbox.fetch;
+    sandbox.fetch=()=>Promise.reject(new Error("offline"));
+    const vorOffline=SHAS["draft.json"];
+    R(`PLAY.holes[3].score=6; PLAY.holes[3].putts=2;
+       if(typeof playTouchHole==="function") playTouchHole(PLAY.holes[3]);
+       if(typeof playSaveDraft==="function") playSaveDraft(); "ok"`);
+    let krachte=false;
+    try{ await R(`draftPush()`); await new Promise(r=>setImmediate(r)); }
+    catch(e){ krachte=true; }
+    pruef("ein Push ohne Netz reisst nichts um", !krachte);
+    pruef("die Eingabe steht trotzdem im Zustand",
+      R(`PLAY.holes[3].score`)===6, String(R(`PLAY.holes[3].score`)));
+    pruef("sie steht auch im lokalen Entwurf",
+      !!R(`(((DB._draftRound||{}).round||{}).holes||[]).some(h=>h.hole===4&&h.score===6)`));
+    pruef("und im Repo ist nichts Halbes gelandet", SHAS["draft.json"]===vorOffline);
+    sandbox.fetch=echtesFetch;
+    await R(`draftPush()`); await new Promise(r=>setImmediate(r));
+    let dn=null; try{ dn=JSON.parse(REPO["draft.json"]||"{}"); }catch(e){}
+    pruef("nach der Rückkehr kommt die Eingabe an",
+      !!(dn&&dn.round&&(dn.round.holes||[]).some(h=>h.hole===4&&h.score===6)));
+  }
+
+  /* AUSTRUDELN LASSEN, bevor der naechste Abschnitt beginnt. `playSaveDraft`
+     stoesst ueber `maybeCheckpointDraft` einen Abgleich an, der die Datei
+     liest und den Entwurf VEREINT — laeuft der erst mitten im naechsten
+     Abschnitt zu Ende, ueberschreibt er dort gerade gesetzte Werte, und der
+     Fehlschlag steht an einer Stelle, die nichts damit zu tun hat. Genau das
+     ist beim Bau dieses Abschnitts passiert: Die Mitspieler-Pruefung wurde
+     rot, obwohl an ihr nichts falsch war. */
+  for(let i=0;i<8;i++) await new Promise(r=>setImmediate(r));
+
   /* ---------- Mitspieler (v4.81): Namen und Endscores reisen mit ---------- */
   kopf("Mitspieler — Namen und Endscores über den Entwurf");
   const ms=R(`(function(){
@@ -671,7 +937,8 @@ kopf("draft.json — Handy → Uhr");
         erst das hebt den Stand in DB._draftRound, den draftPush sendet. */
      if(typeof playSaveDraft==="function") playSaveDraft();
      var r=playRound();
-     return {namen:r.mitspieler, msc:(r.holes[0]||{}).msc1}; })()`);
+     return {namen:r.mitspieler, msc:(r.holes[0]||{}).msc1,
+             }; })()`);
   pruef("Namen stehen im Runden-Objekt", !!(ms&&ms.namen&&ms.namen.length===2&&ms.namen[0]==="Jan"),
         JSON.stringify(ms&&ms.namen));
   pruef("Endscore reist als Lochfeld", !!(ms&&ms.msc===6), String(ms&&ms.msc));
@@ -703,6 +970,141 @@ kopf("draft.json — Handy → Uhr");
   await new Promise(r=>setImmediate(r));
   pruef("ohne eigenen Entwurf wird nicht geschrieben", SHAS["draft.json"]===shaNach,
     "sha "+shaNach+" -> "+SHAS["draft.json"]);
+
+  /* ======================================================================
+     RUNDE ABSCHLIESSEN — DER WEG, DEN JEDE RUNDE GEHT (neu 27.08.2026)
+     ----------------------------------------------------------------------
+     Bis hierher prueft die Simulation das VERWERFEN, aber nie das Beenden.
+     Das ist die Lage, die man achtzehnmal von zwanzig erreicht — und sie war
+     ungeprueft, obwohl an ihr schon einmal etwas hing („Runde beenden geht
+     nicht", Uhr-Fassungen 34/35).
+     Geprueft wird die ganze Kette nach dem letzten Putt: Landet die Runde in
+     `DB.rounds`? Rechnet `computeRound` die Summen? Steht der Grabstein in
+     `draft.json`, damit die Uhr aufhoert zu funken? Und: Traegt die
+     SCOREKARTE die Mitspieler (v4.83) — das war bis dahin nur an der reinen
+     Funktion geprueft, nie am Weg dorthin.
+     EIGENE RUNDE, weil die vorige verworfen wurde. Damit prueft dieser
+     Abschnitt nebenbei mit, dass nach einem Verwerfen ueberhaupt wieder eine
+     Runde beginnen kann. */
+  kopf("Runde abschließen — Ergebnis, Scorekarte, Grabstein");
+  {
+    R(`DB.ui=DB.ui||{}; DB.ui.draftDiscardedTs=""; "ok"`);
+    const neu2=R(`playBegin("Nordplatz Timmendorfer Strand","Gelb",0); PLAY.active`);
+    pruef("nach dem Verwerfen startet eine neue Runde", neu2===true, JSON.stringify(neu2));
+
+    /* Neun Loecher spielen, die zweite Haelfte leer lassen. Die PWA deutet
+       das beim Abschluss zu „Front 9" um (v3.34) — aber nur bei einem KLAREN
+       Bild, und genau die Grenze ist es wert, festgehalten zu werden. */
+    R(`(function(){
+       PLAY.mitspieler=["Jan","Ute"];
+       for(var i=0;i<9;i++){ var h=PLAY.holes[i];
+         h.score=h.par+(i%3===0?1:0); h.putts=2;
+         h.msc1=h.par+1; h.msc2=h.par;
+         if(typeof playTouchHole==="function") playTouchHole(h); }
+       if(typeof playSaveDraft==="function") playSaveDraft(); return "ok"; })()`);
+
+    /* Die Scorekarte VOR dem Abschluss — im Spielmodus liest sie `PLAY`, und
+       genau dort fehlte bis v4.83 das Feld `mitspieler` beim Abschreiben. */
+    const karte=R(`playCardHtml()`);
+    pruef("die Scorekarte im Spielmodus nennt die Mitspieler",
+      typeof karte==="string" && karte.indexOf("Jan")>=0 && karte.indexOf("Ute")>=0);
+    pruef("und färbt fremde Scores nicht wie eigene",
+      typeof karte==="string" &&
+      !/<tr class="sc-ms">[\s\S]*?(sc-birdie|sc-bogey|sc-eagle|sc-dbl)[\s\S]*?<\/tr>/.test(karte));
+
+    const idVor=R(`PLAY.roundId`);
+    const nVor=R(`(DB.rounds||[]).length`);
+    R(`playFinish(); "ok"`);
+    await new Promise(r=>setImmediate(r));
+
+    pruef("die Runde liegt im Bestand", R(`(DB.rounds||[]).length`)===nVor+1,
+      nVor+" -> "+R(`(DB.rounds||[]).length`));
+    pruef("der Spielmodus ist beendet", R(`PLAY.active`)===false);
+    const rr=R(`(DB.rounds||[]).find(x=>x.id===${JSON.stringify(idVor)})||null`);
+    pruef("und zwar unter derselben Kennung", !!rr, String(idVor));
+    pruef("mit neun gewerteten Löchern",
+      !!(rr && (rr.holes||[]).filter(h=>h.score!=null).length===9));
+    /* ALS 18 GESTARTET, NEUN GESPIELT: Die Umdeutung ist ausdruecklich
+       gewollt und wird dem Spieler auch gesagt — sonst findet er spaeter
+       „Front 9" in der Liste und weiss nicht, warum. */
+    pruef("als „Front 9\" gewertet", !!(rr && rr.side==="Front 9" && rr.type==="9 Loch"),
+      JSON.stringify(rr&&{side:rr.side,type:rr.type}));
+    pruef("die Mitspieler sind mit gespeichert",
+      !!(rr && (rr.mitspieler||[]).length===2), JSON.stringify(rr&&rr.mitspieler));
+    pruef("und ihre Loch-Scores auch",
+      !!(rr && (rr.holes||[]).some(h=>h.hole===1 && h.msc1!=null && h.msc2!=null)));
+
+    const e=R(`computeRound((DB.rounds||[]).find(x=>x.id===${JSON.stringify(idVor)}))`);
+    /* `computeRound` nennt die Schlagsumme `gross`, nicht `total` — mein
+       erster Anlauf griff ins Leere und meldete einen Fehler, den es nicht
+       gab. Notiert, damit die falsche Erwartung nicht wiederkommt. */
+    pruef("die Auswertung rechnet eine Summe", !!(e && e.gross>0), JSON.stringify(e&&e.gross));
+    pruef("und zählt die Putts", !!(e && e.putts===18), JSON.stringify(e&&e.putts));
+    pruef("nur die neun gespielten Löcher zählen", !!(e && e.counted===9), String(e&&e.counted));
+    /* Stableford aus neun Loechern — die Umdeutung zu „Front 9" ist genau
+       dafuer da: Ohne sie faellt die Runde aus allen Vergleichen heraus. */
+    pruef("und die Neun ist auswertbar", !!(e && e.stblN>0), String(e&&e.stblN));
+
+    /* Die gespeicherte Karte — derselbe Bauplan wie im Spielmodus (24da). */
+    const karte2=R(`roundCardHtml((DB.rounds||[]).find(x=>x.id===${JSON.stringify(idVor)}))`);
+    pruef("die gespeicherte Scorekarte trägt die Mitspieler",
+      typeof karte2==="string" && karte2.indexOf("Jan")>=0 && karte2.indexOf("Ute")>=0);
+    const txt=R(`roundShareText((DB.rounds||[]).find(x=>x.id===${JSON.stringify(idVor)}))`);
+    pruef("und der Teilen-Text nennt sie mit Summe",
+      typeof txt==="string" && /Jan: \d+/.test(txt) && /Ute: \d+/.test(txt),
+      typeof txt==="string"?txt.split("\n").filter(z=>/Jan|Ute/.test(z)).join(" | "):"");
+
+    /* DER GRABSTEIN IST DER TEIL, DER DIE UHR BETRIFFT: Ohne ihn funkt sie
+       weiter Herzschlaege fuer eine Runde, die es nicht mehr gibt — und der
+       naechste Merge holt den Entwurf aus dem Repo zurueck. */
+    await new Promise(r=>setImmediate(r));
+    let de=null; try{ de=JSON.parse(REPO["draft.json"]||"{}"); }catch(e2){}
+    pruef("im Repo steht der Grabstein, nicht die Runde",
+      !!(de && de.discardedTs && !de.round), JSON.stringify(Object.keys(de||{})));
+  }
+
+  /* ======================================================================
+     WAS DER ENTWURFS-MERGE MIT LEEREN LISTEN MACHT (neu 27.08.2026)
+     ----------------------------------------------------------------------
+     BEFUND BEIM BAU DIESES ABSCHNITTS, festgehalten statt stillschweigend
+     geaendert: Auf LOCH-Ebene gilt seit v2.98 „null loescht nichts" — ein
+     leeres Feld der Gegenseite ueberschreibt keinen gesetzten Wert. Auf
+     RUNDEN-Ebene gibt es diese Regel NICHT: `Object.assign({}, old.round,
+     nw.round)` kopiert auch ein LEERES ARRAY, und damit loescht ein
+     `mitspieler: []` des juengeren Entwurfs die Namen des aelteren.
+     EIN FEHLENDES Feld ist dagegen harmlos — `Object.assign` uebergeht es.
+     Die Uhr schreibt `mitspieler` nur, wenn Namen da sind (`buildRoundJson`),
+     ist also KEIN Ueberträger. Erreichbar ist der Fall ueber zwei
+     PWA-Instanzen (Handy und Browser).
+     WARUM HIER NICHT EINFACH EIN RIEGEL: Er haette einen Preis — dann liesse
+     sich der letzte Mitspieler von der anderen Seite nicht mehr entfernen.
+     Das ist eine Abwaegung, keine Fehlerbehebung, und sie gehoert dem
+     Besitzer der Daten. Bis dahin haelt diese Pruefung das Verhalten fest,
+     damit es nicht unbemerkt kippt — in die eine wie die andere Richtung. */
+  kopf("Entwurfs-Merge — was ein leeres Feld anrichtet");
+  {
+    const mitN={ts:"2026-08-27T10:00:00.000Z", round:{date:"2026-08-27",course:"X",
+      side:"18 Loch", mitspieler:["Jan","Ute"], holes:[{hole:1,score:5}]}};
+    const leerJuenger={ts:"2026-08-27T10:00:01.000Z", round:{date:"2026-08-27",course:"X",
+      side:"18 Loch", mitspieler:[], holes:[{hole:1}]}};
+    const ohneFeld={ts:"2026-08-27T10:00:01.000Z", round:{date:"2026-08-27",course:"X",
+      side:"18 Loch", holes:[{hole:1}]}};
+    const a=R(`mergeDraft(${JSON.stringify(mitN)},${JSON.stringify(leerJuenger)},"")`);
+    const b=R(`mergeDraft(${JSON.stringify(mitN)},${JSON.stringify(ohneFeld)},"")`);
+    pruef("ein FEHLENDES Feld der Gegenseite löscht nichts",
+      !!(b && b.round && (b.round.mitspieler||[]).length===2),
+      JSON.stringify(b&&b.round&&b.round.mitspieler));
+    pruef("ein LEERES Feld des jüngeren Entwurfs löscht — Stand heute, bewusst festgehalten",
+      !!(a && a.round && (a.round.mitspieler||[]).length===0),
+      JSON.stringify(a&&a.round&&a.round.mitspieler));
+    /* Und die Loch-Ebene haelt dagegen, wie sie soll. */
+    const lochLeer={ts:"2026-08-27T10:00:01.000Z", round:{date:"2026-08-27",course:"X",
+      side:"18 Loch", holes:[{hole:1,score:null,putts:2}]}};
+    const c=R(`mergeDraft(${JSON.stringify(mitN)},${JSON.stringify(lochLeer)},"")`);
+    pruef("auf Loch-Ebene löscht null weiterhin nichts",
+      !!(c && (c.round.holes||[]).some(h=>h.hole===1&&h.score===5&&h.putts===2)),
+      JSON.stringify(c&&c.round&&c.round.holes));
+  }
 
   console.log("\n"+JSON.stringify(bilanz()));
 })();
