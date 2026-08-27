@@ -29,6 +29,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.pager.HorizontalPager
@@ -189,10 +190,18 @@ import kotlin.math.sqrt
  *         „Mitspieler 2" — siehe `object Mitspieler`),
  *         Rubrik „Runde" (Lochpfeile, „+ Mitspieler", ↶ letzter Schlag,
  *         Abschluss, Übersicht).
- *       · UNTEN FEST VERANKERT die SCHLAGZEILE (📐/■ · ✕ · Schwung ·
- *         Schlaeger). Sie scrollt NICHT mit: Man tippt sie beim Ball, mit
- *         Handschuh, ohne hinzusehen. Der Platz dafuer wird als letztes
- *         Listenelement freigehalten (Spacer), nicht ueber contentPadding —
+ *       · UNTEN FEST VERANKERT EIN EINZIGER SCHLAG-KNOPF (43):
+ *         „📐 Schlag 4" bzw. „■ 47 m", mittig auf 72 % der Breite. Er scrollt
+ *         NICHT mit: Man tippt ihn beim Ball, mit Handschuh, ohne hinzusehen.
+ *         LANGDRUCK bricht eine laufende Aufnahme ab.
+ *         NICHT ueber die volle Breite und NICHT mehrere Knoepfe — auf einem
+ *         runden Display ist die nutzbare Breite dort rund 60 %; (38) hatte
+ *         vier Chips nebeneinander, von denen nur Stummel uebrig blieben.
+ *         SCHLAEGER UND SCHWUNG stehen waehrend einer Aufnahme GANZ OBEN in
+ *         der Liste, wo eine Zeile die volle Breite hat; die Liste springt
+ *         beim Aufnahmestart dorthin.
+ *         Der Platz fuer den Knopf wird als letztes Listenelement
+ *         freigehalten (Spacer, 78 dp), nicht ueber contentPadding —
  *         `autoCentering` wuerde den ueberdecken.
  *     SEITE 1 — DETAILS: Trainingsfelder, die warten koennen.
  *     AMBIENT (AmbientPlayScreen): Loch, Stand als grosse Zahl, laufende
@@ -355,6 +364,49 @@ import kotlin.math.sqrt
  *  ------------------------------------------------------------------------
  *  CHANGELOG (neueste zuerst — bei JEDER Änderung ergänzen: Datum · was · wo)
  *  ------------------------------------------------------------------------
+ *  2026-08-27 (43) · SCHLAGTRACKEN: EIN KNOPF STATT VIER STUMMEL.
+ *     GEMELDET mit Foto: „Die Art wie das Schlagtracken auf der Uhr
+ *     integriert ist, ist nicht gut. Ich kann kaum was erkennen." Auf dem Bild
+ *     stehen unten „1", „✕ S", „Pu", „Sch" — Reste von vier Chips, die ueber
+ *     die Rundung hinauslaufen und auf den Seitenpunkten des Pagers liegen.
+ *     MEIN FEHLER AUS (38), und zwar ein rechnerischer: Ich habe eine Reihe
+ *     aus bis zu VIER Tippflaechen ueber `fillMaxWidth()` an den unteren Rand
+ *     eines RUNDEN Displays gesetzt.
+ *     DIE RECHNUNG, die ich nicht gemacht habe: Auf einem Kreis mit Radius r
+ *     ist die nutzbare Breite in der Hoehe y ueber der Bildmitte 2·√(r²−y²).
+ *     Ein Streifen, dessen Mitte 0,8 r unter der Mitte liegt, hat noch rund
+ *     60 % der Bildbreite — nicht 100 %. Vier Flaechen passen dort nicht,
+ *     egal wie man sie anordnet. `fillMaxWidth()` ist auf einem runden
+ *     Display am oberen und unteren Rand schlicht gelogen.
+ *     (Am 14.08. war dieselbe Verankerung schon einmal zurueckgenommen
+ *     worden. Ich habe in (38) den DAMALIGEN Einwand geprueft — „verdeckt
+ *     Inhalt", der stimmte nicht mehr — und den eigentlichen uebersehen.)
+ *     NEU:
+ *       · EIN Chip, mittig, `fillMaxWidth(0.72f)`, 52 dp hoch, 18 dp ueber
+ *         den Seitenpunkten. Beschriftung kurz genug, um auch bei 60 %
+ *         nutzbarer Breite ganz dazustehen: „📐 Schlag 4" bzw. „■ 47 m".
+ *       · SCHLAEGER UND SCHWUNG ZIEHEN IN DIE LISTE, wo der Kreis am
+ *         breitesten ist und eine Zeile die volle Breite hat — als normale
+ *         `SelectRow`, NUR waehrend einer Aufnahme, ganz oben. Die Liste
+ *         springt beim Aufnahmestart dorthin (`LaunchedEffect(recActive)`),
+ *         also stehen sie genau dann unter dem Daumen, wenn man sie braucht:
+ *         „Schlag hier" tippen, Schlaeger waehlen, losgehen.
+ *       · ABBRECHEN auf dem LANGDRUCK desselben Knopfes, mit Vibration. Ein
+ *         fuenfter Chip waere wieder ein Stummel; und Abbrechen ist selten,
+ *         Stoppen der Normalfall — die haeufige Handlung bekommt den kurzen
+ *         Weg. Zuruecknehmen (↶) bleibt wie seit dem 14.08. unten in der
+ *         Rubrik „Runde": zwei zerstoerende Aktionen an EINEM Ort, nur durch
+ *         einen Zustand unterschieden, waeren eine Falle.
+ *       · Freihaltung am Listenende 56 -> 78 dp (52 + 18 + Luft).
+ *     DIESELBE ZAHL AN HANDGRIFFEN wie vorher, nur mit Flaechen, die man mit
+ *     Handschuh trifft.
+ *     PRUEFSTAND: neue Riegel in 24cp — der Knopf darf am unteren Rand NICHT
+ *     `fillMaxWidth()` ohne Anteil nehmen, es muss EIN Knopf sein und keine
+ *     `Row`, Abbrechen liegt auf dem Langdruck, Schlaeger/Schwung stehen in
+ *     der Liste und die Liste springt beim Start nach oben. Die Rechnung
+ *     steht im Kommentar daneben, damit der naechste Umbau sie nicht wieder
+ *     uebergeht.
+ *
  *  2026-08-27 (42) · MITSPIELER: DAS HANDY FUEHRT, DIE UHR SPIEGELT.
  *     GEMELDET: „Auf der Uhr werden mehr Mitspieler angezeigt als in der
  *     index.html." Stimmte, und zwar aus ZWEI Gruenden — beide stammten aus
@@ -2705,7 +2757,7 @@ import kotlin.math.sqrt
 /* Fassungskennung der Uhr-App — steht im Kopplungstest neben der der PWA.
    Bei JEDER Aenderung hier mitziehen; sonst vergleicht man zwei Staende und
    glaubt, sie seien gleich (2026-08-15 (13)). */
-private const val WATCH_APP = "2026-08-27 (42)"
+private const val WATCH_APP = "2026-08-27 (43)"
 /* ==========================================================================
    WAS HAT DIESE FASSUNG GEAENDERT? (2026-08-25 (22))
    --------------------------------------------------------------------------
@@ -2720,8 +2772,8 @@ private const val WATCH_APP = "2026-08-27 (42)"
    das seine eigenen Kommentare liest, bricht beim naechsten Umbau lautlos.
    Der Pruefstand haelt stattdessen fest, dass beides zusammenpasst. */
 private const val WATCH_NOTE =
-    "Mitspieler: Das Handy fuehrt. Nur die dort fuer diese Runde " +
-    "hinterlegten Spieler erscheinen auf der Uhr."
+    "Schlagtracken: EIN grosser Knopf unten statt vier Stummel. " +
+    "Schlaeger und Schwung stehen waehrend der Aufnahme oben in der Liste."
 
 private const val WORKER_URL = "https://golftraining-save.larsdohrmann24.workers.dev"
 /* DER RUNDENENTWURF ALS EIGENE, KLEINE DATEI (2026-08-14, Worker ab v2.6)
@@ -10518,6 +10570,17 @@ private fun ScorePage(
 
     val haptics = LocalHapticFeedback.current
 
+    /* BEIM AUFNAHMESTART NACH OBEN SPRINGEN (43). Dort stehen dann Schlaeger
+       und Schwung — die zwei Angaben, die in den Sekunden nach „Schlag hier"
+       fallen. Ohne den Sprung muesste man sie suchen, und beim Ball sucht
+       niemand.
+       NUR BEIM START, nicht beim Stopp: Nach dem Stopp ist man am Ball und
+       traegt oft direkt den Score ein — dann waere ein Sprung ein Ruck, den
+       man nicht bestellt hat. */
+    LaunchedEffect(recActive) {
+        if (recActive) listState.scrollToItem(0)
+    }
+
     var confirmFinish by remember { mutableStateOf(false) }
 
     var confirmUndo by remember { mutableStateOf(false) }
@@ -10560,6 +10623,32 @@ private fun ScorePage(
            unabhaengig davon, was `autoCentering` gerade tut. */
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
+
+        /* ======================================================================
+           WAEHREND EINER AUFNAHME STEHEN SCHLAEGER UND SCHWUNG GANZ OBEN (43)
+           ----------------------------------------------------------------------
+           Sie sassen bis (42) unten im Streifen und waren dort nicht lesbar
+           (siehe die Rechnung an der Schlagzeile). HIER hat eine Zeile die
+           volle Breite, weil der Kreis auf halber Hoehe am breitesten ist.
+           GANZ OBEN und nicht bei den Score-Feldern: Man waehlt den Schlaeger
+           in den Sekunden nach „Schlag hier", nicht nach dem Einlochen. Die
+           Liste springt beim Aufnahmestart nach oben (siehe LaunchedEffect
+           weiter unten), also steht die Zeile genau dann unter dem Daumen,
+           wenn man sie braucht.
+           NUR WAEHREND DER AUFNAHME: Ausserhalb waeren es zwei Zeilen ohne
+           Bezug, die man achtzehnmal je Runde ueberscrollt. */
+        if (recActive) {
+            item {
+                SelectRow("⛳ Schläger", recClubName) { onShotClub() }
+            }
+            /* Die PWA lernt Schlaegerlaengen NUR aus vollen Schwuengen; ohne
+               diese Angabe zoege ein halber Wedge (55 statt 92 m) die gelernte
+               Laenge nach unten. Ein Tipp schaltet weiter:
+               Voll -> 3/4 -> Halb -> Punch -> Voll. */
+            item {
+                SelectRow("↗ Schwung", recSwingName ?: "Voll") { onShotSwing() }
+            }
+        }
 
         item {
             Column(
@@ -11018,127 +11107,74 @@ private fun ScorePage(
             }
         }
 
-        /* FREIHALTUNG FUER DIE VERANKERTE SCHLAGZEILE (48 dp Chip + Rand).
-           Ohne sie liegt die letzte Zeile der Liste unter den Chips — und
-           das ist ausgerechnet „Sichern & abschliessen". */
-        item { Spacer(Modifier.height(56.dp)) }
+        /* FREIHALTUNG FUER DEN VERANKERTEN KNOPF (52 dp + 18 dp Rand, (43)).
+           Ohne sie liegt die letzte Zeile der Liste darunter — und das ist
+           ausgerechnet „Sichern & abschliessen". */
+        item { Spacer(Modifier.height(78.dp)) }
     }
 
         /* ======================================================================
-           SCHLAGZEILE — VERANKERT, IMMER ERREICHBAR (2026-08-26 (38))
+           EIN KNOPF, NICHT VIER — DIE RUNDUNG BESTIMMT DIE BREITE (43)
            ----------------------------------------------------------------------
-           Ablauf unveraendert gegenueber Seite 0: „Schlag hier" -> Schlaeger
-           (und bei Bedarf Schwunglaenge) -> beim Ball „stop". Der Endpunkt ist
-           automatisch der Startpunkt des naechsten Schlags.
-           WAS DIE UHR HIER TUT, IST MESSEN — nicht rechnen: `recDist` ist die
-           rohe Luftlinie zwischen Start und aktueller Position. Wind, Hoehe,
-           Temperatur und Regen rechnet das Handy beim Eintreffen der Messung
-           (`schlagNeutral`, PWA v4.80.1). Auf der Uhr gibt es dazu bewusst
-           keine Zeile.
-           KEIN ↶ HIER (unveraendert seit 2026-08-14): Zuruecknehmen sitzt in
-           der Rubrik „Runde" weiter unten. Derselbe Platz waere sonst
-           waehrend der Aufnahme „abbrechen" und danach „loeschen" — zwei
-           zerstoerende Aktionen an einem Ort, unterschieden nur durch einen
-           Zustand, den man beim Ball nicht prueft. */
-        Row(
-            Modifier
+           GEMELDET am 27.08. mit Foto: „Ich kann kaum was erkennen." Zu Recht.
+           (38) setzte hier eine Reihe aus bis zu VIER Chips ueber die volle
+           Breite an den unteren Rand — auf ein RUNDES Display. Uebrig blieben
+           Stummel: „1", „✕ S", „Pu", „Sch"; die Chips liefen ueber die Rundung
+           hinaus und lagen auf den Seitenpunkten des Pagers.
+           DIE RECHNUNG, die ich (38) nicht gemacht habe: Auf einem Kreis mit
+           Radius r ist die nutzbare Breite in der Hoehe y ueber der Mitte
+           2·√(r²−y²). Ein Streifen, dessen Mitte 0,8 r unter der Bildmitte
+           liegt, hat noch rund 60 % der Bildbreite — nicht 100 %. Vier
+           Tippflaechen passen dort nicht, egal wie man sie anordnet.
+           DESHALB: EIN Knopf, mittig, auf 72 % der Breite, mit Abstand ueber
+           den Seitenpunkten. Kurze Beschriftung, damit sie auch bei 60 %
+           nutzbarer Breite ganz dasteht.
+           SCHLAEGER UND SCHWUNG ZIEHEN IN DIE LISTE — dorthin, wo der Kreis am
+           breitesten ist und eine Zeile die volle Breite hat. Sie erscheinen
+           NUR waehrend einer Aufnahme, ganz oben, und die Liste springt beim
+           Start dorthin: „Schlag hier" tippen, Schlaeger waehlen, losgehen.
+           Dieselbe Zahl an Handgriffen wie vorher, nur mit Flaechen, die man
+           mit Handschuh trifft.
+           ABBRECHEN: LANGDRUCK auf denselben Knopf, mit Vibration. Ein
+           fuenfter Chip waere wieder ein Stummel; und Abbrechen ist selten,
+           Stoppen ist der Normalfall — die haeufige Handlung bekommt den
+           kurzen Weg. */
+        Chip(
+            onClick = { if (recActive) onShotStop() else onShotBegin() },
+            label = {
+                Text(
+                    if (recActive) "■ ${recDist ?: 0} m"
+                    else "📐 Schlag ${shotCount + 1}",
+                    fontSize = 16.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            },
+            colors =
+                if (recActive) ChipDefaults.primaryChipColors()
+                else ChipDefaults.secondaryChipColors(),
+            modifier = Modifier
                 .align(Alignment.BottomCenter)
-                .fillMaxWidth()
-                // 14 dp: die Seitenpunkte des Pagers bleiben darunter sichtbar
-                .padding(start = 8.dp, end = 8.dp, bottom = 14.dp),
-            horizontalArrangement = Arrangement.spacedBy(6.dp)
-        ) {
-            /* Waehrend einer Aufnahme zeigt der Knopf die gemessene Strecke —
-               das ist die einzige Zahl, die auf dieser Uhr noch aus einer
-               Messung entsteht, und man will sie im Gehen sehen. */
-            Chip(
-                onClick = { if (recActive) onShotStop() else onShotBegin() },
-                label = {
-                    Text(
-                        if (recActive) "■ ${recDist ?: 0} m"
-                        else "📐 $shotCount",
-                        fontSize = 14.sp,
-                        maxLines = 1,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                },
-                colors =
-                    if (recActive) ChipDefaults.primaryChipColors()
-                    else ChipDefaults.secondaryChipColors(),
-                // 48 dp — Wear-Mindestmass fuer Tippflaechen, mit Handschuh
-                // der Unterschied zwischen Treffer und Fehlgriff.
-                modifier = Modifier
-                    .weight(1f)
-                    .heightIn(min = 48.dp)
-            )
-
-            // Abbrechen NUR waehrend einer Aufnahme — ausserhalb waere der
-            // Knopf leer belegt und damit eine Falle.
-            if (recActive) {
-                Chip(
-                    onClick = onShotCancel,
-                    label = {
-                        Text(
-                            "✕",
-                            fontSize = 15.sp,
-                            textAlign = TextAlign.Center,
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                    },
-                    colors = ChipDefaults.secondaryChipColors(),
-                    modifier = Modifier
-                        .weight(0.6f)
-                        .heightIn(min = 48.dp)
+                /* 72 % — siehe die Rechnung oben. NICHT auf `fillMaxWidth()`
+                   zurueckstellen; genau das war der gemeldete Fehler. */
+                .fillMaxWidth(0.72f)
+                // 18 dp: die Seitenpunkte des Pagers bleiben darunter frei
+                .padding(bottom = 18.dp)
+                // 52 dp statt der 48 dp Mindestmass: Dies ist der einzige
+                // Knopf, den man beim Ball ohne Hinsehen trifft.
+                .heightIn(min = 52.dp)
+                .combinedClickable(
+                    onClick = { if (recActive) onShotStop() else onShotBegin() },
+                    onLongClick = {
+                        if (recActive) {
+                            haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                            onShotCancel()
+                        }
+                    }
                 )
-            }
-
-            /* SCHWUNGLAENGE — nur waehrend einer laufenden Aufnahme.
-               Die PWA lernt Schlaegerlaengen NUR aus vollen Schwuengen; ohne
-               diese Angabe zoege ein halber Wedge (55 statt 92 m) die
-               gelernte Laenge nach unten. Ein Tipp schaltet weiter:
-               Voll -> 3/4 -> Halb -> Punch -> Voll. */
-            if (recActive) {
-                Chip(
-                    onClick = onShotSwing,
-                    label = {
-                        Text(
-                            recSwingName ?: "Voll",
-                            fontSize = 13.sp,
-                            maxLines = 1,
-                            textAlign = TextAlign.Center,
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                    },
-                    colors =
-                        if (recSwingName != null) ChipDefaults.primaryChipColors()
-                        else ChipDefaults.secondaryChipColors(),
-                    modifier = Modifier
-                        .weight(0.9f)
-                        .heightIn(min = 48.dp)
-                )
-            }
-
-            Chip(
-                onClick = onShotClub,
-                label = {
-                    Text(
-                        // take(5) machte aus „Pitching Wedge" ein
-                        // mehrdeutiges „Pitch". Lieber sauber kuerzen lassen.
-                        recClubName ?: "Schläger",
-                        fontSize = 13.sp,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                },
-                colors = ChipDefaults.secondaryChipColors(),
-                modifier = Modifier
-                    .weight(1.2f)
-                    .heightIn(min = 48.dp)
-            )
-        }
+        )
     }
 }
 

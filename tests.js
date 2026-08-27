@@ -6044,21 +6044,52 @@ group("Gleichlauf Uhr ↔ App — dieselbe Frage, dieselbe Antwort");
       const blkS2 = iS2 < 0 ? "" : kt.slice(iS2, kt.indexOf("private fun DetailPage(", iS2));
       ok("die Lochpfeile stehen in ihrer Kopfzeile",
          /onHolePrev\?\.invoke\(\)/.test(blkS2) && /onHoleNext\?\.invoke\(\)/.test(blkS2));
-      /* Die Schlagzeile MUSS fest sein: Man tippt sie beim Ball, mit
+      /* Der Schlag-Knopf MUSS fest sein: Man tippt ihn beim Ball, mit
          Handschuh, ohne hinzusehen. Eine Schaltfläche, die man erst
          herscrollen muss, wird auf der Runde nicht benutzt — und dann fehlt
          die Messung, die der einzige Zweck dieser App ist. */
-      ok("die Schlagzeile ist am unteren Rand verankert",
+      ok("der Schlag-Knopf ist am unteren Rand verankert",
          /\.align\(Alignment\.BottomCenter\)/.test(blkS2));
-      /* Und der Platz dafür wird als LETZTES LISTENELEMENT freigehalten, nicht
+      /* ==================================================================
+         EIN KNOPF, NICHT VIER — DIE RUNDUNG BESTIMMT DIE BREITE (43)
+         --------------------------------------------------------------------
+         GEMELDET am 27.08. mit Foto: „Ich kann kaum was erkennen." (38) setzte
+         dort eine Reihe aus bis zu vier Chips über die VOLLE Breite — auf ein
+         RUNDES Display. Übrig blieben Stummel: „1", „✕ S", „Pu", „Sch".
+         Die Rechnung, die (38) nicht gemacht hat: Auf einem Kreis mit Radius r
+         ist die nutzbare Breite in der Höhe y über der Mitte 2·√(r²−y²). Ein
+         Streifen weit unten hat noch rund 60 % der Bildbreite, nicht 100 %.
+         Diese Prüfung ist der Riegel dagegen — sie schlägt an, sobald dort
+         wieder `fillMaxWidth()` ohne Anteil steht. */
+      {
+        const knopf = ktOhneKommentar(blkS2);
+        ok("und nimmt nicht die volle Breite (rundes Display)",
+           /\.fillMaxWidth\(0\.72f\)/.test(knopf));
+        ok("es ist ein einzelner Knopf, keine Reihe",
+           !/Row\([\s\S]{0,150}?\.align\(Alignment\.BottomCenter\)/.test(knopf));
+        /* Abbrechen liegt auf dem LANGDRUCK desselben Knopfes: Ein zweiter
+           Chip wäre wieder ein Stummel, und Abbrechen ist selten — die
+           häufige Handlung (Stoppen) bekommt den kurzen Weg. */
+        ok("Abbrechen liegt auf dem Langdruck",
+           /onLongClick = \{[\s\S]{0,220}?onShotCancel\(\)/.test(knopf));
+      }
+      /* SCHLÄGER UND SCHWUNG ZOGEN IN DIE LISTE, wo eine Zeile die volle
+         Breite hat — und nur während einer Aufnahme, ganz oben. */
+      ok("Schläger und Schwung stehen während der Aufnahme in der Liste",
+         /SelectRow\("⛳ Schläger"/.test(blkS2) && /SelectRow\("↗ Schwung"/.test(blkS2));
+      /* Ohne den Sprung nach oben stünden sie beim Aufnahmestart irgendwo —
+         und beim Ball sucht niemand. */
+      ok("und die Liste springt beim Aufnahmestart dorthin",
+         /LaunchedEffect\(recActive\)[\s\S]{0,120}?listState\.scrollToItem\(0\)/.test(blkS2));
+      /* Der Platz dafür wird als LETZTES LISTENELEMENT freigehalten, nicht
          über contentPadding: `autoCentering` rechnet oben und unten eigenen
          Platz dazu und überdeckt den Wert. Sonst läge ausgerechnet
-         „Sichern & abschließen" unter den Chips. */
-      /* ZUM DRITTEN MAL IN EINER SITZUNG: Die Abwesenheits-Prüfung traf den
-         KOMMENTAR, der erklärt, warum `contentPadding` hier NICHT steht.
-         Deshalb `ktOhneKommentar` — die Begründung darf nie der Befund sein. */
+         „Sichern & abschließen" darunter.
+         (Und die Abwesenheits-Prüfung läuft durch `ktOhneKommentar` — der
+         Kommentar, der erklärt, warum `contentPadding` hier NICHT steht,
+         darf nicht der Befund sein.) */
       ok("und der Platz dafür als Spacer freigehalten",
-         /Spacer\(Modifier\.height\(56\.dp\)\)/.test(blkS2)
+         /Spacer\(Modifier\.height\(78\.dp\)\)/.test(blkS2)
          && !/contentPadding/.test(ktOhneKommentar(blkS2)));
       ok("die GPS-Güte steht in der Kopfzeile", /gpsAcc/.test(blkS2) && /±\$it m/.test(blkS2));
     }
@@ -6780,7 +6811,7 @@ group("Live-Zeiger — beide Geräte, dieselbe Regel");
        zusaetzlich, dass der Changelog einen Eintrag fuer GENAU diese Kennung
        hat — beides zusammen faengt „Code geaendert, Fassung vergessen" und
        „Fassung gezogen, Changelog vergessen". */
-    ok("und die Kennung ist aktuell", /WATCH_APP = "2026-08-27 \(42\)"/.test(kt));
+    ok("und die Kennung ist aktuell", /WATCH_APP = "2026-08-27 \(43\)"/.test(kt));
     ok("das Handy zeigt sie", /function watchFassung\(\)/.test(src));
 
     /* --- STARTBILDSCHIRM (2026-08-25 (20)) ---
