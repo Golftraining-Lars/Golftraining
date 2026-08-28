@@ -38,6 +38,21 @@
       jetzt zusaetzlich auf verwaisten Zustand mit geloeschten Typen. Bei
       einem Kotlin-Rueckbau gilt trotzdem: einmal am Rechner uebersetzen,
       bevor man ihn fuer fertig haelt.
+   2c. `live("DB")` STATT `G("DB")` in NEUEN Pruefungen. `DB` und `PLAY` sind
+      `let`-Bindungen und werden von der App KOMPLETT ERSETZT; eine einmal
+      geholte Referenz zeigt danach auf eine Leiche, Zuweisungen darauf
+      verpuffen. Das hat am 27./28.08. DREIMAL einen halben Nachmittag
+      gekostet und jedes Mal wie ein Produktfehler ausgesehen. `STALE_DECKEL`
+      deckelt die Altbestaende — nur senken, nie anheben.
+   2d. WER DEN WEG PRUEFEN WILL, MUSS DEN WEG GEHEN. `draftPull()` holt die
+      Datei und gibt sie ZURUECK — sie uebernimmt nichts; das macht
+      `playSyncTick`. Und `draftPushSoon` haengt an einem ZEITGEBER (2 s),
+      nicht an einem Takt: `setImmediate`-Warten spult ihn nicht vor. Ein
+      Abschnitt, der den Abgleich in Bewegung bringt, gehoert deshalb
+      ABGESCHOTTET ans Ende der Rundensimulation, mit eigener Runde.
+   2e. AUF DAS ERGEBNIS WARTEN, NICHT AUF EINE FRIST. Eine Pruefung, die eine
+      feste Wartezeit setzt, ist mal gruen und mal rot, ohne dass sich etwas
+      geaendert hat. Pollen, bis das Erwartete da ist (siehe `bisGrabstein`).
    3. PRUEFUNGEN AUF ABWESENHEIT laufen durch `ktOhneKommentar()` bzw.
       `codeOhneDoku()`. Der Kommentar, der erklaert, warum etwas NICHT mehr
       dasteht, enthaelt zwangslaeufig genau die Zeichenfolge, nach der die
@@ -174,13 +189,31 @@ const COVERAGE_BASELINE_FUNCS = ("dgmAktiv dgmStatus " +
    Die Laenge dieser Liste ist die ehrliche Zahl: Sie zaehlt genau das, was
    noch offen ist.
    ========================================================================== */
+/* 28.08.2026 (Folge-Audit N-1): `grid`, `pointESTo` und `shotEV` sind
+   abgedeckt (Abschnitt 24da3) — die drei, die die Entscheidung auf der Bahn
+   tragen. Offen bleiben die Planer und die Lerner. */
 const COVERAGE_BASELINE_STRAT = (
-    "_fp grid learnFromGps" +" "+
-    "learnLateralFromRounds planCourse planFor planHole pointESTo shotEV"
+    "_fp learnFromGps" +" "+
+    "learnLateralFromRounds planCourse planFor planHole"
 ).split(" ");
 
 /* NUR SENKEN, NIE ANHEBEN. Stand 27.08.2026 nach Abschnitt 24da2. */
-const ABDECKUNG_DECKEL = { funcs: 202, strat: 9 };
+const ABDECKUNG_DECKEL = { funcs: 202, strat: 6 };
+
+/* ==========================================================================
+   DECKEL GEGEN NEUE STALE-FALLEN (v4.94, Audit W-3)
+   --------------------------------------------------------------------------
+   `G("DB")` und `G("PLAY")` liefern MOMENTAUFNAHMEN — die App ersetzt beide
+   Bindungen (siehe den Kommentar an `live`). Die bestehenden Stellen laufen
+   vor der ersten Neuzuweisung und bleiben, wo sie sind; NEUE gibt es nicht
+   mehr. Wer eine braucht, nimmt `live("DB")`.
+   WIE BEIM ABDECKUNGS-DECKEL: nur senken, nie anheben. Wer eine alte Stelle
+   auf `live` umstellt, senkt die Zahl um eins.
+   WARUM UEBERHAUPT EIN DECKEL UND KEIN VERBOT: Die 81 Stellen einzeln zu
+   pruefen kostet mehr, als es bringt — sie sind gruen, und zwar zu Recht.
+   Gefaehrlich ist der ZUWACHS, denn je weiter hinten eine Gruppe steht, desto
+   wahrscheinlicher hat vorher jemand `DB=merged` gerufen. */
+const STALE_DECKEL = { db: 80, play: 20 };
 
 let pass = 0, fail = 0;
 const fails = [];
@@ -296,6 +329,29 @@ try {
 }
 const T = ctx.__T || {};
 const G = n => (T[n] !== undefined ? T[n] : ctx[n]);
+
+/* ==========================================================================
+   `live("DB")` STATT `G("DB")` — DIE FALLE, DIE DREIMAL ZUSCHLUG (v4.94)
+   --------------------------------------------------------------------------
+   `DB` und `PLAY` sind `let`-Bindungen und werden in der App KOMPLETT ERSETZT:
+   `DB=merged` nach jedem Abgleich (sieben Stellen), `PLAY=Object.assign(…)` bei
+   jedem Rundenstart. Eine `let`-Bindung im VM-Kontext ist keine Eigenschaft des
+   Kontextobjekts — `G("DB")` liefert deshalb die Momentaufnahme aus der
+   Uebergabeliste, und nach dem naechsten `DB=merged` zeigt sie auf eine Leiche.
+   Zuweisungen darauf verpuffen; die geprueften Funktionen sehen etwas anderes.
+   AM 27./28.08. DREIMAL PASSIERT — und jedes Mal sah es aus wie ein Fehler im
+   Produkt: Alle Einzelbedingungen meldeten „frei", die Funktion gab trotzdem
+   `false` zurueck. Erst der vierte Anlauf fand die Ursache.
+   `live(...)` geht ueber eine Auskunftsfunktion IN DER APP (`dbJetzt`,
+   `playJetzt`) und liefert damit immer die aktuelle Bindung.
+   FUER NEUE PRUEFUNGEN IST `live` PFLICHT; die 81 bestehenden `G("DB")`-Stellen
+   bleiben, wo sie sind (sie laufen vor der ersten Neuzuweisung), sind aber
+   gedeckelt — siehe `STALE_DECKEL` weiter unten. */
+function live(name){
+  const f = G(name === "DB" ? "dbJetzt" : name === "PLAY" ? "playJetzt" : null);
+  if (typeof f === "function") return f();
+  return G(name);            // aeltere Fassung ohne Auskunftsfunktion
+}
 
 /* ========================= 1. Schlägerwahl ========================= */
 group("Schlägerwahl (clubPick)");
@@ -7022,7 +7078,7 @@ group("Live-Zeiger — beide Geräte, dieselbe Regel");
        zusaetzlich, dass der Changelog einen Eintrag fuer GENAU diese Kennung
        hat — beides zusammen faengt „Code geaendert, Fassung vergessen" und
        „Fassung gezogen, Changelog vergessen". */
-    ok("und die Kennung ist aktuell", /WATCH_APP = "2026-08-28 \(48\)"/.test(kt));
+    ok("und die Kennung ist aktuell", /WATCH_APP = "2026-08-28 \(49\)"/.test(kt));
     ok("das Handy zeigt sie", /function watchFassung\(\)/.test(src));
 
     /* --- STARTBILDSCHIRM (2026-08-25 (20)) ---
@@ -12956,6 +13012,160 @@ group("STRAT-Bausteine — Mathematik, die man nachrechnen kann");
   }
 }
 
+/* ============ 24da3. Erwartungswerte — die schwere Hälfte von STRAT ============ */
+group("STRAT — Erwartungswert eines Schlags, gegen bekannte Wahrheiten");
+{
+  const S = G("STRAT");
+
+  /* ====================================================================
+     WARUM DIESE GRUPPE (Folge-Audit vom 28.08.2026, N-1)
+     --------------------------------------------------------------------
+     v4.88 hat die acht LEICHTEN STRAT-Methoden abgedeckt. Übrig blieben die
+     schweren — und dort sitzt die Entscheidung, die auf der Bahn zählt:
+     `pointESTo` (was kostet mich dieser Punkt noch?) und `shotEV` (was ist
+     dieser Schlag wert, über die eigene Streuung gemittelt?).
+     GEPRÜFT WIRD GEGEN GOLFERISCHE WAHRHEITEN, nicht gegen sich selbst.
+     Diese Sätze gelten unabhängig von jeder Kalibrierung, und wer eine von
+     ihnen verletzt, empfiehlt auf der Bahn Unsinn:
+       · Näher an der Fahne ist nie teurer als weiter weg.
+       · Im Wasser ist teurer als daneben im Rough — sonst zielte der Caddy
+         über Hindernisse statt daneben.
+       · Aus dem Aus ist teurer als aus dem Wasser (Schlag und Distanz).
+       · Mehr Streuung macht einen Schlag nie besser.
+       · Ein längerer Schlag auf ein freies Grün trifft es öfter als ein zu
+         kurzer.
+     GEBAUT WIRD EIN MINIMALPLATZ: gerade Bahn nach Norden, Grün am Ende,
+     Wasser links. So ist jede Erwartung von Hand nachvollziehbar. */
+  /* KEIN `return` IN EINEM BLOCK — er beendet die ganze Datei-Ebene nicht,
+     sondern gar nichts, und die Gruppe lief stumm durch. Stattdessen ein
+     eigener Block mit Bedingung. */
+  if (S && typeof S.pointESTo === "function" && typeof S.grid === "function") {
+    const mLat = 110540, mLng = 111320 * Math.cos(54 * Math.PI / 180);
+    const tee = [54.0, 10.0];
+    const nord = m => [tee[0] + m / mLat, tee[1]];
+    const gruen = nord(300);
+    const ring = (mitte, r) => {
+      const p = [];
+      for (let a = 0; a < 360; a += 30)
+        p.push([mitte[0] + (r * Math.cos(a * Math.PI / 180)) / mLat,
+                mitte[1] + (r * Math.sin(a * Math.PI / 180)) / mLng]);
+      p.push(p[0]);
+      return p;
+    };
+    const geo = {
+      holes: { 1: { tee, green: gruen, line: [tee, gruen], distM: 300 } },
+      features: [
+        { kind: "green", ring: ring(gruen, 12), hole: 1 },
+        { kind: "water", ring: ring([tee[0] + 150 / mLat, tee[1] - 25 / mLng], 20), hole: 1 }
+      ]
+    };
+    const g = S.grid(geo, "T", 1);
+    const hcp = 20;
+    if (!g || !g.codes) { console.log("   Hinweis: kein Lage-Raster — Gruppe übersprungen."); }
+    else {
+
+    /* ---- pointESTo: näher ist nie teurer ---- */
+    const wIn = m => S.pointESTo(g, nord(m)[0], nord(m)[1], gruen, hcp);
+    const e50 = wIn(250), e150 = wIn(150), e250 = wIn(50);
+    ok("pointESTo: näher an der Fahne kostet weniger", e50 < e150 && e150 < e250,
+       [e50, e150, e250].map(x => x == null ? "—" : (+x).toFixed(2)).join(" < "));
+    ok("und auf dem Grün ist es am billigsten",
+       S.pointESTo(g, gruen[0], gruen[1], gruen, hcp) < e50);
+    /* Größenordnung: Aus 50 m braucht ein 20er-Spieler grob 2,5–4 Schläge
+       bis ins Loch. Was weit daneben liegt, ist kein Rundungsfehler. */
+    ok("und die Größenordnung stimmt", e50 > 1.5 && e50 < 5, (+e50).toFixed(2));
+
+    /* ---- Wasser kostet mehr als daneben liegen ----
+       Zwei Punkte auf gleicher Höhe, einer im Wasser, einer daneben. Wäre das
+       nicht so, zielte der Caddy über Hindernisse statt daneben. */
+    const imWasser = [tee[0] + 150 / mLat, tee[1] - 25 / mLng];
+    const daneben  = [tee[0] + 150 / mLat, tee[1] + 25 / mLng];
+    const eW = S.pointESTo(g, imWasser[0], imWasser[1], gruen, hcp);
+    const eD = S.pointESTo(g, daneben[0], daneben[1], gruen, hcp);
+    ok("Wasser kostet mehr als daneben", eW > eD,
+       (+eW).toFixed(2) + " vs " + (+eD).toFixed(2));
+    /* Ein Strafschlag, nicht zwei: Der Unterschied muss in der Größenordnung
+       eines Schlags liegen — sonst wäre die Strafe falsch gewichtet. */
+    ok("und zwar um rund einen Schlag", (eW - eD) > 0.6 && (eW - eD) < 1.6,
+       (eW - eD).toFixed(2));
+
+    /* ---- shotEV: mehr Streuung macht nie besser ---- */
+    if (typeof S.shotEV === "function") {
+      const eng  = { sigD: 8,  sigL: 8,  biasL: 0 };
+      const weit = { sigD: 30, sigL: 40, biasL: 0 };
+      const a = S.shotEV(g, tee, 0, 300, eng,  gruen, hcp, 100, 0);
+      const b = S.shotEV(g, tee, 0, 300, weit, gruen, hcp, 100, 0);
+      ok("shotEV liefert Erwartung und Anteile",
+         a && isFinite(a.es) && a.green >= 0 && a.green <= 1 && a.pen >= 0 && a.pen <= 1,
+         JSON.stringify(a && { es: +a.es.toFixed(2), green: a.green, pen: a.pen }));
+      ok("mehr Streuung ist nie besser", b.es >= a.es,
+         a.es.toFixed(2) + " → " + b.es.toFixed(2));
+      ok("und trifft das Grün seltener", b.green <= a.green,
+         a.green + " → " + b.green);
+      /* Ein enger Schlag genau aufs Grün muss es überwiegend treffen —
+         andernfalls stimmt die Geometrie oder die Streuung nicht. */
+      ok("ein enger Schlag aufs Grün trifft meistens", a.green > 0.4, String(a.green));
+
+      /* Zu kurz ist schlechter als genau: Derselbe Schlag 80 m kürzer landet
+         nicht auf dem Grün und kostet mehr. */
+      const kurz = S.shotEV(g, tee, 0, 220, eng, gruen, hcp, 100, 0);
+      ok("zu kurz kostet mehr als genau", kurz.es > a.es,
+         a.es.toFixed(2) + " vs " + kurz.es.toFixed(2));
+      ok("und trifft das Grün nicht", kurz.green < a.green, String(kurz.green));
+
+      /* Ein Schlag, der links ins Wasser gezogen wird, muss Strafanteil
+         zeigen — sonst wäre `pen` blind für Hindernisse. */
+      const links = S.shotEV(g, tee, 0, 150, { sigD: 8, sigL: 8, biasL: -25 },
+                             gruen, hcp, 100, 0);
+      ok("ein Zug ins Wasser zeigt Strafanteil", links.pen > 0.2, String(links.pen));
+
+      /* Wiederholbar: Dieselben Eingaben, dasselbe Ergebnis. `samples()` ist
+         eine feste Halton-Folge — wäre sie zufällig, schwankte die
+         Empfehlung zwischen zwei Blicken auf denselben Schlag. */
+      const nochmal = S.shotEV(g, tee, 0, 300, eng, gruen, hcp, 100, 0);
+      ok("und wiederholbar", nochmal.es === a.es && nochmal.green === a.green);
+    }
+    }
+  }
+}
+
+/* ============ 24cv. Gemeinsame Annahmen beider Geräte ============ */
+group("Gemeinsame Annahmen — dieselbe Zahl auf beiden Seiten");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+  const ktPfadG = path.join(__dirname, "MainActivity.kt");
+
+  /* ====================================================================
+     BEFUND AUS DEM FOLGE-AUDIT VOM 28.08.2026 (W-1)
+     --------------------------------------------------------------------
+     `MAX_ACC = 15f` auf der Uhr, `GPS_MAX_ACC = 15` am Handy. Beide
+     beantworten DIESELBE Frage: Ab welcher Streuung ist ein GPS-Punkt für
+     eine Schlagmessung unbrauchbar? Beide stehen auf 15 — und **nichts hielt
+     sie zusammen**.
+     DAS IST DAS MUSTER, das diese Woche viermal zugeschlagen hat: zwei
+     Wahrheiten über dieselbe Sache (Lochzeiger, Mitspieler, Worker, hier).
+     Die alten Gleichlauf-Prüfungen (24cp) haben genau solche Paare bewacht;
+     sie fielen in Uhr-Fassung 40, weil die Uhr nicht mehr RECHNET. Dieses
+     Paar ist dabei durchgerutscht — es ist keine Rechnung, sondern eine
+     gemeinsame ANNAHME, und die braucht dieselbe Klammer.
+     WAS PASSIERTE, WENN SIE AUSEINANDERLIEFEN: Stünde die Uhr auf 12 m,
+     nähme sie Punkte nicht an, die das Handy noch verarbeiten würde;
+     umgekehrt lernte das Handy aus Messungen, die es selbst abgelehnt hätte.
+     Beides fällt erst Wochen später an schiefen Schlägerlängen auf — die
+     teuerste Art, einen Fehler zu bemerken. */
+  if (fs.existsSync(ktPfadG)) {
+    const ktG = ktOhneKommentar(fs.readFileSync(ktPfadG, "utf8"));
+    const uhr = (ktG.match(/MAX_ACC\s*=\s*([\d.]+)f?/) || [])[1];
+    const handy = (codeOhneDoku(src).match(/GPS_MAX_ACC\s*=\s*([\d.]+)/) || [])[1];
+    ok("beide Seiten nennen eine Grenze", !!uhr && !!handy, "Uhr " + uhr + " / Handy " + handy);
+    ok("und es ist dieselbe", uhr != null && handy != null && parseFloat(uhr) === parseFloat(handy),
+       "Uhr " + uhr + " m / Handy " + handy + " m");
+    /* Plausibel bleiben muss sie auch: Unter 5 m nimmt die Uhr fast nichts
+       mehr an, über 25 m lernt das Handy aus Rauschen. */
+    ok("und plausibel", parseFloat(uhr) >= 5 && parseFloat(uhr) <= 25, uhr + " m");
+  }
+}
+
 /* ============ 24cw. Der Lochzeiger — eine Regel für beide Geräte ============ */
 group("Lochzeiger — der Zähler entscheidet, auf beiden Seiten");
 {
@@ -15195,6 +15405,37 @@ group("Abdeckung — verhindert, dass der Prüfstand veraltet");
   ok("Deckel für offene STRAT-Methoden nicht überschritten",
      offenS <= ABDECKUNG_DECKEL.strat,
      offenS + " offen, Deckel " + ABDECKUNG_DECKEL.strat);
+
+  /* ====================================================================
+     KEINE NEUEN STALE-FALLEN (v4.94, Audit W-3)
+     --------------------------------------------------------------------
+     Gezählt wird in DIESER Datei, nicht in der App: `G("DB")` liefert eine
+     Momentaufnahme, und je weiter hinten eine Gruppe steht, desto
+     wahrscheinlicher hat vorher jemand `DB=merged` gerufen. Neue Prüfungen
+     nehmen `live("DB")`. */
+  {
+    const selbst = fs.readFileSync(__filename, "utf8");
+    /* OHNE KOMMENTARE ZAEHLEN: Die Erklärung, warum `G("DB")` eine Falle ist,
+       enthält zwangsläufig `G("DB")`. Beim ersten Lauf schlug der Deckel
+       deshalb wegen meiner eigenen Begründung an — dieselbe Falle wie bei den
+       Abwesenheitsprüfungen, nur andersherum. */
+    /* `ktOhneKommentar` und nicht `codeOhneDoku`: Letztere schneidet den
+       devdocs-Block aus der index.html — sie ist kein Kommentar-Entferner für
+       JavaScript. Mein erster Anlauf zählte damit 88 statt 80. */
+    const selbstCode = ktOhneKommentar(selbst);
+    const nDb = (selbstCode.match(/G\("DB"\)/g) || []).length;
+    const nPlay = (selbstCode.match(/G\("PLAY"\)/g) || []).length;
+    ok("keine neuen G(\"DB\")-Stellen", nDb <= STALE_DECKEL.db,
+       nDb + " Stellen, Deckel " + STALE_DECKEL.db);
+    ok("keine neuen G(\"PLAY\")-Stellen", nPlay <= STALE_DECKEL.play,
+       nPlay + " Stellen, Deckel " + STALE_DECKEL.play);
+    /* Und der Helfer muss es wirklich geben — sonst zeigt der Deckel auf
+       einen Ausweg, den niemand nehmen kann. */
+    ok("und es gibt einen Ausweg", /function live\(name\)/.test(selbst)
+       && /function dbJetzt\(\)/.test(fs.readFileSync(FILE, "utf8")));
+    if (nDb < STALE_DECKEL.db || nPlay < STALE_DECKEL.play)
+      console.log(`   Hinweis: Stale-Deckel nachziehen auf { db: ${nDb}, play: ${nPlay} }`);
+  }
   /* Und die Gegenrichtung: Steht der Deckel deutlich ÜBER dem Ist-Stand,
      wurde beim Abdecken das Nachziehen vergessen. Dann ist er wirkungslos —
      eine Sperrklinke mit Luft ist keine. */

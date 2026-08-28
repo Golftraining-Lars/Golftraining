@@ -149,7 +149,10 @@ import kotlin.math.sqrt
  *     c) Repo-Sync: syncNow() lädt das Repo-JSON, setzt _draftRound, ergänzt
  *        gpsShots und pusht via Worker (Net.pushDraft). scheduleSync() ist ein
  *        ENTPRELLTER Aufruf (1,5 s nach der letzten Eingabe).
- *     d) Laden: Net.fetchData() holt Kurse (nur Name und Tees), Optionen,
+ *     d) Laden: `Net.fetchWatchRaw()` holt `watch.json` — Kurse (Name, Tees),
+ *        Optionen, Schlaegerlaengen und HI. KEIN Rueckfall auf die grosse
+ *        Datei mehr (49); scheitert der Abruf, greift der lokale
+ *        Zwischenspeicher. Frueher: Net.fetchData() holt Kurse, Optionen,
  *        Schlägerlängen (clubDistances) und HI aus DATA_URL. Ein `geo`-
  *        Schluessel in der Datei wird uebergangen; die PWA streicht ihn mit
  *        v4.84 aus `watchPayload()`.
@@ -387,6 +390,33 @@ import kotlin.math.sqrt
  *  ------------------------------------------------------------------------
  *  CHANGELOG (neueste zuerst — bei JEDER Änderung ergänzen: Datum · was · wo)
  *  ------------------------------------------------------------------------
+ *  2026-08-28 (49) · DER LETZTE GROSSE ABRUF IST WEG.
+ *     ENTSCHIEDEN AM 28.08. auf Nachfrage: Der Big-File-Rueckfall soll nicht
+ *     bleiben. (48) hatte ihn aus `pushDraft` und `fetchDraft` entfernt; in
+ *     `loadData` stand er noch — war `watch.json` nicht erreichbar, holte die
+ *     Uhr die grosse `trainingsdaten.json` (rund 3 MB) und parste sie.
+ *     WARUM ER AUCH DORT WEG MUSSTE: `leseBegrenzt` deckelte ihn seit (48),
+ *     aber der Spitzenbedarf beim Parsen liegt beim Mehrfachen des Rohtexts —
+ *     auf einer Uhr mit 128 MB Grenze ist das kein Rueckfall, sondern ein
+ *     zweites Risiko. UND ER HILFT NICHT: Fehlt `watch.json`, ist entweder die
+ *     Leitung weg — dann gelingt eine tausendmal groessere Datei erst recht
+ *     nicht — oder das Handy hat sie nie geschrieben, und dann ist DAS zu
+ *     beheben. Ein Rueckfall, der nur bei gutem Funk gelingt, hilft genau
+ *     dann nicht, wenn man ihn braucht.
+ *     WAS STATTDESSEN GREIFT: der lokale Zwischenspeicher (`cacheRead`). Er
+ *     war immer die bessere Antwort; der grosse Rueckfall stand nur davor.
+ *     MITGEGANGEN, weil ohne Aufrufer: `readData`, `fetchRaw`, `fetchData`,
+ *     `fullSha`, `DATA_URL`, `FRESH_URL`. DIE UHR LIEST JETZT NUR NOCH
+ *     `watch.json`, `draft.json` und `probe.json` — zusammen wenige Kilobyte.
+ *     `leseBegrenzt` WURDE NICHT MITGELOESCHT, sondern auf ALLE VIER
+ *     verbliebenen Lesestellen gesetzt (dazu die Wetterabfrage). Ein Riegel,
+ *     der nur an der Stelle sitzt, an der es einmal knallte, schuetzt nur vor
+ *     der Wiederholung.
+ *     GEGENSTUECK AM HANDY (PWA v4.94): `MAX_ACC` hier und `GPS_MAX_ACC` dort
+ *     beantworten dieselbe Frage — ab welcher Streuung ist ein Punkt fuer eine
+ *     Schlagmessung unbrauchbar. Beide stehen auf 15 m, und bis jetzt hielt
+ *     sie NICHTS zusammen; der Pruefstand vergleicht sie ab v4.94.
+ *
  *  2026-08-28 (48) · DER RUECKFALLWEG HAT DIE APP GETOETET — ER IST WEG.
  *     GEMELDET am 28.08.: „Das Schlagtracken dauert sehr lange bis es startet,
  *     auch nach mehreren Anlaeufen nicht. Dann bricht es zwischendurch ab und
@@ -2997,7 +3027,7 @@ import kotlin.math.sqrt
 /* Fassungskennung der Uhr-App — steht im Kopplungstest neben der der PWA.
    Bei JEDER Aenderung hier mitziehen; sonst vergleicht man zwei Staende und
    glaubt, sie seien gleich (2026-08-15 (13)). */
-private const val WATCH_APP = "2026-08-28 (48)"
+private const val WATCH_APP = "2026-08-28 (49)"
 /* ==========================================================================
    WAS HAT DIESE FASSUNG GEAENDERT? (2026-08-25 (22))
    --------------------------------------------------------------------------
@@ -3035,10 +3065,10 @@ private const val WORKER_URL = "https://golftraining-save.larsdohrmann24.workers
    funktionieren. */
 private const val DRAFT_PATH = "draft.json"
 private const val DRAFT_FRESH_URL = "$WORKER_URL/?fresh=1&path=draft.json"
-private const val DATA_URL = "https://golftraining-lars.github.io/Golftraining/trainingsdaten.json"
-// Frischer Stand über den Sync-Worker v2 (GitHub Contents API, KEIN Pages-CDN
-// mit ~10 min Verzögerung). Fallback bleibt DATA_URL (offline / alter Worker).
-private const val FRESH_URL = "$WORKER_URL/?fresh=1"
+/* `DATA_URL` und `FRESH_URL` entfernt (2026-08-28 (49)) — beide zeigten auf die
+   GROSSE `trainingsdaten.json`, und die liest die Uhr nicht mehr. Sie war der
+   Kern des OutOfMemory-Absturzes vom 28.08.; Begruendung in (48) und (49).
+   Die Uhr liest nur noch `watch.json`, `draft.json` und `probe.json`. */
 private const val WRITE_KEY = "@Hallo"
 
 // ================= Design (an HTML-App angelehnt: Pine-Grün / Gold) =================
@@ -3582,7 +3612,7 @@ private object Net {
                 c.disconnect(); return null
             }
             draftSha = c.getHeaderField("X-Repo-Sha")
-            val t = c.inputStream.bufferedReader().use { it.readText() }
+            val t = leseBegrenzt(c, "draft.json")
             c.disconnect()
             if (t.isBlank()) return JSONObject()
             val o = JSONObject(t)
@@ -3731,7 +3761,7 @@ private object Net {
             val c = openRead("$WORKER_URL/?fresh=1&path=probe.json")
             val code = c.responseCode
             if (code !in 200..299) { c.disconnect(); return null }
-            val t = c.inputStream.bufferedReader().use { it.readText() }
+            val t = leseBegrenzt(c, "probe.json")
             c.disconnect()
             if (t.isBlank()) null else JSONObject(t)
         } catch (e: Exception) { if (e.istAbbruch()) throw e; Fehler.add("probe.json lesen", e); null }
@@ -3855,7 +3885,8 @@ private object Net {
        Der Rueckfall auf `DATA_URL` (roh von GitHub Pages) liefert keine
        Kennung; von dort gelesene Daten taugen zum ANZEIGEN, nicht zum
        Zurueckschreiben. */
-    @Volatile private var fullSha: String? = null
+    /* `fullSha` entfernt (49): Sie merkte sich die Kennung der GROSSEN Datei
+       fuers Zurueckschreiben — beides gibt es nicht mehr. */
 
     /* ==========================================================================
        EINE GRENZE, BEVOR DER SPEICHER SIE SETZT (2026-08-28 (48))
@@ -3869,9 +3900,14 @@ private object Net {
        ueber `Content-Length`, und falls die fehlt, beim Lesen mitgezaehlt.
        Was zu gross ist, wird abgelehnt und GEMELDET. Eine Fehlermeldung, die
        man lesen kann, ist einem Absturz in jeder Hinsicht ueberlegen.
-       6 MB: Die schlanke `watch.json` liegt bei wenigen Kilobyte, die grosse
-       Datei bei rund 3 MB. Wer hier anschlaegt, hat ein Datenproblem und kein
-       Speicherproblem — und soll das erfahren. */
+       6 MB: Alles, was die Uhr seit (49) noch liest — `watch.json`,
+       `draft.json`, `probe.json`, Wetter — liegt bei wenigen Kilobyte. Wer
+       hier anschlaegt, hat ein Datenproblem und kein Speicherproblem, und soll
+       das erfahren.
+       SEIT (49) AN JEDER LESESTELLE. Die Funktion entstand fuer die grosse
+       Datei; die gibt es nicht mehr. Statt sie mit ihr zu loeschen, bewacht
+       sie jetzt die verbliebenen vier — ein Riegel, der nur an der Stelle
+       sitzt, an der es einmal knallte, schuetzt nur vor der Wiederholung. */
     private const val MAX_LESEN = 6 * 1024 * 1024
 
     private fun leseBegrenzt(c: HttpURLConnection, was: String): String {
@@ -3898,32 +3934,14 @@ private object Net {
         return sb.toString()
     }
 
-    private fun readData(): String {
-        try {
-            val f = openRead(FRESH_URL)
-            if (f.responseCode in 200..299) {
-                val t = leseBegrenzt(f, "trainingsdaten.json")
-                fullSha = f.getHeaderField("X-Repo-Sha")
-                f.disconnect()
-                return t
-            }
-            f.disconnect()
-        } catch (e: Exception) {
-            /* ABBRUCH DURCHLASSEN (2026-08-24 (10)): Wer ihn faengt und nicht
-               weiterwirft, sagt dem System „ich mache weiter" — waehrend Compose
-               die Schleife fuer beendet haelt. Zwei Schleifen, die dasselbe
-               schreiben, sind genau der Zustand, in dem „einmal geht es, dann
-               nicht mehr" entsteht. */
-            if (e.istAbbruch()) throw e
-            Diagnose.fehlerArt(e, e.message ?: "")
-            Fehler.add("Daten lesen", e)
-        }
-        val c = openRead(DATA_URL)
-        val t = leseBegrenzt(c, "trainingsdaten.json (CDN)")
-        c.disconnect()
-        fullSha = null                 // ohne Kennung nicht zurueckschreiben
-        return t
-    }
+    /* `readData()` ist entfernt (2026-08-28 (49)) — mit ihr die einzige Stelle,
+       die je die GROSSE `trainingsdaten.json` gelesen hat. Sie war der Kern des
+       OutOfMemory-Absturzes vom 28.08.; (48) hat ihre Aufrufer in `pushDraft`
+       und `fetchDraft` entfernt, (49) den letzten in `loadData`. Damit faellt
+       auch `fullSha`, `FRESH_URL` und `DATA_URL` weg.
+       DIE UHR LIEST NUR NOCH `watch.json`, `draft.json` und `probe.json` —
+       zusammen wenige Kilobyte. Wer hier wieder eine grosse Datei einbaut,
+       liest zuerst (48). */
 
     /* `parsePlans` entfernt (40). Sie las `DB.strat.gameplans` — der einzige
        Abnehmer war die Gameplan-Ansicht. Das Handy kann `strat` damit aus
@@ -3952,16 +3970,16 @@ private object Net {
             val c = openRead("$WORKER_URL/?fresh=1&path=watch.json")
             val code = c.responseCode
             if (code !in 200..299) { c.disconnect(); return null }
-            val t = c.inputStream.bufferedReader().use { it.readText() }
+            val t = leseBegrenzt(c, "watch.json")
             c.disconnect()
             lastWatchFile = t.isNotBlank()
             if (t.isBlank()) null else t
         } catch (e: Exception) { if (e.istAbbruch()) throw e; Fehler.add("watch.json lesen", e); lastWatchFile = false; null }
     }
 
-    fun fetchRaw(): String = readData()
-
-    fun fetchData(): AppData = parseData(JSONObject(fetchRaw()))
+    /* `fetchRaw`/`fetchData` entfernt (49) — sie waren die Huelle um
+       `readData`. `parseData` bleibt: Es wertet die schlanke `watch.json`
+       ebenso aus wie einen alten Zwischenspeicher. */
 
     fun parseData(db: JSONObject): AppData {
 
@@ -4218,9 +4236,7 @@ private object Net {
             c.connectTimeout = 8000
             c.readTimeout = 8000
 
-            val j = JSONObject(
-                c.inputStream.bufferedReader().use { it.readText() }
-            )
+            val j = JSONObject(leseBegrenzt(c, "Wetter"))
 
             c.disconnect()
 
@@ -5297,9 +5313,30 @@ private fun loadData(ctx: Context): Pair<AppData?, Boolean> {
 
     val raw = try {
         lastLoadError = null
-        /* Erst die schlanke Datei, dann die grosse (2026-08-14 (4)) — siehe
-           Net.fetchWatchRaw. */
-        Net.fetchWatchRaw() ?: Net.fetchRaw()
+        /* ==================================================================
+           NUR NOCH DIE SCHLANKE DATEI (2026-08-28 (49))
+           --------------------------------------------------------------------
+           Hier stand `Net.fetchWatchRaw() ?: Net.fetchRaw()` — war `watch.json`
+           nicht erreichbar, holte die Uhr die GROSSE `trainingsdaten.json`
+           (rund 3 MB) und parste sie zu einem JSONObject.
+           DAS WAR DER LETZTE REST DES WEGES, DER AM 28.08. DIE APP GETOETET HAT
+           (OutOfMemory in `Net.readData`, siehe (48)). `leseBegrenzt` deckelt
+           ihn seither, aber der Spitzenbedarf beim Parsen liegt beim
+           Mehrfachen des Rohtexts — auf einer Uhr mit 128 MB Grenze ist das
+           kein Rueckfall, sondern ein zweites Risiko.
+           UND ER HILFT NICHT: Fehlt `watch.json`, ist entweder die Leitung weg
+           — dann gelingt eine tausendmal groessere Datei erst recht nicht —
+           oder das Handy hat sie nie geschrieben, und dann ist DAS zu beheben.
+           Ein Rueckfall, der nur bei gutem Funk gelingt, hilft genau dann
+           nicht, wenn man ihn braucht.
+           WAS STATTDESSEN PASSIERT: `raw` bleibt null, und die Zeile ganz
+           unten greift — der lokale Zwischenspeicher (`cacheRead`). Der ist
+           schon da, kostet nichts und enthaelt denselben Stand vom letzten
+           gelungenen Abruf. Er war immer die bessere Antwort; der grosse
+           Rueckfall stand nur davor.
+           ENTSCHIEDEN AM 28.08. auf Nachfrage: Der Rueckfall soll nicht
+           bleiben. */
+        Net.fetchWatchRaw()
     } catch (e: Exception) {
         lastLoadError = e.javaClass.simpleName +
                 (e.message?.take(40)?.let { ": $it" } ?: "")
@@ -5319,8 +5356,8 @@ private fun loadData(ctx: Context): Pair<AppData?, Boolean> {
                Beides ist fuer sich richtig; falsch war nur, sie nicht wieder
                zusammenzufuehren. Der Entwurf kommt jetzt aus `draft.json`
                (wenige kB) und wird angehaengt.
-               NUR wenn noch keiner da ist: Kam die grosse Datei zum Zug, steht
-               er schon drin. */
+               Die Bedingung `d.draft == null` bleibt: Ein aelterer
+               Zwischenspeicher kann noch einen Entwurf enthalten. */
             if (d.draft == null) {
                 val f = Net.fetchDraftFile()
                 if (f != null && f.has("round")) {

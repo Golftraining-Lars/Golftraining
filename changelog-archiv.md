@@ -13,6 +13,26 @@
 
 ---
 
+- **v4.60.0 · 2026-08-25** — **Diagnose der Uhr kommt sofort an — und die App kann sie auf
+  Knopfdruck holen.** Auf der Uhr wurde die Diagnose in den Puffer geschrieben, und der reiste nur
+  mit dem Rundenentwurf oder im Fünf-Minuten-Takt. **Wer auf Diagnose drückt, will die Antwort
+  jetzt** — meistens, weil gerade etwas klemmt. Die Uhr sendet nach dem Selbsttest deshalb sofort
+  (`Net.logPut()`), und hier gibt es das Gegenstück: **„⟳ Von der Uhr neu laden"**.
+  Der Knopf umgeht `_errLogGeholt` bewusst. Die Sperre ist gegen die Endlosschleife aus v4.58
+  richtig, für einen Knopf namens „nochmal nachsehen" aber falsch — **kein Selbstaufruf, also auch
+  keine Schleife**: Der Unterschied ist, dass hier der Mensch drückt und nicht die Funktion sich
+  selbst.
+  **Und die Diagnose ersetzt sich jetzt selbst.** Im echten Protokoll waren nach fünf Knopfdrücken
+  **35 von 60 Zeilen** Diagnose — prompt meldete der Selbsttest „Protokoll fast voll". Sie
+  verdrängte damit genau das, wozu sie da ist. Jetzt gibt es immer genau einen Stand; ein älterer
+  beschreibt eine Lage, die vorbei ist. Echte Fehlermeldungen bleiben unangetastet.
+  **Was der erste Durchlauf sonst gezeigt hat:** Worker v2.11 ✓ · Zeitversatz −2 s ✓ ·
+  Schreibschlüssel ✓ · keine Konflikte ✓. **Der Verdacht auf Zeitdrift ist damit ausgeräumt** — und
+  das ist auch ein Ergebnis.
+  **Zum Prüfstand:** Meine neue Prüfung hat den richtigen Code als Fehler gemeldet, weil sie in
+  einem geratenen Zeichenfenster suchte. **Das ist heute das vierte Mal** — jetzt wird bis zur Marke
+  gescannt und der Abstand gemessen, statt ihn zu schätzen.
+
 - **v4.59.0 · 2026-08-24** — **BUGFIX: Das Fehlerprotokoll riss die App mit — eine Endlosschleife
   aus v4.58.** Dort rief `showErrLog()` nach dem Nachladen **sich selbst** auf, um den frischen
   Stand zu zeigen. Der zweite Aufruf lud wieder nach und rief wieder sich selbst: Die Anzeige baute

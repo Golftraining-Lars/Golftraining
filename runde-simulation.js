@@ -25,12 +25,25 @@
        war ungeprueft; das Verwerfen dagegen doppelt.
      · ENTWURFS-MERGE MIT LEEREN LISTEN. Haelt eine Schwaeche fest, die beim
        Bau auffiel (siehe dort).
-   ZWEI FALLEN, die beim Bau je eine halbe Stunde gekostet haben und deshalb
+   AUSBAU 28.08.2026: LOCHZEIGER ueber den echten Weg (Folge-Audit W-4) — das
+   am haeufigsten wiederkehrende Thema des Projekts, bisher nur an der reinen
+   Funktion geprueft. Der Abschnitt steht ABGESCHOTTET AM DATEIENDE mit eigener
+   Runde: Er stoesst ein Dutzend Abgleich-Takte an, und `draftPushSoon` haengt
+   an einem ZEITGEBER (2 s), nicht an einem Takt — ein Nachzuegler
+   ueberschrieb sonst den Grabstein des folgenden Abschnitts.
+   VIER FALLEN, die beim Bau je eine halbe Stunde gekostet haben und deshalb
    hier oben stehen:
      1. KEIN ZEITSTEMPEL IN DER ZUKUNFT. Ein Entwurf, der spaeter datiert ist
         als „jetzt", gewinnt JEDEN folgenden Merge und schleppt seinen Inhalt
         durch alle weiteren Abschnitte. Der Fehlschlag erscheint dann an einer
         Stelle, die nichts damit zu tun hat.
+     3. `draftPull()` UEBERNIMMT NICHTS. Sie holt die Datei und gibt sie
+        ZURUECK; vereinigt und uebernommen wird in `playSyncTick`. Wer den WEG
+        pruefen will, muss den Weg gehen.
+     4. AUF DAS ERGEBNIS WARTEN, NICHT AUF EINE FRIST. Eine feste Wartezeit
+        ist mal lang genug und mal nicht — dieselbe Pruefung ist dann mal
+        gruen und mal rot, ohne dass sich etwas geaendert hat. Pollen, bis das
+        Erwartete da ist (siehe `bisGrabstein`).
      2. ASYNCHRONES AUSTRUDELN LASSEN. `playSaveDraft` stoesst ueber
         `maybeCheckpointDraft` einen Abgleich an, der spaeter zu Ende laeuft.
         Wer den naechsten Abschnitt beginnt, bevor er durch ist, bekommt dort
@@ -928,6 +941,9 @@ kopf("draft.json — Handy → Uhr");
      rot, obwohl an ihr nichts falsch war. */
   for(let i=0;i<8;i++) await new Promise(r=>setImmediate(r));
 
+
+
+
   /* ---------- Mitspieler (v4.81): Namen und Endscores reisen mit ---------- */
   kopf("Mitspieler — Namen und Endscores über den Entwurf");
   const ms=R(`(function(){
@@ -1038,6 +1054,7 @@ kopf("draft.json — Handy → Uhr");
     R(`PLAY.mitspieler=["Jan","Ute"]; if(typeof playSaveDraft==="function") playSaveDraft(); "ok"`);
     await R(`draftPush()`); await new Promise(r=>setImmediate(r));
 
+
     /* Die Scorekarte VOR dem Abschluss — im Spielmodus liest sie `PLAY`, und
        genau dort fehlte bis v4.83 das Feld `mitspieler` beim Abschreiben. */
     const karte=R(`playCardHtml()`);
@@ -1046,6 +1063,22 @@ kopf("draft.json — Handy → Uhr");
     pruef("und färbt fremde Scores nicht wie eigene",
       typeof karte==="string" &&
       !/<tr class="sc-ms">[\s\S]*?(sc-birdie|sc-bogey|sc-eagle|sc-dbl)[\s\S]*?<\/tr>/.test(karte));
+
+    /* ==================================================================
+       DEN ENTPRELLTEN PUSH ABWARTEN, BEVOR ABGESCHLOSSEN WIRD
+       --------------------------------------------------------------------
+       `playSaveDraft` stösst `draftPushSoon()` an, und das ist ein ZEITGEBER
+       mit 2 s Verzögerung — kein Takt. Wer nur mit `setImmediate` wartet,
+       spult ihn nicht vor: Er zündet DANACH, also nach `playFinish`, und
+       überschreibt den gerade geschriebenen Grabstein mit einem Entwurf ohne
+       Runde. Die Prüfung fand dann `["gpsShots","shotAck"]` statt des
+       Grabsteins — und sah aus wie ein Fehler im Abschluss, obwohl daran
+       nichts falsch war.
+       ECHTE ZEIT ABWARTEN ist hier das Richtige: 2,2 s einmal am Ende der
+       Simulation sind billiger als eine Prüfung, die aus dem falschen Grund
+       rot oder grün ist. */
+    await new Promise(r=>setTimeout(r, 2200));
+    for (let i = 0; i < 6; i++) await new Promise(r=>setImmediate(r));
 
     const idVor=R(`PLAY.roundId`);
     const nVor=R(`(DB.rounds||[]).length`);
@@ -1092,10 +1125,34 @@ kopf("draft.json — Handy → Uhr");
     /* DER GRABSTEIN IST DER TEIL, DER DIE UHR BETRIFFT: Ohne ihn funkt sie
        weiter Herzschlaege fuer eine Runde, die es nicht mehr gibt — und der
        naechste Merge holt den Entwurf aus dem Repo zurueck. */
-    await new Promise(r=>setImmediate(r));
-    let de=null; try{ de=JSON.parse(REPO["draft.json"]||"{}"); }catch(e2){}
+    /* AUSTRUDELN LASSEN: `playFinish` ruft `flushCloudNow`, und das schreibt
+       asynchron. Ein einzelnes `setImmediate` reicht dafür nicht — der
+       Grabstein war dann noch unterwegs, und die Prüfung sah den Entwurf von
+       davor. */
+    /* ==================================================================
+       AUF DAS ERGEBNIS WARTEN, NICHT AUF EINE FRIST
+       --------------------------------------------------------------------
+       `draftFinalize()` schreibt den Grabstein ueber `draftPushRaw` — ohne
+       `await`, mit 409-Wiederholung, und daneben laufen `persist()` und
+       `flushCloudNow()`. Wann er ankommt, haengt an mehreren Ketten; eine
+       feste Wartezeit trifft es mal und mal nicht.
+       Deshalb wird POLLEND geprueft: bis zu drei Sekunden, in kleinen
+       Schritten, und fertig, sobald er da ist. Eine Pruefung, die auf ein
+       ERGEBNIS wartet statt auf eine Uhrzeit, ist nicht nur robuster — sie
+       misst auch das Richtige. */
+    const bisGrabstein = async () => {
+      for (let i = 0; i < 30; i++) {
+        try {
+          const d = JSON.parse(REPO["draft.json"] || "{}");
+          if (d.discardedTs && !d.round) return d;
+        } catch (e) {}
+        await new Promise(r => setTimeout(r, 100));
+      }
+      try { return JSON.parse(REPO["draft.json"] || "{}"); } catch (e) { return null; }
+    };
+    const deW = await bisGrabstein();
     pruef("im Repo steht der Grabstein, nicht die Runde",
-      !!(de && de.discardedTs && !de.round), JSON.stringify(Object.keys(de||{})));
+      !!(deW && deW.discardedTs && !deW.round), JSON.stringify(Object.keys(deW||{})));
   }
 
   /* ======================================================================
@@ -1140,6 +1197,158 @@ kopf("draft.json — Handy → Uhr");
       !!(c && (c.round.holes||[]).some(h=>h.hole===1&&h.score===5&&h.putts===2)),
       JSON.stringify(c&&c.round&&c.round.holes));
   }
+
+
+
+  kopf("Lochzeiger — zwei Geräte, eine Regel");
+  {
+    /* ====================================================================
+       EIGENE RUNDE, LETZTER ABSCHNITT DER DATEI — ABGESCHOTTET
+       --------------------------------------------------------------------
+       Dieser Abschnitt stoesst ein Dutzend Abgleich-Takte an, und jeder davon
+       SCHREIBT. Zwei Anlaeufe, ihn irgendwo dazwischen einzuschieben, sind
+       gescheitert:
+         · hinter „Runde verwerfen" gab es keine laufende Runde — alles rot,
+           ohne dass an der Sache etwas falsch war;
+         · mitten in der Kette warf er 16 nachfolgende Pruefungen um. Ein
+           `draftPushSoon` haengt an einem ZEITGEBER (2 s), nicht an einem
+           Takt; er zuendete nach dem Rundenabschluss und ueberschrieb den
+           Grabstein. Warten mit `setImmediate` hilft dagegen nicht — es
+           spult keine Zeitgeber vor.
+       DIE LOESUNG IST NICHT MEHR WARTEN, SONDERN ABSCHOTTUNG: eigene Runde,
+       LETZTER Abschnitt der Datei. Was danach noch zuendet, stoert niemanden.
+       Das ist die richtige Bauform fuer einen Abschnitt, der den Abgleich
+       absichtlich in Bewegung bringt — und billiger, als jeden folgenden
+       Abschnitt gegen Nachzuegler zu haerten. */
+    R(`DB.ui=DB.ui||{}; DB.ui.draftDiscardedTs=""; "ok"`);
+    const laeuft=R(`playBegin("Nordplatz Timmendorfer Strand","Gelb",0); PLAY.active`);
+    pruef("eigene Runde für diesen Abschnitt", laeuft===true, JSON.stringify(laeuft));
+  /* Die Uhr meldet ihren Zeiger im Entwurf. `holeSeq` steigt NUR bei einer
+     Benutzerhandlung — ein Echo trägt nie eine höhere Nummer als die, die
+     es gesehen hat, und ist damit wirkungslos, egal wie frisch es ist. */
+  const uhrZeigt = async (hole, seq) => {
+    const d = JSON.parse(REPO["draft.json"] || "{}");
+    /* EINE SEKUNDE NACH DEM LETZTEN ZEIGER — nicht einfach „jetzt".
+       Das Handy schreibt bei jedem Push seinen EIGENEN Live-Zeiger
+       (`src:"phone"`), und `mergeDraft` behält von zwei Zeigern den mit dem
+       jüngeren `at`. Mit einem gleich alten Stempel gewinnt der des Handys,
+       `playLiveRemote` meldet „Zeiger stammt vom Handy selbst" und es
+       passiert gar nichts — mein erster Anlauf sah deshalb aus, als würde
+       die Übernahme nicht greifen.
+       NICHT WEIT IN DIE ZUKUNFT (Lehre vom 27.08.): eine Sekunde reicht,
+       und die Uhr schreibt tatsächlich später als der letzte Push. */
+    /* SPÄTER ALS DER ZULETZT ÜBERNOMMENE ZEIGER — und der liegt hier in der
+       ZUKUNFT: Der Abschnitt „Uhr → Handy" stempelt seinen Uhr-Entwurf
+       absichtlich zwei Minuten voraus, um „die Uhr hat später geschrieben"
+       nachzustellen. `playLiveSeenAt` behält das, lebt modulweit und lässt
+       sich von außen nicht zurücksetzen. Ein Zeiger mit „jetzt" gilt danach
+       als längst gesehen und wird stumm übergangen — mein Aufbau sah
+       deshalb aus, als käme nichts an.
+       Deshalb wird hier AN DEN VORHANDENEN STAND ANGEKNÜPFT statt an die
+       Uhrzeit. Das ist zugleich die ehrlichere Nachstellung: Die Uhr sendet
+       später als das, was zuletzt ankam. */
+    const zuletzt = R(`typeof playLiveSeenAt!=="undefined"?playLiveSeenAt:""`) || "";
+    const basis = Math.max(Date.now(), zuletzt ? Date.parse(zuletzt) : 0);
+    const at = new Date(basis + 1000 + (++zeigerTick) * 10).toISOString();
+    d.live = { src:"watch", hole, holeSeq:seq, at,
+               course:R(`PLAY.course`), date:R(`PLAY.date`),
+               side:R(`PLAY.side`), tee:R(`PLAY.tee`) };
+    /* NUR `live` ANFASSEN, NICHT `d.ts`. Ein vorgestellter Entwurfs-Stempel
+       gewinnt jeden folgenden Merge und schleppt seinen Inhalt durch alle
+       weiteren Abschnitte — die Falle vom 27.08. Der Zeiger dagegen wird
+       nach seinem EIGENEN `at` ausgewählt und bleibt hier eingesperrt. */
+    const legen = () => {
+      const akt = JSON.parse(REPO["draft.json"] || "{}");
+      akt.live = d.live;
+      REPO["draft.json"] = JSON.stringify(akt);
+      SHAS["draft.json"] = "sha-zeiger-" + Math.random();
+    };
+    legen();
+    /* `playSyncTick()` UND NICHT `draftPull()`: Letztere holt die Datei und
+       gibt sie ZURÜCK — sie setzt `DB._draftRound` nicht und übernimmt gar
+       nichts. Der Takt drumherum vereinigt und ruft `playAdoptRemoteHole`.
+       Mein erster Anlauf rief `draftPull()` und danach die Übernahme von
+       Hand; die sah nie einen fremden Zeiger und meldete stur „false".
+       WER DEN WEG PRÜFEN WILL, MUSS DEN WEG GEHEN — genau dafür gibt es
+       diese Datei. */
+    /* ZWEI TAKTE, nicht einer: `playSyncTick` SENDET zuerst und liest
+       danach. Im ersten Durchlauf überschreibt der eigene Push den fremden
+       Zeiger in der lokalen Kopie; erst der zweite sieht ihn. Auf der Runde
+       ist das ein Takt Verzug (2 s) und fällt nicht auf — im Prüfstand sah
+       es aus, als käme die Meldung nie an. */
+    /* ZWEIMAL SENDEN UND ZWEIMAL TAKTEN — und das ist keine Krücke, sondern
+       die Wirklichkeit: `playSyncTick` SCHREIBT zuerst und liest danach, und
+       der eigene Push überschreibt dabei den fremden Zeiger in der Datei.
+       Die Uhr sendet ihren Zeiger deshalb WEITER, im 10-Sekunden-Takt —
+       genau das bildet `legen()` vor jedem Takt nach. Ein Aufbau, in dem die
+       Uhr nur einmal spricht, prüft einen Ablauf, den es nicht gibt. */
+    await R(`playSyncTick()`);
+    for (let i = 0; i < 4; i++) await new Promise(r=>setImmediate(r));
+    legen();
+    await R(`playSyncTick()`);
+    for (let i = 0; i < 4; i++) await new Promise(r=>setImmediate(r));
+    return R(`(PLAY.holes[PLAY.idx]||{}).hole`);
+  };
+  const eigenerStand = () => R(`PLAY.holeSeq||0`);
+  let zeigerTick = 0;
+
+  R(`PLAY.idx=0; PLAY.holeSeq=0; PLAY.holeAt=""; "ok"`);
+
+  /* ---- Die Uhr blättert: höherer Zähler, das Handy folgt ---- */
+  pruef("die Uhr zieht das Handy mit", await uhrZeigt(5, 1) === 5,
+    "Handy steht auf " + R(`(PLAY.holes[PLAY.idx]||{}).hole`));
+  pruef("und der eigene Zähler zieht nach", eigenerStand() === 1, String(eigenerStand()));
+
+  /* ---- DER GEMELDETE FALL: gleicher Zähler, aber frischerer Zeitstempel.
+     Genau hier sprang das Handy bis v4.92 mit — die Uhr hätte in derselben
+     Lage „verworfen" gesagt und recht gehabt. ---- */
+  pruef("gleicher Zähler zieht es NICHT zurück", await uhrZeigt(1, 1) === 5,
+    "Handy steht auf " + R(`(PLAY.holes[PLAY.idx]||{}).hole`));
+
+  /* ---- Das Handy blättert selbst: sein Zähler steigt über den der Uhr,
+     und der alte Uhr-Zeiger kann nichts mehr ausrichten. ---- */
+  R(`PLAY.idx=7; if(typeof playHoleStamp==="function") playHoleStamp(); "ok"`);
+  pruef("eigenes Blättern hebt den Zähler", eigenerStand() === 2, String(eigenerStand()));
+  pruef("und der alte Uhr-Zeiger prallt ab", await uhrZeigt(1, 1) === 8,
+    "Handy steht auf " + R(`(PLAY.holes[PLAY.idx]||{}).hole`));
+
+  /* ---- Die Uhr handelt erneut: höherer Zähler gewinnt wieder. Damit ist
+     gezeigt, dass die Sperre nicht klebt — sie richtet sich nach dem
+     WILLEN, nicht nach dem Gerät. ---- */
+  pruef("eine neue Handlung auf der Uhr wirkt", await uhrZeigt(3, 3) === 3,
+    "Handy steht auf " + R(`(PLAY.holes[PLAY.idx]||{}).hole`));
+
+  /* ---- DIE FRISCH GESTARTETE UHR: `ownHoleSeq` lebt dort nur im Speicher
+     und fängt bei 0 an. Am 28.08. meldete sie nach dem OutOfMemory-Absturz
+     Loch 1 — und das Handy sprang mitten auf Loch 8 zurück.
+     ACHTUNG, DIE FEINHEIT: Zähler 0 heißt „keiner gesendet" (ältere
+     Uhr-Fassung) und fällt bewusst auf den Zeitvergleich zurück. Eine neu
+     gestartete Uhr von HEUTE hebt ihren Stand beim ersten fremden Zeiger an
+     (`holeSeqGesehen`) und meldet dann nicht 0, sondern den übernommenen
+     Stand — sie verliert korrekt. Genau das wird hier geprüft. ---- */
+  pruef("eine neu gestartete Uhr (übernommener Stand) zieht nichts zurück",
+    await uhrZeigt(1, 3) === 3,
+    "Handy steht auf " + R(`(PLAY.holes[PLAY.idx]||{}).hole`));
+
+  /* ---- Und die Begründung muss im Protokoll stehen: Am 28.08. nannte das
+     Handy nur Zeitstempel, während die Uhr mit „seq=33/eigen 33"
+     argumentierte — der Vergleich der beiden Protokolle war damit wertlos. */
+  const puls = R(`(DB.ui&&DB.ui.playPuls)||(typeof _playPuls!=="undefined"?_playPuls:null)||""`);
+  pruef("das Protokoll nennt die Zählerstände",
+    typeof puls !== "string" || puls === "" || /seq=/.test(String(puls)),
+    String(puls).slice(0, 90));
+
+  /* AUSTRUDELN LASSEN, BEVOR ES WEITERGEHT. Dieser Abschnitt hat ein Dutzend
+     Takte angestoßen; jeder davon schreibt. Ein Push, der erst nach dem
+     Rundenabschluss ankommt, überschreibt den Grabstein — und der Fehlschlag
+     erscheint dann in einem Abschnitt, der nichts damit zu tun hat. Genau das
+     ist beim Bau passiert: „im Repo steht der Grabstein" wurde rot, obwohl am
+     Abschluss nichts falsch war. Die Lehre steht seit dem 27.08. im Kopf
+     dieser Datei — sie gilt für den eigenen neuen Abschnitt genauso. */
+  for (let i = 0; i < 12; i++) await new Promise(r=>setImmediate(r));
+  R(`PLAY.idx=0; "ok"`);
+  }
+
 
   console.log("\n"+JSON.stringify(bilanz()));
 })();
