@@ -263,6 +263,7 @@ try {
                  "liveStart","liveStop","liveStopAll","liveVerbraucher","LIVEPOS",
                  "kalibrierBericht","kalibrierText","_kalibMedian","_kalibMad","_kalibTauglich",
                  "_playKey","playMarkEnded","playClearEnded","watchLiveDarfOeffnen",
+                 "fremderZeigerZaehlt",
                  "KALIB_MIN_JE_CLUB","KALIB_MIN_GESAMT",
                  "selfCheck","PLAY","escShort","_short","clubShort","windRel","tempFactor","DB",
                  "courseTee","activeHoles","roundDurationMin","mergeDB","_mergeArr","_mergeTs",
@@ -6250,12 +6251,12 @@ group("Gleichlauf Uhr ↔ App — dieselbe Frage, dieselbe Antwort");
         ok("und macht den Takt eilig", /rec != null \|\| frisch \|\| bewegt/.test(ktC2));
         ok("der Aufnahmestart meldet sofort",
            /rec = Rec\(null, f\.ll\(\), startAcc = f\.acc\)[\s\S]{0,200}?syncNow\(\)/.test(ktC2));
-        ok("das Ende ebenso", /buzzEnde\(ctx\)[\s\S]{0,60}?persist\(\)[\s\S]{0,40}?syncNow\(\)/.test(ktC2));
+        ok("das Ende ebenso", /buzzEnde\(ctx\)[\s\S]{0,220}?persist\(\)[\s\S]{0,60}?syncNow\(\)/.test(ktC2));
         /* Ein Abbruch ist derselbe Zustandswechsel — ohne Meldung stünde das
            Band am Handy weiter, obwohl auf der Uhr nichts mehr läuft. Ein
            Zustand, den nur eine Seite kennt, ist schlimmer als gar keiner. */
         ok("und der Abbruch auch",
-           /fun recCancel\(\) \{\s*\n\s*rec = null[\s\S]{0,40}?syncNow\(\)/.test(ktC2));
+           /fun recCancel\(\) \{\s*\n\s*rec = null[\s\S]{0,180}?syncNow\(\)/.test(ktC2));
         /* Der Riegel gegen Doppelsendungen muss bleiben: Wer sofort sendet UND
            den Takt nicht bremst, bezahlt das Tempo mit Funk und Akku. */
         ok("aber der Riegel gegen Doppelsendungen bleibt",
@@ -6319,8 +6320,8 @@ group("Gleichlauf Uhr ↔ App — dieselbe Frage, dieselbe Antwort");
          keinen brauchbaren Fix hat, soll ein paar Schritte weiter erneut
          tippen können, statt den ganzen Schlag zu verlieren. */
       ok("ein abgelehnter Stop behält die Aufnahme",
-         /Schlag nicht erfasst[\s\S]{0,120}?return@launch/.test(ktCode2)
-         && !/Schlag nicht erfasst[\s\S]{0,120}?rec = null/.test(ktCode2));
+         /Schlag nicht erfasst[\s\S]{0,260}?return@launch/.test(ktCode2)
+         && !/Schlag nicht erfasst[\s\S]{0,260}?rec = null/.test(ktCode2));
     }
 
     /* --- WAS BLEIBT, OBWOHL ES NACH RECHNUNG AUSSIEHT ---
@@ -7021,7 +7022,7 @@ group("Live-Zeiger — beide Geräte, dieselbe Regel");
        zusaetzlich, dass der Changelog einen Eintrag fuer GENAU diese Kennung
        hat — beides zusammen faengt „Code geaendert, Fassung vergessen" und
        „Fassung gezogen, Changelog vergessen". */
-    ok("und die Kennung ist aktuell", /WATCH_APP = "2026-08-27 \(47\)"/.test(kt));
+    ok("und die Kennung ist aktuell", /WATCH_APP = "2026-08-28 \(48\)"/.test(kt));
     ok("das Handy zeigt sie", /function watchFassung\(\)/.test(src));
 
     /* --- STARTBILDSCHIRM (2026-08-25 (20)) ---
@@ -7144,7 +7145,11 @@ group("Protokoll-Anzeige — einmal nachladen, nicht endlos");
      /function closeSheet\(\)\{[\s\S]{0,200}?_errLogGeholt=false;/.test(src));
   /* Beide Anzeigen müssen die Marke benutzen — eine allein genügt nicht, sie
      rufen dieselbe Ladefunktion. */
-  ["showErrLog", "showWatchLog"].forEach(fn => {
+  /* NUR NOCH `showErrLog` (v4.92): `showWatchLog` ist entfernt — es gibt EIN
+     Protokoll, und der Uhr-Teil steht darin. Zwei Knöpfe zwangen zu einer
+     Entscheidung, die man vor dem Suchen nicht treffen kann: Auf welchem
+     Gerät der Fehler entstand, ist ja gerade die Frage. */
+  ["showErrLog"].forEach(fn => {
     const i = src.indexOf("function " + fn + "(");
     /* Bis zum ersten `_errLogGeholt` schauen, nicht auf ein Zeichenfenster:
        Der Kommentar davor ist länger als jedes Fenster, das ich raten würde.
@@ -7158,13 +7163,35 @@ group("Protokoll-Anzeige — einmal nachladen, nicht endlos");
   /* Und jede Zusage braucht ihr Auffangnetz — ausgerechnet beim Öffnen des
      Protokolls wäre ein unbehandelter Netzfehler bitter. */
   ok("watchLogPull ist abgefangen",
-     (src.match(/watchLogPull\(\)[\s\S]{0,220}?\.catch\(/g) || []).length >= 2);
+     (src.match(/watchLogPull\(\)[\s\S]{0,220}?\.catch\(/g) || []).length >= 1);
 
-  /* Der eigene Knopf: Er soll gleich sagen, ob etwas da ist — sonst tippt man
-     und findet „nichts vorhanden", was wie ein Fehler aussieht. */
-  ok("eigener Knopf für das Uhr-Protokoll", /onclick="showWatchLog\(\)"/.test(src));
-  ok("mit Anzahl und Alter im Text", /function watchLogKnopfText\(\)/.test(src));
-  ok("und einem Hinweis, wenn nichts ankommt", /noch nicht auf v2\.11/.test(src));
+  /* ====================================================================
+     EIN PROTOKOLL, ZWEI GERAETE (v4.92)
+     --------------------------------------------------------------------
+     VORGABE VOM 28.08.: „Nur ein großes Fehlerprotokoll, in dem aber das
+     Uhr-eigene gut unterscheidbar ist."
+     Der zweite Knopf ist weg. Der EINE nennt beide Zahlen, damit man vor dem
+     Tippen weiß, was drinsteht — sonst tippt man und findet „nichts
+     vorhanden", was wie ein Fehler aussieht. */
+  ok("nur noch ein Protokoll-Knopf",
+     /onclick="showErrLog\(\)"/.test(src) && !/onclick="showWatchLog\(\)"/.test(src));
+  ok("seine Beschriftung nennt beide Quellen", /function errLogKnopfText\(\)/.test(src)
+     && /eigen\+" \+ ⌚ "\+w\.zeilen\.length/.test(src));
+  /* GUT UNTERSCHEIDBAR heißt: eigener Rahmen UND ein Zeichen an jeder Zeile.
+     Der Rahmen geht beim Kopieren verloren, das Zeichen nicht. */
+  ok("der Uhr-Teil hat einen eigenen Rahmen",
+     /class="card uhr-log"/.test(src) && /\.uhr-log\{/.test(src));
+  ok("und jede Uhr-Zeile ein Zeichen", /⌚ \$\{esc\(z\)\}/.test(src));
+  /* GETRENNT BLEIBEN MUSS ES TROTZDEM: Die Uhr-Zeilen werden nur angezeigt,
+     nicht ins eigene Protokoll übernommen — sonst wäre später nicht mehr zu
+     erkennen, wo etwas passiert ist. */
+  ok("und wird nicht ins eigene übernommen", /nur <b>angezeigt<\/b>/.test(src));
+  /* VORGABE VOM 28.08.: ein Knopf, um das Uhr-Protokoll nachzuladen — direkt
+     im geöffneten Menü, nicht in einem zweiten Blatt. */
+  ok("mit einem Knopf zum Nachladen der Uhr",
+     /onclick="watchLogAuffrischen\(\)"/.test(src));
+  ok("der zurück ins gemeinsame Protokoll führt",
+     /function watchLogAuffrischen[\s\S]{0,600}?showErrLog\(\)/.test(src));
 }
 
 /* ============ 24cs. Der Changelog der Uhr — dieselben Regeln ============ */
@@ -12927,6 +12954,85 @@ group("STRAT-Bausteine — Mathematik, die man nachrechnen kann");
       } finally { DB0.rounds = alt; S._esPlayCache = altC; }
     }
   }
+}
+
+/* ============ 24cw. Der Lochzeiger — eine Regel für beide Geräte ============ */
+group("Lochzeiger — der Zähler entscheidet, auf beiden Seiten");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+  const DB0 = G("DB");
+
+  /* ====================================================================
+     GEMELDET am 28.08.2026 (behoben in v4.93)
+     --------------------------------------------------------------------
+     Der Lochzeiger pendelte zwischen Uhr und Handy — Loch 8 ⇄ 1 ⇄ 2 in
+     einer Minute. Auf der einen Seite stand „Handy-Loch verworfen", auf der
+     anderen „ÜBERNOMMEN"; beide hielten sich für im Recht.
+     DIE URSACHE WAR EINE ASYMMETRIE: Uhr-Fassung (34) hat den ZÄHLER
+     eingeführt, weil Zeitstempel zwischen zwei Geräten dreimal gescheitert
+     waren. Die Uhr entscheidet seither streng nach `seq > ownSeq`. **Das
+     Handy hat den Zähler nur gelesen, nicht befragt** — es hob brav seinen
+     eigenen Stand an und entschied weiter nach dem Schreibzeitpunkt, der bei
+     einem Gerät im Sekundentakt praktisch immer frisch ist.
+     Ergebnis: Das Handy folgte jedem Zeiger der Uhr, die Uhr verwarf jeden
+     des Handys. ZWEI REGELN FÜR DIESELBE FRAGE SIND KEINE REGEL.
+     Diese Prüfungen sind Verhaltensprüfungen: Sie legen einen fremden Zeiger
+     hin und sehen nach, ob das Handy springt. */
+  /* DIE REGEL WIRD REIN GEPRUEFT, nicht über `playAdoptRemoteHole`: Die
+     Übernahme braucht `PLAY`, `DB` und einen Bildschirmwechsel, und `G("DB")`
+     liefert im Prüfstand eine Momentaufnahme — die App ersetzt das Objekt.
+     Zum dritten Mal in dieser Woche dieselbe Lehre: Eine Entscheidung, die
+     man nicht einzeln befragen kann, wird nicht geprüft.
+     `fremderZeigerZaehlt` heißt hier genauso wie auf der Uhr
+     (`Net.fremderZeigerZaehlt`) — zwei Geräte, dieselbe Frage, derselbe Name.
+     Dann fällt beim Lesen auf, wenn eine Seite abweicht. */
+  const FZ = G("fremderZeigerZaehlt");
+  if (typeof FZ === "function") {
+    ok("höherer Zähler gewinnt", FZ(4, 3) === true);
+    /* DER GEMELDETE FALL: gleicher Zähler, aber frischerer Zeitstempel. Hier
+       sprang das Handy bisher mit, während die Uhr in derselben Lage
+       „verworfen" sagte — und recht hatte. */
+    ok("gleicher Zähler gewinnt nicht", FZ(4, 4) === false);
+    ok("niedrigerer erst recht nicht", FZ(2, 9) === false);
+    /* Die frisch gestartete Uhr: `ownHoleSeq` lebt dort nur im Speicher und
+       fängt bei 0 an. Sie meldete Loch 1 mit Zähler 0, und das Handy sprang
+       mitten auf Loch 8 zurück — genau nach dem Absturz vom 28.08.
+       ACHTUNG, DIE FEINHEIT: 0 heißt „kein Zähler gesendet" (alte Fassung) und
+       fällt damit auf den Zeitvergleich zurück. Eine neu gestartete Uhr sendet
+       jedoch ihren Stand, sobald sie den ersten fremden Zeiger gesehen hat
+       (`holeSeqGesehen`) — sie meldet dann nicht 0, sondern den übernommenen
+       Stand, und verliert korrekt gegen den höheren des Handys. */
+    ok("ohne Zähler gilt das alte Netz", FZ(0, 9) === true);
+    ok("und ein übernommener Stand verliert gegen den höheren", FZ(9, 12) === false);
+    /* Die Uhr rechnet identisch — sonst hätten wir die Asymmetrie nur
+       verschoben. Verglichen wird der Quelltext beider Seiten. */
+    const ktPfadZ = path.join(__dirname, "MainActivity.kt");
+    if (fs.existsSync(ktPfadZ)) {
+      const ktZ = ktOhneKommentar(fs.readFileSync(ktPfadZ, "utf8"));
+      ok("die Uhr entscheidet mit derselben Regel",
+         /holeSeq != null -> holeSeq > ownHoleSeq/.test(ktZ));
+      ok("und unter demselben Namen", /fun fremderZeigerZaehlt\(/.test(ktZ));
+    }
+  }
+  ok("die Übernahme benutzt die Regel",
+     /const zaehlt ?= ?fremderZeigerZaehlt\(fremderSeq, eigenerSeq\)/.test(src));
+  /* Ein verworfener Zeiger darf NICHT abgehakt werden: Die Uhr sendet ihn
+     weiter, und sobald ihr Zähler steigt, soll die Handlung wirken. Häkte man
+     ihn ab, ginge genau diese Handlung verloren. */
+  ok("ein verworfener Zeiger wird nicht abgehakt",
+     /if\(!zaehlt\) return false;/.test(src)
+     && !/if\(!zaehlt\)\{ ?playLiveSeenAt/.test(src));
+  /* Der eigene Stand wird trotzdem angehoben — die nächste EIGENE Wahl muss
+     auf dem Maximum aufsetzen (v4.79). */
+  ok("der eigene Zähler zieht auch ohne Übernahme nach",
+     /if\(fremderSeq>eigenerSeq\) PLAY\.holeSeq=fremderSeq;/.test(src));
+
+  /* Und die Begründung muss im Protokoll stehen — am 28.08. nannte das Handy
+     nur Zeitstempel, während die Uhr mit „seq=33/eigen 33" argumentierte.
+     Zwei Protokolle über dieselbe Frage müssen dieselben Größen nennen. */
+  ok("das Protokoll nennt beide Zählerstände",
+     /seq="\+fremderSeq\+"\/eigen "\+eigenerSeq/.test(src));
+  ok("und benennt ein Verwerfen als solches", /VERWORFEN \(Zähler\)/.test(src));
 }
 
 /* ============ 24cx. Eine beendete Runde kommt nicht zurück ============ */

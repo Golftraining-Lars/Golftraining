@@ -387,6 +387,55 @@ import kotlin.math.sqrt
  *  ------------------------------------------------------------------------
  *  CHANGELOG (neueste zuerst — bei JEDER Änderung ergänzen: Datum · was · wo)
  *  ------------------------------------------------------------------------
+ *  2026-08-28 (48) · DER RUECKFALLWEG HAT DIE APP GETOETET — ER IST WEG.
+ *     GEMELDET am 28.08.: „Das Schlagtracken dauert sehr lange bis es startet,
+ *     auch nach mehreren Anlaeufen nicht. Dann bricht es zwischendurch ab und
+ *     die ganze App schliesst sich."
+ *     DAS UHR-PROTOKOLL NANNTE DIE URSACHE WOERTLICH:
+ *       07:48:29 ABSTURZ OutOfMemoryError: Failed to allocate a 14784520 byte
+ *       allocation with 3204560 free bytes @Net.readData < Net.pushDraft
+ *     IN `pushDraft` STAND EIN RUECKFALLWEG: Gelang der schlanke Schreibvorgang
+ *     in `draft.json` nicht, holte er die GROSSE `trainingsdaten.json` —
+ *     mehrere Megabyte —, baute daraus ein JSONObject, aenderte den Entwurf
+ *     darin und schickte alles zurueck.
+ *     DREI GRUENDE FUER SEIN ENDE, jeder allein ausreichend:
+ *     1. ER KONNTE SEIT WORKER v2.9 GAR NICHT MEHR GELINGEN. Der ALT-Modus ist
+ *        dort geschlossen und antwortet mit 426. Seit Wochen ein garantierter
+ *        Fehlschlag — nur ein sehr teurer.
+ *     2. ER SPRENGTE DEN SPEICHER. Rohtext, JSONObject und Sende-Abzug liegen
+ *        gleichzeitig im Heap; bei 128 MB Grenze reicht das fuer den Absturz.
+ *     3. ER LIEF GENAU DANN, WENN ES OHNEHIN KLEMMTE — ausgeloest vom
+ *        Fehlschlag des schlanken Weges, also bei schlechtem Funk. Auf eine
+ *        ueberlastete Leitung legte er Megabyte obendrauf. Das Protokoll zeigt
+ *        die Folge: 37 von 60 Vorgaengen misslungen.
+ *     EIN SICHERHEITSNETZ, DAS BEI JEDEM AUFFANGEN REISST UND DEN SPRINGENDEN
+ *     MITNIMMT, IST KEINES.
+ *     EBENFALLS ENTFERNT: der Rueckfall in `fetchDraft`, der die grosse Datei
+ *     holte, um einen Entwurf zu FINDEN. Ist `draft.json` nicht lesbar, ist es
+ *     die Leitung — dann gelingt eine tausendmal groessere Datei erst recht
+ *     nicht.
+ *     NEU `leseBegrenzt()`: Vor dem Lesen wird die angekuendigte Groesse
+ *     geprueft und beim Lesen mitgezaehlt; ueber 6 MB wird abgebrochen und
+ *     GEMELDET. Ein Absturz ist die schlechteste Art, eine Grenze zu erfahren.
+ *     DIAGNOSE ERWEITERT — die drei Groessen, die am 28.08. gefehlt haben:
+ *       · SPEICHER (`speicherText`, `speicherPruefen`): steht im Puls und im
+ *         Abzug, warnt einmalig unter 20 MB Rest. Eine Groesse, die einen
+ *         umbringen kann, gehoert ins Protokoll, BEVOR sie es tut.
+ *       · FEHLERARTEN (`fehlerArt`, `fehlerBilanz`): „37 misslungen" ist eine
+ *         Zahl ohne Richtung. Zeitablauf, Verbindungsabriss und Konflikt haben
+ *         drei verschiedene Ursachen und drei verschiedene Antworten. Ich habe
+ *         sie am 28.08. von Hand ausgezaehlt — das macht die Uhr jetzt selbst.
+ *       · SCHLAG-SPUR (`Diagnose.schlag`): Das Schlagtracken ist der einzige
+ *         Zweck dieser Uhr und kam im Protokoll UEBERHAUPT NICHT VOR. Jetzt
+ *         bekommt jeder Schritt eine Zeile mit DAUER — Tipp, Sammelfenster,
+ *         Startpunkt, Ergebnis, Abbruch. Erst daran sieht man, ob das Warten am
+ *         GPS liegt oder am Funk. Was nicht protokolliert ist, laesst sich
+ *         nicht untersuchen.
+ *     OFFEN, im Protokoll sichtbar und NICHT in dieser Fassung behoben: Der
+ *     Lochzeiger pendelte am 28.08. zwischen Uhr und Handy (Loch 8 ⇄ 1 ⇄ 2,
+ *     „Handy-Loch verworfen" auf der einen, „ÜBERNOMMEN" auf der anderen
+ *     Seite). Das ist ein eigener Befund und gehoert in eine eigene Fassung.
+ *
  *  2026-08-27 (47) · DER AUFNAHMESTART MELDET SICH SOFORT.
  *     GEMELDET: „Die Uebertragung von der Uhr an die App, dass ein
  *     Schlagtracking gestartet wurde, dauert sehr lange und klappt manchmal
@@ -2948,7 +2997,7 @@ import kotlin.math.sqrt
 /* Fassungskennung der Uhr-App — steht im Kopplungstest neben der der PWA.
    Bei JEDER Aenderung hier mitziehen; sonst vergleicht man zwei Staende und
    glaubt, sie seien gleich (2026-08-15 (13)). */
-private const val WATCH_APP = "2026-08-27 (47)"
+private const val WATCH_APP = "2026-08-28 (48)"
 /* ==========================================================================
    WAS HAT DIESE FASSUNG GEAENDERT? (2026-08-25 (22))
    --------------------------------------------------------------------------
@@ -3646,7 +3695,20 @@ private object Net {
             return parseDraft(JSONObject().put("_draftRound", f))
         }
         if (f != null) return null                        // Datei da, aber ohne Runde
-        return parseDraft(JSONObject(readData()))         // Rueckfall: grosse Datei
+        /* KEIN RUECKFALL AUF DIE GROSSE DATEI MEHR (2026-08-28 (48)).
+           Hier stand `parseDraft(JSONObject(readData()))` — um einen Entwurf zu
+           FINDEN, wurden mehrere Megabyte geladen und geparst. Aus zwei
+           Gruenden weg:
+           1. WENN `draft.json` NICHT LESBAR IST, ist es die Leitung — und dann
+              gelingt eine Datei, die tausendmal groesser ist, erst recht
+              nicht. Der Rueckfall trat also genau dann an, wenn er nicht
+              helfen konnte, und machte die Lage schlimmer.
+           2. Es ist dieselbe Speicherfalle, die am 28.08. die App mit
+              OutOfMemory beendet hat (siehe `pushDraft`).
+           `null` heisst „kein Entwurf gefunden" — der naechste Takt fragt neu.
+           Das Handy schreibt `draft.json` bei jeder Aenderung; ein Entwurf, der
+           dort nicht steht, ist keiner. */
+        return null
     }
 
     var lastDiscardedTs: String? = null
@@ -3795,11 +3857,52 @@ private object Net {
        Zurueckschreiben. */
     @Volatile private var fullSha: String? = null
 
+    /* ==========================================================================
+       EINE GRENZE, BEVOR DER SPEICHER SIE SETZT (2026-08-28 (48))
+       --------------------------------------------------------------------------
+       Am 28.08. hat eine Zuteilung von 14,8 MB die App beendet:
+       `OutOfMemoryError @Net.readData`. Der Heap der Uhr endet bei 128 MB, und
+       Rohtext plus JSONObject plus Sende-Abzug liegen gleichzeitig darin.
+       EIN ABSTURZ IST DIE SCHLECHTESTE ART, EINE GRENZE ZU ERFAHREN: Er nimmt
+       die laufende Runde mit und hinterlaesst keine Auskunft ausser einem
+       Stapelabzug. Deshalb wird die Groesse VORHER geprueft — angekuendigt
+       ueber `Content-Length`, und falls die fehlt, beim Lesen mitgezaehlt.
+       Was zu gross ist, wird abgelehnt und GEMELDET. Eine Fehlermeldung, die
+       man lesen kann, ist einem Absturz in jeder Hinsicht ueberlegen.
+       6 MB: Die schlanke `watch.json` liegt bei wenigen Kilobyte, die grosse
+       Datei bei rund 3 MB. Wer hier anschlaegt, hat ein Datenproblem und kein
+       Speicherproblem — und soll das erfahren. */
+    private const val MAX_LESEN = 6 * 1024 * 1024
+
+    private fun leseBegrenzt(c: HttpURLConnection, was: String): String {
+        val angekuendigt = c.contentLengthLong
+        if (angekuendigt > MAX_LESEN) {
+            throw IllegalStateException(
+                "$was: ${angekuendigt / 1024} kB angekuendigt, Grenze ${MAX_LESEN / 1024} kB"
+            )
+        }
+        val sb = StringBuilder()
+        val puffer = CharArray(16 * 1024)
+        c.inputStream.bufferedReader().use { r ->
+            while (true) {
+                val n = r.read(puffer)
+                if (n < 0) break
+                sb.append(puffer, 0, n)
+                if (sb.length > MAX_LESEN) {
+                    throw IllegalStateException(
+                        "$was: ueber ${MAX_LESEN / 1024} kB und kein Ende — abgebrochen"
+                    )
+                }
+            }
+        }
+        return sb.toString()
+    }
+
     private fun readData(): String {
         try {
             val f = openRead(FRESH_URL)
             if (f.responseCode in 200..299) {
-                val t = f.inputStream.bufferedReader().use { it.readText() }
+                val t = leseBegrenzt(f, "trainingsdaten.json")
                 fullSha = f.getHeaderField("X-Repo-Sha")
                 f.disconnect()
                 return t
@@ -3812,10 +3915,11 @@ private object Net {
                schreiben, sind genau der Zustand, in dem „einmal geht es, dann
                nicht mehr" entsteht. */
             if (e.istAbbruch()) throw e
+            Diagnose.fehlerArt(e, e.message ?: "")
             Fehler.add("Daten lesen", e)
         }
         val c = openRead(DATA_URL)
-        val t = c.inputStream.bufferedReader().use { it.readText() }
+        val t = leseBegrenzt(c, "trainingsdaten.json (CDN)")
         c.disconnect()
         fullSha = null                 // ohne Kennung nicht zurueckschreiben
         return t
@@ -4462,225 +4566,53 @@ private object Net {
             // Schreiben fehlgeschlagen -> alter Weg als Sicherheitsnetz
         }
 
-        /* ---------- ALTER WEG (grosse Datei, Server-Merge) ---------- */
-        val db = JSONObject(readData())
+        /* ======================================================================
+           DER ALTE WEG IST ENTFERNT — ER HAT DIE APP GETOETET (2026-08-28 (48))
+           ----------------------------------------------------------------------
+           GEMELDET am 28.08.: „Das Schlagtracken dauert sehr lange bis es
+           startet, auch nach mehreren Anlaeufen nicht. Dann bricht es
+           zwischendurch ab und die ganze App schliesst sich."
+           DAS UHR-PROTOKOLL NENNT DIE URSACHE WOERTLICH:
 
-        // Gleiche Runde bereits als Entwurf im Repo (z. B. vom Handy)?
-        // -> loch-genau vereinen statt zu überschreiben.
-        val prevRound = db.optJSONObject("_draftRound")?.optJSONObject("round")
-        val key = { r: JSONObject ->
-            r.optString("date") + "|" + r.optString("course") + "|" + r.optString("side")
-        }
-        if (prevRound != null && key(prevRound) == key(round)) {
-            mergeDraftHoles(prevRound, round)
-        }
+             07:48:29 ABSTURZ OutOfMemoryError: Failed to allocate a
+             14784520 byte allocation with 3204560 free bytes
+             @Net.readData:3818 < Net.pushDraft:4466
 
-        // Live-Zeiger: welches Gerät steht auf welchem Loch. Das Handy wertet
-        // ihn aus, um den Spielmodus zu öffnen und mitzublättern.
-        val prevLive = db.optJSONObject("_draftRound")?.optJSONObject("live")
-        var remoteHole: Int? = null
-
-        if (prevLive != null && prevLive.optString("src") != "watch") {
-            val at = prevLive.optString("at")
-            val h = prevLive.optInt("hole", 0)
-            val wahl = prevLive.optString("wahlAt").ifEmpty { null }
-            val seq = prevLive.optInt("holeSeq", 0).takeIf { it > 0 }
-            val zaehlt = fremderZeigerZaehlt(at, wahl, seq)
-            seq?.let { holeSeqGesehen(it) }
-            if (h > 0 && zaehlt && h != currentHole) {
-                remoteHole = h
-            }
-        }
-
-        val draft = JSONObject()
-            .put("round", round)
-            .put("ts", isoNow())
-
-        /* ==================================================================
-           DAS UHR-PROTOKOLL REIST MIT (2026-08-24)
-           --------------------------------------------------------------------
-           Bis hierher war das Fehlerprotokoll der Uhr nur AUF der Uhr lesbar —
-           auf einem runden Display, ohne Kopiermoeglichkeit, waehrend man auf
-           der Bahn steht. Ausgewertet wurde es damit praktisch nie.
-           KEINE NEUE DATEI, KEIN NEUER WORKER-PFAD: Der Entwurf wird ohnehin
-           im Minutentakt geschrieben und ist wenige kB gross. Das Protokoll
-           haengt sich dort an — die letzten 30 Zeilen sind rund 3 kB, das
-           faellt neben der Runde nicht ins Gewicht.
-           MIT KENNUNG DES GERAETS, weil im Handy-Protokoll sonst nicht
-           unterscheidbar waere, woher eine Zeile stammt. */
-        try {
-            val log = Fehler.liste
-            if (log.isNotEmpty()) {
-                draft.put(
-                    "watchLog",
-                    JSONObject()
-                        .put("at", isoNow())
-                        .put("app", WATCH_APP)
-                        .put("geraet", Build.MANUFACTURER + " " + Build.MODEL)
-                        .put("zeilen", JSONArray(log))
-                )
-            }
-        } catch (e: Exception) {
-            /* ABBRUCH DURCHLASSEN (2026-08-24 (10)): Wer ihn faengt und nicht
-               weiterwirft, sagt dem System „ich mache weiter" — waehrend Compose
-               die Schleife fuer beendet haelt. Zwei Schleifen, die dasselbe
-               schreiben, sind genau der Zustand, in dem „einmal geht es, dann
-               nicht mehr" entsteht. */
-            if (e.istAbbruch()) throw e
-            Fehler.add("Log-Anhang", e)
-        }
-
-        if (currentHole != null) {
-            // Ein vom Handy übernommenes Loch NICHT sofort überschreiben —
-            // sonst kämpfen beide Geräte gegeneinander.
-            val hole = remoteHole ?: currentHole
-            val now = isoNow()
-            ownLiveAt = now
-            draft.put(
-                "live",
-                JSONObject()
-                    .put("src", "watch")
-                    .put("note", WATCH_NOTE)
-                    /* FASSUNG IN DEN ZEIGER (2026-08-24 (6)). Sie stand bisher
-                       nur im Fehlerprotokoll — also nur dann, wenn es Fehler
-                       gab. Das Handy konnte deshalb nie sagen, welche
-                       Uhr-Fassung laeuft, und wir haben drei Runden lang
-                       geraten, ob eine Reparatur schon drauf ist.
-                       Der Zeiger geht bei JEDEM Herzschlag raus; hier kostet
-                       die Angabe nichts und ist immer aktuell. */
-                    .put("app", WATCH_APP)
-                    .put("hole", hole)
-                    .put("at", now)
-                    .put("holeSeq", ownHoleSeq)
-                    .put("course", courseName ?: round.optString("course"))
-                    .put("tee", teeName ?: round.optString("tee"))
-                    .put("date", round.optString("date"))
-                    .put("side", round.optString("side"))
-                    .also { lv ->
-                        /* LAUFENDE SCHLAGAUFNAHME veroeffentlichen (v1.68).
-                           Damit sieht das Handy „Uhr trackt: 7-Eisen" und kann
-                           den Schlag selbst abschliessen — der Startpunkt kommt
-                           von der Uhr, der Endpunkt vom Handy. Beide sind am
-                           selben Ball, also ist das dieselbe Messung.
-                           Vertrag identisch zur PWA:
-                             rec = {src, club, at, lat, lng} */
-                        if (recLive != null) lv.put("rec", recLive)
-                        /* EIGENE POSITION MELDEN (2026-08-16 (4)).
-                           Das Handy ist beim Caddy fuehrend, rechnet aber mit
-                           SEINER Position — und das Handy liegt oft im Trolley,
-                           waehrend man am Ball steht. Zwanzig Meter Unterschied
-                           sind ein halber Schlaeger.
-                           Die Uhr meldet deshalb, wo sie steht; das Handy
-                           rechnet FUER DIESEN PUNKT und schickt das Ergebnis
-                           zurueck. Die Uhr hat den richtigen Ort, das Handy die
-                           bessere Rechnung.
-                           NUR MIT BRAUCHBARER GENAUIGKEIT: Eine Position mit
-                           30 m Streuung wuerde die Rechnung verschlechtern
-                           statt sie zu verbessern. */
-                        Live.fixUi?.let { f ->
-                            if (f.acc <= FixQuality.MAX_ACC) {
-                                lv.put(
-                                    "pos",
-                                    JSONObject()
-                                        .put("src", "watch")
-                    .put("note", WATCH_NOTE)
-                                        .put("lat", f.lat)
-                                        .put("lng", f.lng)
-                                        .put("acc", f.acc.toDouble())
-                                        .put("at", isoNow())
-                                )
-                            }
-                        }
-                    }
-            )
-        }
-
-        db.put("_draftRound", draft)
-
-        if (shotMeasurements.isNotEmpty()) {
-
-            val arr = db.optJSONArray("gpsShots") ?: JSONArray()
-            val have = HashSet<String>()
-
-            for (i in 0 until arr.length()) {
-                arr.optJSONObject(i)?.optString("id")?.let { have.add(it) }
-            }
-
-            shotMeasurements.forEach { s ->
-                val id = s.optString("id")
-                if (id.isNotEmpty() && !have.contains(id)) {
-                    arr.put(s)
-                    have.add(id)
-                }
-            }
-
-            db.put("gpsShots", arr)
-        }
-
-        db.put(
-            "exportedAt",
-            isoNow()
+           HIER STAND DER RUECKFALLWEG: Gelang der schlanke Schreibvorgang in
+           `draft.json` nicht, holte diese Stelle die GROSSE
+           `trainingsdaten.json` — mehrere Megabyte —, baute daraus ein
+           JSONObject, aenderte darin den Entwurf und schickte alles zurueck.
+           DREI GRUENDE, WARUM DAS WEG MUSSTE, jeder fuer sich ausreichend:
+           1. ER KANN SEIT WORKER v2.9 GAR NICHT MEHR GELINGEN. Der ALT-Modus
+              ist dort geschlossen und antwortet mit 426 „Upgrade Required".
+              Der Weg war also seit Wochen ein garantierter Fehlschlag — nur
+              ein sehr teurer.
+           2. ER SPRENGTE DEN SPEICHER. Rohtext, JSONObject und die
+              `toString()`-Ausgabe zum Senden liegen gleichzeitig im Heap; bei
+              128 MB Grenze auf der Uhr reicht das fuer den Absturz. Und ein
+              Absturz mitten in der Runde ist der teuerste Fehler ueberhaupt.
+           3. ER LIEF GENAU DANN, WENN ES OHNEHIN KLEMMTE. Ausgeloest wurde er
+              vom Fehlschlag des schlanken Weges — also bei schlechtem Funk auf
+              dem Platz. Auf eine ueberlastete Leitung legte er mehrere
+              Megabyte obendrauf. Das Protokoll vom 28.08. zeigt die Folge:
+              Zeitueberschreitung an Zeitueberschreitung, 37 von 60 Vorgaengen
+              misslungen.
+           EIN SICHERHEITSNETZ, DAS BEI JEDEM AUFFANGEN REISST UND DEN
+           SPRINGENDEN MITNIMMT, IST KEINES.
+           WAS STATTDESSEN PASSIERT: Der Fehlschlag wird gemeldet und der
+           Durchlauf endet. Der naechste Takt versucht es erneut — mit dem
+           schlanken Weg, der wenige Kilobyte kostet. Nichts geht verloren:
+           Alles liegt weiter lokal (`persist`), und der Entwurf wird beim
+           naechsten gelungenen Vorgang vollstaendig uebertragen. */
+        Fehler.warnEinmal(
+            "draftNurSchlank",
+            "Entwurf senden",
+            "Schlanker Weg misslungen — der naechste Takt versucht es erneut. " +
+            "Der alte Weg ueber die grosse Datei ist mit (48) entfernt: Er " +
+            "konnte seit Worker v2.9 nicht mehr gelingen (426) und hat die App " +
+            "mit OutOfMemory beendet."
         )
-
-        /* ==================================================================
-           SHA-MODUS STATT ALT-MODUS (2026-08-24, Worker v2.9)
-           --------------------------------------------------------------------
-           BIS HIERHER schickte dieses Sicherheitsnetz `{"data": db}` OHNE
-           `X-Path` — das war der ALT-Modus, in dem der WORKER serverseitig
-           gemerged hat. Dieser Weg ist mit Worker v2.9 entfernt, weil seine
-           Merge-Regeln von denen der App abwichen: keine Grabsteine (geloeschte
-           Runden waeren wieder auferstanden), keine Zeitstempel (eine
-           bearbeitete Runde haette gegen die aeltere Fassung verloren).
-           Der Worker antwortet darauf jetzt mit 426.
-           JETZT wird derselbe Weg gegangen wie ueberall sonst: Die Uhr hat
-           `trainingsdaten.json` samt Kennung frisch geholt (`fullSha`), hat
-           lokal in `db` eingearbeitet und schreibt mit genau dieser Kennung
-           zurueck. Ist sie veraltet, antwortet der Worker mit 409 — dann hat
-           inzwischen jemand anderes geschrieben, und der naechste Durchlauf
-           holt frisch. NICHT mit X-Force ueberschreiben: Das waere genau der
-           Datenverlust, den der SHA-Tuersteher verhindern soll. */
-        val p = URL(WORKER_URL).openConnection() as HttpURLConnection
-
-        p.requestMethod = "POST"
-        p.doOutput = true
-        p.connectTimeout = 20000
-        p.readTimeout = 20000
-
-        p.setRequestProperty("Content-Type", "application/json")
-        p.setRequestProperty("X-Write-Key", WRITE_KEY)
-        p.setRequestProperty("X-Path", "trainingsdaten.json")
-        /* OHNE KENNUNG NICHT SCHREIBEN. Ein leeres `X-Base-Sha` heisst fuer die
-           GitHub-API „Datei neu anlegen" — bei einer bestehenden Datei
-           scheitert das (422), und im schlimmsten Fall wuerde es sie ersetzen.
-           Lieber diesen Durchlauf auslassen; der naechste liest frisch. */
-        val basis = fullSha
-        if (basis.isNullOrEmpty()) {
-            p.disconnect()
-            Fehler.add("Sync", IllegalStateException("keine Basis-Kennung — Schreiben ausgelassen"))
-            return PushResult(false, round.optJSONArray("holes"), null)
-        }
-        p.setRequestProperty("X-Base-Sha", basis)
-
-        p.outputStream.use {
-            it.write(db.toString().toByteArray(Charsets.UTF_8))
-        }
-
-        val code = p.responseCode
-
-        p.disconnect()
-
-        /* 409 heisst „jemand war schneller" und ist KEIN Fehler, sondern eine
-           Aufforderung: frisch holen, neu einarbeiten, erneut senden. Das
-           erledigt der naechste Durchlauf; hier nur nicht als Erfolg melden. */
-        val ok = code in 200..299
-
-        return PushResult(
-            ok,
-            round.optJSONArray("holes"),
-            // Nur bei erfolgreichem Schreiben melden — sonst würde die Uhr
-            // einem Loch folgen, das sie gar nicht bestätigt hat.
-            if (ok) remoteHole else null
-        )
+        return PushResult(false, round.optJSONArray("holes"), null)
     }
 }
 
@@ -5764,9 +5696,13 @@ object Diagnose {
 
     private fun pulsSchreiben() {
         try {
+            /* Bei jedem Puls einmal nachsehen (48): Der Speicher ist die
+               Groesse, die am 28.08. ohne Vorwarnung zugeschlagen hat. */
+            speicherPruefen()
             Fehler.entferneTags(listOf("⚠ Puls"))
             Fehler.warn("Puls",
-                "$pulsAnzahl Vorgänge, $pulsFehler misslungen · " +
+                "$pulsAnzahl Vorgänge, $pulsFehler misslungen (${fehlerBilanz()}) · " +
+                "${speicherText()} · " +
                 "zuletzt $letzterPushZeit → $letzterPushErgebnis · " +
                 "eigenes Loch ${pulsLoch ?: "?"} · Handy-Loch $pulsFremd · Zeiger $pulsZeiger · " +
                 (if (taktStand > 0) "Schleife stand ${taktStand}× · " else "") +
@@ -5808,6 +5744,90 @@ object Diagnose {
         }
     }
 
+    /* ==================================================================
+       SPEICHER — DIE GROESSE, DIE AM 28.08. GEFEHLT HAT (2026-08-28 (48))
+       --------------------------------------------------------------------
+       An dem Tag hat eine Zuteilung von 14,8 MB die App beendet. Im Protokoll
+       stand davor NICHTS ueber den Speicher — der Absturz kam ohne Vorwarnung,
+       und ohne den Stapelabzug waere die Ursache nicht zu finden gewesen.
+       EINE GROESSE, DIE EINEN UMBRINGEN KANN, GEHOERT INS PROTOKOLL, BEVOR SIE
+       ES TUT. Drei Zahlen aus der Laufzeit: belegt, zugeteilt, Grenze.
+       Gewarnt wird EINMAL, wenn weniger als 20 MB bis zur Grenze bleiben —
+       frueh genug, um es einer Handlung zuzuordnen, und selten genug, um den
+       Puffer nicht zu fluten. */
+    fun speicherText(): String {
+        val rt = Runtime.getRuntime()
+        val belegt = (rt.totalMemory() - rt.freeMemory()) / (1024 * 1024)
+        val grenze = rt.maxMemory() / (1024 * 1024)
+        return "Heap ${belegt}/${grenze} MB"
+    }
+    fun speicherPruefen() {
+        try {
+            val rt = Runtime.getRuntime()
+            val frei = (rt.maxMemory() - (rt.totalMemory() - rt.freeMemory())) / (1024 * 1024)
+            if (frei < 20) {
+                Fehler.warnEinmal("heapKnapp", "Speicher",
+                    "nur noch ${frei} MB bis zur Grenze (${speicherText()}) — " +
+                    "grosse Abrufe werden jetzt gefaehrlich")
+            }
+        } catch (e: Exception) { if (e.istAbbruch()) throw e }
+    }
+
+    /* ==================================================================
+       WORAN GENAU SCHEITERN DIE VORGAENGE? (2026-08-28 (48))
+       --------------------------------------------------------------------
+       Der Puls sagte „37 misslungen" — eine Zahl ohne Richtung. Zeitablauf,
+       abgerissene Verbindung und Schreibkonflikt haben aber DREI VERSCHIEDENE
+       Ursachen und drei verschiedene Antworten: schlechter Empfang, Gegenseite
+       weg, zwei Geraete gleichzeitig. Das Protokoll vom 28.08. liess sich nur
+       deshalb deuten, weil ich die Einzelzeilen von Hand ausgezaehlt habe.
+       Jetzt zaehlt die Uhr selbst mit. */
+    @Volatile private var fehlZeit: Int = 0      // Zeitablauf
+    @Volatile private var fehlAbriss: Int = 0    // Verbindung weg
+    @Volatile private var fehlKonflikt: Int = 0  // 409
+    @Volatile private var fehlSonst: Int = 0
+
+    fun fehlerArt(e: Throwable?, text: String) {
+        val t = ((e?.javaClass?.simpleName ?: "") + " " + text).lowercase()
+        when {
+            t.contains("timeout") || t.contains("timed out") -> fehlZeit++
+            t.contains("reset") || t.contains("broken pipe") ||
+                t.contains("end of stream") || t.contains("unreachable") -> fehlAbriss++
+            t.contains("409") || t.contains("konflikt") -> fehlKonflikt++
+            else -> fehlSonst++
+        }
+    }
+    fun fehlerBilanz(): String {
+        if (fehlZeit + fehlAbriss + fehlKonflikt + fehlSonst == 0) return "keine Störungen"
+        val t = mutableListOf<String>()
+        if (fehlZeit > 0) t += "${fehlZeit}× Zeitablauf"
+        if (fehlAbriss > 0) t += "${fehlAbriss}× Verbindung weg"
+        if (fehlKonflikt > 0) t += "${fehlKonflikt}× Konflikt"
+        if (fehlSonst > 0) t += "${fehlSonst}× sonstiges"
+        return t.joinToString(" · ")
+    }
+
+    /* ==================================================================
+       SCHLAGTRACKEN ALS EIGENE SPUR (2026-08-28 (48))
+       --------------------------------------------------------------------
+       Es ist der einzige Zweck dieser Uhr — und im Protokoll kam es
+       ueberhaupt nicht vor. Als am 28.08. gemeldet wurde, der Start dauere
+       lange und misslinge, gab es keine einzige Zeile darueber: kein Tipp,
+       kein abgelehnter Fix, kein Startpunkt. Man konnte nur aus dem
+       Ausbleiben schliessen.
+       WAS NICHT PROTOKOLLIERT IST, LAESST SICH NICHT UNTERSUCHEN. Jeder
+       Schritt bekommt jetzt eine Zeile mit DAUER — Tipp, Sammelfenster,
+       Ergebnis. Erst daran sieht man, ob das Warten am GPS liegt (langes
+       Sammelfenster) oder am Funk (langer Vorgang danach). */
+    @Volatile var schlagBeginnMs: Long = 0L
+    fun schlag(was: String, zusatz: String = "") {
+        try {
+            val dauer = if (schlagBeginnMs > 0)
+                " nach ${(System.currentTimeMillis() - schlagBeginnMs) / 100 / 10.0} s" else ""
+            aktion("Schlag: $was$dauer" + (if (zusatz.isNotBlank()) " · $zusatz" else ""))
+        } catch (e: Exception) { if (e.istAbbruch()) throw e }
+    }
+
     /* Alles auf einen Blick. Bewusst EINE Zeichenkette und nicht zwanzig
        Felder: Sie geht so, wie sie ist, ins Protokoll und aufs Handy. */
     fun abzug(): String {
@@ -5817,6 +5837,8 @@ object Diagnose {
         teile += "Android ${Build.VERSION.RELEASE}"
         teile += if (Fehler.kontext.isNotBlank()) Fehler.kontext else "kein Kontext"
         teile += "Versatz " + (v?.let { "${it / 1000} s" } ?: "ungemessen")
+        teile += speicherText()
+        teile += fehlerBilanz()
         teile += "Protokoll ${Fehler.liste.size}"
         return teile.joinToString(" · ")
     }
@@ -7986,6 +8008,7 @@ fun GolfWatchApp(
                schreiben, sind genau der Zustand, in dem „einmal geht es, dann
                nicht mehr" entsteht. */
             if (e.istAbbruch()) throw e
+            Diagnose.fehlerArt(e, e.message ?: "")
             Fehler.add("Uhr-Push", e)
         }
     }
@@ -8292,11 +8315,15 @@ fun GolfWatchApp(
            genauso, sonst ist „nichts passiert" und „alles gut" am Handgelenk
            nicht unterscheidbar. Das gilt seit dieser Fassung doppelt: Die
            Messung ist der einzige Zweck der Uhr geworden. */
+        Diagnose.schlagBeginnMs = System.currentTimeMillis()
+        Diagnose.schlag("Start getippt",
+            "Fix " + (Live.fix?.acc?.roundToInt()?.let { "±$it m" } ?: "keiner"))
         if (!FixQuality.usable(Live.fix)) {
             status =
                 if (Live.fix == null) "warte auf GPS…"
                 else "GPS zu ungenau (${Live.fix?.acc?.roundToInt()} m)"
             buzzNein(ctx)
+            Diagnose.schlag("Start abgelehnt", "GPS zu ungenau")
             return
         }
 
@@ -8314,11 +8341,13 @@ fun GolfWatchApp(
             if (f == null) {
                 status = "GPS zu ungenau — nicht gestartet"
                 buzzNein(ctx)
+                Diagnose.schlag("Start abgelehnt", "Sammelfenster ohne brauchbaren Fix")
                 return@launch
             }
             rec = Rec(null, f.ll(), startAcc = f.acc)
             status = "Aufnahme laeuft · ±${f.acc.roundToInt()} m"
             buzzStart(ctx)
+            Diagnose.schlag("Startpunkt steht", "±${f.acc.roundToInt()} m")
             /* ==================================================================
                SOFORT MELDEN, NICHT BEIM NAECHSTEN TAKT (2026-08-27 (47))
                --------------------------------------------------------------------
@@ -8375,6 +8404,8 @@ fun GolfWatchApp(
 
     fun recCancel() {
         rec = null
+        Diagnose.schlag("abgebrochen")
+        Diagnose.schlagBeginnMs = 0L
         /* SOFORT MELDEN (47): Ein Abbruch ist derselbe Zustandswechsel wie ein
            Ende — ohne Meldung stuende das Band am Handy weiter, obwohl auf der
            Uhr nichts mehr laeuft. Ein Zustand, den nur eine Seite kennt, ist
@@ -8452,6 +8483,8 @@ fun GolfWatchApp(
         /* Haptisch bestaetigen: beim Ball schaut man nicht auf die Uhr.
            DOPPELSCHLAG (46) — unterscheidbar vom langen Stups des Starts. */
         buzzEnde(ctx)
+        Diagnose.schlag("Schlag erfasst", "$len m" + (if (club.isNotEmpty()) " · $club" else ""))
+        Diagnose.schlagBeginnMs = 0L
         persist()
         /* SOFORT MELDEN (47) — wie der Start. Das Handy blendet sein Band erst
            aus, wenn es die Nachricht hat; bis dahin steht dort „Uhr trackt",
@@ -8500,6 +8533,7 @@ fun GolfWatchApp(
                    Schlag zu verlieren. */
                 status = "GPS zu ungenau — Schlag nicht erfasst"
                 buzzNein(ctx)
+                Diagnose.schlag("Stopp abgelehnt", "Sammelfenster ohne brauchbaren Fix")
                 return@launch
             }
             recFinish(r, f)

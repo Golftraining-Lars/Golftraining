@@ -13,6 +13,44 @@
 
 ---
 
+- **v4.59.0 · 2026-08-24** — **BUGFIX: Das Fehlerprotokoll riss die App mit — eine Endlosschleife
+  aus v4.58.** Dort rief `showErrLog()` nach dem Nachladen **sich selbst** auf, um den frischen
+  Stand zu zeigen. Der zweite Aufruf lud wieder nach und rief wieder sich selbst: Die Anzeige baute
+  sich endlos neu auf, ließ sich nicht mehr schließen und nahm die App mit.
+  Ich hatte auf „das Blatt ist offen" als Abbruch geprüft — **das ist beim zweiten Mal auch wahr.**
+  **Eine Funktion, die sich selbst aufruft, um sich zu aktualisieren, braucht eine Bedingung, die
+  beim zweiten Mal falsch ist.** `_errLogGeholt` ist sie; zurückgesetzt wird beim Schließen.
+  **Und ein eigener Knopf für das Uhr-Protokoll** unter Daten → Diagnose, mit Anzahl und Alter im
+  Text: „⌚ Uhr-Protokoll (12 · vor 3 min)". Vorher hing es unten am eigenen Protokoll — wer nach
+  einem Uhr-Fehler sucht, musste erst das Handy-Protokoll öffnen und daran vorbeiscrollen. Ist
+  nichts angekommen, sagt der Knopf das gleich, statt dass man tippt und Leere findet; dazu ein
+  Hinweis auf den Worker-Stand, der die häufigste Ursache ist.
+  **Nebenbei zwei fehlende `.catch`** an den neuen Zusagen — ausgerechnet beim Öffnen des
+  Protokolls wäre ein unbehandelter Netzfehler bitter.
+  **Zum Prüfstand selbst:** Meine erste Fassung der neuen Prüfung suchte in einem festen
+  Zeichenfenster und übersah den Fehler — der Kommentar davor war länger als das Fenster. Jetzt
+  wird bis zur Marke gescannt. **Ein festes Fenster ist die schwächste Art zu prüfen**, das ist
+  heute das dritte Mal.
+
+- **v4.58.0 · 2026-08-24** — **Das Uhr-Protokoll kam nie an — drei Ursachen.**
+  **(1) Es hing am falschen Entwurf.** Ich hatte es an `val draft` gehängt — den Aufbau für die
+  **große** Datei, also den Notweg, der praktisch nie läuft. Das Handy las `_draftRound.watchLog`
+  aus `draft.json` und fand deshalb **nie** etwas. **Eingebaut und wirkungslos**, und ich habe es
+  als fertig gemeldet, ohne den Weg zu verfolgen — dieselbe Nachlässigkeit wie bei den Saisonzielen.
+  **(2) Selbst repariert erreicht es nur die Zeit während einer Runde.** `draft.json` gibt es sonst
+  nicht — Fehler beim Start oder beim Platzladen kämen weiterhin nie an, und genau die sucht man
+  beim Einrichten. Die Uhr schreibt jetzt zusätzlich **`watchlog.json`** (Worker v2.11) im
+  Fünf-Minuten-Takt, der ohnehin läuft und auch ohne Runde läuft — **aber nur bei Änderung**: Bei
+  fehlerfreiem Betrieb entsteht kein einziger zusätzlicher Vorgang. Die App liest beide Quellen und
+  zeigt den **jüngeren** Stand, mit Angabe woher („aus Runde" / „aus Datei").
+  **(3) Der Puffer war zu klein und zählte nicht.** 30 Zeilen füllte **ein** Vorgang — die
+  409-Schleife von gestern schrieb vier je Versuch, und alles davor war weg. Die Vorgeschichte ist
+  aber das, was man sucht. Jetzt 60 Zeilen, und **Wiederholungen werden gezählt statt gesammelt**
+  („… ×5"), wie es die App seit je tut.
+  **Beim Konzept aufgefallen und nicht nötig:** Ein Zeitstempel je Zeile fehlte gar nicht — die Uhr
+  schreibt ihn seit Langem (`dd.MM. HH:mm:ss`), samt Ort und Faden. Ich hatte das behauptet, ohne
+  nachzusehen.
+
 - **v4.57.0 · 2026-08-24** — **Die Wurzel gefunden: Der Zeitstempel maß den Funkverkehr, nicht die
   Handlung.** Diesmal im Prüfstand nachgestellt statt geraten — mit zwei Befunden.
   **(1) Der Live-Zeiger des Handys wurde alle 10 s erneuert, auch ohne jede Änderung.**
