@@ -215,6 +215,13 @@ import kotlin.math.sqrt
  *         freigehalten (Spacer, 78 dp), nicht ueber contentPadding —
  *         `autoCentering` wuerde den ueberdecken.
  *     SEITE 1 — DETAILS: Trainingsfelder, die warten koennen.
+ *     ZURUECK-GESTE waehrend einer Runde: Auf der Detailseite fuehrt sie zur
+ *     Score-Seite. Auf der Score-Seite fuehrt sie NIRGENDWOHIN (46) — eine
+ *     laufende Runde laesst sich nicht wegwischen. Heim kommt die Uhr, wenn
+ *     das Handy die Runde beendet oder verwirft.
+ *     HAPTIK: `buzzStart` (langer Stups), `buzzEnde` (Doppelschlag),
+ *     `buzzNein` (drei unruhige). Am Ball schaut man nicht hin — die
+ *     Rueckmeldung muss durchs Handgelenk ankommen UND zuzuordnen sein.
  *     AMBIENT (AmbientPlayScreen): Loch, Stand als grosse Zahl, laufende
  *       Aufnahme mit roher Streckenlaenge, sonst „kein GPS-Fix". Kein
  *       F/M/B, kein „spielt wie" mehr.
@@ -375,6 +382,55 @@ import kotlin.math.sqrt
  *  ------------------------------------------------------------------------
  *  CHANGELOG (neueste zuerst — bei JEDER Änderung ergänzen: Datum · was · wo)
  *  ------------------------------------------------------------------------
+ *  2026-08-27 (46) · DREI VERSCHIEDENE VIBRATIONEN · KEIN WEGWISCHEN MEHR.
+ *     ZWEI VORGABEN VOM 27.08.
+ *     (1) „DIE UHR SOLL VIBRIEREN, WENN MAN DAS SCHLAGTRACKEN STARTET, UND
+ *         VIBRIEREN, WENN MAN ES BEENDET."
+ *         SIE TAT ES BEREITS — und trotzdem war die Meldung berechtigt: Start,
+ *         Ende und Ablehnung gaben ALLE DASSELBE, einen 40-ms-Stups. Am
+ *         Handgelenk, im Gehen, mit Handschuh ist das kaum wahrnehmbar und
+ *         schon gar nicht unterscheidbar. Eine Rueckmeldung, die man nicht
+ *         zuordnen kann, ist keine — dann fragt man doch wieder auf den
+ *         Bildschirm, und genau das soll sie ersparen.
+ *         DREI MUSTER, unterschieden im RHYTHMUS und nicht in der Staerke
+ *         (Staerke spuert man durch einen Aermel schlecht):
+ *           `buzzStart` ein LANGER Stups (90 ms) — „es laeuft".
+ *           `buzzEnde`  ZWEI kurze (50-70-50) — der Doppelschlag heisst
+ *                       „fertig", wie bei jedem Timer.
+ *           `buzzNein`  DREI kurze, schnelle (30-50 x3) — unruhig, und das
+ *                       soll es sein: Hier ist gerade NICHTS aufgenommen.
+ *         `buzz(c, muster)` nimmt jetzt eine Wellenform; der alte Stups bleibt
+ *         die Vorgabe und wird noch von der Akkuwarnung benutzt.
+ *     (2) „WENN ICH AUF SEITE 1 ODER 2 NACH LINKS WISCHE, LANDE ICH IM
+ *         STARTBILDSCHIRM. DAS DARF NICHT PASSIEREN."
+ *         Bis (45) fuehrten zwei Wischer binnen zwei Sekunden dorthin, mit
+ *         einem Hinweis in der Statuszeile dazwischen. Gedacht war das als
+ *         Schutz — aber auf einem runden Display ist die Wischgeste die
+ *         haeufigste Fehlbedienung ueberhaupt: Sie liegt genau dort, wo man
+ *         die Seite wechselt. Zwei davon passieren beilaeufig, und die
+ *         Statuszeile liest man beim Gehen nicht.
+ *         ES GAB DORT AUCH NICHTS ZU HOLEN: Seit (44) kann man auf dem
+ *         Startbildschirm waehrend einer Runde nichts tun, was die Runde
+ *         betrifft — Anlegen, Abschliessen und Verwerfen passieren am Handy.
+ *         Der Weg fuehrte also aus Versehen an einen Ort ohne Zweck.
+ *         JETZT: `screen == "play"` beantwortet die Zurueck-Geste nur noch mit
+ *         „Runde laeuft · Ende am Handy". `lastBackAt` ist entfallen.
+ *         DER RUECKWEG BLEIBT, ER KOMMT NUR VOM HANDY: Wird dort beendet oder
+ *         verworfen, raeumt die Uhr auf (`clearLocal`, `svcStop`) und steht
+ *         von selbst wieder auf dem Startbildschirm. Das ist der einzige Weg,
+ *         und er ist der richtige.
+ *         WAS DAS KOSTET, ausdruecklich: Solange eine Runde laeuft, kommt man
+ *         mit der Wischgeste nicht mehr aus der App. Wer sie verlassen will,
+ *         nimmt die Systemgeste. Faellt das Handy aus, laeuft die Runde weiter
+ *         und wird beim naechsten Abgleich beendet — verloren geht nichts,
+ *         alles liegt im Entwurf.
+ *     Die Seitennavigation ist unberuehrt: Ein Wisch auf der Detailseite
+ *     fuehrt weiter zurueck auf die Score-Seite.
+ *     PRUEFSTAND: drei Muster mit ihren Wellenformen, ihre Aufrufstellen, die
+ *     gedrehte Pruefung „jede Ablehnung vibriert" (sucht jetzt `buzzNein`),
+ *     und als Gegenprobe zur Sperre: Ein Ende vom Handy MUSS heimfuehren und
+ *     dabei aufraeumen.
+ *
  *  2026-08-27 (45) · DER SCHLAG-KNOPF ZEIGT METER, NICHT „STOPP".
  *     VORGABE VOM 27.08.: „Bei einem Schlagtracken soll in dem Button die
  *     Meterzahl angezeigt werden und nicht das Stopp-Rechteck."
@@ -2845,7 +2901,7 @@ import kotlin.math.sqrt
 /* Fassungskennung der Uhr-App — steht im Kopplungstest neben der der PWA.
    Bei JEDER Aenderung hier mitziehen; sonst vergleicht man zwei Staende und
    glaubt, sie seien gleich (2026-08-15 (13)). */
-private const val WATCH_APP = "2026-08-27 (45)"
+private const val WATCH_APP = "2026-08-27 (46)"
 /* ==========================================================================
    WAS HAT DIESE FASSUNG GEAENDERT? (2026-08-25 (22))
    --------------------------------------------------------------------------
@@ -7113,19 +7169,40 @@ fun GolfWatchApp(
     /* Kurze haptische Rueckmeldung. Auf dem Platz schaut man nicht hin — ein
        Impuls bestaetigt, dass der Tipp angekommen ist. Bewusst kurz (40 ms):
        laenger wirkt wie eine Fehlermeldung. */
-    fun buzz(c: Context) {
+    /* ==========================================================================
+       DREI SPUERBAR VERSCHIEDENE RUECKMELDUNGEN (2026-08-27 (46))
+       --------------------------------------------------------------------------
+       VORGABE VOM 27.08.: „Die Uhr soll vibrieren, wenn man das Schlagtracken
+       startet, und vibrieren, wenn man es beendet."
+       SIE TAT ES BEREITS — und trotzdem war die Meldung berechtigt: Start,
+       Ende und Ablehnung gaben ALLE DASSELBE, einen 40-ms-Stups. Am
+       Handgelenk, im Gehen, mit Handschuh ist das kaum wahrnehmbar und schon
+       gar nicht unterscheidbar. Eine Rueckmeldung, die man nicht zuordnen
+       kann, ist keine.
+       JETZT DREI MUSTER, die sich im Rhythmus unterscheiden — nicht in der
+       Staerke, denn Staerke spuert man durch einen Aermel schlecht:
+         START     ein LANGER Stups (90 ms). „Es laeuft."
+         ENDE      ZWEI kurze (50-70-50). Der Doppelschlag heisst „fertig" —
+                   dasselbe Muster, das man von Timern kennt.
+         ABLEHNUNG DREI kurze, schnelle (30-50 x3). Unruhig, und das soll es
+                   auch sein: Hier ist gerade NICHTS aufgenommen worden.
+       WARUM UEBERHAUPT UNTERSCHEIDBAR: Beim Ball sieht man nicht hin. Ob der
+       Schlag steht oder verworfen wurde, muss durchs Handgelenk ankommen —
+       sonst geht man weiter und merkt es am Loch danach.
+       ========================================================================== */
+    fun buzz(c: Context, muster: LongArray = longArrayOf(0L, 40L)) {
         try {
             val v = c.getSystemService(Context.VIBRATOR_SERVICE) as? android.os.Vibrator
             v?.vibrate(
-                android.os.VibrationEffect.createOneShot(
-                    40L,
-                    android.os.VibrationEffect.DEFAULT_AMPLITUDE
-                )
+                android.os.VibrationEffect.createWaveform(muster, -1)
             )
         } catch (e: Exception) {
             // Ohne Vibrationsmotor ist nichts zu tun.
         }
     }
+    fun buzzStart(c: Context) = buzz(c, longArrayOf(0L, 90L))
+    fun buzzEnde(c: Context) = buzz(c, longArrayOf(0L, 50L, 70L, 50L))
+    fun buzzNein(c: Context) = buzz(c, longArrayOf(0L, 30L, 50L, 30L, 50L, 30L))
 
     var lastEditMs by remember { mutableLongStateOf(0L) }
 
@@ -8141,7 +8218,7 @@ fun GolfWatchApp(
             status =
                 if (Live.fix == null) "warte auf GPS…"
                 else "GPS zu ungenau (${Live.fix?.acc?.roundToInt()} m)"
-            buzz(ctx)
+            buzzNein(ctx)
             return
         }
 
@@ -8158,12 +8235,12 @@ fun GolfWatchApp(
             measuring = false
             if (f == null) {
                 status = "GPS zu ungenau — nicht gestartet"
-                buzz(ctx)
+                buzzNein(ctx)
                 return@launch
             }
             rec = Rec(null, f.ll(), startAcc = f.acc)
             status = "Aufnahme laeuft · ±${f.acc.roundToInt()} m"
-            buzz(ctx)
+            buzzStart(ctx)
         
             } catch (e: Exception) {
             /* ABBRUCH DURCHLASSEN (2026-08-24 (10)): Wer ihn faengt und nicht
@@ -8273,8 +8350,9 @@ fun GolfWatchApp(
         rec = null
         status = "Schlag $len m" + (if (club.isNotEmpty()) " · $club" else "") +
                 (r.swing?.let { " ($it)" } ?: "")
-        // Haptisch bestaetigen: beim Ball schaut man nicht auf die Uhr.
-        buzz(ctx)
+        /* Haptisch bestaetigen: beim Ball schaut man nicht auf die Uhr.
+           DOPPELSCHLAG (46) — unterscheidbar vom langen Stups des Starts. */
+        buzzEnde(ctx)
         persist()
     }
 
@@ -8286,7 +8364,7 @@ fun GolfWatchApp(
 
         if (r.start == null) {
             status = "kein Startpunkt"
-            buzz(ctx)
+            buzzNein(ctx)
             return
         }
 
@@ -8295,7 +8373,7 @@ fun GolfWatchApp(
             status =
                 if (Live.fix == null) "warte auf GPS…"
                 else "GPS zu ungenau (${Live.fix?.acc?.roundToInt()} m)"
-            buzz(ctx)
+            buzzNein(ctx)
             return
         }
 
@@ -8316,7 +8394,7 @@ fun GolfWatchApp(
                    ein paar Schritten erneut tippen koennen, statt den ganzen
                    Schlag zu verlieren. */
                 status = "GPS zu ungenau — Schlag nicht erfasst"
-                buzz(ctx)
+                buzzNein(ctx)
                 return@launch
             }
             recFinish(r, f)
@@ -8414,7 +8492,8 @@ fun GolfWatchApp(
 
     // ---- Zurück: eine Ebene nach oben, statt die App zu schließen ----
     // (activity ist weiter oben in dieser Funktion bereits deklariert)
-    var lastBackAt by remember { mutableLongStateOf(0L) }
+    /* `lastBackAt` entfaellt (46) — es zaehlte die zwei Wischer, mit denen man
+       eine laufende Runde verlassen konnte. Das gibt es nicht mehr. */
 
     BackHandler {
         when {
@@ -8425,18 +8504,37 @@ fun GolfWatchApp(
             screen == "play" && pagerState.currentPage != 0 ->
                 scope.launch { pagerState.animateScrollToPage(0) }
 
-            // 3. Laufende Runde verlassen: zwei Wischer binnen 2 s.
-            //    Die Runde läuft im Service weiter und steht auf dem
-            //    Startbildschirm als "Fortsetzen" bereit.
+            /* ==================================================================
+               EINE LAUFENDE RUNDE LAESST SICH NICHT WEGWISCHEN (46)
+               --------------------------------------------------------------------
+               VORGABE VOM 27.08.: „Wenn ich auf Seite 1 oder Seite 2 nach links
+               wische, lande ich im Startbildschirm. Das darf nicht passieren.
+               Der soll nur beim Start gezeigt werden. Wenn die Runde laeuft,
+               will ich da nicht hin."
+               BIS (45) fuehrten zwei Wischer binnen zwei Sekunden zum
+               Startbildschirm. Gedacht war das als Schutz — auf einem runden
+               Display ist die Wischgeste aber die haeufigste Fehlbedienung
+               ueberhaupt: Sie liegt genau dort, wo man die Seite wechselt.
+               Zwei davon hintereinander passieren beilaeufig, und der
+               „Nochmal fuer Uebersicht"-Hinweis steht in einer Statuszeile,
+               die man beim Gehen nicht liest.
+               ES GIBT NICHTS ZU HOLEN: Seit (44) kann man auf dem
+               Startbildschirm waehrend einer Runde ohnehin nichts tun, was die
+               Runde betrifft — Anlegen, Abschliessen und Verwerfen passieren
+               am Handy. Der Weg dorthin fuehrte also aus Versehen an einen
+               Ort ohne Zweck.
+               DER RUECKWEG BLEIBT, ER KOMMT NUR VOM HANDY: Beendet oder
+               verwirft man dort, raeumt die Uhr auf und steht von selbst
+               wieder auf dem Startbildschirm (siehe „Runde ⇐ Handy beendet").
+               Das ist der einzige Weg, und er ist der richtige.
+               WAS DAS KOSTET, ausdruecklich: Solange eine Runde laeuft, kommt
+               man mit der Wischgeste nicht mehr aus der App. Wer sie wirklich
+               verlassen will, nimmt die Systemgeste. Faellt das Handy aus,
+               laeuft die Runde auf der Uhr weiter und wird beim naechsten
+               Abgleich beendet — verloren geht dabei nichts, alles liegt im
+               Entwurf. */
             screen == "play" -> {
-                val now = System.currentTimeMillis()
-                if (now - lastBackAt < 2000L) {
-                    lastBackAt = 0L
-                    screen = "home"
-                } else {
-                    lastBackAt = now
-                    status = "Nochmal für Übersicht"
-                }
+                status = "Runde läuft · Ende am Handy"
             }
 
             // 4. Platzauswahl und Gameplan -> Startbildschirm

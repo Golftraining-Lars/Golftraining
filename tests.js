@@ -6176,6 +6176,63 @@ group("Gleichlauf Uhr ↔ App — dieselbe Frage, dieselbe Antwort");
            48 dp passen drei grosse Ziffern nicht, ein Drive ueber 200 m aber
            schon. Also schrumpft die Schrift ab 100. */
         ok("die Schrift schrumpft ab dreistellig", /meter >= 100 -> 15\.sp/.test(knopf));
+      {
+        const ktC2 = ktOhneKommentar(kt);
+        /* ================================================================
+           DREI SPUERBAR VERSCHIEDENE RUECKMELDUNGEN (Uhr 46)
+           ----------------------------------------------------------------
+           VORGABE VOM 27.08.: „Die Uhr soll vibrieren, wenn man das
+           Schlagtracken startet, und vibrieren, wenn man es beendet."
+           SIE TAT ES BEREITS — und trotzdem war die Meldung berechtigt: Start,
+           Ende und Ablehnung gaben ALLE DASSELBE, einen 40-ms-Stups. Am
+           Handgelenk, im Gehen, mit Handschuh ist das kaum wahrnehmbar und
+           schon gar nicht unterscheidbar. Eine Rückmeldung, die man nicht
+           zuordnen kann, ist keine.
+           Unterschieden wird im RHYTHMUS, nicht in der Stärke — Stärke spürt
+           man durch einen Ärmel schlecht. */
+        ok("es gibt drei Muster", /fun buzzStart\(/.test(ktC2)
+           && /fun buzzEnde\(/.test(ktC2) && /fun buzzNein\(/.test(ktC2));
+        ok("Start ist ein langer Stups", /buzzStart[\s\S]{0,80}?longArrayOf\(0L, 90L\)/.test(ktC2));
+        ok("Ende ist ein Doppelschlag",
+           /buzzEnde[\s\S]{0,80}?longArrayOf\(0L, 50L, 70L, 50L\)/.test(ktC2));
+        ok("Ablehnung ist unruhig",
+           /buzzNein[\s\S]{0,110}?longArrayOf\(0L, 30L, 50L, 30L, 50L, 30L\)/.test(ktC2));
+        /* Und sie müssen an den richtigen Stellen hängen — ein Muster ohne
+           Aufrufer ist eine Zusage, die niemand einlöst. */
+        ok("der Aufnahmestart meldet sich",
+           /status = "Aufnahme laeuft[\s\S]{0,60}?buzzStart\(ctx\)/.test(ktC2));
+        ok("das Ende meldet sich", /buzzEnde\(ctx\)/.test(ktC2));
+        ok("und jede Ablehnung", (ktC2.match(/buzzNein\(ctx\)/g) || []).length >= 5,
+           String((ktC2.match(/buzzNein\(ctx\)/g) || []).length));
+
+        /* ================================================================
+           EINE LAUFENDE RUNDE LAESST SICH NICHT WEGWISCHEN (Uhr 46)
+           ----------------------------------------------------------------
+           GEMELDET am 27.08.: „Wenn ich auf Seite 1 oder Seite 2 nach links
+           wische, lande ich im Startbildschirm. Das darf nicht passieren."
+           Bis (45) führten zwei Wischer binnen zwei Sekunden dorthin. Gedacht
+           war das als Schutz — aber auf einem runden Display ist die
+           Wischgeste die häufigste Fehlbedienung überhaupt: Sie liegt genau
+           dort, wo man die Seite wechselt.
+           ES GAB DORT AUCH NICHTS ZU HOLEN: Seit (44) kann man auf dem
+           Startbildschirm während einer Runde nichts tun, was die Runde
+           betrifft. Der Weg führte aus Versehen an einen Ort ohne Zweck.
+           Der Rückweg bleibt — er kommt vom Handy. */
+        ok("die Wischgeste führt während einer Runde nicht mehr heim",
+           !/screen == "play" -> \{[\s\S]{0,400}?screen = "home"/.test(ktC2));
+        ok("der Zähler für die zwei Wischer ist weg", !/lastBackAt/.test(ktC2));
+        /* Aber die Uhr MUSS von selbst heimfinden, wenn das Handy die Runde
+           beendet — sonst säße man in einer Runde fest, die es nicht mehr
+           gibt. Das ist die Gegenprobe zur Sperre. */
+        ok("aber ein Ende vom Handy führt heim",
+           /Runde am Handy beendet/.test(kt) && /Runde am Handy verworfen/.test(kt));
+        ok("und räumt dabei auf",
+           /clearLocal\(ctx\)[\s\S]{0,200}?svcStop\(ctx\)[\s\S]{0,200}?screen = "home"/.test(ktC2));
+        /* Die Seitennavigation selbst bleibt: Ein Wisch auf einer Nebenseite
+           führt weiter zurück auf die Score-Seite. */
+        ok("eine Nebenseite kehrt weiter zur Score-Seite zurück",
+           /pagerState\.currentPage != 0 ->[\s\S]{0,120}?animateScrollToPage\(0\)/.test(ktC2));
+        }
         /* Bei 48 dp Durchmesser ist jeder Text ein Stummel — die gelaufene
            Strecke gehoert in die Kopfzeile, wo Platz dafuer ist. */
         ok("die gelaufene Strecke steht in der Kopfzeile",
@@ -6202,7 +6259,12 @@ group("Gleichlauf Uhr ↔ App — dieselbe Frage, dieselbe Antwort");
        Zweck der Uhr; ein stiller Fehlschlag ist damit der teuerste Fall. */
     {
       const ktCode2 = ktOhneKommentar(kt);
-      const stellen = (ktCode2.match(/GPS zu ungenau[\s\S]{0,220}?buzz\(ctx\)/g) || []).length;
+      /* Seit (46) hat die Ablehnung ihr EIGENES Muster (`buzzNein`) — drei
+         kurze, unruhige Stöße. Vorher war sie vom Erfolg nicht zu
+         unterscheiden, und eine Rückmeldung, die man nicht zuordnen kann, ist
+         keine. Gesucht wird deshalb das Ablehnungsmuster, nicht mehr der
+         allgemeine Stups. */
+      const stellen = (ktCode2.match(/GPS zu ungenau[\s\S]{0,220}?buzzNein\(ctx\)/g) || []).length;
       ok("jede Ablehnung wegen GPS vibriert", stellen === 4,
          stellen + " von 4 Stellen (recBegin/recStop, je Vorprüfung + Sammelfenster)");
       /* Und ein abgelehnter STOP wirft die Aufnahme nicht weg: Wer beim Ball
@@ -6911,7 +6973,7 @@ group("Live-Zeiger — beide Geräte, dieselbe Regel");
        zusaetzlich, dass der Changelog einen Eintrag fuer GENAU diese Kennung
        hat — beides zusammen faengt „Code geaendert, Fassung vergessen" und
        „Fassung gezogen, Changelog vergessen". */
-    ok("und die Kennung ist aktuell", /WATCH_APP = "2026-08-27 \(45\)"/.test(kt));
+    ok("und die Kennung ist aktuell", /WATCH_APP = "2026-08-27 \(46\)"/.test(kt));
     ok("das Handy zeigt sie", /function watchFassung\(\)/.test(src));
 
     /* --- STARTBILDSCHIRM (2026-08-25 (20)) ---
