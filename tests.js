@@ -7087,8 +7087,13 @@ group("Protokoll-Anzeige — einmal nachladen, nicht endlos");
   ok("das Nachladen ist gedeckelt", /if\(!_errLogGeholt\)\{/.test(src));
   ok("die Marke wird gesetzt, bevor geladen wird",
      /if\(!_errLogGeholt\)\{\s*\n\s*_errLogGeholt=true;/.test(src));
+  /* NICHT auf die ERSTE Zeile von `closeSheet` prüfen (v4.91): Dort steht
+     seit dem Scroll-Umbau `scrollMarkeAus()`. Was zählt, ist DASS die Marke
+     beim Schließen zurückgesetzt wird — nicht, an welcher Stelle. Eine
+     Prüfung, die eine Reihenfolge festnagelt, die niemandem etwas bedeutet,
+     bricht bei jeder harmlosen Ergänzung. */
   ok("und beim Schließen zurückgesetzt",
-     /function closeSheet\(\)\{\s*\n\s*_errLogGeholt=false;/.test(src));
+     /function closeSheet\(\)\{[\s\S]{0,200}?_errLogGeholt=false;/.test(src));
   /* Beide Anzeigen müssen die Marke benutzen — eine allein genügt nicht, sie
      rufen dieselbe Ladefunktion. */
   ["showErrLog", "showWatchLog"].forEach(fn => {

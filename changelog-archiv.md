@@ -13,6 +13,30 @@
 
 ---
 
+- **v4.57.0 · 2026-08-24** — **Die Wurzel gefunden: Der Zeitstempel maß den Funkverkehr, nicht die
+  Handlung.** Diesmal im Prüfstand nachgestellt statt geraten — mit zwei Befunden.
+  **(1) Der Live-Zeiger des Handys wurde alle 10 s erneuert, auch ohne jede Änderung.**
+  `caddyLivePush` schrieb ihn im Takt mit frischem `at`. `mergeDraft` behält beim Zeiger den mit dem
+  **jüngeren** `at` — also war der eigene praktisch immer jünger, und der Zeiger der Uhr wurde beim
+  Vereinigen **verworfen**. `playAdoptRemoteHole` bekam nie einen zu sehen. Daher „folgt fast nie".
+  Und es war ein Zirkelschluss: v4.56 übernimmt den fremden Lochwert nur, wenn er im **lokalen**
+  Entwurf steht — dorthin kam er nie.
+  **Der Zeitstempel wird jetzt nur erneuert, wenn sich das Loch tatsächlich geändert hat.** Bleibt
+  es gleich, bleibt auch `at` stehen. **Ein Zeitstempel, der bei jedem Senden hochzählt, misst den
+  Funkverkehr, nicht die Handlung** — und beim Vereinigen gewinnt dann immer das Gerät, das öfter
+  sendet, statt dem, das etwas getan hat.
+  **(2) Eine fehlende Seitenangabe trennte die Runden.** `mergeDraft` verglich
+  `date|course|side` — die Uhr setzt `side` nicht immer. Bei ungleichem Schlüssel fällt der Zweig
+  auf „jüngerer Entwurf gewinnt **vollständig**" zurück: Der Score der Uhr auf Loch 3 war weg, ohne
+  jede Meldung. Verglichen wird die Seite jetzt nur, wenn **beide** sie kennen; zwei echte Neuner am
+  selben Tag bleiben getrennt, eine fehlende Angabe trennt nicht mehr.
+  **An der Messung nachvollzogen:** vorher „Uhr-Score: undefined · Zeiger: phone Loch 1", nachher
+  „Uhr-Score: 4 · Zeiger: watch Loch 3". Gegenprobe für beide Regeln einzeln: je eine Prüfung fällt.
+  **Zur Einordnung:** vierte Fassung an dieser Stelle. Die drei davor haben Symptome behandelt — den
+  Vorrang (v4.51/52), das Echo (v4.56). Erst das Nachstellen im Prüfstand hat gezeigt, dass beide
+  Geräte korrekt arbeiteten und die **Vereinigung** die Information wegwarf. **Ich hätte drei
+  Fassungen früher messen statt vermuten sollen.**
+
 - **v4.56.0 · 2026-08-24** — **„Mal geht es, mal nicht" — ein Wettlauf, den ich in v4.52 selbst
   eingebaut habe.** Zwei Ursachen, beide auf der Handy-Seite.
   **(1) Das Handy schickte eine alte Kopie des Uhr-Zeigers zurück.** v4.52 gab den fremden Zeiger
