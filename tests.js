@@ -6218,6 +6218,54 @@ group("Gleichlauf Uhr ↔ App — dieselbe Frage, dieselbe Antwort");
            Startbildschirm während einer Runde nichts tun, was die Runde
            betrifft. Der Weg führte aus Versehen an einen Ort ohne Zweck.
            Der Rückweg bleibt — er kommt vom Handy. */
+        /* ================================================================
+           EINE LAUFENDE MESSUNG IST DER EILIGSTE ZUSTAND (Uhr 47)
+           ----------------------------------------------------------------
+           GEMELDET am 27.08.: „Die Übertragung von der Uhr an die App, dass
+           ein Schlagtracking gestartet wurde, dauert sehr lange und klappt
+           manchmal nicht."
+           ZWEI URSACHEN, beide in der Sendeschleife:
+           (1) `if (rec == null)` umschloss den Vorgang — solange eine Aufnahme
+               lief, wurde ÜBERHAUPT NICHT gesendet. Der Kommentar dazu lautete
+               „laufende Messung nicht stören"; gemeint war Rücksicht, gewirkt
+               hat das Gegenteil. Der Start erreichte das Handy nur, wenn
+               zufällig etwas anderes einen Vorgang auslöste — das gemeldete
+               „klappt manchmal nicht", und es war kein Funkproblem.
+           (2) Der Takt richtete sich nur danach, ob zuletzt GETIPPT oder
+               GEGANGEN wurde. Beim Aufnahmestart steht man still und hat
+               nichts getippt — also 60 Sekunden Wartezeit im ungeduldigsten
+               Moment.
+           EIN ZUSTANDSWECHSEL, DEN DAS ANDERE GERÄT ANZEIGEN SOLL, IST EIN
+           EREIGNIS: Start, Ende und Abbruch senden jetzt sofort. */
+        {
+          /* NICHT MIT EINEM SPANN-MUSTER PRÜFEN: `[\s\S]{0,400}?` läuft über
+             die schließende Klammer hinweg und trifft das `syncNow()`, das
+             DANEBEN steht — die Prüfung wäre immer rot, egal wie der Code
+             aussieht. Stattdessen wirklich den BLOCK abgrenzen. */
+          const iR = ktC2.indexOf("if (rec == null) {");
+          const blockRec = iR < 0 ? "" : ktC2.slice(iR, ktC2.indexOf("}", iR));
+          ok("eine laufende Messung wird gesendet, nicht übersprungen",
+             iR >= 0 && !/syncNow\(\)/.test(blockRec));
+        }
+        ok("und macht den Takt eilig", /rec != null \|\| frisch \|\| bewegt/.test(ktC2));
+        ok("der Aufnahmestart meldet sofort",
+           /rec = Rec\(null, f\.ll\(\), startAcc = f\.acc\)[\s\S]{0,200}?syncNow\(\)/.test(ktC2));
+        ok("das Ende ebenso", /buzzEnde\(ctx\)[\s\S]{0,60}?persist\(\)[\s\S]{0,40}?syncNow\(\)/.test(ktC2));
+        /* Ein Abbruch ist derselbe Zustandswechsel — ohne Meldung stünde das
+           Band am Handy weiter, obwohl auf der Uhr nichts mehr läuft. Ein
+           Zustand, den nur eine Seite kennt, ist schlimmer als gar keiner. */
+        ok("und der Abbruch auch",
+           /fun recCancel\(\) \{\s*\n\s*rec = null[\s\S]{0,40}?syncNow\(\)/.test(ktC2));
+        /* Der Riegel gegen Doppelsendungen muss bleiben: Wer sofort sendet UND
+           den Takt nicht bremst, bezahlt das Tempo mit Funk und Akku. */
+        ok("aber der Riegel gegen Doppelsendungen bleibt",
+           /Net\.letzterPushMs > 5_000/.test(ktC2));
+        /* `letztePos` darf während einer Aufnahme NICHT fortgeschrieben werden:
+           Sonst schöbe sich der Bezugspunkt der Bewegungsschwelle mit, und
+           `bewegt` bliebe für immer falsch. */
+        ok("die Bewegungsschwelle misst weiter von der letzten Meldung",
+           /if \(rec == null\) \{\s*\n\s*Live\.fixUi\?\.let \{ letztePos/.test(ktC2));
+
         ok("die Wischgeste führt während einer Runde nicht mehr heim",
            !/screen == "play" -> \{[\s\S]{0,400}?screen = "home"/.test(ktC2));
         ok("der Zähler für die zwei Wischer ist weg", !/lastBackAt/.test(ktC2));
@@ -6973,7 +7021,7 @@ group("Live-Zeiger — beide Geräte, dieselbe Regel");
        zusaetzlich, dass der Changelog einen Eintrag fuer GENAU diese Kennung
        hat — beides zusammen faengt „Code geaendert, Fassung vergessen" und
        „Fassung gezogen, Changelog vergessen". */
-    ok("und die Kennung ist aktuell", /WATCH_APP = "2026-08-27 \(46\)"/.test(kt));
+    ok("und die Kennung ist aktuell", /WATCH_APP = "2026-08-27 \(47\)"/.test(kt));
     ok("das Handy zeigt sie", /function watchFassung\(\)/.test(src));
 
     /* --- STARTBILDSCHIRM (2026-08-25 (20)) ---

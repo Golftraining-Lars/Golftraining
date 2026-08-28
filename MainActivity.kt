@@ -249,6 +249,11 @@ import kotlin.math.sqrt
  *     abonniert GPS_PROVIDER (2 s) + NETWORK_PROVIDER als Fallback. Das ist
  *     seit (38) die KERNFUNKTION der App und nicht mehr Zulieferung fuer eine
  *     Anzeige.
+ *     SENDETAKT (47): 10 s, wenn eine AUFNAHME LAEUFT, zuletzt getippt wurde
+ *     (<2 min) oder man sich >15 m bewegt hat — sonst 60 s. Zustandswechsel
+ *     beim Schlagtracken (Start, Ende, Abbruch) warten NICHT auf den Takt,
+ *     sondern rufen `syncNow()`: Was das Handy anzeigen soll, ist ein Ereignis
+ *     und kein Zustand, der irgendwann mitkommt.
  *     WOFUER DIE POSITION NOCH GEBRAUCHT WIRD, vollstaendig:
  *       a) Start- und Endpunkt einer Schlagmessung (recBegin/recStop),
  *       b) `live.pos` im Zeiger — die Uhr MELDET dem Handy, wo sie steht.
@@ -382,6 +387,48 @@ import kotlin.math.sqrt
  *  ------------------------------------------------------------------------
  *  CHANGELOG (neueste zuerst — bei JEDER Änderung ergänzen: Datum · was · wo)
  *  ------------------------------------------------------------------------
+ *  2026-08-27 (47) · DER AUFNAHMESTART MELDET SICH SOFORT.
+ *     GEMELDET: „Die Uebertragung von der Uhr an die App, dass ein
+ *     Schlagtracking gestartet wurde, dauert sehr lange und klappt manchmal
+ *     nicht."
+ *     ES WAR KEIN FUNKPROBLEM, sondern zwei Bedingungen in der Sendeschleife.
+ *     (1) `if (rec == null)` UMSCHLOSS DEN GANZEN VORGANG. Solange eine
+ *         Aufnahme lief, hat diese Schleife UEBERHAUPT NICHT GESENDET. Der
+ *         Kommentar dazu lautete „laufende Messung nicht stoeren" — gemeint
+ *         war Ruecksicht, gewirkt hat das Gegenteil: Der Aufnahmestart
+ *         erreichte das Handy nur, wenn zufaellig etwas ANDERES einen Vorgang
+ *         ausloeste, etwa ein eingetippter Score. Das ist das gemeldete
+ *         „klappt manchmal nicht", und es sah wie schlechter Empfang aus.
+ *         DIE LAUFENDE MESSUNG IST GERADE DAS, WAS DAS HANDY SEHEN SOLL
+ *         (Regel vom 27.08.). Sie zu verschweigen, um sie nicht zu stoeren,
+ *         verfehlt den Zweck.
+ *     (2) DER TAKT WUSSTE NICHTS VON IHR. `sollWarten` richtete sich nur
+ *         danach, ob zuletzt GETIPPT (`frisch`) oder GEGANGEN (`bewegt`)
+ *         wurde. Beim Aufnahmestart steht man still und hat nichts getippt —
+ *         also 60 Sekunden, im ungeduldigsten Moment der ganzen Runde.
+ *         Jetzt: `rec != null || frisch || bewegt`.
+ *     UND DER EIGENTLICHE PUNKT: EIN ZUSTANDSWECHSEL, DEN DAS ANDERE GERAET
+ *     ANZEIGEN SOLL, IST EIN EREIGNIS — kein Zustand, der beim naechsten Takt
+ *     mitkommt. `recBegin`, `recFinish` und `recCancel` rufen deshalb `syncNow()`.
+ *     Dieselbe Lehre wie bei den Eingaben in (5), nur eine Ebene weiter.
+ *     Der Abbruch gehoert ausdruecklich dazu: Ohne Meldung stuende das Band am
+ *     Handy weiter, obwohl auf der Uhr nichts mehr laeuft — ein Zustand, den
+ *     nur eine Seite kennt, ist schlimmer als gar keiner.
+ *     `letztePos` wird waehrend einer Aufnahme WEITERHIN nicht fortgeschrieben:
+ *     Die Bewegungsschwelle soll von der Stelle aus messen, an der zuletzt
+ *     gemeldet wurde; schoebe sich der Bezugspunkt mit, bliebe `bewegt` fuer
+ *     immer falsch.
+ *     DER RIEGEL GEGEN DOPPELSENDUNGEN BLEIBT (`letzterPushMs > 5 s`): Wer
+ *     sofort sendet UND den Takt nicht bremst, bezahlt das Tempo mit Funk und
+ *     Akku.
+ *     ERWARTETE LAUFZEIT danach: Uhr sendet sofort, das Handy zieht im
+ *     Vordergrund alle 2 s (`SYNC_MS_VORN`) — das Band sollte in ein bis drei
+ *     Sekunden stehen statt in bis zu einer Minute.
+ *     PRUEFSTAND: 24cp haelt fest, dass waehrend einer Aufnahme gesendet wird,
+ *     dass der Takt eilig wird, dass Start, Ende und Abbruch sofort melden,
+ *     dass der Doppelsende-Riegel bleibt und die Bewegungsschwelle ihren
+ *     Bezugspunkt behaelt.
+ *
  *  2026-08-27 (46) · DREI VERSCHIEDENE VIBRATIONEN · KEIN WEGWISCHEN MEHR.
  *     ZWEI VORGABEN VOM 27.08.
  *     (1) „DIE UHR SOLL VIBRIEREN, WENN MAN DAS SCHLAGTRACKEN STARTET, UND
@@ -2901,7 +2948,7 @@ import kotlin.math.sqrt
 /* Fassungskennung der Uhr-App — steht im Kopplungstest neben der der PWA.
    Bei JEDER Aenderung hier mitziehen; sonst vergleicht man zwei Staende und
    glaubt, sie seien gleich (2026-08-15 (13)). */
-private const val WATCH_APP = "2026-08-27 (46)"
+private const val WATCH_APP = "2026-08-27 (47)"
 /* ==========================================================================
    WAS HAT DIESE FASSUNG GEAENDERT? (2026-08-25 (22))
    --------------------------------------------------------------------------
@@ -7875,7 +7922,18 @@ fun GolfWatchApp(
                    sein). Genau diese Unterscheidung hat mir zwei Tage gefehlt.
                    AB DEM DOPPELTEN der erwarteten Zeit, und nur dann — ein Durchlauf,
                    der 200 ms zu spaet kommt, ist normal. */
-                val sollWarten = if (frisch || bewegt) 10_000L else 60_000L
+                /* ==================================================================
+                   EINE LAUFENDE MESSUNG IST DER EILIGSTE ZUSTAND (2026-08-27 (47))
+                   --------------------------------------------------------------------
+                   GEMELDET: „Die Uebertragung von der Uhr an die App, dass ein
+                   Schlagtracking gestartet wurde, dauert sehr lange und klappt
+                   manchmal nicht."
+                   `rec != null` gehoert deshalb in die Eilbedingung. Vorher
+                   entschied nur, ob zuletzt GETIPPT (`frisch`) oder GEGANGEN
+                   (`bewegt`) wurde — und beim Aufnahmestart steht man still und
+                   hat nichts getippt. Der Takt blieb also auf 60 Sekunden, genau
+                   im ungeduldigsten Moment. */
+                val sollWarten = if (rec != null || frisch || bewegt) 10_000L else 60_000L
                 val vorSchlaf = System.currentTimeMillis()
                 delay(sollWarten)
                 val tatsaechlich = System.currentTimeMillis() - vorSchlaf
@@ -7885,8 +7943,28 @@ fun GolfWatchApp(
                         "der Prozess war eingefroren (Bildschirm aus?)")
                     Diagnose.taktStand++
                 }
+                /* ==================================================================
+                   FRUEHER STAND HIER `if (rec == null)` — DER FEHLER (47)
+                   --------------------------------------------------------------------
+                   Der Kommentar dazu lautete „laufende Messung nicht stoeren".
+                   Gemeint war Ruecksicht, gewirkt hat das Gegenteil: Solange eine
+                   Aufnahme lief, hat diese Schleife GAR NICHT GESENDET. Der
+                   Aufnahmestart erreichte das Handy damit ueberhaupt nur, wenn
+                   zufaellig etwas anderes einen Vorgang ausloeste — ein
+                   eingetippter Score etwa. Das ist das gemeldete „klappt manchmal
+                   nicht", und es war kein Funkproblem, sondern eine Bedingung.
+                   DIE LAUFENDE MESSUNG IST GERADE DAS, WAS DAS HANDY SEHEN SOLL
+                   (Regel vom 27.08.: ein auf der Uhr eingeleitetes Schlagtracking
+                   wird am Handy angezeigt). Sie zu verschweigen, um sie nicht zu
+                   stoeren, verfehlt den Zweck.
+                   `letztePos` wird waehrend einer Aufnahme NICHT fortgeschrieben:
+                   Die Bewegungsschwelle soll weiter von der Stelle aus messen, an
+                   der zuletzt gemeldet wurde — sonst schoebe sich der Bezugspunkt
+                   waehrend des Gehens mit und `bewegt` bliebe ewig falsch. */
                 if (rec == null) {
                     Live.fixUi?.let { letztePos = it.ll() }
+                }
+                run {
                     /* NICHT DOPPELT SENDEN (2026-08-24 (5)).
                        Seit eine Benutzerhandlung SOFORT sendet, kann dieser
                        Takt kurz danach ein zweites Mal dasselbe schicken —
@@ -7895,7 +7973,7 @@ fun GolfWatchApp(
                        dieser Durchlauf ausgelassen; der naechste kommt in
                        10 s ohnehin. */
                     if (System.currentTimeMillis() - Net.letzterPushMs > 5_000) {
-                        syncNow()  // laufende Messung nicht stören
+                        syncNow()
                     }
                 }
             }
@@ -8241,6 +8319,21 @@ fun GolfWatchApp(
             rec = Rec(null, f.ll(), startAcc = f.acc)
             status = "Aufnahme laeuft · ±${f.acc.roundToInt()} m"
             buzzStart(ctx)
+            /* ==================================================================
+               SOFORT MELDEN, NICHT BEIM NAECHSTEN TAKT (2026-08-27 (47))
+               --------------------------------------------------------------------
+               GEMELDET: Der Aufnahmestart kam „sehr spaet und manchmal gar nicht"
+               am Handy an. Er wurde hier naemlich UEBERHAUPT NICHT gesendet — er
+               wartete auf den Sendetakt, und der stand im Ruhezustand auf 60 s
+               (man hat gerade nichts getippt und sich nicht bewegt) und
+               uebersprang laufende Aufnahmen zudem ganz.
+               EIN ZUSTANDSWECHSEL, DEN DAS ANDERE GERAET ANZEIGEN SOLL, IST EIN
+               EREIGNIS — kein Zustand, der beim naechsten Takt mitkommt. Genau
+               dieselbe Lehre wie bei den Eingaben (5): Eine Benutzerhandlung
+               sendet sofort.
+               `letzterPushMs` bleibt der Riegel gegen Doppelsendungen; die
+               Schleife laesst ihren Durchlauf aus, wenn dieser hier gerade lief. */
+            syncNow()
         
             } catch (e: Exception) {
             /* ABBRUCH DURCHLASSEN (2026-08-24 (10)): Wer ihn faengt und nicht
@@ -8282,6 +8375,12 @@ fun GolfWatchApp(
 
     fun recCancel() {
         rec = null
+        /* SOFORT MELDEN (47): Ein Abbruch ist derselbe Zustandswechsel wie ein
+           Ende — ohne Meldung stuende das Band am Handy weiter, obwohl auf der
+           Uhr nichts mehr laeuft. Ein Zustand, den nur eine Seite kennt, ist
+           schlimmer als gar keiner: Man verlaesst sich auf eine Anzeige, die
+           nicht mehr stimmt. */
+        syncNow()
     }
 
     /* Der eigentliche Abschluss, aufgerufen mit dem GEMITTELTEN Endpunkt.
@@ -8354,6 +8453,12 @@ fun GolfWatchApp(
            DOPPELSCHLAG (46) — unterscheidbar vom langen Stups des Starts. */
         buzzEnde(ctx)
         persist()
+        /* SOFORT MELDEN (47) — wie der Start. Das Handy blendet sein Band erst
+           aus, wenn es die Nachricht hat; bis dahin steht dort „Uhr trackt",
+           obwohl der Schlag laengst im Kasten ist. Und die Messung selbst soll
+           frueh genug ankommen, dass `schlagNeutral` sie mit dem Wetter DIESES
+           Schlags rechnet (3-h-Sperre). */
+        syncNow()
     }
 
     fun recStop() {
