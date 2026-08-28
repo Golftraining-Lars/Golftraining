@@ -296,7 +296,12 @@ try {
                  "liveStart","liveStop","liveStopAll","liveVerbraucher","LIVEPOS",
                  "kalibrierBericht","kalibrierText","_kalibMedian","_kalibMad","_kalibTauglich",
                  "_playKey","playMarkEnded","playClearEnded","watchLiveDarfOeffnen",
-                 "fremderZeigerZaehlt",
+                 "fremderZeigerZaehlt","istRundenStat","poolQuote","teilAnteil",
+                 "caddyKette","caddyKetteHtml","caddyVergleichHtml","caddyKipppunkt",
+                 "unwetterUrteil","istGewitterCode","unwetterBannerHtml","wakeAppAn",
+                 "_restZumGruen","_spieltWieM",
+                 "pruefeDaten","pruefeRechnung",
+                 "pruefeTrockenlauf","pruefeUmgebung",
                  "KALIB_MIN_JE_CLUB","KALIB_MIN_GESAMT",
                  "selfCheck","PLAY","escShort","_short","clubShort","windRel","tempFactor","DB",
                  "courseTee","activeHoles","roundDurationMin","mergeDB","_mergeArr","_mergeTs",
@@ -6214,6 +6219,72 @@ group("Gleichlauf Uhr ↔ App — dieselbe Frage, dieselbe Antwort");
         /* Abbrechen liegt auf dem LANGDRUCK desselben Knopfes: Ein zweites
            Ziel waere wieder ein Stummel, und Abbrechen ist selten — die
            haeufige Handlung (Stoppen) bekommt den kurzen Weg. */
+        /* Diese Prüfungen betreffen `recBegin`/`recStop`, nicht den Knopf —
+           deshalb die GANZE Kotlin-Datei und nicht der Knopf-Ausschnitt. Mein
+           erster Anlauf nahm `knopf` und war rot, obwohl der Code stimmte. */
+        const ktGanz = ktOhneKommentar(kt);
+        /* ================================================================
+           EIN STUMMER KNOPF IST DER SCHLIMMSTE KNOPF (Uhr 50)
+           ----------------------------------------------------------------
+           GEMELDET am 28.08.: „Wenn ich das Schlagtracken über den Button
+           aktiviere, passiert nichts."
+           `if (measuring) return` war ein LAUTLOSER Rücksprung — und
+           `measuring` wurde NUR im Erfolgsfall freigegeben: `measuring=false`
+           saß MITTEN im `scope.launch`, hinter `FixQuality.collect`. Endete
+           die Nebenläufigkeit vorher (Bildschirm aus, Ambient, Neuaufbau)
+           oder warf `collect`, blieb es für immer `true` — und danach war der
+           Knopf tot, ohne Zeichen, ohne Ton, ohne Protokollzeile.
+           DREI RIEGEL DAGEGEN: Freigabe im `finally`, ein Wächter gegen
+           Verklemmen, und keine Rückkehr ohne Antwort. */
+        ok("die Sperre wird im finally freigegeben",
+           /\} finally \{[\s\S]{0,80}?measuring = false/.test(ktGanz));
+        ok("und nicht mehr mitten im Ablauf",
+           !/FixQuality\.collect \{ n -> status = "messe… \(\$n\)" \}\s*\n\s*measuring = false/.test(ktGanz));
+        /* Der Wächter unterscheidet ein laufendes Sammelfenster (Sekunden) von
+           einer verklemmten Sperre (Minuten). */
+        ok("ein Wächter löst eine verklemmte Sperre",
+           (ktGanz.match(/measuringSeit > 0L && her > 20_000L/g) || []).length >= 2);
+        ok("der Zeitpunkt wird beim Setzen gemerkt",
+           /measuring = true\s*\n\s*measuringSeit = System\.currentTimeMillis\(\)/.test(ktGanz));
+        /* KEIN STUMMER RÜCKSPRUNG: Wer tippt, bekommt eine Antwort. Ein Knopf,
+           der nichts tut und nichts sagt, ist schlimmer als eine
+           Fehlermeldung — man tippt weiter und verliert die Runde. */
+        ok("ein Tipp ins Leere meldet sich",
+           /Diagnose\.schlag\("Tipp ins Leere"/.test(ktGanz)
+           && /Diagnose\.schlag\("Stopp ins Leere"/.test(ktGanz));
+        ok("und vibriert dabei",
+           (ktGanz.match(/status = "messe gerade…"\s*\n\s*buzzNein\(ctx\)/g) || []).length >= 2);
+
+        /* ================================================================
+           DER KNOPF ZEIGT, OB ER KANN (Uhr 51)
+           ----------------------------------------------------------------
+           ZWEITE MELDUNG zum selben Thema: „Der Button startet das
+           Schlagtracken nicht." Im mitgeschickten Protokoll stand die Antwort
+           wörtlich — „Uhr meldet seit über 90 s keine Position".
+           OHNE BRAUCHBAREN FIX LEHNT `recBegin` AB (`FixQuality.usable`:
+           höchstens 15 m, nicht zu alt), setzt eine Statuszeile und vibriert
+           kurz. **Beides reicht nicht:** Die Statuszeile steht auf einer
+           Seite, die man beim Ball nicht liest, und ein kurzer Stups im Gehen
+           geht unter. Aus Sicht des Benutzers passiert nichts — und er tippt
+           weiter, statt zu warten.
+           DIE PRECONDITION GEHÖRT AN DEN KNOPF, NICHT IN DIE FEHLERMELDUNG.
+           Ein Knopf, der nicht kann, soll das VORHER zeigen. */
+        ok("der Knopf kennt einen Bereitschafts-Zustand", /val gpsBereit =/.test(ktGanz));
+        /* DIESELBE SCHWELLE wie die Messung — zwei Zahlen für dieselbe Frage
+           laufen auseinander, und dann zeigt der Knopf „bereit", während die
+           Messung ablehnt. Das wäre schlimmer als gar keine Anzeige. */
+        ok("und benutzt dieselbe Schwelle wie die Messung",
+           /gpsAcc <= FixQuality\.MAX_ACC/.test(ktGanz));
+        ok("nicht bereit sieht anders aus", /!gpsBereit -> Color\(0xFF3A3226\)/.test(ktGanz));
+        ok("und trägt einen Rand", /Modifier\.border\(2\.dp, GoldText, CircleShape\)/.test(ktGanz));
+        ok("statt des Winkels steht dann „GPS“",
+           /if \(gpsBereit\) "📐" else "GPS"/.test(ktGanz));
+        /* ANTIPPEN BLEIBT ERLAUBT: Die Ablehnung sagt dann, WORAN es liegt
+           (Genauigkeit in Metern). Das ist mehr wert als ein gesperrter Knopf,
+           der gar nichts erklärt — wer gesperrt wird, weiß nicht, warum. */
+        ok("der Knopf bleibt trotzdem antippbar",
+           !/enabled = gpsBereit/.test(ktGanz) && !/if \(!gpsBereit\) return/.test(ktGanz));
+
         ok("Abbrechen liegt auf dem Langdruck",
            /onLongClick = \{[\s\S]{0,220}?onShotCancel\(\)/.test(knopf));
         /* ================================================================
@@ -7078,7 +7149,7 @@ group("Live-Zeiger — beide Geräte, dieselbe Regel");
        zusaetzlich, dass der Changelog einen Eintrag fuer GENAU diese Kennung
        hat — beides zusammen faengt „Code geaendert, Fassung vergessen" und
        „Fassung gezogen, Changelog vergessen". */
-    ok("und die Kennung ist aktuell", /WATCH_APP = "2026-08-28 \(49\)"/.test(kt));
+    ok("und die Kennung ist aktuell", /WATCH_APP = "2026-08-28 \(51\)"/.test(kt));
     ok("das Handy zeigt sie", /function watchFassung\(\)/.test(src));
 
     /* --- STARTBILDSCHIRM (2026-08-25 (20)) ---
@@ -9801,86 +9872,287 @@ group("Karteneditor — das Langdrück-Menü blockiert die Bearbeitung");
   }
 }
 
-/* ============ 24en. Fahnenposition ============ */
-group("Caddy — die Fahne, nicht immer die Grünmitte");
+/* ============ 24ep. Gewitterwarnung auf dem Platz ============ */
+group("Unwetter — die einzige Funktion, bei der ein Fehler wehtut");
 {
   const src = fs.readFileSync(FILE, "utf8");
-  const PF = G("pinFuer"), PP = G("pinPunkt"), PZ = G("pinZeile"),
-        GD = G("greenDims"), DB0 = G("DB"), PLAY0 = G("PLAY");
+  const U = G("unwetterUrteil"), GC = G("istGewitterCode"), BH = G("unwetterBannerHtml");
 
-  /* Front, Mitte und Back stehen seit je in der Kopfzeile, aber der Caddy
-     zielte IMMER auf die Grünmitte: `const F=null` mit dem Vermerk
-     „Fahnensteuerung entfernt, v1.90". `STRAT.approach()` kann eine Fahne
-     seitdem verarbeiten — sie wurde nur nie übergeben.
-     Bei einer Fahne vorn über Wasser ist die Mitte die falsche Antwort, bei
-     einer hinten lässt sie einen langen Putt übrig. Das sind die Löcher, auf
-     denen ein Score entsteht. */
-  ok("Fahne wird übergeben", /const F=pinPunkt\(geo,h\.hole\);/.test(src));
-  ok("kein festes null mehr", !/const F=null;\s*\/\/ Gruenmitte/.test(src));
-  /* Der Zwischenspeicher muss die Fahne kennen, sonst zeigt die Kette nach dem
-     Umschalten das alte Ergebnis. */
-  ok("Fahne im Cache-Schlüssel", /caddyMode\(\)\+"\|"\+pinFuer\(h\.hole\)/.test(src));
-  /* JE LOCH, nicht global: Eine Fahnenposition ist eine Eigenschaft DIESES
-     Grüns an DIESEM Tag. Ein globaler Schalter wäre nach dem dritten Loch
-     falsch und würde still weiterwirken. */
-  ok("je Loch gemerkt", /PLAY\.pins\[String\(n\)\]/.test(src));
-  ok("Rand benannt", /const PIN_RAND=4;/.test(src));
-
-  /* `pinFuer` liest den LAUFENDEN Zustand und ist vom Prüfstand aus nicht
-     erreichbar (siehe unten). Geprüft wird deshalb die Zuordnungsregel am
-     Quelltext: nur „front"/„back" gelten, alles andere ist Mitte — damit ein
-     verirrter Wert nie eine Fahne erfindet. */
-  ok("nur zwei gültige Werte", /return \(p==="front"\|\|p==="back"\)\?p:"mitte";/.test(src));
-  ok("Mitte löscht den Eintrag", /if\(v==="mitte"\) delete PLAY\.pins\[String\(n\)\]/.test(src));
-  /* Und die Zielkette muss nach dem Umschalten neu rechnen. */
-  /* NICHT per Zuweisung (v3.93): `_aimCache` ist `const`, `_aimCache={}` warf
-     `TypeError: Assignment to constant variable` und brach `pinSetz` ab, bevor
-     gespeichert wurde. Geprueft wird jetzt beides — dass geleert wird UND dass
-     es nicht wieder ueber eine Zuweisung geschieht. */
-  ok("Zwischenspeicher wird geleert", /delete _aimCache\[k\]/.test(src));
-  ok("und nicht per Zuweisung auf die Konstante",
-     !/(?<!const |let |var )(?<![.\w])_aimCache\s*=\s*\{\}/.test(codeOhneDoku(src)));
-
-  if (typeof PP === "function" && typeof GD === "function" && DB0 && PLAY0) {
-    const sicher = { c: DB0.courses, act: PLAY0.active, holes: PLAY0.holes,
-      course: PLAY0.course, idx: PLAY0.idx, pins: PLAY0.pins };
-    try {
-      const mLat = 110540, mLng = 111320 * Math.cos(54 * Math.PI / 180);
-      const at = (n, e) => [54.0 + n / mLat, 10.77 + (e || 0) / mLng];
-      const ring = (n, e, r) => [at(n - r, e - r), at(n - r, e + r), at(n + r, e + r), at(n + r, e - r)];
-      const t2 = at(0);
-      const geo = { holes: { 1: { tee: t2, green: at(300), line: [t2, at(300)], distM: 300 },
-          2: { tee: at(400), green: at(520), line: [at(400), at(520)], distM: 120 } },
-        features: [{ kind: "green", ring: ring(300, 0, 15) }, { kind: "green", ring: ring(520, 0, 4) }] };
-      DB0.courses = [{ name: "Pin-Test", tees: { Gelb: { holes: [
-        { hole: 1, par: 4, si: 1, len: 300 }, { hole: 2, par: 3, si: 9, len: 120 }] } }, geo }];
-      /* FAHNE ALS ARGUMENT statt über den Zustand: An den laufenden `PLAY`-Stand
-         kommt der Prüfstand nicht heran — `playBegin` ersetzt das Objekt, und
-         die Prüftabelle hält eine Momentaufnahme vom Ladezeitpunkt. Genau
-         darüber bin ich beim Schreiben gestolpert. Statt die Prüfung zu
-         verbiegen, nimmt `pinPunkt` die Fahne jetzt optional entgegen und ist
-         damit reine Geometrie. */
-      PLAY0.course = "Pin-Test"; PLAY0.tee = "Gelb"; PLAY0.idx = 0;
-      PLAY0.holes = [{ hole: 1, par: 4 }, { hole: 2, par: 3 }];
-      PLAY0.greenRing = {};
-
-      eq("Mitte gibt keinen Versatz", PP(geo, 1, "mitte"), null);
-      const v = PP(geo, 1, "front"), h = PP(geo, 1, "back");
-      const dV = Math.round((v[0] - 54) * mLat), dH = Math.round((h[0] - 54) * mLat);
-      ok("vorn liegt vor der Mitte", dV < 300, dV + " m");
-      ok("hinten dahinter", dH > 300, dH + " m");
-      /* Symmetrisch um die Mitte — sonst wäre eine der beiden Seiten
-         systematisch bevorzugt. */
-      ok("symmetrisch", Math.abs((300 - dV) - (dH - 300)) <= 1, dV + "/" + dH);
-
-      /* Winziges Grün: kein Versatz, egal was gewählt ist. */
-      eq("winziges Grün bleibt Mitte", PP(geo, 2, "front"), null);
-    } finally {
-      DB0.courses = sicher.c; PLAY0.active = sicher.act; PLAY0.holes = sicher.holes;
-      PLAY0.course = sicher.course; PLAY0.idx = sicher.idx; PLAY0.pins = sicher.pins;
-    }
+  /* ====================================================================
+     VORGABE VOM 28.08.2026 (v5.00)
+     --------------------------------------------------------------------
+     „Wetterwarnungen in den Spielmodus einbinden, ob sich Blitze oder
+     Unwetter meiner Position nähern, regelmäßige Updates, ob es für mich auf
+     dem Golfplatz gefährlich wird."
+     EIN GOLFPLATZ IST OFFENES GELÄNDE, und ein Spieler mit einem
+     Metallschläger ist der höchste Punkt weit und breit. Deshalb gelten hier
+     andere Regeln als für den Rest der App — und diese Prüfungen bewachen
+     genau die:
+       1. KEINE WARNUNG HEISST NICHT „SICHER".
+       2. Es ist eine VORHERSAGE, keine Blitzortung.
+       3. Im Zweifel warnen — fehlende Daten sind „unbekannt", nie „ruhig".
+       4. Die 30/30-Regel steht bei jeder Warnung dabei. */
+  if (typeof GC === "function") {
+    /* WMO: 95 Gewitter, 96 mit leichtem Hagel, 99 mit schwerem Hagel. */
+    ok("Gewitter-Codes erkannt", GC(95) && GC(96) && GC(99));
+    ok("und normaler Regen nicht", !GC(61) && !GC(80) && !GC(3) && !GC(0));
   }
+
+  if (typeof U === "function") {
+    const jetzt = Date.parse("2026-08-28T12:00:00Z");
+    const t = min => new Date(jetzt + min * 60000).toISOString().slice(0, 16);
+    const m = (zeiten, felder) => Object.assign({ time: zeiten.map(t) }, felder);
+
+    /* ---- GEFAHR: Gewitter in den nächsten 30 Minuten ---- */
+    const g = U(m([10, 40], { weather_code: [95, 3], precipitation: [2, 0],
+      wind_gusts_10m: [8, 7], cape: [900, 400] }), jetzt);
+    ok("Gewitter in 10 min ist Gefahr", g.stufe === "gefahr", g.stufe + " · " + g.titel);
+    ok("und die Minuten stehen im Titel", /10 min/.test(g.titel), g.titel);
+    ok("mit Handlungsanweisung", /Schläger ablegen/.test(g.text || ""), g.text);
+
+    /* ---- WARNUNG: weiter weg, aber der Rückweg dauert ---- */
+    const w = U(m([80], { weather_code: [95], precipitation: [1],
+      wind_gusts_10m: [8], cape: [900] }), jetzt);
+    ok("Gewitter in 80 min ist eine Warnung", w.stufe === "warnung", w.stufe);
+    ok("und nennt den Rückweg", /Rückweg/.test(w.text || ""));
+
+    /* ---- `lightning_potential` zählt AUCH OHNE Gewittercode ----
+       Das Feld gibt es nur für Mitteleuropa; wo es kommt, ist es das
+       direktere Signal. */
+    const lp = U(m([15], { weather_code: [3], precipitation: [0],
+      wind_gusts_10m: [6], cape: [400], lightning_potential: [2.5] }), jetzt);
+    ok("Blitzpotenzial allein löst schon aus", lp.stufe === "gefahr", lp.stufe);
+
+    /* ---- Labile Luftmasse ohne Gewittercode: die Zutaten sind da ---- */
+    const cape = U(m([60], { weather_code: [61], precipitation: [3],
+      wind_gusts_10m: [9], cape: [2000] }), jetzt);
+    ok("hohe CAPE mit Regen warnt", cape.stufe === "warnung", cape.stufe + " · " + cape.titel);
+
+    /* ---- Sturmböen: Äste sind die häufigste Verletzungsursache ---- */
+    const bo = U(m([20], { weather_code: [3], precipitation: [0],
+      wind_gusts_10m: [22], cape: [200] }), jetzt);
+    /* Kleingeschrieben suchen: Der Titel lautet „Sturmböen …", nicht „Böen".
+       Mein erster Anlauf prüfte auf großes B und war rot, obwohl alles
+       stimmte — eine Prüfung, die an der Groß-/Kleinschreibung scheitert,
+       sieht aus wie ein Produktfehler. */
+    ok("Sturmböen warnen", bo.stufe === "warnung" && /böen/i.test(bo.titel), bo.titel);
+
+    /* ---- Starkregen ist unangenehm, aber nicht gefährlich ---- */
+    const re = U(m([30], { weather_code: [65], precipitation: [8],
+      wind_gusts_10m: [8], cape: [200] }), jetzt);
+    ok("Starkregen ist nur ein Hinweis", re.stufe === "hinweis", re.stufe);
+    ok("und sagt das auch", /unkritisch/.test(re.text || ""));
+
+    /* ---- RUHIG — und der Satz, auf den es ankommt ---- */
+    const r = U(m([20, 60], { weather_code: [1, 2], precipitation: [0, 0],
+      wind_gusts_10m: [5, 6], cape: [100, 120] }), jetzt);
+    ok("ohne Anzeichen ist es ruhig", r.stufe === "ruhig", r.stufe);
+    /* DAS IST DIE WICHTIGSTE PRÜFUNG DER GANZEN GRUPPE: Auch bei Ruhe muss
+       dastehen, dass dies eine VORHERSAGE ist. Wer Donner hört, hat die
+       bessere Information — und darf sich nicht auf einen grünen Kasten
+       verlassen. */
+    ok("aber „Vorhersage, keine Blitzortung“ steht dabei",
+       /Blitzortung/.test(r.text || ""), r.text);
+
+    /* ---- IM ZWEIFEL WARNEN: fehlende Daten sind nicht „ruhig" ---- */
+    ok("ohne Daten: unbekannt, nicht ruhig", U(null, jetzt).stufe === "unbekannt");
+    ok("leere Zeitreihe ebenso", U({ time: [] }, jetzt).stufe === "unbekannt");
+    /* UND DER SATZ, DER DEN UNTERSCHIED MACHT. */
+    ok("und ausdrücklich KEINE Entwarnung",
+       /NICHT, dass es sicher ist/.test(U(null, jetzt).text || ""));
+
+    /* ---- Zeitfenster: was in 5 Stunden kommt, ist jetzt nicht relevant,
+       und was vor einer Stunde war, auch nicht. ---- */
+    const spaet = U(m([280], { weather_code: [95], precipitation: [4],
+      wind_gusts_10m: [9], cape: [1200] }), jetzt);
+    ok("Gewitter in 4,5 h löst noch nichts aus", spaet.stufe === "ruhig", spaet.stufe);
+    const alt2 = U(m([-60], { weather_code: [95], precipitation: [4],
+      wind_gusts_10m: [9], cape: [1200] }), jetzt);
+    ok("und ein Gewitter von vorhin auch nicht", alt2.stufe === "ruhig", alt2.stufe);
+  }
+
+  /* ---- Die Anzeige ---- */
+  if (typeof BH === "function") {
+    ok("ohne Urteil steht „wird geprüft“", /geprüft/.test(BH() || ""), BH());
+  }
+  const roh = ktOhneKommentar(codeOhneDoku(src));
+  /* GANZ OBEN — eine Warnung unter dem, wovor sie warnt, ist keine. */
+  ok("die Warnung steht vor allem anderen",
+     /const html=`\$\{unwetterBannerHtml\(\)\}\$\{watchRecBanner\(\)\}/.test(roh));
+  /* Bei GEFAHR und WARNUNG zusätzlich Ton/Vibration — der Kasten hilft nicht,
+     wenn das Handy in der Tasche steckt. */
+  ok("ein Stufenwechsel meldet sich spürbar",
+     /navigator\.vibrate\(u\.stufe==="gefahr"/.test(roh));
+  ok("und landet im Protokoll", /logWarn\("Wetter"/.test(roh));
+  /* Nur bei WECHSEL neu zeichnen — ein Kasten, der sich alle zehn Minuten
+     selbst neu malt, zieht den Blick ab, ohne etwas zu sagen. */
+  ok("neu gezeichnet wird nur bei Stufenwechsel", /if\(u\.stufe!==vorher\)/.test(roh));
+  ok("die 30/30-Regel steht bei jeder Warnung", /30\/30:/.test(src));
+  ok("beim Rundenstart wird sofort geprüft", /unwetterTick\(\); \}catch/.test(roh));
+
+  /* ---- Bildschirm anlassen ---- */
+  ok("die Bildschirmsperre kennt den Grund „app“", /wakeAn\("app"\)/.test(roh));
+  ok("und gibt sie im Hintergrund frei", /else wakeAus\("app"\)/.test(roh));
+  /* Die Zählweise mit Gründen muss bleiben: Sonst nimmt einer der drei
+     (gps/runde/app) dem anderen die Sperre weg. */
+  ok("die Zählweise mit Gründen bleibt",
+     /if\(!_wakeGruende\.size\) wakeRelease\(\)/.test(roh));
 }
+
+/* ============ 24eo. Die Begründung des Caddys ============ */
+group("Caddy — warum dieser Schläger");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+  const KE = G("caddyKette"), KH = G("caddyKetteHtml"), KP = G("caddyKipppunkt");
+
+  /* ====================================================================
+     VORGABE VOM 28.08.2026 (v4.99)
+     --------------------------------------------------------------------
+     „Wenn der Caddy im Spielmodus ausgeklappt wird, soll er eine detaillierte
+     Begründung für seine Empfehlungen geben."
+     Bis v4.98 sagte er nur das WAS — Schläger, Ziel, ES-Wert, Streubild-
+     Prozente. Das WARUM fehlte: warum dieser Schläger und nicht der
+     nächstlängere, und was den Ausschlag gab. */
+  if (typeof KE === "function") {
+    const club = n => ({ club: { name: n } });
+    const ev = (fracs, altName) => ({ fracs, alt: altName ? club(altName) : null });
+
+    /* ---- Die Kette hat einen festen Aufbau ---- */
+    const z = KE(ev({ fw: 60, rough: 25, sand: 8, pen: 2 }, "4 Iron"),
+                 club("5 Iron").club ? { club: { name: "5 Iron" } } : null, 156, 171);
+    ok("die Kette entsteht", Array.isArray(z) && z.length >= 3, z ? z.length + " Zeilen" : "keine");
+    if (Array.isArray(z)) {
+      const k = z.map(x => x.k);
+      ok("sie beginnt mit der Lage", k[0] === "Lage", k.join(" · "));
+      ok("und nennt den Ausschlag", k.indexOf("Ausschlag") >= 0, k.join(" · "));
+      ok("die Kandidaten stehen drin", k.indexOf("In Frage") >= 0, k.join(" · "));
+    }
+
+    /* ---- „Spielt wie" nur, wenn es etwas ausmacht ----
+       Eine Zeile „spielt wie genauso weit" ist Platzverschwendung; sie steht
+       zwischen Lage und Kandidaten und würde die Kette aufblähen, ohne eine
+       Frage zu beantworten. */
+    const gleich = KE(ev({ fw: 60, rough: 25, sand: 8, pen: 2 }, "4 Iron"),
+                      { club: { name: "5 Iron" } }, 156, 157);
+    ok("bei 1 m Unterschied schweigt „spielt wie“",
+       gleich.every(x => x.k !== "Spielt wie"), gleich.map(x => x.k).join(" · "));
+    const anders = KE(ev({ fw: 60, rough: 25, sand: 8, pen: 2 }, "4 Iron"),
+                      { club: { name: "5 Iron" } }, 156, 171);
+    const sw = anders.find(x => x.k === "Spielt wie");
+    ok("bei 15 m steht sie da", !!sw, sw ? sw.v + " " + sw.n : "fehlt");
+    ok("mit Vorzeichen und Betrag", !!sw && sw.n === "+15 m", sw ? sw.n : "—");
+    /* Und andersherum: Rückenwind macht kürzer, das Vorzeichen muss drehen. */
+    const kurz = KE(ev({ fw: 60, rough: 25, sand: 8, pen: 2 }, "4 Iron"),
+                    { club: { name: "5 Iron" } }, 156, 142);
+    ok("bergab/Rückenwind zeigt ein Minus",
+       (kurz.find(x => x.k === "Spielt wie") || {}).n === "−14 m");
+
+    /* ---- Der Ausschlag benennt das RISIKO, wenn es eines gibt ----
+       „Bester Erwartungswert" allein erklärt nichts; interessant ist, welches
+       Risiko dabei in Kauf genommen wurde. */
+    const risk = KE(ev({ fw: 40, rough: 30, sand: 22, pen: 3 }, "4 Iron"),
+                    { club: { name: "5 Iron" } }, 156, 156);
+    ok("bei viel Bunker steht der Bunker im Ausschlag",
+       /Bunker 22/.test((risk.find(x => x.k === "Ausschlag") || {}).v || ""),
+       (risk.find(x => x.k === "Ausschlag") || {}).v || "—");
+    const pen = KE(ev({ fw: 40, rough: 30, sand: 5, pen: 12 }, "4 Iron"),
+                   { club: { name: "5 Iron" } }, 156, 156);
+    ok("Strafrisiko hat Vorrang vor Bunker",
+       /Strafrisiko 12/.test((pen.find(x => x.k === "Ausschlag") || {}).v || ""));
+    const sauber = KE(ev({ fw: 75, rough: 20, sand: 3, pen: 1 }, "4 Iron"),
+                      { club: { name: "5 Iron" } }, 156, 156);
+    ok("ohne Risiko bleibt es beim Erwartungswert",
+       /bester Erwartungswert/.test((sauber.find(x => x.k === "Ausschlag") || {}).v || ""));
+
+    /* ---- Nichts erfinden ---- */
+    ok("ohne Schläger keine Kette", KE(ev({}, null), null, 100, 100) === null);
+    if (typeof KH === "function")
+      ok("und dann auch kein HTML", KH(ev({}, null), null, 100, 100) === "");
+  }
+
+  /* ---- Der Kipppunkt: wie fest steht die Empfehlung? ----
+     Er benennt den ABSTAND und behauptet keine Ursache, die nicht gerechnet
+     wurde. „Ohne den Bunker wäre X besser" klänge klüger, wäre aber erfunden. */
+  if (typeof KP === "function") {
+    ok("praktisch gleichauf wird als solches benannt",
+       /gleichauf/.test(KP({ empfehlung: {}, alternative: {}, diff: 0.01 }) || ""));
+    ok("knapp ebenso",
+       /Knapp/.test(KP({ empfehlung: {}, alternative: {}, diff: 0.07 }) || ""));
+    ok("und deutlich",
+       /Deutlich/.test(KP({ empfehlung: {}, alternative: {}, diff: 0.4 }) || ""));
+    ok("ohne Vergleich kein Satz", KP(null) === null);
+    /* Das Vorzeichen darf keine Rolle spielen — der ABSTAND zählt, nicht wer
+       vorn liegt (das steht schon in der Tabelle). */
+    ok("das Vorzeichen ändert die Einordnung nicht",
+       KP({ empfehlung: {}, alternative: {}, diff: -0.4 }) ===
+       KP({ empfehlung: {}, alternative: {}, diff: 0.4 }));
+  }
+
+  /* ---- Der Einbau ---- */
+  const roh = ktOhneKommentar(codeOhneDoku(src));
+  ok("Kette und Vergleich stehen im ausgeklappten Caddy",
+     /caddyKetteHtml\(ev, b,[\s\S]{0,80}?caddyVergleichHtml\(ev, b\)/.test(roh));
+  /* VOR den Streubild-Prozenten: Die sind das Rohmaterial der Rechnung, nicht
+     die Antwort auf „warum". */
+  ok("und zwar vor den Streubild-Prozenten",
+     roh.indexOf("caddyVergleichHtml(ev, b)") < roh.indexOf("Erwartung aus 150 Streubildern"));
+  /* Der Vergleich ist EINGEKLAPPT — fünf Zeilen Kette liest man beim Ball,
+     eine Tabelle mit sechs Zeilen nicht. */
+  ok("der Vergleich ist eingeklappt", /<details class="cad-verg">/.test(roh));
+  /* Beide Seiten müssen aus DERSELBEN Rechnung stammen, sonst ist der
+     Vergleich wertlos — deshalb über `caddyWarumNicht`. */
+  ok("beide Seiten kommen aus derselben Rechnung",
+     /function caddyVergleichHtml[\s\S]{0,900}?caddyWarumNicht\(name\)/.test(roh));
+  ok("die Gestaltung ist da", /\.cad-kette\{/.test(src) && /\.cad-verg .cv-b\{/.test(src));
+}
+
+/* ============ 24en. Fahnenposition — ENTFERNT (v4.98) ============ */
+group("Caddy — Ziel ist wieder die Grünmitte");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+  /* `ktOhneKommentar` UND `codeOhneDoku`: Ersteres entfernt die Kommentare,
+     Letzteres den devdocs-Block. Der Erklärtext zur Entfernung nennt die
+     entfernten Namen zwangsläufig — mit nur einem der beiden Filter fände
+     die Prüfung ihre eigene Begründung und wäre immer rot. */
+  const roh = ktOhneKommentar(codeOhneDoku(src));
+
+  /* ====================================================================
+     ENTSCHEIDUNG VOM 28.08.2026
+     --------------------------------------------------------------------
+     „Die Fahnenposition soll aus dem Caddy entfernt werden. Die Funktion soll
+     vollkommen entfernt werden."
+     WAS ES WAR (v3.87): vorn/Mitte/hinten je Loch in `PLAY.pins`, daraus ein
+     um die halbe Grüntiefe minus 4 m Rand versetzter Zielpunkt (`pinPunkt`),
+     der an `STRAT.approach()` ging.
+     DIESE PRÜFUNGEN SIND GEDREHT, nicht gelöscht — sie verlangten genau das
+     Gegenteil, und eine gedrehte Prüfung hält fest, dass die Umkehr gewollt
+     war. Wer die Fahne wiederbeleben will, liest zuerst diesen Absatz. */
+  ok("keine Fahnen-Funktionen mehr",
+     !/\b(pinFuer|pinSetz|pinPunkt|pinZeile|PIN_RAND)\b/.test(roh));
+  ok("und kein Zustand dafür", !/PLAY\.pins/.test(roh));
+  ok("die Schalterzeile ist aus beiden Caddy-Ansichten raus",
+     !/Fahnenposition auf dem Grün/.test(roh));
+  /* Der Cache-Schlüssel trug die Fahne, damit die Kette nach dem Umschalten
+     neu rechnete. Es gibt nichts mehr umzuschalten. */
+  ok("der Cache-Schlüssel führt sie nicht mehr",
+     !/caddyMode\(\)\+"\|"\+pinFuer/.test(roh));
+  /* ZIEL IST DIE GRÜNMITTE: `approach()` ohne Fahnen-Argument nimmt sie. */
+  ok("approach bekommt keine Fahne mehr",
+     /STRAT\.approach\(geo,PLAY\.course,h\.hole,from,rest,caddyMode\(\),STRAT\.esHcp\(\)\)/.test(roh));
+
+  /* ABER DER PARAMETER BLEIBT. Für `pointESTo` und `shotEV` ist die Fahne der
+     Bezugspunkt jeder Erwartungsrechnung — dort ist sie keine Einstellung,
+     sondern Geometrie. Wer sie dort mit entfernte, nähme der ganzen
+     Strokes-Gained-Rechnung ihren Nullpunkt. */
+  {
+    const S = G("STRAT");
+    ok("STRAT rechnet weiter gegen eine Fahne",
+       !!S && typeof S.pointESTo === "function" && typeof S.shotEV === "function");
+  }
+  /* `greenDims` bleibt ebenfalls — die Grüntiefe wird auch anderswo gebraucht. */
+  ok("greenDims bleibt", typeof G("greenDims") === "function");
+}
+
 
 /* ============ 24em. Abschlag ist ziehbar ============ */
 group("Karteneditor — auch der Abschlag lässt sich verschieben");
@@ -11204,8 +11476,12 @@ group("WHS — 9-Loch-Differential und automatische Umstellung");
   ok("SD 18 = gespielt + berechnet", /sd=Math\.round\(\(sd9\+sdErg\)\*10\)\/10/.test(src));
   /* Ohne Handicap-Index lässt sich die Ergänzung nicht bilden — dann lieber
      eine ehrliche Lücke als eine erfundene Zahl. */
-  ok("ohne HCPI kein erfundener Wert", /\} else sd=null;\s+\/\/ unvollstaendig/.test(src));
-  ok("beide Teilwerte werden zurückgegeben", /stblB,stblN,ags,sd,sd9,sdErg,cost/.test(src));
+  /* Seit v4.96 steht daneben auch der GRUND (`sdGrund`) — eine ehrliche Lücke
+     ist gut, eine erklärte ist besser. */
+  ok("ohne HCPI kein erfundener Wert",
+     /sd=null; sdGrund="Ohne Handicap-Index/.test(src));
+  ok("beide Teilwerte werden zurückgegeben",
+     /stblB,stblN,ags,sd,sd9,sdErg,sdGrund/.test(src));
   ok("Anzeige nennt die Zusammensetzung", /9 Löcher \$\{e\.sd9/.test(src));
 
   /* Rechnung von Hand: HCPI 20 → Ergänzung 11,6; mit SD(9)=6,8 also 18,4. */
@@ -11303,10 +11579,10 @@ group("Caddy — vollständig sichtbar, Bedingungen, 2 Iron nur vom Tee");
   /* „Ganz oben" heisst seit v4.20: direkt nach dem optionalen Umweg-Hinweis.
      Der darf davor, weil er sagt, dass die Zahlen darunter nicht stimmen —
      eine Warnung UNTER dem, wovor sie warnt, ist keine Warnung. */
-  ok("und zwar ganz oben", /<div class="play-caddy">\$\{aimUmwegHtml\(\)\}\$\{spieltWie\}\$\{fahne\}<div class="pc-head">/.test(src));
+  ok("und zwar ganz oben", /<div class="play-caddy">\$\{aimUmwegHtml\(\)\}\$\{spieltWie\}<div class="pc-head">/.test(src));
   /* Beide Zweige gleich aufgebaut — sonst sucht man die Zahl je nach Lage an
      zwei verschiedenen Stellen. */
-  ok("im Regel-Zweig ebenso", /<div class="play-caddy">\$\{aimUmwegHtml\(\)\}\$\{weatherEffectHtml\(bearing,mid\)\}\$\{pinZeile\(h\.hole\)\}<div class="pc-head">/.test(src));
+  ok("im Regel-Zweig ebenso", /<div class="play-caddy">\$\{aimUmwegHtml\(\)\}\$\{weatherEffectHtml\(bearing,mid\)\}<div class="pc-head">/.test(src));
   if (typeof CZ === "function") {
     eq("ohne Punkte keine Zeile", CZ(null, null), "");
     /* SCHWELLE ENTFERNT (v3.97). Bis v3.96 schwieg die Zeile unter drei Metern
@@ -11356,7 +11632,7 @@ group("Caddy — vollständig sichtbar, Bedingungen, 2 Iron nur vom Tee");
     ok("jeder beginnt mit der Bedingungszeile", mitZeile === zweige,
        mitZeile + " von " + zweige);
     ok("der Annäherungs-Zweig ruft condZeile",
-       /<div class="play-caddy">\$\{aimUmwegHtml\(\)\}\$\{condZeile\(PLAY\.here, \(b&&b\.tgt\)\|\|_hrC\.green,[\s\S]{0,70}?\}\$\{pinZeile\(h\.hole\)\}/.test(src));
+       /<div class="play-caddy">\$\{aimUmwegHtml\(\)\}\$\{condZeile\(PLAY\.here, \(b&&b\.tgt\)\|\|_hrC\.green,[\s\S]{0,70}?\}<div class="pc-head">/.test(src));
   }
 
   /* --- Ein von Hand gezogener Wegpunkt überstimmt die Rechnung (v4.20) ---
@@ -13127,6 +13403,241 @@ group("STRAT — Erwartungswert eines Schlags, gegen bekannte Wahrheiten");
     }
     }
   }
+}
+
+/* ============ 24ct2. Teilrunden — zwei Familien von Statistiken ============ */
+group("Teilrunden — was zählt ab einem Schlag, was erst ab einer Runde");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+  const CR = G("computeRound"), IR = G("istRundenStat"), PQ = G("poolQuote"), DB0 = live("DB");
+
+  /* ====================================================================
+     GEMELDET am 28.08.2026 mit Bildschirmfoto (v4.96)
+     --------------------------------------------------------------------
+     Drei gespielte Löcher, und im Feld „Score-Diff" stand **−47,5**. Ursache
+     war ein zu weites Tor (`counted>0`): 15 Schläge aus drei Löchern gegen
+     eine CR von 71,8 — drei Löcher gegen die Vorgabe für achtzehn. Die Zahl
+     war nicht ungenau, sie war sinnlos.
+     WHS/DGV kennt den Fall seit April 2024: Differential ab 14 gespielten
+     Löchern (bzw. 7 bei einer Neun), fehlende werden mit NETTO-PAR ergänzt;
+     darunter gar keins.
+     UND DER WIDERSPRUCH DAZU, ebenfalls vom 28.08.: „Gibt es nicht bestimmte
+     Statistiken, für die auch Einzellöcher sinnvoll sind?" Ja — und die
+     Trennlinie ist die Beobachtungseinheit: der SCHLAG oder die RUNDE. */
+  if (typeof CR === "function" && DB0) {
+    const voll = (DB0.rounds || []).map(r => ({ r, e: CR(r) }))
+      .filter(x => x.e.voll && x.e.counted >= 18)[0];
+    if (voll) {
+      const stutze = n => {
+        const k = JSON.parse(JSON.stringify(voll.r));
+        k.id = "PRUEF" + n;
+        k.holes.slice(n).forEach(h => { h.score = null; h.putts = null; });
+        return CR(k);
+      };
+      const e3 = stutze(3), e13 = stutze(13), e16 = stutze(16);
+
+      /* ---- DER GEMELDETE FALL ---- */
+      ok("drei Löcher ergeben kein Differential", e3.sd === null, String(e3.sd));
+      ok("und der Grund steht dabei", /ab 14/.test(e3.sdGrund || ""), e3.sdGrund || "—");
+      /* 13 ist die Grenze von unten, 14 die erste gültige. */
+      ok("13 Löcher noch nicht", e13.sd === null, String(e13.sd));
+      ok("16 Löcher schon", e16.sd !== null && isFinite(e16.sd), String(e16.sd));
+
+      /* ---- NETTO-PAR-ERGÄNZUNG: der eigentliche Gewinn ----
+         Eine abgebrochene 16-Loch-Runde ergibt regelkonform ein gültiges
+         Differential, statt still zu verschwinden. Und sie muss NAHE an der
+         vollen Runde liegen — die zwei ergänzten Löcher sind Netto-Par, also
+         etwa das, was ein Spieler mit diesem Handicap dort spielt. */
+      ok("fehlende Löcher werden ergänzt", e16.ergaenzt === 2, String(e16.ergaenzt));
+      ok("und das Differential bleibt in der Nähe der vollen Runde",
+         Math.abs(e16.sd - voll.e.sd) < 6,
+         voll.e.sd + " → " + e16.sd);
+      /* Die Ergänzung darf den AGS nur ERHÖHEN — sie füllt Löcher auf. */
+      ok("der ergänzte AGS ist größer als der gespielte", e16.agsWHS > e16.ags,
+         e16.ags + " → " + e16.agsWHS);
+      /* Bei einer vollen Runde ändert die Ergänzung nichts. */
+      ok("eine volle Runde wird nicht ergänzt",
+         voll.e.ergaenzt === 0 && voll.e.agsWHS === voll.e.ags);
+
+      /* ---- SCHLAGBEZOGENES BLEIBT GÜLTIG ----
+         Das ist die Antwort auf den Einwand: Putts pro Loch, GIR-Zähler und
+         die Kosten je Kategorie entstehen je Loch bzw. je Schlag und sind
+         auch aus drei Löchern belastbar. */
+      ok("Putts werden auch aus drei Löchern gezählt",
+         e3.putts > 0 && e3.puttsPer > 0, e3.putts + " / " + e3.puttsPer);
+      ok("und der Score über die gespielten Löcher stimmt",
+         e3.toParThrough != null && e3.counted === 3,
+         e3.counted + " Löcher, " + e3.toParThrough + " zu Par");
+      /* Rundenbezogenes dagegen NICHT: `toPar` gegen das Par der ganzen
+         Runde wäre −37 statt +3 (die Lehre aus v3.13). */
+      ok("aber toPar bleibt leer", e3.toPar === null, String(e3.toPar));
+
+      /* ---- DIE FAMILIEN-KENNUNG ---- */
+      if (typeof IR === "function") {
+        ok("istRundenStat trennt die beiden Familien",
+           IR(voll.e) === true && IR(e3) === false && IR(e16) === false);
+      }
+    }
+  }
+
+  /* ====================================================================
+     POOLEN, NICHT MITTELN
+     --------------------------------------------------------------------
+     Der Mittelwert aus „2,00 Putts/Loch über 3 Löcher" und „1,80 über 18"
+     ist NICHT 1,90 — die Dreiloch-Runde bekäme sechsmal zu viel Gewicht.
+     Richtig: alle Putts, alle Löcher, dann teilen. */
+  if (typeof PQ === "function") {
+    const liste = [{ z: 6, n: 3 }, { z: 32, n: 18 }];
+    const gepoolt = PQ(liste, x => x.z, x => x.n);
+    const gemittelt = (6 / 3 + 32 / 18) / 2;
+    ok("poolQuote summiert Zähler und Nenner getrennt",
+       Math.abs(gepoolt - 38 / 21) < 1e-9, gepoolt.toFixed(4));
+    ok("und weicht damit vom Mittel der Mittel ab",
+       Math.abs(gepoolt - gemittelt) > 0.01,
+       gepoolt.toFixed(3) + " statt " + gemittelt.toFixed(3));
+    ok("ohne Nenner gibt es keine Quote", PQ([], x => x.z, x => x.n) === null);
+    ok("und unbrauchbare Einträge werden übergangen",
+       PQ([{ z: null, n: 3 }, { z: 4, n: 2 }], x => x.z, x => x.n) === 2);
+    /* Die Anzeige muss sie auch benutzen — ein Helfer ohne Aufrufer ist eine
+       Zusage, die niemand einlöst. */
+    ok("die Fünf-Runden-GIR-Quote wird gepoolt",
+       /const girAvg=\(\(\)=>\{ const q=poolQuote\(r5,x=>x\.gir,x=>x\.counted\)/.test(src));
+    /* Doppelbogeys sind eine SUMME je Runde, keine Quote — dort dürfen
+       Teilrunden nicht mitmitteln. */
+    ok("Doppelbogeys mitteln nur volle Runden",
+       /avg\(r5\.filter\(istRundenStat\),x=>x\.dbl\)/.test(src));
+  }
+
+  /* ====================================================================
+     „AUS TEILRUNDEN" — DIE KENNZEICHNUNG DER MITTLEREN FAMILIE (v4.97)
+     --------------------------------------------------------------------
+     GIR-, Fairway- und Scrambling-Quote sind je LOCH definiert, also aus
+     einer Teilrunde rechenbar — aber die AUSWAHL der Löcher ist nicht
+     zufällig. Wer drei Löcher spielt, nimmt die nahe am Clubhaus oder gezielt
+     die schweren; über viele Teilrunden mittelt sich das nicht heraus.
+     ZWEI FALSCHE ANTWORTEN standen zur Wahl: ausschließen (verliert echte
+     Daten) oder stillschweigend mitzählen (liest sich als vergleichbar).
+     DIE DRITTE IST DIE RICHTIGE: mitzählen UND es dazuschreiben. */
+  const TA = G("teilAnteil");
+  if (typeof TA === "function") {
+    const e = (counted, erwartet) => ({ counted, erwartet, voll: counted >= erwartet });
+    /* Nur volle Runden -> KEIN Hinweis. Eine Kennzeichnung, die immer
+       erscheint, liest man nach drei Tagen nicht mehr. */
+    ok("bei lauter vollen Runden steht nichts da",
+       TA([e(18, 18), e(18, 18)]) === null);
+    ok("und bei leerer Liste auch nicht", TA([]) === null);
+    /* Mit Teilrunden: Anzahl UND Löcher, damit man das Gewicht einschätzen
+       kann — „2 von 5 Runden" allein sagt nicht, ob es 6 oder 30 Löcher sind. */
+    const t = TA([e(18, 18), e(3, 18), e(9, 18)]);
+    ok("mit Teilrunden nennt der Hinweis Anzahl und Löcher",
+       /2 von 3 Runden unvollständig \(12 Löcher\)/.test(t || ""), t || "—");
+    ok("und benennt den Grund", /Loch-Auswahl ist dort nicht zufällig/.test(t || ""));
+    /* Eine Neun ist VOLL — sie ist keine Teilrunde. */
+    ok("eine vollständige Neun gilt nicht als Teilrunde",
+       TA([e(9, 9), e(18, 18)]) === null);
+
+    /* Die Anzeige muss ihn auch benutzen. */
+    ok("die Fünf-Runden-GIR-Kachel trägt den Hinweis",
+       /teilAnteil\(r5\)/.test(src));
+    /* Bei der EINZELNEN Runde steht er an GIR und Fairways — aber NICHT an
+       den Putts: die entstehen je Loch aus der Situation und sind auch aus
+       drei Löchern belastbar. Das ist der ganze Punkt der Unterscheidung. */
+    ok("GIR und Fairways einer Teilrunde sind gekennzeichnet",
+       (src.match(/istRundenStat\(e\)\?null:"aus "\+e\.counted\+" von "\+e\.erwartet\+" Löchern"/g) || []).length >= 2);
+    ok("die Putts dagegen nicht",
+       !/miniStat\("Putts",[^)]*istRundenStat/.test(src));
+  }
+}
+
+/* ============ 24cu. Die Selbstprüfung prüft wirklich etwas ============ */
+group("Selbstprüfung — fünf Teile, und keiner meldet Falschalarm");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+  const TEILE = ["pruefeDaten", "pruefeRechnung", "pruefeTrockenlauf", "pruefeUmgebung"];
+
+  /* ====================================================================
+     VORGABE VOM 28.08.2026 (v4.95)
+     --------------------------------------------------------------------
+     „Kann man die Selbstprüfung noch deutlich detaillierter ausführen? Die
+     Prüfung soll richtig intensiv und umfassend sein."
+     Bis v4.94 las sie NUR den Quelltext — und hat von dem, was diese Woche
+     wirklich weh tat, nichts gefunden: nicht den pendelnden Lochzeiger, nicht
+     den Rückfallweg, der die App beendete, nicht die Mitspieler, die nicht
+     verschwanden. Alle drei waren keine Quelltext-Fragen.
+     DIESE PRÜFUNGEN BEWACHEN DIE PRÜFUNG: Sie muss laufen, sie darf nichts
+     verändern, und sie darf nicht schreien, wenn alles in Ordnung ist. */
+  TEILE.forEach(n => {
+    const f = G(n);
+    ok(n + " gibt es", typeof f === "function");
+    if (typeof f !== "function") return;
+    let r = null, kaputt = null;
+    try { r = f(); } catch (e) { kaputt = e.message; }
+    ok(n + " läuft ohne Absturz", !kaputt, kaputt || "");
+    ok(n + " liefert Befunde im richtigen Format",
+       Array.isArray(r) && r.length > 0 &&
+       r.every(x => x && /^(ok|warn|err)$/.test(x.level) && typeof x.title === "string"
+               && Array.isArray(x.items)),
+       r ? r.length + " Einträge" : "keine");
+  });
+
+  /* ====================================================================
+     KEIN FALSCHALARM AUF DEM ECHTEN BESTAND
+     --------------------------------------------------------------------
+     Beim Bauen meldete `pruefeDaten` DREI Fehler, die keine waren:
+       · „Löcher ohne Par" — das Par steht am PLATZ, nicht am Loch;
+       · „Schläger doppelt" — „SW 54° · 75 m" und „· 65 m" sind zwei echte
+         Einträge, dieselbe Wedge mit verschiedenen Schwunglängen;
+       · „Summe 0" im Trockenlauf — `computeRound` braucht den Platz.
+     EINE PRÜFUNG, DIE RICHTIGE DATEN ANMECKERT, BRINGT EINEM BEI, SIE ZU
+     IGNORIEREN — und dann überliest man auch die echten Befunde. Deshalb
+     läuft sie hier gegen den Seed-Bestand und darf dort NICHT klagen. */
+  {
+    const dat = G("pruefeDaten"), tro = G("pruefeTrockenlauf");
+    if (typeof dat === "function") {
+      const e = dat().filter(x => x.level === "err");
+      ok("pruefeDaten meldet auf gesunden Daten keinen Fehler", e.length === 0,
+         e.map(x => x.title).join(" | "));
+    }
+    if (typeof tro === "function") {
+      const e = tro().filter(x => x.level === "err");
+      ok("der Trockenlauf rechnet die Testrunde richtig", e.length === 0,
+         e.map(x => x.title + " " + JSON.stringify(x.items)).join(" | "));
+    }
+  }
+
+  /* ====================================================================
+     SIE DARF NICHTS VERÄNDERN
+     --------------------------------------------------------------------
+     Der Trockenlauf hängt für seine Dauer einen Prüfplatz an `DB.courses` —
+     `computeRound` liest Par und SI aus dem Platz. Bleibt der liegen, taucht
+     er in jeder Auswahl auf, und die Prüfung hat genau das angerichtet,
+     wogegen sie da ist. */
+    {
+    const DB0 = live("DB");
+    const vorher = JSON.stringify({
+      rounds: (DB0.rounds || []).length, courses: (DB0.courses || []).map(c => c.name),
+      shots: (DB0.gpsShots || []).length, draft: !!DB0._draftRound
+    });
+    TEILE.forEach(n => { const f = G(n); if (typeof f === "function") { try { f(); } catch (e) {} } });
+    const nachher = JSON.stringify({
+      rounds: (DB0.rounds || []).length, courses: (DB0.courses || []).map(c => c.name),
+      shots: (DB0.gpsShots || []).length, draft: !!DB0._draftRound
+    });
+    ok("die Selbstprüfung verändert den Bestand nicht", vorher === nachher,
+       vorher === nachher ? "" : vorher + " → " + nachher);
+    ok("und lässt keinen Prüfplatz zurück",
+       !(DB0.courses || []).some(c => c.name === "Trockenlauf"));
+  }
+
+  /* Der Quelltext-Teil braucht Netz, die anderen vier nicht — bis v4.94 brach
+     die ganze Prüfung ab, wenn der Abruf misslang. Ausgerechnet auf dem
+     Platz, wo man sie am ehesten braucht. */
+  ok("ohne Quelltext laufen die übrigen Teile weiter",
+     /die übrigen Prüfungen laufen trotzdem/.test(src)
+     && !/if\(!src\)\{ toast\("Quelltext nicht ladbar/.test(src));
+  /* Und ein Absturz IN einem Teil darf die anderen nicht mitreißen. */
+  ok("ein abgestürzter Teil reißt die anderen nicht mit",
+     /Prüfung selbst abgestürzt/.test(src));
 }
 
 /* ============ 24cv. Gemeinsame Annahmen beider Geräte ============ */
