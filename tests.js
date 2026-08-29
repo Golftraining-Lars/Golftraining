@@ -296,6 +296,7 @@ try {
                  "liveStart","liveStop","liveStopAll","liveVerbraucher","LIVEPOS",
                  "kalibrierBericht","kalibrierText","_kalibMedian","_kalibMad","_kalibTauglich",
                  "_playKey","playMarkEnded","playClearEnded","watchLiveDarfOeffnen",
+                 "draftPushAus",
                  "fremderZeigerZaehlt","istRundenStat","poolQuote","teilAnteil",
                  "geoAbspecken","geoBudget","_punkteDuennen","_koordRunden",
                  "GEO_PUNKTE_MAX","GEO_OTHER_MAX","thinRing",
@@ -11368,7 +11369,16 @@ group("Simulation — Platz prüfen, ohne auf dem Platz zu sein");
 
   /* REGEL 1: Er schreibt nichts. Sonst landet eine Fingerübung in den
      Statistiken oder als laufende Runde auf dem Handgelenk. */
-  ok("kein Push zur Uhr", /async function draftPush\(\)\{[\s\S]{0,400}if\(simAktiv\(\)\) return false;/.test(src));
+  /* KEIN ZEICHENFENSTER (v5.09): Vor der Simulationssperre steht seit v5.09
+     der Riegel gegen Nachzuegler nach dem Grabstein — das feste Fenster von
+     400 Zeichen riss dadurch. Geprueft wird jetzt der BLOCK bis zur naechsten
+     Funktion. Dieselbe Lehre wie beim Raster-Fenster: Ein Fenster, das man
+     nachziehen muss, ist keine Grenze. */
+  {
+    const _di = src.indexOf("async function draftPush(){");
+    const _dp = src.slice(_di, src.indexOf("\nasync function ", _di + 10));
+    ok("kein Push zur Uhr", /if\(simAktiv\(\)\) return false;/.test(_dp));
+  }
   ok("kein Entwurf", /function playSaveDraft\(\)\{\s*\n\s*if\(simAktiv\(\)\) return;/.test(src));
   ok("kein Caddy-Takt", /function caddyLivePush\(\)\{[\s\S]{0,80}if\(simAktiv\(\)\) return;/.test(src));
   /* Und die echte Ortung darf den angetippten Punkt nicht überschreiben —
@@ -14248,6 +14258,72 @@ group("Lochzeiger — der Zähler entscheidet, auf beiden Seiten");
   ok("das Protokoll nennt beide Zählerstände",
      /seq="\+fremderSeq\+"\/eigen "\+eigenerSeq/.test(src));
   ok("und benennt ein Verwerfen als solches", /VERWORFEN \(Zähler\)/.test(src));
+}
+
+/* ============ 24cx2. Der Grabstein überlebt jeden Nachzügler ============ */
+group("Rundenende — die Uhr hört wirklich auf");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+  const roh = ktOhneKommentar(codeOhneDoku(src));
+
+  /* ====================================================================
+     GEMELDET am 29.08.2026 (behoben in v5.09)
+     --------------------------------------------------------------------
+     „Beenden & schließen im Spielmodus beendet die Runde auf der Uhr nicht."
+     DIE KETTE: `playFinish` ruft `draftFileClear()`, das den Grabstein
+     schreibt — aber OHNE `await`. Und `playSaveDraft` hat kurz zuvor
+     `draftPushSoon()` angestoßen: einen Zeitgeber mit ZWEI SEKUNDEN
+     Verzögerung. Der zündet NACH dem Grabstein, schreibt den Entwurf zurück
+     — und die Uhr sieht wieder eine laufende Runde.
+     DIESES WETTRENNEN HAT DIE RUNDENSIMULATION SCHON GEZEIGT. Ich habe damals
+     die PRÜFUNG geduldiger gemacht („warte, bis der Grabstein da ist") statt
+     das Wettrennen zu beenden. Die Beobachtung war richtig, die Folgerung
+     falsch — und der Fehler blieb im Produkt.
+     WER EIN WETTRENNEN GEWINNEN WILL, SOLL NICHT SCHNELLER LAUFEN, SONDERN
+     DEN ZWEITEN LÄUFER ABMELDEN. */
+  ok("der entprellte Sender wird abbestellt", /function draftPushAus\(\)/.test(roh));
+  /* An ALLEN drei Enden einer Runde: beenden, verwerfen ohne Scores,
+     verwerfen mit Scores. Eines zu vergessen genügt für den Fehler. */
+  ok("und zwar an jedem Ende einer Runde",
+     (roh.match(/draftPushAus\(\);/g) || []).length >= 3,
+     String((roh.match(/draftPushAus\(\);/g) || []).length));
+  /* Beim Verwerfen steht der Grabstein direkt dahinter (`draftFinalize`),
+     beim Beenden & Speichern schreibt ihn `playFinish` weiter oben und
+     `flushCloudNow` schiebt ihn sofort ins Repo. Geprüft wird deshalb, dass
+     das Abbestellen VOR dem jeweils folgenden Schreibvorgang steht — nicht
+     eine bestimmte Nachbarzeile. */
+  ok("jeweils vor dem nächsten Schreibvorgang",
+     (roh.match(/draftPushAus\(\);[\s\S]{0,120}?(draftFinalize\(\)|flushCloudNow\(\))/g) || []).length >= 3,
+     String((roh.match(/draftPushAus\(\);[\s\S]{0,120}?(draftFinalize\(\)|flushCloudNow\(\))/g) || []).length));
+
+  /* DER ZWEITE RIEGEL IST DER VERLÄSSLICHE: Ein abgebrochener Zeitgeber
+     genügt nicht — ein Vorgang kann bereits unterwegs sein, und
+     `flushCloudNow` oder ein Abgleichstakt können ebenfalls in `draftPush`
+     landen. Ist die Runde beendet, schreibt er gar nichts mehr. */
+  /* v5.10: Die Sperre wurde auf die RUNDE eingeengt. `draftPush` lief vorher
+     gar nicht mehr — und durch ihn läuft auch der SCHLAGKANAL (`DRAFT_ACK`
+     quittiert der Uhr die übernommenen Messungen, `DRAFT_SHOTS` gibt fremde
+     Messungen zurück). Die Folge war eine Regression: Schlagtracking auf der
+     Uhr ging nicht mehr, dauerhaft, weil `playEndedKey` nach jeder Runde
+     stehen bleibt.
+     EINE SPERRE, DIE MEHR ABSCHALTET ALS DEN FEHLER, IST EIN NEUER FEHLER —
+     und sie fällt später auf, weil sie „vorsichtig" aussieht. */
+  ok("nach dem Ende geht die Runde nicht mehr hinaus",
+     /if\(_ohneRunde\)\{ delete d\.round; delete d\.live; \}/.test(roh));
+  ok("aber der Schlagkanal läuft weiter",
+     !/if\(beendet && !laeuft\) return false;/.test(roh)
+     && /if\(DRAFT_ACK\.length\) d\.shotAck=DRAFT_ACK;/.test(roh));
+  /* Der Grabstein hängt ohnehin an jeder Datei ohne Runde — das Ende bleibt
+     also bestehen, obwohl weiter geschrieben wird. */
+  ok("und der Grabstein hängt trotzdem an jeder Datei ohne Runde",
+     /if\(tomb && obj && !obj\.round && !obj\.discardedTs\)/.test(roh));
+  /* Aber nur, wenn wirklich keine Runde läuft — sonst könnte eine NEUE Runde
+     nach einer beendeten nicht mehr senden. */
+  ok("eine neue Runde darf weiterhin senden", /!laeuft/.test(roh));
+  /* Und im Zweifel schreiben: Ein Fehler in dieser Prüfung darf keine Daten
+     kosten. */
+  ok("im Zweifel wird gesendet",
+     /catch\(e\)\{ \/\* im Zweifel alles senden/.test(src));
 }
 
 /* ============ 24cx. Eine beendete Runde kommt nicht zurück ============ */

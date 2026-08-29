@@ -13,6 +13,41 @@
 
 ---
 
+- **v4.76.0 · 2026-08-25** — **Gefunden: Der Lochzeiger war zu alt — und die Quittung stand am
+  falschen Ort.** (Uhr-Fassung 2026-08-25 (29).)
+  **Der Puls hat den Widerspruch in eine Zeile gebracht:**
+  „Loch 5/18 · 49 Vorgänge, 3 misslungen · HTTP 200 · **eigenes Loch 1**"
+  Der Kontext wusste Loch 5, gesendet wurde Loch 1 — bei lückenlosen HTTP 200 im Sekundentakt.
+  **Die Uhr sendet einwandfrei. Sie sendet nur das Falsche.**
+  **Ursache 1:** `snapHole` wurde am **Anfang** von `syncNow` gelesen — vor der Entprellung
+  (600 ms), vor dem Netzaufbau und vor bis zu vier Wiederholungen bei 409. Wer in dieser Zeit
+  weiterblättert, sendet ein Loch, auf dem er nicht mehr steht; bei einer **Reihe** schneller
+  Eingaben verschiebt sich **jeder** Zeiger um einen Schritt nach hinten. Das Handy folgte deshalb
+  immer dem vorletzten Stand und wirkte, als folge es gar nicht.
+  Der Zeiger wird jetzt unmittelbar vor dem Absenden gelesen. Die übrigen Aufnahmen bleiben früh:
+  Sie beschreiben, **was** eingegeben wurde — der Zeiger beschreibt, **wo man jetzt steht**.
+  **Ursache 2:** Die Quittung `seenAktion` stand nur im **Zeiger**. Den überschreibt aber jede Seite
+  bei jedem Vorgang, und die Uhr sendet um ein Vielfaches öfter — also fand sie ihre eigene Quittung
+  nie: „Handy sah #13", während das Handy längst bei #27 war. Sie steht jetzt auf der obersten
+  Ebene, wo `mergeDraft` sie feldweise vereinigt.
+  **Zum Mitnehmen:** Eine Momentaufnahme ist nur so gut wie der Abstand zu ihrer Verwendung. Und
+  zwei Dinge, die verschieden oft geschrieben werden, gehören nicht in dasselbe Feld.
+
+- **v4.75.0 · 2026-08-25** — **Drosselung messen statt vermuten — und was für Chrome wirklich
+  hilft.**
+  Auf der Uhr misst der Herzschlag seit (27), ob er länger stand als erlaubt. Hier fehlte das
+  Gegenstück. **Ohne es haben wir zwei Tage lang über Drosselung geredet, ohne sie je gemessen zu
+  haben.** `taktPruefen()` schließt das: Wir wissen, wie lange zwischen zwei Durchläufen liegen
+  soll; dauert es das Dreifache (und mindestens 10 s), hat der Browser gestreckt.
+  **Die Meldung nennt den Modus und den Bildschirmzustand** — denn ob und wie stark gedrosselt
+  wird, hängt an drei Schaltern **am Gerät**: installiert oder als Tab, Bildschirm an oder aus,
+  Akku-Optimierung für Chrome. Keiner davon steht im Code, und nur eine Messung sagt, ob sie
+  richtig stehen.
+  **Zu Periodic Background Sync, ausdrücklich:** Chrome hat die Schnittstelle, aber ihr
+  Mindestabstand richtet sich nach der Nutzungshäufigkeit der Seite und liegt in der Praxis bei
+  Stunden, nicht Minuten. **Für eine Golfrunde ist sie damit nutzlos** — sie würde einen
+  Umbau rechtfertigen, der nichts einbringt. Deshalb bewusst nicht gebaut.
+
 - **v4.74.0 · 2026-08-25** — **Der Umbau der Handy-Seite: Aufholen beim Wiedersehen.**
   **Der Befund war eindeutig:** Die Uhr sendet einwandfrei — 24 Vorgänge, HTTP 200, **kein einziges
   „Schleife stand"**. Das **Handy** liest nicht. Im Hintergrund streckt der Browser seine Zeitgeber

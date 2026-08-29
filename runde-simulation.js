@@ -944,6 +944,50 @@ kopf("draft.json — Handy → Uhr");
 
 
 
+  /* ======================================================================
+     DER SCHLAGKANAL UEBERLEBT DAS RUNDENENDE (neu 29.08.2026)
+     ----------------------------------------------------------------------
+     GEMELDET einen Tag nach v5.09: „Das Schlagtracken auf der Uhr geht nicht.
+     Es laesst sich nicht starten, und wenn es gestartet wurde, uebertraegt es
+     keine Daten."
+     DAS WAR EINE REGRESSION AUS v5.09. Die Sperre gegen den Nachzuegler
+     („nach dem Ende nichts mehr schreiben") sass in `draftPush` — und durch
+     `draftPush` laeuft auch der SCHLAGKANAL: `DRAFT_ACK` quittiert der Uhr
+     die uebernommenen Messungen, `DRAFT_SHOTS` gibt fremde Messungen
+     unveraendert zurueck. Wer den ganzen Vorgang sperrt, sperrt die
+     Schlagmessung mit — DAUERHAFT, denn `playEndedKey` bleibt nach jeder
+     beendeten Runde stehen.
+     DIESER ABSCHNITT HAELT DAS FEST: Auch wenn eine Runde beendet ist, muss
+     eine Messung der Uhr quittiert werden. Ohne Quittung sendet die Uhr
+     endlos weiter und zeigt die Messung als offen. */
+  kopf("Schlagkanal — quittiert auch nach dem Rundenende");
+  {
+    /* Zustand herstellen: Runde beendet, keine neue gestartet. Genau die
+       Lage, in der die Sperre zuschlug. */
+    R(`DB.ui=DB.ui||{}; DB.ui.playEndedKey="X|2026-01-01|18 Loch";
+       if(typeof PLAY!=="undefined") PLAY.active=false; "ok"`);
+    const vorher=REPO["draft.json"];
+    /* Eine Messung der Uhr liegt in der Datei und wartet auf die Quittung. */
+    const d=JSON.parse(vorher||"{}");
+    d.gpsShots=[{id:"W-QUITT", ts:new Date().toISOString(), club:"7 Iron", dist:150,
+                 latA:54, lngA:10, latB:54.001, lngB:10, src:"watch"}];
+    REPO["draft.json"]=JSON.stringify(d); SHAS["draft.json"]="sha-quitt";
+    await R(`draftPull()`);
+    for(let i=0;i<4;i++) await new Promise(r=>setImmediate(r));
+    const ok1=R(`typeof draftPush==="function"`);
+    pruef("draftPush ist auch nach dem Ende aufrufbar", ok1===true);
+    const erg=await R(`draftPush()`);
+    for(let i=0;i<6;i++) await new Promise(r=>setImmediate(r));
+    /* DAS IST DER KERN: Der Vorgang darf nicht mehr pauschal `false`
+       zurueckgeben. Vor v5.10 tat er genau das. */
+    pruef("und wird nicht pauschal abgewiesen", erg!==false, JSON.stringify(erg));
+    let nachher=null; try{ nachher=JSON.parse(REPO["draft.json"]||"{}"); }catch(e){}
+    /* Die RUNDE darf trotzdem nicht zurueckkommen — dafuer war die Sperre da. */
+    pruef("die Runde kommt trotzdem nicht zurück", !(nachher&&nachher.round),
+      JSON.stringify(Object.keys(nachher||{})));
+    R(`DB.ui.playEndedKey=""; "ok"`);
+  }
+
   /* ---------- Mitspieler (v4.81): Namen und Endscores reisen mit ---------- */
   kopf("Mitspieler — Namen und Endscores über den Entwurf");
   const ms=R(`(function(){
@@ -1140,6 +1184,23 @@ kopf("draft.json — Handy → Uhr");
        Schritten, und fertig, sobald er da ist. Eine Pruefung, die auf ein
        ERGEBNIS wartet statt auf eine Uhrzeit, ist nicht nur robuster — sie
        misst auch das Richtige. */
+    /* ==================================================================
+       DAS WETTRENNEN AUSLOESEN, NICHT UMGEHEN (29.08.2026)
+       --------------------------------------------------------------------
+       GEMELDET: „Beenden & schliessen beendet die Runde auf der Uhr nicht."
+       Genau dieses Wettrennen hatte diese Datei schon gezeigt — und ich habe
+       damals die PRUEFUNG geduldiger gemacht („warte, bis der Grabstein da
+       ist") statt das Wettrennen zu beenden. Die Beobachtung war richtig, die
+       Folgerung falsch: Der Fehler blieb im Produkt, und die Uhr lief weiter.
+       JETZT WIRD ER ABSICHTLICH AUSGELOEST: eine Eingabe unmittelbar vor dem
+       Abschluss stoesst `draftPushSoon()` an (2 s Verzoegerung). Ohne die
+       Behebung aus v5.09 zuendet dieser Zeitgeber NACH dem Grabstein und
+       schreibt den Entwurf zurueck. */
+    R(`(function(){ const h=PLAY.holes[0]; if(h){ h.putts=(h.putts||2);
+         if(typeof playTouchHole==="function") playTouchHole(h); }
+       if(typeof playSaveDraft==="function") playSaveDraft();
+       return "ok"; })()`);
+
     const bisGrabstein = async () => {
       for (let i = 0; i < 30; i++) {
         try {
@@ -1153,6 +1214,29 @@ kopf("draft.json — Handy → Uhr");
     const deW = await bisGrabstein();
     pruef("im Repo steht der Grabstein, nicht die Runde",
       !!(deW && deW.discardedTs && !deW.round), JSON.stringify(Object.keys(deW||{})));
+
+    /* UND ER BLEIBT ES. Der entprellte Sender braucht 2 s; danach muss der
+       Grabstein NOCH IMMER dastehen — vorher hat genau dieser Nachzuegler die
+       Runde auf der Uhr wiederbelebt.
+       DIE DATEI WIRD FESTGEHALTEN, NICHT DAS REPO. Erster Anlauf las
+       `REPO["draft.json"]` nach dem Warten — und fand dort die Runde des
+       LOCHZEIGER-Abschnitts, der am Dateiende laeuft und selbst schreibt. Die
+       Pruefung war rot, obwohl das Produkt sich richtig verhielt: Ich habe
+       meinen eigenen Pruefstand fuer den Fehler gehalten.
+       Gemessen wird deshalb der Stand DIESES Abschnitts, eingefroren, bevor
+       ein anderer schreiben kann. */
+    const standNachEnde = REPO["draft.json"];
+    await new Promise(r=>setTimeout(r, 2600));
+    for (let i = 0; i < 8; i++) await new Promise(r=>setImmediate(r));
+    let deSpaet=null; try{ deSpaet=JSON.parse(REPO["draft.json"]||standNachEnde||"{}"); }catch(e2){}
+    /* Kein fremder Abschnitt dazwischen: Wenn die Datei sich gar nicht mehr
+       geaendert hat, ist der eingefrorene Stand der richtige Vergleich. */
+    if(REPO["draft.json"]!==standNachEnde){
+      try{ deSpaet=JSON.parse(standNachEnde||"{}"); }catch(e2){}
+    }
+    pruef("und überlebt den entprellten Nachzügler",
+      !!(deSpaet && deSpaet.discardedTs && !deSpaet.round),
+      JSON.stringify(Object.keys(deSpaet||{})));
   }
 
   /* ======================================================================
