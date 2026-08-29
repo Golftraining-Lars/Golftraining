@@ -13,6 +13,46 @@
 
 ---
 
+- **v4.74.0 · 2026-08-25** — **Der Umbau der Handy-Seite: Aufholen beim Wiedersehen.**
+  **Der Befund war eindeutig:** Die Uhr sendet einwandfrei — 24 Vorgänge, HTTP 200, **kein einziges
+  „Schleife stand"**. Das **Handy** liest nicht. Im Hintergrund streckt der Browser seine Zeitgeber
+  auf ein Vielfaches des eingestellten Takts; aus 30 s wurden gemessene **144–207 s**.
+  **Dagegen ist nicht anzukommen, und das ist richtig so.** Ein Browser im Hintergrund darf nicht
+  pollen. Beeinflussbar ist der **Moment des Wiedersehens** — er muss sofort aufholen statt auf den
+  nächsten Takt zu warten.
+  **Drei Änderungen:**
+  · **Nicht nur `visibilitychange`**, sondern auch `pageshow` und `focus`. Auf Android kommt beim
+  Zurückholen je nach Browser das eine oder das andere — wer nur auf ein Ereignis hört, verpasst die
+  Hälfte.
+  · **Ohne die `PLAY.live`-Bedingung.** Das Aufholen wurde übersprungen, wenn der Live-Modus aus war
+  — dabei ist genau dann etwas nachzuholen. Die Bedingung gehört zum **Takt**, nicht zum Aufholen.
+  · **Entprellt (1,5 s)**, weil `pageshow` und `focus` zusammen kommen und sonst zwei Abgleiche
+  gleichzeitig liefen. Das ist der **409**, der seit Tagen im Protokoll steht.
+  Die Bildschirmsperre wird dabei neu angefordert — der Browser gibt sie beim Verstecken frei.
+  **Was das nicht ändert:** Während das Handy in der Tasche ist, bleibt es still. Die Daten gehen
+  aber nicht verloren — im Protokoll steht bei **jedem** Durchlauf „keine Lücke". Es ist eine Frage
+  des Zeitpunkts, nicht der Vollständigkeit.
+
+- **v4.73.0 · 2026-08-25** — **Gefunden: Der Sende-Auftrag der Uhr hing an der Anzeige.**
+  (Uhr-Fassung 2026-08-25 (28) — nur die Uhr muss neu.)
+  **Die Bilanz aus v4.72 hat es in zwei Zeilen gezeigt:**
+  · beim Hinsehen: **4–5 s** bis zum Handy
+  · mit gesenktem Arm: **119–208 s (Median 168)** — bei **„keine Lücke"**
+  Es geht also nichts verloren, es kommt nur zu spät. Genau die Unterscheidung, für die diese
+  Messung gebaut wurde.
+  **Ursache:** `scheduleSync()` startete seinen Auftrag auf `rememberCoroutineScope()`. **Dieser
+  Bereich gehört der Komposition.** Verlässt der Bildschirm die Anzeige, wird er abgebrochen — samt
+  dem Sende-Auftrag und seiner 600-ms-Entprellung. Erst der Herzschlag holt es nach, daher die
+  Minuten.
+  **Und damit ist auch klar, warum (25) nicht reichte:** Der WakeLock hält den **Prozess** am Leben
+  — 28 Minuten wurden zu drei. Der **Auftrag** starb trotzdem, weil er an der **Anzeige** hing.
+  **Zwei verschiedene Lebensdauern, die ich für dieselbe gehalten habe.**
+  Neu ist ein eigener Bereich mit `SupervisorJob`, der jeden Bildschirmwechsel überlebt und beim
+  Verlassen sauber beendet wird. `SupervisorJob`, damit ein gescheiterter Vorgang nicht die
+  folgenden mitreißt.
+  **Zum Mitnehmen: Ein Auftrag, der etwas senden soll, gehört an die Lebensdauer des Prozesses —
+  nicht an die eines Bildes.**
+
 - **v4.72.0 · 2026-08-25** — **Zwei Messungen, die die Frage direkt beantworten — statt mehr
   Rohdaten.**
   **(1) Die Uhr misst sich selbst** (Fassung (27)). Der Verdacht aus (25) — Android friert den

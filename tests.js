@@ -10002,6 +10002,102 @@ group("Protokoll — drei Stufen, ein Startvermerk, ein sprechender Service Work
      /const echte = \(typeof ERRLOG!=="undefined"/.test(roh));
 }
 
+/* ============ 24et. Das Lage-Raster darf den Start nicht blockieren ============ */
+group("Lage-Raster — gemessen, nicht vermutet");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+  const S = G("STRAT"), DB0 = live("DB");
+
+  /* ====================================================================
+     GEMESSEN am 29.08.2026 — nach vier falschen Vermutungen
+     --------------------------------------------------------------------
+     Die App fror auf dem Handy 20 s nach dem Laden ein. Ich hatte Datei,
+     Cache, Service Worker und Datenmenge verdächtigt. Erst ein CPU-Profil
+     zeigte, wo die Zeit wirklich lag:
+       Rasteraufbau EINES Lochs: 3.591 ms
+       davon 77 % in `haversine`/`geoDist`
+       Raster 71 x 166 = 11.786 Zellen, 250 Bäume in der Vorauswahl
+       => 2,9 MILLIONEN Haversine-Aufrufe je Loch
+     Und `gameplanTick` rechnet beim Start VIER Gameplans x 18 Löcher neu —
+     38 s je Plan auf dem Rechner, ein Vielfaches auf dem Handy.
+     HAVERSINE FÜR 3,5 METER IST MIT KANONEN AUF SPATZEN GESCHOSSEN: Sie
+     rechnet auf der Kugel und ist auf Hunderte Kilometer genau; auf 3,5 m ist
+     die Erdkrümmung bedeutungslos. Ebene Rechnung mit den Metern je Grad, die
+     das Raster ohnehin kennt, im Quadrat verglichen — zwei Subtraktionen,
+     zwei Multiplikationen, ein Vergleich.
+     ERGEBNIS: 3.591 ms → 79 ms je Loch, ein ganzer Gameplan 38 s → 1,6 s. */
+  ok("die Baumabfrage rechnet eben, nicht auf der Kugel",
+     /const nahBaum=\(y,x\)/.test(src) && /dy\*dy\+dx\*dx < R2/.test(src));
+  ok("und ruft dafür kein geoDist mehr",
+     !/trees\.some\(t=>geoDist\(p,t\.pt\)<3\.5\)/.test(codeOhneDoku(src)));
+  /* Die Umrechnung passiert EINMAL je Raster, nicht je Zelle — sonst hätte
+     man die Trigonometrie nur durch Multiplikation ersetzt. */
+  ok("die Bäume werden einmal umgerechnet, nicht je Zelle",
+     /trees\.forEach\(t2=>\{[\s\S]{0,300}?baeume\.push/.test(src));
+  /* Und ein Vorfilter: Bäume außerhalb des Rasters können keine Zelle
+     treffen. */
+  ok("Bäume außerhalb des Rasters fallen vorher raus",
+     /if\(q\[0\]<laMin-0\.001/.test(src));
+  /* Ringe bekommen ein umfassendes Rechteck — vier Zahlenvergleiche statt
+     eines Durchlaufs durch alle Stützpunkte. */
+  ok("Ringe werden über ein umfassendes Rechteck vorgefiltert",
+     /const _drin=\(p,f\)/.test(src) && /f\._bx/.test(src));
+
+  /* ---- Und jetzt die Messung selbst ----
+     Eine Zusicherung über LAUFZEIT ist heikel: Sie hängt an der Maschine.
+     Deshalb großzügig — es geht darum, eine Rückkehr der Größenordnung zu
+     bemerken (Sekunden statt Millisekunden), nicht um Feinheiten. */
+  if (S && typeof S.grid === "function" && DB0) {
+    const mLat = 110540, mLng = 111320 * Math.cos(54 * Math.PI / 180);
+    const tee = [54.0, 10.0], gruen = [54.0 + 380 / mLat, 10.0];
+    const ring = (m, r) => { const p = [];
+      for (let a = 0; a < 360; a += 20)
+        p.push([m[0] + r * Math.cos(a * Math.PI / 180) / mLat,
+                m[1] + r * Math.sin(a * Math.PI / 180) / mLng]);
+      p.push(p[0]); return p; };
+    /* 250 Bäume — genau die Zahl, die im echten Bestand stand. */
+    const feats = [{ kind: "green", ring: ring(gruen, 14), hole: 1 },
+                   { kind: "fairway", ring: ring([54.0 + 190 / mLat, 10.0], 60), hole: 1 }];
+    for (let i = 0; i < 250; i++)
+      feats.push({ kind: "tree", hole: 1,
+        pt: [54.0 + (20 + i * 1.4) / mLat, 10.0 + ((i % 7) * 9 - 30) / mLng] });
+    const geo = { holes: { 1: { tee, green: gruen, line: [tee, gruen], distM: 380 } },
+                  features: feats };
+    const altC = DB0.courses;
+    try {
+      DB0.courses = [{ name: "RasterTest", tees: { Gelb: { holes:
+        [{ hole: 1, par: 4, si: 1, len: 380 }] } } }];
+      S._grids.clear();
+      const t0 = Date.now();
+      const g = S.grid(geo, "RasterTest", 1);
+      const ms = Date.now() - t0;
+      ok("das Raster entsteht", !!(g && g.codes && g.Nx), g ? g.Nx + "x" + g.Ny : "keins");
+      ok("und zwar in unter zwei Sekunden", ms < 2000, ms + " ms für " + (g ? g.Nx * g.Ny : 0) + " Zellen");
+      /* Wiederholte Aufrufe kommen aus dem Zwischenspeicher — der war schon
+         da, wurde aber von der teuren Neuberechnung überdeckt. */
+      const t1 = Date.now(); S.grid(geo, "RasterTest", 1);
+      ok("der zweite Aufruf kommt aus dem Zwischenspeicher", Date.now() - t1 < 50);
+
+      /* INHALTLICH GLEICH: Die ebene Rechnung muss dieselben Zellen als
+         „Baum" erkennen wie die Kugelrechnung. Randfälle genau auf 3,5 m
+         dürfen abweichen — mehr als ein Promille wäre ein Fehler. */
+      const gd = G("geoDist"), baeume = feats.filter(f => f.kind === "tree");
+      let abw = 0, n = 0;
+      for (let iy = 0; iy < g.Ny; iy += 3) for (let ix = 0; ix < g.Nx; ix += 3) {
+        const lat = g.laMin + (iy + 0.5) * g.cell / g.mLat;
+        const lng = g.loMin + (ix + 0.5) * g.cell / g.mLng;
+        const kugel = baeume.some(t => gd([lat, lng], t.pt) < 3.5);
+        const my = (iy + 0.5) * g.cell, mx = (ix + 0.5) * g.cell;
+        const eben = baeume.some(t => { const dy = my - (t.pt[0] - g.laMin) * g.mLat,
+          dx = mx - (t.pt[1] - g.loMin) * g.mLng; return dy * dy + dx * dx < 12.25; });
+        n++; if (kugel !== eben) abw++;
+      }
+      ok("eben und Kugel stimmen überein", abw <= Math.max(2, n / 1000),
+         abw + " Abweichungen bei " + n + " Zellen");
+    } finally { DB0.courses = altC; try { S._grids.clear(); } catch (e) {} }
+  }
+}
+
 /* ============ 24es. Platzdaten haben eine Obergrenze ============ */
 group("Platzdaten — eine relative Regel braucht eine absolute Schranke");
 {
@@ -15893,8 +15989,17 @@ group("Caddy — zweiter Zug und die Gewichte, die ihn tragen");
        bis zu `greenCells`. Ein Zeichenfenster über Quelltext ist ohnehin die
        schwächste Art zu prüfen; es bleibt hier nur, weil die Zählung selbst
        tief in einer Schleife sitzt. */
-    const gr = src.slice(src.indexOf("  grid(geo,courseName,holeNo)"),
-                         src.indexOf("  grid(geo,courseName,holeNo)") + 14000);
+    /* DEN BLOCK ABGRENZEN, NICHT EIN FENSTER ZAEHLEN (v5.07). Das feste
+       Zeichenfenster musste dreimal vergroessert werden (v3.72, v3.94, jetzt) —
+       jedes Mal, wenn `grid()` einen Kommentar dazubekam, wurde die Pruefung
+       rot, ohne dass sich an der Sache etwas geaendert hatte. Eine Pruefung,
+       die bei einer harmlosen Ergaenzung anschlaegt, erzieht dazu, sie
+       anzupassen statt zu lesen.
+       Jetzt bis zur naechsten Methode auf derselben Ebene — das ist die
+       Grenze, die auch ein Mensch beim Lesen zieht. */
+    const _grStart = src.indexOf("  grid(geo,courseName,holeNo)");
+    const _grEnde = src.indexOf("\n  approach(", _grStart);
+    const gr = src.slice(_grStart, _grEnde > 0 ? _grEnde : _grStart + 30000);
     ok("Raster zählt Grünzellen", /greenCells:gz/.test(gr));
     ok("approach meldet fehlendes Grün", /noGreen:!g\.greenCells/.test(src));
     ok("die Karte schreibt es hin statt 0 %", /kein Grün-Polygon/.test(src));
