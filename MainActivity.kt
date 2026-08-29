@@ -28,6 +28,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.clickable
 import androidx.compose.ui.draw.clip
@@ -390,6 +391,92 @@ import kotlin.math.sqrt
  *  ------------------------------------------------------------------------
  *  CHANGELOG (neueste zuerst — bei JEDER Änderung ergänzen: Datum · was · wo)
  *  ------------------------------------------------------------------------
+ *  2026-08-29 (52) · DIE UHR SAGT, WELCHE FASSUNG SIE IST.
+ *     BEFUND AUS DEM AUDIT vom 29.08.: Ob auf dem Geraet wirklich die neueste
+ *     Fassung laeuft, wusste niemand. Der Pruefstand vergleicht nur Dateien,
+ *     die ohnehin zusammen geschrieben werden; die Fassung der Uhr stand
+ *     allein auf ihrem eigenen Bildschirm.
+ *     DAS HAT IN DER WOCHE VOM 24.–29.08. MEHRFACH STUNDEN GEKOSTET:
+ *     Behebungen wurden auf dem Platz geprueft, BEVOR sie auf dem Handgelenk
+ *     waren — und beide Seiten hielten die Korrektur fuer wirkungslos. Genau
+ *     dasselbe ist der PWA passiert, bis sie seit v5.02 ihren Startvermerk
+ *     schreibt.
+ *     `app` STEHT JETZT IM LIVE-ZEIGER, den die Uhr ohnehin im Takt schickt:
+ *     kein zusaetzlicher Abruf, keine zusaetzliche Datei, rund 20 Byte. Das
+ *     Handy protokolliert sie beim ersten Sehen und bei jedem Wechsel (PWA
+ *     v5.13, `watchFassungPruefen`) — damit steht im Fehlerprotokoll, WELCHE
+ *     Fassungen wirklich miteinander geredet haben.
+ *     NICHT IN `note`: Das ist ein Freitext, der sich mit jeder Fassung
+ *     aendert. Eine Fassungsnummer muss man VERGLEICHEN koennen, nicht lesen.
+ *
+ *  2026-08-28 (51) · DER KNOPF ZEIGT, OB ER UEBERHAUPT KANN.
+ *     ZWEITE MELDUNG ZUM SELBEN THEMA: „Der Button startet das Schlagtracken
+ *     nicht." (50) hat eine ECHTE Ursache behoben — ein verklemmtes
+ *     `measuring`. Aber im mitgeschickten Protokoll stand die WAHRSCHEINLICHERE
+ *     Antwort woertlich, und ich habe sie beim ersten Lesen uebersehen:
+ *       „Uhr meldet seit ueber 90 s keine Position"
+ *     OHNE BRAUCHBAREN FIX LEHNT `recBegin` AB. `FixQuality.usable` verlangt
+ *     hoechstens 15 m Streuung und einen nicht zu alten Fix; fehlt beides,
+ *     setzt die Funktion eine Statuszeile und vibriert kurz.
+ *     BEIDES REICHT NICHT. Die Statuszeile steht auf einer Seite, die man beim
+ *     Ball nicht liest, und ein kurzer Stups geht im Gehen unter. Aus Sicht des
+ *     Benutzers PASSIERT NICHTS — und er tippt weiter, statt zu warten oder
+ *     weiterzugehen.
+ *     DIE PRECONDITION GEHOERT AN DEN KNOPF, NICHT IN DIE FEHLERMELDUNG. Ein
+ *     Knopf, der nicht kann, soll das VORHER zeigen, nicht hinterher melden.
+ *     Drei Zustaende:
+ *       bereit        dunkel, „📐"
+ *       nicht bereit  gedaempft mit goldenem Rand, „GPS"
+ *       Aufnahme      gruen, die gelaufenen Meter
+ *     DIESELBE SCHWELLE WIE DIE MESSUNG (`FixQuality.MAX_ACC`, 15 m). Zwei
+ *     Zahlen fuer dieselbe Frage laufen auseinander — und dann zeigt der Knopf
+ *     „bereit", waehrend die Messung ablehnt. Das waere schlimmer als gar keine
+ *     Anzeige. Es ist dasselbe Muster wie bei `MAX_ACC`/`GPS_MAX_ACC` im
+ *     Folge-Audit: zwei Wahrheiten ueber dieselbe Sache.
+ *     ANTIPPEN BLEIBT ERLAUBT, auch wenn er nicht bereit ist: Die Ablehnung
+ *     sagt dann, WORAN es liegt (Genauigkeit in Metern). Das ist mehr wert als
+ *     ein gesperrter Knopf, der gar nichts erklaert — wer gesperrt wird, weiss
+ *     nicht, warum.
+ *     WAS DAS FUER DIE MELDUNG HEISST: (50) und (51) beheben ZWEI
+ *     verschiedene Ursachen desselben Symptoms. Welche zugeschlagen hat, sagt
+ *     ab (48) die Schlag-Spur im Protokoll — „Tipp ins Leere" fuer die eine,
+ *     „Start abgelehnt · GPS zu ungenau" fuer die andere.
+ *
+ *  2026-08-28 (50) · DER SCHLAG-KNOPF KONNTE STUMM VERKLEMMEN.
+ *     GEMELDET: „Wenn ich das Schlagtracken auf der Uhr ueber den Button
+ *     aktiviere, passiert nichts. Der Button startet das Schlagtracken leider
+ *     nicht."
+ *     URSACHE: `recBegin` begann mit `if (measuring) return` — einem LAUTLOSEN
+ *     Ruecksprung. Und `measuring` wurde NUR IM ERFOLGSFALL freigegeben: Die
+ *     Zeile `measuring = false` sass MITTEN im `scope.launch`, hinter
+ *     `FixQuality.collect`. Endete die Nebenlaeufigkeit vorher — Bildschirm
+ *     aus, Ambient-Wechsel, Neuaufbau der Oberflaeche — oder warf `collect`,
+ *     blieb `measuring` FUER IMMER `true`.
+ *     DANACH WAR DER KNOPF TOT: kein Zeichen, kein Ton, keine Zeile im
+ *     Protokoll. Jeder weitere Tipp sprang stumm zurueck, bis jemand die App
+ *     neu startete. Auf der Runde merkt man das erst am Loch danach.
+ *     DREI RIEGEL:
+ *     1. FREIGABE IM `finally`. Es gibt keinen Weg mehr aus dem Block, der die
+ *        Sperre gesetzt laesst — auch nicht den Abbruch, und der ist auf einer
+ *        Uhr der haeufigste Fall. Der Abbruch wird weiterhin weitergeworfen
+ *        (Regel aus (10)); aufgeraeumt wird trotzdem.
+ *     2. EIN WAECHTER: Haengt die Sperre laenger als 20 s, gilt sie als
+ *        verklemmt und wird freigegeben — mit Protokolleintrag, damit man
+ *        sieht, DASS es passiert ist. Das Sammelfenster dauert wenige
+ *        Sekunden; alles darueber ist ein Fehler und kein Warten.
+ *     3. KEIN RUECKSPRUNG OHNE ANTWORT. Wer tippt, bekommt Vibration, Status
+ *        und eine Protokollzeile. EIN KNOPF, DER NICHTS TUT UND NICHTS SAGT,
+ *        IST SCHLIMMER ALS EINER MIT EINER FEHLERMELDUNG: Man tippt weiter und
+ *        verliert die Runde.
+ *     DASSELBE IN `recStop` — dort stand derselbe stumme Ruecksprung, und ein
+ *     verklemmtes `measuring` haette zusaetzlich die laufende Messung
+ *     unbeendbar gemacht.
+ *     ANMERKUNG ZUR DIAGNOSE: Das eingereichte Protokoll stammt vom 26.08. und
+ *     von PWA 4.94 — es enthaelt keine Schlag-Spur, weil die erst mit (48)
+ *     eingefuehrt wurde. Der Befund stammt daher aus dem Quelltext, nicht aus
+ *     dem Protokoll. Mit (48) oder neuer stuende „Schlag: Tipp ins Leere" dort,
+ *     und die Ursache waere in einer Zeile sichtbar gewesen.
+ *
  *  2026-08-28 (49) · DER LETZTE GROSSE ABRUF IST WEG.
  *     ENTSCHIEDEN AM 28.08. auf Nachfrage: Der Big-File-Rueckfall soll nicht
  *     bleiben. (48) hatte ihn aus `pushDraft` und `fetchDraft` entfernt; in
@@ -3027,7 +3114,7 @@ import kotlin.math.sqrt
 /* Fassungskennung der Uhr-App — steht im Kopplungstest neben der der PWA.
    Bei JEDER Aenderung hier mitziehen; sonst vergleicht man zwei Staende und
    glaubt, sie seien gleich (2026-08-15 (13)). */
-private const val WATCH_APP = "2026-08-28 (49)"
+private const val WATCH_APP = "2026-08-29 (52)"
 /* ==========================================================================
    WAS HAT DIESE FASSUNG GEAENDERT? (2026-08-25 (22))
    --------------------------------------------------------------------------
@@ -4491,6 +4578,28 @@ private object Net {
                         "live",
                         JSONObject()
                             .put("src", "watch")
+                    /* ==============================================================
+                       DIE UHR SAGT, WELCHE FASSUNG SIE IST (2026-08-29 (52))
+                       --------------------------------------------------------------
+                       BEFUND AUS DEM AUDIT vom 29.08.: Ob auf dem Geraet wirklich
+                       die neueste Fassung laeuft, wusste niemand. Der Pruefstand
+                       vergleicht nur Dateien, die ohnehin zusammen geschrieben
+                       werden; die Fassung der Uhr stand allein auf ihrem eigenen
+                       Bildschirm.
+                       DAS HAT IN DER WOCHE VOM 24.–29.08. MEHRFACH STUNDEN
+                       GEKOSTET: Behebungen wurden auf dem Platz geprueft, bevor sie
+                       auf dem Handgelenk waren — und beide Seiten hielten die
+                       Korrektur fuer wirkungslos. Genau dasselbe ist der PWA
+                       passiert, bis sie seit v5.02 ihren Startvermerk schreibt.
+                       `app` STEHT JETZT IM ZEIGER, den die Uhr ohnehin im Takt
+                       schickt: kein zusaetzlicher Abruf, keine zusaetzliche Datei,
+                       rund 20 Byte. Das Handy protokolliert sie beim ersten Sehen
+                       und bei jedem Wechsel — damit steht im Fehlerprotokoll,
+                       WELCHE Fassungen wirklich miteinander geredet haben.
+                       WARUM NICHT IN `note`: Das ist ein Freitext, der sich mit
+                       jeder Fassung aendert. Eine Fassungsnummer muss man
+                       VERGLEICHEN koennen, nicht lesen. */
+                    .put("app", WATCH_APP)
                     .put("note", WATCH_NOTE)
                             .put("hole", hole)
                             .put("at", now)
@@ -7019,6 +7128,10 @@ fun GolfWatchApp(
     var measuring by remember {
         mutableStateOf(false)
     }
+    /* Wann wurde `measuring` gesetzt? Der Waechter in `recBegin` braucht das,
+       um ein Haengenbleiben von einem laufenden Sammelfenster zu unterscheiden
+       (2026-08-28 (50)). */
+    var measuringSeit by remember { mutableLongStateOf(0L) }
 
     val activity = LocalContext.current as? Activity
 
@@ -8342,7 +8455,45 @@ fun GolfWatchApp(
        solange das Fenster laeuft. */
     fun recBegin() {
 
-        if (measuring) return
+        /* ==================================================================
+           EIN STUMMER KNOPF IST DER SCHLIMMSTE KNOPF (2026-08-28 (50))
+           --------------------------------------------------------------------
+           GEMELDET: „Wenn ich das Schlagtracken auf der Uhr ueber den Button
+           aktiviere, passiert nichts. Der Button startet das Schlagtracken
+           leider nicht."
+           HIER STAND `if (measuring) return` — ein LAUTLOSER Ruecksprung. Und
+           `measuring` wurde NUR IM ERFOLGSFALL freigegeben: Die Zeile
+           `measuring = false` sass MITTEN im `scope.launch`, hinter
+           `FixQuality.collect`. Endete die Nebenlaeufigkeit vorher
+           (Bildschirm aus, Ambient-Wechsel, Neuaufbau der Oberflaeche) oder
+           warf `collect`, blieb `measuring` FUER IMMER `true`.
+           DANACH WAR DER KNOPF TOT: kein Zeichen, kein Ton, keine Zeile im
+           Protokoll. Jeder weitere Tipp sprang stumm zurueck, bis jemand die
+           App neu startete. Genau das ist die Meldung.
+           DREI AENDERUNGEN, und die dritte ist die eigentliche:
+           1. `measuring` wird im `finally` freigegeben — es gibt keinen Weg
+              mehr aus dem Block, der es gesetzt laesst.
+           2. EIN WAECHTER: Haengt es laenger als 20 s, gilt es als verklemmt
+              und wird freigegeben. Das Sammelfenster dauert wenige Sekunden;
+              alles darueber ist ein Fehler und kein Warten.
+           3. KEIN STUMMER RUECKSPRUNG. Wer tippt, bekommt eine Antwort —
+              Vibration, Status, Protokollzeile. Ein Knopf, der nichts tut und
+              nichts sagt, ist schlimmer als einer, der eine Fehlermeldung
+              zeigt: Man tippt weiter und verliert die Runde. */
+        if (measuring) {
+            val her = System.currentTimeMillis() - measuringSeit
+            if (measuringSeit > 0L && her > 20_000L) {
+                Diagnose.schlag("Messung war verklemmt", "${her / 1000} s — freigegeben")
+                Fehler.add("Schlagmessung", IllegalStateException(
+                    "measuring hing ${her / 1000} s — automatisch freigegeben"))
+                measuring = false                 // und regulaer weiter
+            } else {
+                status = "messe gerade…"
+                buzzNein(ctx)
+                Diagnose.schlag("Tipp ins Leere", "Messung läuft bereits")
+                return
+            }
+        }
 
         /* ABLEHNUNG MUSS MAN SPUEREN (2026-08-26 (38)).
            Bisher stand hier nur ein Text — auf einer Seite, die man beim Ball
@@ -8365,6 +8516,7 @@ fun GolfWatchApp(
         }
 
         measuring = true
+        measuringSeit = System.currentTimeMillis()
         status = "messe…"
 
         scope.launch {
@@ -8374,7 +8526,6 @@ fun GolfWatchApp(
                schlimmste Fall. Notiert und weiterleben statt abstuerzen. */
             try {
             val f = FixQuality.collect { n -> status = "messe… ($n)" }
-            measuring = false
             if (f == null) {
                 status = "GPS zu ungenau — nicht gestartet"
                 buzzNein(ctx)
@@ -8409,7 +8560,19 @@ fun GolfWatchApp(
                nicht mehr" entsteht. */
             if (e.istAbbruch()) throw e
             Fehler.add("Schlag ablegen", e)
-        }
+            } finally {
+                /* HIER UND NUR HIER (2026-08-28 (50)). `measuring = false` sass
+                   frueher MITTEN im Ablauf, hinter `FixQuality.collect` — jeder
+                   Weg daran vorbei (Ausnahme, Abbruch der Nebenlaeufigkeit,
+                   frueher `return@launch`) liess die Sperre stehen, und der
+                   Knopf war danach stumm tot.
+                   `finally` LAEUFT AUCH BEI ABBRUCH, und genau der ist der Fall,
+                   der auf der Uhr staendig vorkommt: Bildschirm aus, Ambient,
+                   Neuaufbau. Der Abbruch wird oben weitergeworfen — aufgeraeumt
+                   wird trotzdem. */
+                measuring = false
+                measuringSeit = 0L
+            }
         }
     }
 
@@ -8533,7 +8696,23 @@ fun GolfWatchApp(
 
     fun recStop() {
 
-        if (measuring) return
+        /* AUCH HIER KEIN STUMMER RUECKSPRUNG (2026-08-28 (50)). Derselbe Fall
+           wie in `recBegin`: Wer den Stopp tippt, waehrend das Sammelfenster
+           laeuft, bekam gar nichts — und tippte weiter. Der Waechter greift
+           ebenso, damit ein verklemmtes `measuring` nicht auch noch den Stopp
+           blockiert und die laufende Messung unbeendbar macht. */
+        if (measuring) {
+            val her = System.currentTimeMillis() - measuringSeit
+            if (measuringSeit > 0L && her > 20_000L) {
+                Diagnose.schlag("Messung war verklemmt", "${her / 1000} s — freigegeben")
+                measuring = false
+            } else {
+                status = "messe gerade…"
+                buzzNein(ctx)
+                Diagnose.schlag("Stopp ins Leere", "Messung läuft bereits")
+                return
+            }
+        }
 
         val r = rec ?: return
 
@@ -8562,7 +8741,6 @@ fun GolfWatchApp(
                schlimmste Fall. Notiert und weiterleben statt abstuerzen. */
             try {
             val f = FixQuality.collect { n -> status = "messe… ($n)" }
-            measuring = false
             if (f == null) {
                 /* Die Aufnahme bleibt STEHEN — `rec` wird nicht geloescht.
                    Wer beim Ball steht und keinen brauchbaren Fix hat, soll in
@@ -8583,7 +8761,16 @@ fun GolfWatchApp(
                nicht mehr" entsteht. */
             if (e.istAbbruch()) throw e
             Fehler.add("Uhr-Eingabe", e)
-        }
+            } finally {
+                /* WIE IN `recBegin` (50): Freigabe NUR hier. Vorher sass
+                   `measuring = false` mitten im Ablauf, hinter
+                   `FixQuality.collect` — ein Abbruch der Nebenlaeufigkeit
+                   liess die Sperre stehen, und danach war auch der STOPP
+                   blockiert: eine laufende Messung, die sich nicht mehr
+                   beenden liess. */
+                measuring = false
+                measuringSeit = 0L
+            }
         }
     }
 
@@ -11248,14 +11435,53 @@ private fun ScorePage(
            zusaetzlich in der Kopfzeile der Liste, aber dorthin sieht man beim
            Laufen nicht.
            LANGDRUCK BRICHT AB, mit Vibration — unveraendert aus (43). */
+        /* DIESELBE SCHWELLE WIE `FixQuality.usable` (15 m) — zwei Zahlen fuer
+           dieselbe Frage laufen auseinander, und dann zeigt der Knopf „bereit",
+           waehrend die Messung ablehnt. Das waere schlimmer als gar keine
+           Anzeige. `gpsAcc` kommt aus demselben Live-Zustand, den `recBegin`
+           prueft; das Alter deckt der Live-Zustand selbst ab (er setzt `acc`
+           auf null, wenn nichts mehr kommt). */
+        val gpsBereit = (gpsAcc != null && gpsAcc <= FixQuality.MAX_ACC.toInt())
         Box(
             modifier = Modifier
                 .align(Alignment.TopStart)
                 .padding(start = 16.dp, top = 18.dp)
                 .size(48.dp)
                 .clip(CircleShape)
+                /* ==============================================================
+                   DER KNOPF ZEIGT, OB ER KANN (2026-08-28 (51))
+                   --------------------------------------------------------------
+                   ZWEITE MELDUNG ZUM SELBEN THEMA: „Der Button startet das
+                   Schlagtracken nicht." Im mitgeschickten Protokoll steht die
+                   Antwort woertlich — „Uhr meldet seit ueber 90 s keine
+                   Position". OHNE BRAUCHBAREN FIX LEHNT `recBegin` AB
+                   (`FixQuality.usable`: hoechstens 15 m Streuung und nicht zu
+                   alt), setzt eine Statuszeile und vibriert kurz.
+                   BEIDES REICHT NICHT. Die Statuszeile steht auf einer Seite,
+                   die man beim Ball nicht liest, und ein kurzer Stups im
+                   Gehen geht unter. Aus Sicht des Benutzers passiert nichts —
+                   und er tippt weiter, statt zu warten oder weiterzugehen.
+                   DIE PRECONDITION GEHOERT AN DEN KNOPF, NICHT IN DIE
+                   FEHLERMELDUNG. Ein Knopf, der nicht kann, soll das VORHER
+                   zeigen, nicht hinterher melden. Drei Zustaende:
+                     bereit        dunkel, „📐"
+                     nicht bereit  gedaempft mit goldenem Rand, „GPS"
+                     Aufnahme      gruen, die gelaufenen Meter
+                   ANTIPPEN BLEIBT ERLAUBT, auch wenn er nicht bereit ist: Die
+                   Ablehnung sagt dann, WORAN es liegt (Genauigkeit in Metern),
+                   und das ist mehr wert als ein gesperrter Knopf, der gar
+                   nichts erklaert. Wer gesperrt wird, weiss nicht, warum. */
                 .background(
-                    if (recActive) PineText else Color(0xFF2A2A2A)
+                    when {
+                        recActive -> PineText
+                        !gpsBereit -> Color(0xFF3A3226)
+                        else -> Color(0xFF2A2A2A)
+                    }
+                )
+                .then(
+                    if (!recActive && !gpsBereit)
+                        Modifier.border(2.dp, GoldText, CircleShape)
+                    else Modifier
                 )
                 .combinedClickable(
                     onClick = { if (recActive) onShotStop() else onShotBegin() },
@@ -11286,14 +11512,19 @@ private fun ScorePage(
                abgeschnittener Messwert waere schlimmer als gar keiner. */
             val meter = recDist ?: 0
             Text(
-                if (recActive) meter.toString() else "📐",
+                if (recActive) meter.toString() else if (gpsBereit) "📐" else "GPS",
                 fontSize = when {
+                    !recActive && !gpsBereit -> 13.sp
                     !recActive -> 20.sp
                     meter >= 100 -> 15.sp
                     else -> 18.sp
                 },
                 fontWeight = if (recActive) FontWeight.Bold else FontWeight.Normal,
-                color = if (recActive) Color.Black else GoldText,
+                color = when {
+                    recActive -> Color.Black
+                    !gpsBereit -> GoldText
+                    else -> GoldText
+                },
                 maxLines = 1
             )
         }
