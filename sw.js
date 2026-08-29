@@ -27,7 +27,12 @@
 /* Bei jeder Aenderung erhoehen — sonst behalten installierte Geraete den alten
    Worker. v2: Die Huelle wird nicht mehr blind aus dem Cache geliefert, wenn
    das Netz erreichbar ist (siehe unten). */
-const CACHE_VERSION = "v2";
+/* v3 (29.08.2026): Die Erhoehung macht ALLE gespeicherten Huellen ungueltig —
+   ein bewusster Bruch. Nach dem Vorfall vom 29.08. kann auf Geraeten eine
+   ABGESCHNITTENE Huelle liegen, die sich von Start zu Start selbst
+   weiterreicht; die Pruefung unten wirft sie zwar weg, aber ein sauberer
+   Schnitt ist verlaesslicher als eine Reparatur im Betrieb. */
+const CACHE_VERSION = "v3";
 const SHELL_CACHE = "golf-shell-" + CACHE_VERSION;
 const TILE_CACHE  = "golf-tiles-" + CACHE_VERSION;
 const TILE_MAX    = 400;          // ca. 20–40 MB, reicht fuer mehrere Plaetze
@@ -116,9 +121,47 @@ self.addEventListener("fetch", ev => {
   if (isShell) {
     ev.respondWith((async () => {
       const c = await caches.open(SHELL_CACHE);
-      const cached = await c.match("./index.html");
+      /* ==================================================================
+         EINE HALBE HUELLE IST SCHLIMMER ALS KEINE (v3, 29.08.2026)
+         --------------------------------------------------------------------
+         GEMELDET: Nach einer Neuinstallation blieb die App im Startbild
+         haengen; in Chrome erschien nur das STATISCHE Geruest (Kopfzeile mit
+         Platzhaltern, Navigationsleiste) — das Skript lief gar nicht.
+         DIE URSACHE STECKT HIER: `if (r && r.ok) c.put(...)`. Ein Download,
+         der mitten in den 2,7 MB abbricht, hat trotzdem Status 200 und gilt
+         als `ok`. Die halbe Datei wandert in den Cache — und weil der
+         Wettlauf unten fast immer der Cache gewinnt (2,7 MB kommen NIE in
+         1,5 s an), bekommt man sie danach bei JEDEM Start wieder.
+         Eine abgeschnittene Datei ist ein Syntaxfehler: Der Browser zeigt das
+         Geruest und fuehrt nichts aus. Genau das war zu sehen.
+         GEGENPROBE VOR DEM ABLEGEN UND VOR DEM AUSLIEFERN. `istGanz` prueft
+         zweierlei: plausible Groesse und den Abschluss des Dokuments. Beides
+         ist billig — der Text liegt ohnehin im Speicher.
+         DIESELBE REGEL WIE IN `swForceUpdate` (App v5.01) und im
+         Archiv-Skript: erst pruefen, dann uebernehmen. Sie wurde in dieser
+         Woche viermal gebraucht. */
+      const istGanz = async (r) => {
+        try {
+          if (!r || !r.ok) return false;
+          const t = await r.clone().text();
+          return t.length > 500000 && /<\/html>\s*$/.test(t);
+        } catch (_) { return false; }
+      };
+      let cached = await c.match("./index.html");
+      /* EINE KAPUTTE HUELLE WIRD WEGGEWORFEN, NICHT AUSGELIEFERT. Sonst
+         reicht sie sich selbst von Start zu Start weiter. */
+      if (cached && !(await istGanz(cached))) {
+        melde("huelle-kaputt", "Gespeicherte Hülle war unvollständig — verworfen");
+        try { await c.delete("./index.html"); } catch (_) {}
+        cached = null;
+      }
       const net = fetch(req)
-        .then(r => { if (r && r.ok) c.put("./index.html", r.clone()); return r; })
+        .then(async r => {
+          if (await istGanz(r)) c.put("./index.html", r.clone());
+          else if (r && r.ok) melde("abbruch",
+            "Unvollständige Antwort NICHT gespeichert — die bisherige Hülle bleibt");
+          return r;
+        })
         .catch(() => null);
 
       /* NETZ ZUERST, ABER MIT KURZEM ZEITLIMIT (v2).

@@ -13,6 +13,27 @@
 
 ---
 
+- **v4.70.0 · 2026-08-25** — **Die Eingabespur hat geantwortet — und ein Lärmherd nebenbei.**
+  **DER BEFUND, endlich mit Zahlen.** Das Protokoll zeigt um 15:03:11 die Aktionen **#1 bis #10**
+  der Uhr — aufgezeichnet um **14:34:55 bis 14:35:45**. Sie lagen also **28 Minuten** auf der Uhr,
+  bevor sie beim Handy ankamen, und trafen dann in einem Schwung ein.
+  **Die Uhr zeichnet also alles auf und sendet es nicht.** Das ist ein anderer Fehler als alle, die
+  ich seit gestern gesucht habe: Es geht nichts verloren, es kommt nur zu spät — und zwar genau
+  dann, wenn man nicht hinschaut. Dazwischen: „eigene Quelle nicht erreichbar" (4×) und „Uhr meldet
+  seit über 90 s keine Position" (3×).
+  **Meine Vermutung, ausdrücklich als solche:** Die Sende-Schleife der Uhr lebt in einer
+  Compose-`LaunchedEffect`. Geht der Bildschirm aus oder wandert das Handgelenk herunter, hält
+  Android die Composition an — und mit ihr die Schleife. Der Vordergrunddienst hält nur die Ortung
+  am Leben, nicht den Abgleich. Das passt auf alles: Es funktioniert, solange man hinsieht, und
+  bricht ab, sobald man weitergeht. **Zu prüfen, bevor ich etwas ändere** — ich habe an dieser
+  Stelle schon dreimal zu früh repariert.
+  **Und behoben, was sofort zu beheben war:** `satMetaTest` schrieb **neunmal** „Unexpected token
+  '<'" ins Protokoll. Der Metadatendienst antwortet je nach Punkt mit XML statt GeoJSON — das ist
+  vorgesehen und wurde zwei Zeilen weiter sauber gemeldet; der `catch` meldete es zusätzlich als
+  Fehler. **Wer einen Fall erwartet und abfängt, darf ihn nicht zusätzlich als Fehler melden.** Jede
+  solche Zeile verdrängt eine, die etwas bedeutet — und genau daran ist die Fehlersuche der letzten
+  Tage mehrfach gescheitert.
+
 - **v4.69.0 · 2026-08-25** — **Luftbild SH: Bildflug-Datum abfragbar.** Neuer Knopf in der
   Kartenverwaltung (`mSatMeta`, nur bei SH-Quelle): fragt den Metadatendienst `WMS_SH_MD_DOP`
   an drei Punkten des Platzes ab und zeigt das Befliegungsdatum — scharf heisst nicht aktuell.

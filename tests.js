@@ -1774,7 +1774,23 @@ group("Warum Korrekturen wirkungslos SCHIENEN");
      /golf-shell/.test(src) && !/caches\.delete\(k\)\s*\)\s*\)[\s\S]{0,40}tiles/.test(src));
   if (fs.existsSync(swPfad)) {
     const sw=fs.readFileSync(swPfad,"utf8");
-    eq("CACHE_VERSION erhöht", (sw.match(/CACHE_VERSION\s*=\s*"(\w+)"/)||[])[1], "v2");
+    /* KEINE ABGESCHRIEBENE FASSUNGSNUMMER MEHR (29.08.2026). Hier stand
+       fest `"v2"` — und jede Erhöhung, die es geben MUSS, machte die Prüfung
+       rot. Eine Prüfung, die bei einer beabsichtigten Änderung anschlägt,
+       erzieht dazu, sie anzupassen statt zu lesen. Geprüft wird jetzt die
+       FORM: Sie existiert, ist eine v-Nummer, und sie ist nicht kleiner als
+       die erste. Dieselbe Lehre wie beim Worker (24ca). */
+    {
+      const cv=(sw.match(/CACHE_VERSION\s*=\s*"v(\d+)"/)||[])[1];
+      ok("CACHE_VERSION ist eine fortlaufende v-Nummer", !!cv && +cv>=2, "v"+cv);
+      /* Ihre Erhöhung ist ein BEWUSSTER Bruch: Sie macht alle gespeicherten
+         Hüllen ungültig. Das muss danebenstehen, sonst hebt sie jemand
+         beiläufig an. */
+      /* Das Suchfenster muss den ganzen Kommentarblock davor umfassen — mein
+         erster Anlauf nahm 600 Zeichen und schnitt die Begründung ab. */
+      ok("und ihre Wirkung ist dokumentiert",
+         /ungueltig|ungültig/.test(sw.slice(0, sw.indexOf('CACHE_VERSION = "v'))));
+    }
     ok("Netz zuerst, mit Zeitlimit", /Promise\.race/.test(sw) && /1500/.test(sw));
     ok("Cache bleibt als Rückfall (Startgarantie im Funkloch)",
        /return cached \|\|/.test(sw));
@@ -10023,6 +10039,39 @@ group("Doku — der Service Worker hat ein Kapitel");
      Dateien. Deshalb steht sie jetzt in allen dreien. */
   ok("die Regel „erst sichern, dann löschen“ steht im Kapitel",
      /ERST DEN ERSATZ SICHERN, DANN DAS ALTE WEGWERFEN/.test(doc));
+
+  /* ====================================================================
+     EINE HALBE HUELLE IST SCHLIMMER ALS KEINE (sw.js v3, 29.08.2026)
+     --------------------------------------------------------------------
+     GEMELDET: Nach einer Neuinstallation blieb die App im Startbild hängen;
+     in Chrome erschien nur das STATISCHE Gerüst — Kopfzeile mit Platzhaltern
+     („● lokal", „Start – → Ziel –") und Navigationsleiste. Das ist alles
+     festes HTML: **Das Skript lief gar nicht.**
+     DIE URSACHE: `if (r && r.ok) c.put(...)`. Ein Download, der mitten in den
+     2,7 MB abbricht, hat trotzdem Status 200 und gilt als `ok`. Die halbe
+     Datei wandert in den Cache — und weil der Wettlauf fast immer der Cache
+     gewinnt (2,7 MB kommen nie in 1,5 s an), bekommt man sie danach bei JEDEM
+     Start wieder. Eine abgeschnittene Datei ist ein Syntaxfehler: Der Browser
+     zeigt das Gerüst und führt nichts aus.
+     Und sie überlebt eine Neuinstallation: Eine Verknüpfung vom Startbildschirm
+     zu entfernen räumt weder Service Worker noch Caches ab. */
+  if (fs.existsSync(swPfad)) {
+    const sw2 = fs.readFileSync(swPfad, "utf8");
+    ok("eine Antwort wird vor dem Ablegen geprüft",
+       /const istGanz = async \(r\)/.test(sw2)
+       && /t\.length > 500000 && \/<\\\/html>/.test(sw2));
+    ok("und nicht mehr blind bei ok gespeichert",
+       !/if \(r && r\.ok\) c\.put\("\.\/index\.html"/.test(sw2));
+    /* EINE KAPUTTE HÜLLE WIRD WEGGEWORFEN, NICHT AUSGELIEFERT — sonst reicht
+       sie sich selbst von Start zu Start weiter. */
+    ok("eine kaputte Hülle wird verworfen",
+       /if \(cached && !\(await istGanz\(cached\)\)\)/.test(sw2)
+       && /c\.delete\("\.\/index\.html"\)/.test(sw2));
+    /* Und beides landet im Protokoll — der Nachbericht aus Etappe 2 ist genau
+       für diesen Fall gebaut. */
+    ok("beides wird gemeldet",
+       /melde\("huelle-kaputt"/.test(sw2) && /melde\("abbruch"/.test(sw2));
+  }
 }
 
 /* ============ 24eq. Aktualisieren darf die App nicht unerreichbar machen ============ */
