@@ -13,6 +13,137 @@
 
 ---
 
+- **v4.67.0 · 2026-08-25** — **Der Puls des Handys zeigte den Endzustand, nicht den Weg.**
+  Im Protokoll vom 25.08. stand genau **eine** Zeile („Uhr meldet Loch 1 · schon dort", 13:26),
+  während zwischen 13:26 und 13:32 **sechs Lochwechsel** lagen. Meine Fassung von v4.65 ersetzte
+  sich vollständig selbst — gut gegen einen vollen Puffer, schlecht für die Fehlersuche.
+  **Man sah, wo es endete, und nicht, wie es dorthin kam — und der Weg ist die Frage.**
+  Jetzt bleiben die **letzten fünf** Entscheidungen stehen, nummeriert, damit eine Lücke auffällt.
+  Reine Wiederholungen werden weiterhin nicht gedoppelt.
+  **Was die vorliegenden Protokolle sagen:** Die Uhr meldet um 13:32:48 „eigenes Loch 9 · Handy-Loch
+  9" — beide Geräte stehen also auf demselben Loch, und der Zeitstempel des Handys (13:28:20) passt
+  auf die Sekunde zu dessen eigener Meldung „Loch 9" aus dem Kartenprüfer. **Für diesen Wechsel hat
+  es funktioniert.** Ob es für alle sechs funktioniert hat, ist aus einer einzigen Pulszeile nicht
+  zu beantworten — genau deshalb diese Änderung.
+
+- **v4.66.0 · 2026-08-25** — **Die beiden Pulse nebeneinander zeigen: Der Austausch funktioniert —
+  und der Zeiger des Handys alterte nicht mehr.**
+  **Handy 13:13:51:** „Uhr meldet Loch 2 · eigenes Loch 1 · **ÜBERNOMMEN**".
+  **Uhr 13:13:48:** „Handy-Loch 1 verworfen · ownHole=13:13:47" — die Uhr hält ihr eigenes Loch 2,
+  weil der Benutzer es Sekunden zuvor gewählt hat.
+  **Beide haben richtig entschieden.** Das Handy folgt der Uhr, die Uhr lässt sich nicht
+  zurückdrängen. Genau so war es gedacht.
+  **Ein echter Rest bleibt:** Die Uhr liest eine Minute später immer noch „Handy-Loch 1,
+  at=13:13:41". Der Zeiger des Handys **alterte nicht mehr**. Ursache ist v4.57: Dort wird der
+  Zeitstempel festgehalten, solange sich das Loch nicht ändert — richtig, sonst gewinnt beim
+  Vereinigen immer, wer öfter sendet. **Zu breit war es aber:** Auch ein **übernommenes** Loch
+  behielt den fremden Stempel.
+  **Eine Übernahme ist eine neue Aussage** — „ich bin jetzt auch auf Loch 2", gesagt zu diesem
+  Zeitpunkt. Sie gehört frisch gestempelt. Eingefroren bleibt nur die **Wiederholung des eigenen,
+  unveränderten** Zeigers. Und ein **fremder** Stempel wird nie fortgeschrieben: Sonst trägt das
+  Handy die Zeit der Uhr weiter, als wäre es seine eigene.
+  **Zur Einordnung:** Diese Woche habe ich acht Fassungen lang an dieser Stelle gearbeitet und
+  mehrfach danebengelegen. Die Ursache war jedes Mal nur mit **beiden** Protokollen zu sehen — die
+  Aussage eines Geräts über den anderen reicht nicht.
+
+- **v4.65.0 · 2026-08-25** — **Changelog-Regeln für die Uhr · Fassungsnotiz reist mit · und der
+  Puls des Handys.**
+  **(A) Die Uhr hatte die Doku, aber nicht den Prüfstand.** 1993 Zeilen Kopfkommentar mit 99
+  Changelog-Einträgen — inhaltlich derselbe Standard wie hier. Was fehlte, war die Kontrolle
+  darüber, und prompt fanden sich beim ersten Blick **vier doppelte Kennungen** (24.08. (5), 14.08.
+  (2) dreifach, 09.08. (11)) und drei Einträge außerhalb der Reihenfolge. Hier wäre das seit v4.21.1
+  sofort aufgefallen. **Kennungen bereinigt, Positionen nicht:** Verschieben würde Verweise brechen,
+  und Verweise wie „siehe (9)/(10) vom 15.08." sind unser Gedächtnis. Vier Regeln prüfen das jetzt
+  — sie kosten kein Byte auf der Uhr.
+  **Und zwei Fehler in meiner eigenen Prüfung:** Sie verglich die Kennungen als **Text**, wo „(9)"
+  größer ist als „(10)", und rechnete Verweise auf die PWA (`puttDiagnose()`) als fehlende
+  Uhr-Funktionen. Beide gemeldet, beide behoben — ein Prüfstand, der falsch misst, ist schlimmer
+  als keiner.
+  **(B) `WATCH_NOTE`** — ein Absatz, der mit jedem Zeiger und jedem Protokoll mitreist. Die Kennung
+  sagt **welche** Fassung läuft, die Notiz **was** sie geändert hat. Von Hand gepflegt,
+  ausdrücklich: Ein Programm, das seine eigenen Kommentare ausliest, bricht beim nächsten Umbau
+  lautlos.
+  **(C) Der Puls des Handys — die fehlende Hälfte.** Der Puls der Uhr zeigt seit (15) **ihre** Seite;
+  zuletzt „eigenes Loch 5 · Handy-Loch 2", also sendet sie korrekt. Was das **Handy** mit dem Zeiger
+  macht, war weiterhin unsichtbar — ich habe seine Seite fünfmal erraten und dreimal danebengelegen.
+  `playLiveRemote` gibt an **vier** Stellen `null` zurück, und von außen war nicht zu unterscheiden,
+  an welcher. Jetzt nennt jede ihren Grund („Zeiger stammt vom Handy selbst", „zu alt (14 min)",
+  „kein Zeiger im Entwurf"), und die Entscheidung steht dabei: **ÜBERNOMMEN** oder nicht.
+  **Ohne diesen Gegenpart vergleicht man zwei Geräte anhand der Aussage von einem.**
+
+- **v4.64.0 · 2026-08-25** — **„spielt-wie uneinig": Die Warnung war korrekt und trotzdem sinnlos.**
+  Im Protokoll stand „Kopfzeile 2303 m · Kette 171 m" — auf einem 179-m-Loch. Die Erklärung ist
+  einfach und war die ganze Zeit da: **`_aimBuild` baut die Kette ab ABSCHLAG**, absichtlich, damit
+  der Lochplan auch von weit weg stimmt. Die Kopfzeile misst dagegen ab der **eigenen Position**.
+  Beide sind für sich korrekt und liegen nur dann zusammen, wenn man auch am Abschlag steht — und
+  das Handy lag 2,5 km entfernt auf dem Tisch.
+  **Eine Warnung, die in dieser Lage immer angeht, verdeckt die Fälle, in denen sie etwas
+  bedeutet.** Beide Caddy-Meldungen sind jetzt an `playTooFar()` gebunden, das diese Frage längst
+  beantwortet — es fehlte nur, sie daran zu knüpfen.
+  **Damit ist auch v4.63 richtig eingeordnet:** Die Vereinheitlichung des Zielpunkts war nötig und
+  bleibt, aber sie war nicht der Grund für die Flut im Protokoll. Der Grund war, dass gar nicht
+  gespielt wurde.
+  **Auf der Uhr (Fassung 2026-08-25 (17)):** Die Standby-Seite zeigt jetzt Front, Mitte und Back in
+  derselben Ordnung wie Seite 1 — dort schaut man im Gehen hin, und die Fahne steht selten mittig.
+  Und **„spielt wie" steht direkt unter den drei Zahlen** statt weiter unten in der Caddy-Zeile: Es
+  ist die Zahl, nach der man den Schläger zieht.
+
+- **v4.63.0 · 2026-08-25** — **„spielt-wie uneinig": ein Aufbaufehler, kein Rechenfehler.** Die
+  Warnung lief seit Tagen dutzendfach — Kopfzeile konstant 200–208 m, Kette zwischen 145 und 247 m.
+  **Ursache:** v4.16 hat den **Schläger** vereinheitlicht; die Kopfzeile übernimmt ihn seither aus
+  der Zielkette. Das **Ziel** blieb getrennt: Die Kopfzeile rechnete weiter gegen `ev.target` — den
+  Punkt, den die Bewertung anpeilt —, die Kette gegen ihren eigenen Wegpunkt. **Zwei Bezugspunkte,
+  zwei Zahlen**, und die Warnung verglich seither Äpfel mit Birnen. Deshalb war sie immer an.
+  Die Warnung war also richtig gebaut und hat auf etwas Echtes gezeigt — **nur war das Echte kein
+  Rechenfehler, sondern ein Aufbaufehler.**
+  **Jetzt gilt: Gibt es eine Kette, ist ihr Ziel das Ziel.** `condFaktor` rechnet gegen denselben
+  Punkt, aus dem auch Schläger und Distanz stammen. Die Kette hat Vorrang, weil sie gezogene
+  Wegpunkte, Doglegs und die tatsächlich gespielte Distanz kennt — genau deshalb hat v4.16 schon
+  den Schläger von dort genommen.
+  **Warum der Platz-Durchlauf das nie gemeldet hat:** Er verglich `spieltWie` mit `L0.spielt` —
+  aber `spieltWie` **wird aus der Kette übernommen**. Die Invariante verglich also eine Zahl mit
+  sich selbst und konnte nie ausschlagen. Neu ist `spieltWieKopf` (die eigene Rechnung der
+  Kopfzeile, ungefiltert) und eine Invariante darauf.
+  **Offen und benannt:** Der Testplatz hat keine Doglegs und keine gezogenen Wegpunkte, deshalb
+  fallen beide Ziele dort ohnehin zusammen — die neue Invariante schlägt auch bei zurückgebauter
+  Reparatur nicht aus. Das ist eine Lücke des **Platzes**, nicht der Prüfung. Der Beweis wird das
+  Feld sein: Bleibt „spielt-wie uneinig" im Protokoll aus, stimmt es.
+
+- **v4.62.0 · 2026-08-25** — **Die Uhr übernahm dieselbe Runde immer wieder — und löschte dabei
+  ihre eigenen Eingaben.** Endlich die Ursache für „bei Loch 1 geht es, beim Wechsel auf Loch 2
+  bricht alles ab", und sie stand im Uhr-Protokoll: **„Runde übernommen · Loch 1" mehrfach** —
+  08:06:32, 08:07:34, davor 07:30:16 und 07:32:03 (×2).
+  **Dieser Zweig ist destruktiv:** Er macht `entries.clear()`, `measurements.clear()` und setzt das
+  Loch auf das des **Handys**. Wer auf der Uhr zu Loch 2 wechselt und etwas einträgt, verliert beim
+  nächsten Durchlauf beides — Eingabe weg, Loch zurück auf 1. Von außen sieht das aus, als sei der
+  Abgleich tot.
+  **Zum Mitnehmen: Ein Zweig, der Daten löscht, gehört hinter eine Bedingung, die genau einmal wahr
+  ist.** Dieser stand hinter einer, die bei jedem Durchlauf wahr war. (Uhr-Fassung 2026-08-25 (14).)
+  **Und der zweite gemeldete Punkt:** Kam ein Score von der Uhr, wurde der Spielbildschirm **nicht**
+  neu gezeichnet — neu gezeichnet wurde nur beim Lochwechsel. Es erschien ein Hinweis „Eingaben
+  übernommen", während die Anzeige oben rechts unverändert blieb. **Der Hinweis sagte „ist da", die
+  Anzeige sagte „ist nicht da"** — und von beiden glaubt man der Anzeige, zu Recht. Behoben, und
+  zwar an **beiden** Stellen: Dieselbe Logik stand zweimal im Code, und die eine zu reparieren und
+  die andere zu übersehen ist der klassische Fall.
+
+- **v4.61.0 · 2026-08-25** — **Der Diagnosebericht steht jetzt neben dem Protokoll, nicht darin.**
+  Gemeldet: Nach dem Knopfdruck kam beim Handy nur „Runde übernommen" an, keine Diagnose.
+  **Die Ursache ist der Aufbau, nicht ein einzelner Fehler.** Die Diagnose schrieb **in** den
+  Ringpuffer — und räumte sich darin selbst auf (v4.60), damit sie ihn nicht verstopft. Ihre
+  Zustellung hing damit an einem Puffer, den gleichzeitig Fehler, der Rundenentwurf und das
+  Aufräumen bewegen: **drei Stellen, an denen ein Bericht verschwinden kann.**
+  Nach vier Fassungen an derselben Sache war klar, dass das kein Fehler zum Reparieren ist, sondern
+  ein Aufbau zum Ändern. `Diagnose.letzterBericht` ist jetzt eine **eigene Größe**, die nur der Knopf
+  setzt und die nichts anderes anfasst. Sie reist als eigenes Feld `bericht` — auf **beiden** Wegen
+  — und ist unabhängig davon, was im Puffer passiert. Im Puffer bleibt eine Zeile als Spur.
+  **Zwei Dinge, zwei Wege.** Das ist der ganze Unterschied.
+  **Dazu zwei Feinheiten, die sonst wieder gekostet hätten:** `logPut` vergleicht den
+  Berichtszeitpunkt mit — sonst gilt „nichts Neues", obwohl gerade ein frischer Bericht entstanden
+  ist. Und die App nimmt den **jüngeren Bericht**, nicht die jüngeren Zeilen: Der Rundenentwurf geht
+  im Minutentakt raus und trüge sonst einen alten Bericht mit frischem Zeitstempel durch.
+  **Angezeigt wird er ganz oben**, als eigener Block „Selbsttest der Uhr" — wer scrollen muss, liest
+  ihn nicht.
+
 - **v4.60.0 · 2026-08-25** — **Diagnose der Uhr kommt sofort an — und die App kann sie auf
   Knopfdruck holen.** Auf der Uhr wurde die Diagnose in den Puffer geschrieben, und der reiste nur
   mit dem Rundenentwurf oder im Fünf-Minuten-Takt. **Wer auf Diagnose drückt, will die Antwort

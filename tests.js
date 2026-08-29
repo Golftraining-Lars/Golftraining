@@ -9872,6 +9872,56 @@ group("Karteneditor — das Langdrück-Menü blockiert die Bearbeitung");
   }
 }
 
+/* ============ 24eq. Aktualisieren darf die App nicht unerreichbar machen ============ */
+group("Cache — erst den Ersatz sichern, dann das Alte wegwerfen");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+  const roh = ktOhneKommentar(codeOhneDoku(src));
+
+  /* ====================================================================
+     GEMELDET am 29.08.2026 (behoben in v5.01)
+     --------------------------------------------------------------------
+     „Die App lädt überhaupt nicht mehr" — auf dem Handy, während sie am PC
+     weiterlief. Im Protokoll dazu: `Promise: Failed to fetch`.
+     DIE KETTE WAR HAUSGEMACHT:
+       1. `swForceUpdate` löschte den Hüllen-Cache GANZ VORN — die gespeicherte
+          Fassung war weg, bevor irgendetwas Neues da war.
+       2. Danach `location.replace(...)`; der Service Worker versucht 2,7 MB
+          aus dem Netz zu holen. Bei schwachem Funk misslingt das.
+       3. Jetzt gibt es WEDER Cache NOCH Netz — und der Weg zurück führt über
+          genau den Knopf, den man nicht mehr erreicht.
+     DIESELBE FEHLERKLASSE wie der Rückfallweg der Uhr (48) und wie das
+     Archiv-Skript (v4.85): **erst schreiben, dann löschen — nie umgekehrt.** */
+  ok("zuerst wird geholt, dann ersetzt",
+     roh.indexOf("fetchMitFrist(u0.toString()") < roh.indexOf('c.put("./index.html"'),
+     "Reihenfolge stimmt nicht");
+  /* Eine halbe Datei ist schlimmer als die alte: Ein abgebrochener Download
+     liefert oft 200 mit zu wenig Inhalt. */
+  ok("mit Gegenprobe auf Vollständigkeit",
+     /txt\.length < 500000 \|\| txt\.indexOf\("APP_VERSION"\)<0/.test(roh));
+  /* Misslingt der Abruf, bleibt die alte Hülle unangetastet — das ist der
+     ganze Punkt. */
+  ok("bei Fehlschlag wird nichts gelöscht",
+     /catch\(e\)\{[\s\S]{0,400}?Neue Fassung nicht erreichbar[\s\S]{0,60}?return;/.test(roh));
+  ok("und der ganze Cache wird nicht mehr geleert",
+     !/caches\.delete\(k\)/.test(roh));
+  /* Nur der EINE Eintrag wird ersetzt — die Kartenkacheln bleiben, wo sie
+     sind. Sie neu zu laden kostet auf dem Platz Funk, den man dort nicht hat. */
+  ok("nur die Hülle wird ersetzt, nicht die Kacheln",
+     /const shell=ks\.find\(k=>k\.indexOf\("golf-shell"\)===0\)/.test(roh));
+
+  /* ---- Und die unbehandelte Zurückweisung, die mich in die Irre führte ----
+     Ohne `.catch` wird ein misslungener Wetterabruf zur unbehandelten
+     Zurückweisung und landet als „Promise: Failed to fetch" im Protokoll —
+     ohne Hinweis darauf, WER sie ausgelöst hat. */
+  ok("der Wetterabruf fängt seine Zurückweisung",
+     /unwetterHolen\(p\[0\],p\[1\]\)\.catch\(/.test(roh));
+  /* Gegenprobe für die ganze Datei: Ein `.then(` direkt auf einem
+     `fetchMitFrist` ohne `.catch` ist dieselbe Falle. */
+  ok("und kein Abruf hängt ohne Auffangnetz",
+     !/fetchMitFrist\([^;]{0,200}?\)\.then\([^;]{0,200}?\);(?![\s\S]{0,60}catch)/.test(roh));
+}
+
 /* ============ 24ep. Gewitterwarnung auf dem Platz ============ */
 group("Unwetter — die einzige Funktion, bei der ein Fehler wehtut");
 {
