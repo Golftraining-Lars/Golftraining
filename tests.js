@@ -10002,6 +10002,66 @@ group("Protokoll — drei Stufen, ein Startvermerk, ein sprechender Service Work
      /const echte = \(typeof ERRLOG!=="undefined"/.test(roh));
 }
 
+/* ============ 24eu. Der Start rechnet nichts, was niemand angefordert hat ============ */
+group("Start — keine ungefragte Rechenarbeit");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+  const roh = ktOhneKommentar(codeOhneDoku(src));
+
+  /* ====================================================================
+     GEMELDET ÜBER MEHRERE TAGE (behoben in v5.08)
+     --------------------------------------------------------------------
+     „Die App lädt und friert nach rund 20 Sekunden ein." Ich habe FÜNF
+     Ursachen vermutet und behoben — Datei, Cache, Service Worker, Datenmenge
+     und zuletzt die Rasterrechnung (Faktor 24 schneller). Es blieb dabei.
+     DER FEHLER WAR NICHT, WIE LANGE DIE RECHNUNG DAUERT, SONDERN DASS SIE
+     ÜBERHAUPT UNGEFRAGT LÄUFT. `setTimeout(gpAutoRefresh, 4000)` stieß vier
+     Sekunden nach dem Start die Neuberechnung von vier Gameplans über je 18
+     Löcher an. Der Kommentar darüber sagte es selbst: „`planCourse`
+     blockiert, und die erste Sekunde gehört der Ansicht." Vier Sekunden
+     später blockiert es genauso — nur fällt es dann dem Benutzer zur Last,
+     der gerade etwas tut.
+     EINE RECHNUNG, DIE NIEMAND ANGEFORDERT HAT, DARF DEN BENUTZER NIE
+     BLOCKIEREN. Sie ist per Definition weniger wichtig als das, was er gerade
+     vorhat — sonst hätte er sie angefordert. */
+  /* Genau der 4-Sekunden-Anstoß darf weg sein. Der Rückfall `setTimeout(…, 0)`
+     im stündlichen Lauf ist etwas anderes: Er steht hinter der Sichtbarkeits-
+     und Runden-Prüfung und dient nur dazu, den Aufruf aus dem Zeitgeber
+     herauszulösen, wo es kein `requestIdleCallback` gibt. */
+  ok("kein Gameplan-Lauf beim Start",
+     !/setTimeout\(gpAutoRefresh, [1-9]\d*\)/.test(roh));
+  /* Nötig ist er auch nicht: Die Ansicht rechnet beim Öffnen selbst, mit
+     Hinweis — dort ist die Wartezeit erklärbar, weil sie einer Handlung
+     folgt. */
+  ok("die Ansicht rechnet beim Öffnen selbst",
+     /function stratPlanSheet[\s\S]{0,400}?Rechne Gameplan/.test(roh));
+  /* Der stündliche Lauf bleibt — aber nur sichtbar, nicht auf der Runde, und
+     in der Leerlaufzeit des Browsers. */
+  ok("der stündliche Lauf prüft die Sichtbarkeit",
+     /gpSpaeter=\(\)=>\{[\s\S]{0,200}?visibilityState!=="visible"/.test(roh));
+  ok("und läuft nicht während einer Runde",
+     /gpSpaeter=\(\)=>\{[\s\S]{0,300}?PLAY\.active\) return;/.test(roh));
+  ok("er nutzt die Leerlaufzeit, wo es sie gibt",
+     /requestIdleCallback\(\(\)=>\{ gpAutoRefresh\(\); \}, \{timeout:30000\}\)/.test(roh));
+
+  /* ====================================================================
+     DER RIEGEL GEGEN DIE FEHLERKLASSE
+     --------------------------------------------------------------------
+     Nicht gegen diesen einen Aufruf, sondern gegen die Sorte: Was im
+     Startpfad per Zeitgeber angestoßen wird, muss LEICHT sein. Diese Prüfung
+     zählt die Zeitgeber im Startblock und hält fest, welche Funktionen dort
+     erlaubt sind — wer eine schwere hinzufügt, muss diese Liste anfassen und
+     dabei über die Frage stolpern. */
+  {
+    const start = roh.slice(roh.lastIndexOf("swRegister()"));
+    const rufe = [...start.matchAll(/setTimeout\(\s*([A-Za-z_$][\w$]*)\s*,/g)].map(m => m[1]);
+    const erlaubt = ["speicherPruefen", "fitErinnerungTick", "gpAutoRefresh"];
+    const fremd = rufe.filter(r => erlaubt.indexOf(r) < 0);
+    ok("im Startpfad stehen nur bekannte, leichte Zeitgeber",
+       fremd.length === 0, fremd.join(", ") || rufe.join(", "));
+  }
+}
+
 /* ============ 24et. Das Lage-Raster darf den Start nicht blockieren ============ */
 group("Lage-Raster — gemessen, nicht vermutet");
 {
