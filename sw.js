@@ -176,9 +176,41 @@ self.addEventListener("fetch", ev => {
         try { await c.delete("./index.html"); } catch (_) {}
         cached = null;
       }
+      /* ==================================================================
+         DIE NEUE FASSUNG MELDET SICH (v4, 29.08.2026)
+         --------------------------------------------------------------------
+         Der Kommentar unten beschreibt das Problem seit v2 selbst: „man testet
+         stundenlang eine Version zu alt und haelt jede Korrektur fuer
+         wirkungslos." Genau das ist am 28./29.08. passiert — im Protokoll
+         steht dreimal „gespeicherte Fassung geliefert" und einmal sogar ein
+         RUECKSCHRITT von 5.08.0 auf 5.07.0. Behebungen kamen tagelang nicht an,
+         und beide Seiten haben an der falschen Stelle gesucht.
+         DER WETTLAUF IST NICHT ZU GEWINNEN: 2,7 MB kommen nie in 1,5 s an. Der
+         Cache MUSS gewinnen, sonst gibt es keine Startgarantie auf dem Platz.
+         ALSO NICHT SCHNELLER WERDEN, SONDERN BESCHEID SAGEN. Der Abruf laeuft
+         ohnehin im Hintergrund weiter und erneuert den Cache. Neu ist: Wenn
+         die geholte Fassung eine ANDERE Fassungsnummer traegt als die gerade
+         laufende, bekommt die App eine Nachricht — und zeigt einen Hinweis,
+         den man antippen kann. Ein Neuladen genuegt dann; die neue Huelle
+         liegt schon da.
+         DIE FASSUNGSNUMMER STEHT IM TEXT (`APP_VERSION="x.y.z"`), also ist sie
+         ohne Zusatzdatei ablesbar. Der Text liegt beim Pruefen ohnehin im
+         Speicher (`istGanz` liest ihn), es kostet also nichts extra. */
+      const fassungAus = t => {
+        const m = /APP_VERSION="([\d.]+)"/.exec(t || "");
+        return m ? m[1] : null;
+      };
+      const altFassung = cached ? fassungAus(await cached.clone().text()) : null;
       const net = fetch(req)
         .then(async r => {
-          if (await istGanz(r)) c.put("./index.html", r.clone());
+          if (await istGanz(r)) {
+            const txt = await r.clone().text();
+            c.put("./index.html", r.clone());
+            const neu = fassungAus(txt);
+            if (neu && altFassung && neu !== altFassung)
+              melde("neue-fassung", "Neue Fassung " + neu + " liegt bereit (läuft: "
+                + altFassung + ") — Neuladen genügt");
+          }
           else if (r && r.ok) melde("abbruch",
             "Unvollständige Antwort NICHT gespeichert — die bisherige Hülle bleibt");
           return r;

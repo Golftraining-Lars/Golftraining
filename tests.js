@@ -302,6 +302,7 @@ try {
                  "GEO_PUNKTE_MAX","GEO_OTHER_MAX","thinRing",
                  "caddyKette","caddyKetteHtml","caddyVergleichHtml","caddyKipppunkt",
                  "unwetterUrteil","istGewitterCode","unwetterBannerHtml","wakeAppAn",
+                 "neueFassungAnzeigen",
                  "logInfo","_logZustand","ERRLOG",
                  "_restZumGruen","_spieltWieM",
                  "pruefeDaten","pruefeRechnung",
@@ -10001,6 +10002,94 @@ group("Protokoll — drei Stufen, ein Startvermerk, ein sprechender Service Work
   /* Und die statische Prüfung darf Infos nicht als Laufzeitfehler zählen. */
   ok("Infos gelten nicht als Laufzeitfehler",
      /const echte = \(typeof ERRLOG!=="undefined"/.test(roh));
+}
+
+/* ============ 24ew. Eine bereitliegende Fassung meldet sich ============ */
+group("Aktualisieren — der Wettlauf ist nicht zu gewinnen, also Bescheid sagen");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+  const roh = ktOhneKommentar(codeOhneDoku(src));
+  const swPfad = path.join(__dirname, "sw.js");
+
+  /* ====================================================================
+     BEFUND AUS DEM PROTOKOLL VOM 29.08.2026 (behoben in v5.12)
+     --------------------------------------------------------------------
+     Dreimal „Netz zu langsam oder nicht da — gespeicherte Fassung geliefert",
+     und einmal ein RÜCKSCHRITT: „Fassungswechsel 5.08.0 → 5.07.0".
+     Behebungen kamen tagelang nicht an — und beide Seiten haben an der
+     falschen Stelle gesucht, weil niemand sah, dass eine ältere Fassung lief.
+     DER WETTLAUF IST NICHT ZU GEWINNEN: 2,7 MB kommen nie in 1,5 s an. Der
+     Cache MUSS gewinnen, sonst gibt es keine Startgarantie auf dem Platz.
+     ALSO NICHT SCHNELLER WERDEN, SONDERN BESCHEID SAGEN. Der Kommentar in
+     `sw.js` beschreibt genau dieses Problem seit v2 — „man testet stundenlang
+     eine Version zu alt und hält jede Korrektur für wirkungslos". Er hat es
+     benannt und niemand hat gehandelt. */
+  if (fs.existsSync(swPfad)) {
+    const sw = fs.readFileSync(swPfad, "utf8");
+    ok("der Worker liest die Fassungsnummer aus dem Text",
+       /APP_VERSION="\(\[\\d\.\]\+\)"/.test(sw) || /APP_VERSION=/.test(sw));
+    ok("und meldet eine abweichende Fassung",
+       /melde\("neue-fassung"/.test(sw));
+    /* Nur bei ABWEICHUNG — eine Meldung bei jedem Abruf wäre Rauschen. */
+    ok("aber nur, wenn sie wirklich abweicht",
+       /neu && altFassung && neu !== altFassung/.test(sw));
+  }
+  ok("die App macht daraus einen sichtbaren Hinweis",
+     /if\(d\.rec\.art==="neue-fassung"\) neueFassungAnzeigen/.test(roh));
+  /* NICHT AUTOMATISCH NEU LADEN: Auf der Bahn mitten in einer Runde die Seite
+     auszutauschen wäre das Schlimmste, was diese App tun kann. */
+  ok("nie während einer Runde",
+     /function neueFassungAnzeigen[\s\S]{0,300}?PLAY\.active\) return;/.test(roh));
+  ok("und nie von selbst neu geladen",
+     !/function neueFassungAnzeigen[\s\S]{0,400}?setTimeout\([^)]{0,40}location\.reload/.test(roh));
+  /* Wegtippbar — ein Hinweis, den man nicht loswird, ist eine Zumutung. */
+  ok("der Hinweis lässt sich wegtippen", /classList\.contains\("nf-x"\)/.test(roh));
+  ok("und erscheint nur einmal", /_neueFassungGezeigt/.test(roh));
+  ok("die Gestaltung ist da", /\.neu-fassung\{/.test(src));
+}
+
+/* ============ 24ev. Der Caddy widerspricht sich nicht mehr selbst ============ */
+group("Caddy — eine Kette, ein Aufruf");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+  const _i = src.indexOf("function caddyFuerPunkt(");
+  const block = src.slice(_i, src.indexOf("\nfunction ", _i + 40));
+  const code = block.replace(/\/\*[\s\S]*?\*\//g, " ");
+
+  /* ====================================================================
+     BEFUND AUS DEM PROTOKOLL VOM 29.08.2026 (behoben in v5.11)
+     --------------------------------------------------------------------
+     Fünfzehnmal „spielt-wie uneinig: Kopfzeile 217 m · Kette 209 m", dazu
+     „Schläger uneinig: Bewertung 3 Wood · Kette 6 Iron". **Zwei Teile
+     derselben Ansicht empfahlen verschiedene Schläger** — auf der Bahn der
+     schlimmste Fall, weil man nicht weiß, welchem man glauben soll.
+     DIE URSACHE WAR NICHT DIE RECHNUNG, SONDERN DIE ZAHL DER AUFRUFE.
+     `playAimChain()` wurde ZWEIMAL gerufen: einmal für das ZIEL (`_ch0`,
+     gegen das `condFaktor` rechnet) und wenige Zeilen später noch einmal für
+     den SCHLÄGER (`L0`). Dazwischen liegt ein Bildschirmaufbau, und die
+     Ortung liefert im Sekundentakt neue Punkte. Fällt eine Neuberechnung
+     dazwischen, stammen die beiden Zahlen aus verschiedenen Ketten — genau
+     die 5 bis 14 Meter Unterschied aus dem Protokoll.
+     **ZWEI AUFRUFE DERSELBEN RECHNUNG SIND ZWEI WAHRHEITEN.** Dasselbe
+     Muster wie beim Lochzeiger (Zähler gegen Zeitstempel) und bei
+     `MAX_ACC`/`GPS_MAX_ACC` — diese Woche zum dritten Mal.
+     UND: v4.63 hat den Wachhund gebaut, der das meldet. Ich habe die Meldung
+     seither als „bekannt" gelesen, statt ihr zu folgen. **Sie hatte die
+     ganze Zeit recht.** */
+  ok("die Zielkette wird nur EINMAL gerufen",
+     (code.match(/playAimChain\(\)/g) || []).length === 1,
+     String((code.match(/playAimChain\(\)/g) || []).length) + " Aufrufe");
+  ok("Ziel und Schläger stammen aus demselben Ergebnis",
+     /const L0=_ch0;/.test(code) && /const zielPt=\(_ch0&&_ch0\.to\)/.test(code));
+  /* `condFaktor` muss gegen genau dieses Ziel rechnen — sonst vergleicht die
+     Kopfzeile wieder einen anderen Punkt als die Kette. */
+  ok("condFaktor rechnet gegen dasselbe Ziel",
+     /condFaktor\(pos, zielPt\)/.test(code));
+  /* Der Wachhund bleibt: Er hat den Fehler gefunden und soll den nächsten
+     finden. Eine Meldung abzuschalten, weil sie unbequem ist, wäre der
+     falsche Schluss aus dieser Woche. */
+  ok("der Wachhund bleibt erhalten",
+     /spielt-wie uneinig/.test(block) && /Schläger uneinig/.test(block));
 }
 
 /* ============ 24eu. Der Start rechnet nichts, was niemand angefordert hat ============ */

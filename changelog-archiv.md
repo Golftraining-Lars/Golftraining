@@ -13,6 +13,41 @@
 
 ---
 
+- **v4.78.0 · 2026-08-25** — **Die eigene Lochwahl reist im Zeiger mit (`wahlAt`).**
+  **Gemessen mit der Spur der Uhr (deren Fassung 33):** Der gedrosselte Tab (Bilanz: Median 47 s)
+  uebernahm das Uhr-Loch verspaetet und stempelte die Uebernahme **frisch** — die Uhr las daraus
+  eine neue Handy-Wahl und sprang zurueck („Loch ⇐ Handy 2/3"). Dazu ein Automatik-Sprung beim
+  Fortsetzen („Loch ⇐ Handy 14": erstes Loch ohne Score, Restdaten — von niemandem gewaehlt).
+  **Ein Zeitstempel sagt, wann geschrieben wurde — nicht, wie alt die Information ist.** Deshalb
+  traegt der Zeiger jetzt zusaetzlich `wahlAt` = `PLAY.holeAt`, die letzte Lochwahl des
+  **Benutzers** an diesem Geraet. `playPrev/Next` stempeln sie; `playAdoptRemoteHole` und der
+  Rundenstart **nicht** — Echos und Automatik sind damit als solche erkennbar. Die Uhr (ab 33)
+  folgt nur noch einer Wahl, die juenger ist als die letzte Handlung auf der Uhr.
+  **Eine Zeile Daten, keine Logikaenderung hier:** faellt `wahlAt` weg, gilt auf der Uhr die alte
+  Regel weiter. Rueckwaertskompatibel in beide Richtungen.
+
+- **v4.77.0 · 2026-08-25** — **GEFUNDEN: Der Takt hielt sich selbst an — und meine Messung nannte
+  es „gedrosselt".**
+  **Der Einwand war entscheidend:** „Die App war die ganze Zeit im Vordergrund, im Vollbild." Und
+  doch stand im Protokoll „Takt gedrosselt: 152 s statt 2 s · **Bildschirm an**". Beides zugleich
+  ist unmöglich — also war meine Meldung falsch.
+  **Sie war es:** Der Takt wurde nicht gestreckt, **er lief gar nicht.** `playSyncTick` rief
+  `playStopSync()` und löschte den Zeitgeber, sobald `PLAY.live` false war — und das setzt **jedes
+  `closeSheet()`**, also jedes Schließen eines Blattes nach einer Eingabe.
+  **Damit passt endlich alles zusammen:** Die erste Eingabe geht durch, weil der Takt noch läuft.
+  Danach schließt sich das Blatt, der Abgleich hält sich selbst an, und nichts startet ihn wieder —
+  bis ein `focus`-Ereignis das Aufholen auslöst. Genau das steht im Protokoll: **„Aufholen nach
+  focus", dann 19 Aktionen auf einmal.** Das ist die Beschreibung „erst geht es, dann bricht alles
+  zusammen", seit Tagen und in jeder Sitzung.
+  **Die Reparatur:** Der Abgleich hängt nur noch an `PLAY.active` — an der **Runde**, nicht an der
+  Anzeige. `PLAY.live` steuert weiterhin die Live-Ansicht, wofür es gedacht ist.
+  **Dieselbe Verwechslung wie auf der Uhr bei `if (!Live.running)`** (Uhr-Fassung (25)): eine
+  Bedingung, die von der Anzeige handelt, entschied über den Datenfluss. Zweimal derselbe Fehler an
+  zwei Geräten — und beide Male sah er wie ein Übertragungsproblem aus.
+  **Und die Messung unterscheidet jetzt:** „Takt stand still" (kein Zeitgeber) gegen „Takt
+  gedrosselt" (Browser hat gestreckt). **Eine Messung, die zwei verschiedene Ursachen gleich
+  benennt, schickt in die falsche Richtung** — sie hat mich eine Fassung gekostet.
+
 - **v4.76.0 · 2026-08-25** — **Gefunden: Der Lochzeiger war zu alt — und die Quittung stand am
   falschen Ort.** (Uhr-Fassung 2026-08-25 (29).)
   **Der Puls hat den Widerspruch in eine Zeile gebracht:**
