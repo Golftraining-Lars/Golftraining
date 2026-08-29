@@ -13,6 +13,31 @@
 
 ---
 
+- **v4.69.0 · 2026-08-25** — **Luftbild SH: Bildflug-Datum abfragbar.** Neuer Knopf in der
+  Kartenverwaltung (`mSatMeta`, nur bei SH-Quelle): fragt den Metadatendienst `WMS_SH_MD_DOP`
+  an drei Punkten des Platzes ab und zeigt das Befliegungsdatum — scharf heisst nicht aktuell.
+  Nebenbefund derselben Recherche: Der WMTS zum DOP20 wurde geprueft und VERWORFEN (nur
+  UTM32-Kachelschema, feinste Cache-Stufe 0,30 m/Pixel); der WMS bleibt bewusst, Begruendung
+  als Kommentar bei `SAT_SRC`. Betroffen: Abschnitt Satellit/Luftbild, Kap. 26.1, tests.js.
+
+- **v4.68.0 · 2026-08-25** — **Die Eingabespur: Jede Handlung auf der Uhr bekommt eine Nummer, das
+  Handy meldet zurück, bis zu welcher es gekommen ist.**
+  **Warum das nötig war — und warum ich zehn Fassungen gebraucht habe:** Bis hierher ließen sich nur
+  **Zustände** vergleichen. „Uhr auf Loch 9, Handy auf Loch 9" sah wie ein Erfolg aus und sagt in
+  Wahrheit **nichts** darüber, ob die sechs Schritte dazwischen angekommen sind — ein Endstand kann
+  auch zufällig übereinstimmen. Genau in dieser Lücke habe ich zehnmal geraten.
+  **Die Uhr (Fassung (23))** nummeriert jetzt jede Handlung des Benutzers: beide Pfeilpaare und jede
+  Score-Eingabe, mit Uhrzeit und Inhalt — „#7 13:42:11 Loch → 3", „#8 13:42:19 Eingabe L3 score=6".
+  Die letzten zwanzig reisen mit dem Entwurf (rund 1 kB).
+  **Das Handy** schreibt die neuen Zeilen ins Protokoll und quittiert mit `seenAktion`. Fehlt etwas,
+  meldet es das ausdrücklich: **„LÜCKE: Uhr bei #12, hier zuletzt #8 — 4 Schritte nicht in der
+  Liste"**. Und der Puls der Uhr zeigt dieselbe Rechnung von der anderen Seite: „Eingaben bis #12,
+  Handy sah #8 ⚠ 4 offen".
+  **Damit ist eine Lücke auf den Schritt genau sichtbar** statt „irgendwas kommt nicht an".
+  **Eine Feinheit, die sonst wieder gekostet hätte:** Gelesen wird aus der **frischen** Fassung, nicht
+  aus der vereinigten — `mergeDraft` behält unter Umständen den eigenen Entwurf, und dann sähe man
+  die Eingaben der Uhr gar nicht.
+
 - **v4.67.0 · 2026-08-25** — **Der Puls des Handys zeigte den Endzustand, nicht den Weg.**
   Im Protokoll vom 25.08. stand genau **eine** Zeile („Uhr meldet Loch 1 · schon dort", 13:26),
   während zwischen 13:26 und 13:32 **sechs Lochwechsel** lagen. Meine Fassung von v4.65 ersetzte

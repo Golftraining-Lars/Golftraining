@@ -77,6 +77,27 @@ async function trimTiles() {
   for (const k of keys.slice(0, keys.length - TILE_MAX)) await c.delete(k);
 }
 
+/* Nachricht an ALLE offenen Fenster. Kommt keines an (der haeufige Fall — die
+   App laeuft ja gerade nicht), ist das kein Problem: Die Meldung wird
+   zusaetzlich im Cache abgelegt und beim naechsten Start abgeholt. Ein
+   Ereignis, das nur ankommt, wenn ohnehin alles laeuft, waere wertlos. */
+async function melde(art, text){
+  try{
+    const rec = {art, text, at: new Date().toISOString()};
+    try{
+      const c = await caches.open(SHELL_CACHE);
+      const alt = await c.match("./__swlog");
+      const liste = alt ? (await alt.json()) : [];
+      liste.push(rec);
+      while(liste.length > 20) liste.shift();
+      await c.put("./__swlog", new Response(JSON.stringify(liste),
+        {headers:{"Content-Type":"application/json"}}));
+    }catch(_){ /* ohne Cache eben nur die Live-Nachricht */ }
+    const cs = await self.clients.matchAll({includeUncontrolled:true});
+    cs.forEach(cl => cl.postMessage({type:"SW_LOG", rec}));
+  }catch(_){ /* Ein Protokoll darf nie selbst zum Problem werden. */ }
+}
+
 self.addEventListener("fetch", ev => {
   const req = ev.request;
   if (req.method !== "GET") return;
@@ -114,6 +135,24 @@ self.addEventListener("fetch", ev => {
       ]);
       if (frisch && frisch.ok) return frisch;
 
+      /* ==================================================================
+         DER SERVICE WORKER MELDET SICH (v3, 2026-08-29)
+         --------------------------------------------------------------------
+         Bis hierher war er der groesste blinde Fleck der ganzen Diagnose: Er
+         entscheidet ueber Start oder Nicht-Start und schrieb nie eine Zeile.
+         Am 29.08. war die App auf dem Handy stundenlang unerreichbar — im
+         Fehlerprotokoll stand davon NICHTS, weil alles hier drin passierte.
+         `melde()` schickt den Grund an alle offenen Fenster. Die App schreibt
+         ihn beim NAECHSTEN ERFOLGREICHEN START ins Protokoll: Der Ausfall wird
+         nachtraeglich erzaehlt, und genau das ist die Antwort auf „warum steht
+         davon nichts im Log".
+         KEIN NETZ ZU IHM NOETIG, kein Fernprotokoll — die Nachricht bleibt auf
+         dem Geraet. */
+      if(!frisch) melde("huelle-aus-speicher",
+        cached ? "Netz zu langsam oder nicht da — gespeicherte Fassung geliefert"
+               : "Netz nicht erreichbar UND nichts gespeichert");
+      if(!cached && !(await net)) melde("huelle-fehlt",
+        "Weder Netz noch Speicher — die App kann nicht starten");
       return cached || (await net) || new Response(
         "<h1>Offline</h1><p>Die App wurde noch nicht für den Offline-Betrieb " +
         "gespeichert. Einmal mit Netz öffnen, danach geht es auch ohne.</p>",

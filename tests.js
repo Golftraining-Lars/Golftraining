@@ -299,6 +299,7 @@ try {
                  "fremderZeigerZaehlt","istRundenStat","poolQuote","teilAnteil",
                  "caddyKette","caddyKetteHtml","caddyVergleichHtml","caddyKipppunkt",
                  "unwetterUrteil","istGewitterCode","unwetterBannerHtml","wakeAppAn",
+                 "logInfo","_logZustand","ERRLOG",
                  "_restZumGruen","_spieltWieM",
                  "pruefeDaten","pruefeRechnung",
                  "pruefeTrockenlauf","pruefeUmgebung",
@@ -9654,7 +9655,10 @@ group("Protokoll — kein Erfolg unter den Fehlern");
      Das ist genau das Rauschen, das ein Protokoll unbrauchbar macht: Wer
      zwischen fünf gemeldeten „Fehlern" erst prüfen muss, welche überhaupt
      welche sind, sieht beim sechsten Mal gar nicht mehr hin. */
-  ok("Gameplan-Erneuerung ist eine Info", /logWarn\("Gameplan", "Plan neu berechnet: "/.test(js));
+  /* Seit v5.02 gibt es eine EIGENE Stufe dafür (`logInfo`) — vorher musste
+     `logWarn` beide Rollen tragen. Ein erneuerter Plan ist ein normaler
+     Vorgang und gehört nicht zwischen die Warnungen. */
+  ok("Gameplan-Erneuerung ist eine Info", /logInfo\("Gameplan", "Plan neu berechnet: "/.test(js));
   ok("Umkategorisierung ist eine Info", /logWarn\("Wissensdatenbank"/.test(js));
   ok("ergänzte Tests sind eine Info", /logWarn\("Tests",/.test(js));
   ok("Schwung-Umstellung ist eine Info", /logWarn\("Schwungdaten"/.test(js));
@@ -9668,7 +9672,11 @@ group("Protokoll — kein Erfolg unter den Fehlern");
      Änderung im Fließtext („statt `logErr(new Error(...))`") und wurde
      mitgezählt — die Prüfung schlug damit gegen ihre eigene Beschreibung an. */
   const kuenstlich = (js.match(/logErr\(\s*"[^"]+",\s*new Error\(/g) || []).length;
-  ok("nur noch echte Fehlerfälle", kuenstlich <= 3, kuenstlich + " Stellen");
+  /* 5 statt 3 (v5.02): Der Service-Worker-Nachbericht erzeugt bewusst zwei
+     `new Error` — eine nicht lieferbare Hülle IST ein Fehler, auch wenn sie
+     nachträglich gemeldet wird. Der Deckel bleibt eng genug, um Erfolge als
+     Fehler zu verhindern. */
+  ok("nur noch echte Fehlerfälle", kuenstlich <= 5, kuenstlich + " Stellen");
 }
 
 /* ============ 24dz. Gelöschtes bleibt gelöscht ============ */
@@ -9870,6 +9878,151 @@ group("Karteneditor — das Langdrück-Menü blockiert die Bearbeitung");
     eq("ohne Ereignis stabil", KM(null), false);
     eq("mit leerem Ereignis stabil", KM({}), false);
   }
+}
+
+/* ============ 24er. Das Fehlerprotokoll erzählt den Ausfall ============ */
+group("Protokoll — drei Stufen, ein Startvermerk, ein sprechender Service Worker");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+  const roh = ktOhneKommentar(codeOhneDoku(src));
+  const LI = G("logInfo"), LZ = G("_logZustand"), EL = G("ERRLOG");
+
+  /* ====================================================================
+     BEFUND VOM 29.08.2026 (v5.02)
+     --------------------------------------------------------------------
+     „Von diesem ganzen Problem findet sich anscheinend nichts im Fehlerlog."
+     Stimmte. Der schwerste Ausfall der Woche — App stundenlang unerreichbar —
+     hinterließ EINE anonyme Zeile. Drei strukturelle Gründe:
+       1. Das Protokoll lebt in der App, die ausfällt.
+       2. Es gab keinen Startvermerk — die fehlenden Starts wären der Befund.
+       3. `unhandledrejection` protokollierte alles als Quelle „Promise".
+     Dazu: Routine (`Gameplan`, `Caddy ohne Höhendaten`) verdrängte echte
+     Befunde aus einem Ring, der bei 40 endete. */
+  if (typeof LI === "function" && Array.isArray(EL)) {
+    const vorher = EL.length;
+    LI("Prüfstand", "Testeintrag");
+    const neu = EL[EL.length - 1];
+    ok("logInfo schreibt eine Zeile", EL.length === vorher + 1 && neu.where === "Prüfstand");
+    ok("und zwar auf der Stufe info", neu.lvl === "info", String(neu.lvl));
+    /* Wiederholungen zählen statt anhängen — sonst füllt ein Ereignis, das
+       jede Minute auftritt, den ganzen Ring. */
+    LI("Prüfstand", "Testeintrag");
+    ok("Wiederholungen werden gezählt", EL[EL.length - 1].n === 2 && EL.length === vorher + 1);
+    /* Jeder Eintrag trägt seinen Zustand — sonst muss man ihn aus dem
+       Zeitstempel raten. */
+    ok("mit Zustand am Eintrag", typeof neu.z === "string" && neu.z.length > 0, neu.z);
+    if (typeof LZ === "function")
+      ok("der Zustand nennt die Fassung", /^\d+\.\d+/.test(LZ()), LZ());
+    EL.length = vorher;
+  }
+
+  /* ---- Der Ring musste wachsen: Kontext ohne Vorgeschichte ist keiner ---- */
+  ok("der Ring fasst 60 statt 40", (roh.match(/ERRLOG\.length>60/g) || []).length >= 2,
+     String((roh.match(/ERRLOG\.length>60/g) || []).length));
+
+  /* ---- Herkunft statt „Promise" ----
+     Am 29.08. stand „Promise · Failed to fetch" im Log — das war mein
+     Wetterabruf, aber das stand nirgends, und ich habe die Zeile falsch
+     gedeutet. */
+  ok("Zurückweisungen nennen ihre Herkunft",
+     /wo = m\[1\] \+ "\(\)  \(Promise\)"/.test(roh));
+  ok("und nicht mehr nur „Promise“",
+     !/addEventListener\("unhandledrejection", ev=>\{ logErr\("Promise", ev\); \}\)/.test(roh));
+
+  /* ---- DER STARTVERMERK: die Zeile, die gefehlt hat ---- */
+  ok("jeder Start hinterlässt eine Zeile", /logInfo\("Start", _teile\.join\(" · "\)\)/.test(roh));
+  ok("mit Fassung und Herkunft der Hülle",
+     /transferSize===0 \? "aus dem Speicher"/.test(roh));
+  /* Eine unplausible Messung ist schlimmer als keine — im Prüfstand kam hier
+     „Start in 1787973671982 ms" heraus. */
+  ok("und einer plausiblen Dauer", /v>0 && v<120000/.test(roh));
+  /* Ein Fassungswechsel ist der häufigste Auslöser für „seit heute geht etwas
+     nicht mehr" — er bekommt eine eigene Zeile. */
+  ok("ein Fassungswechsel wird eigens vermerkt",
+     /logInfo\("Fassungswechsel", vorige\+" → "\+APP_VERSION\)/.test(roh));
+
+  /* ---- DER SERVICE WORKER, der größte blinde Fleck ---- */
+  {
+    const swPfad = path.join(__dirname, "sw.js");
+    if (!fs.existsSync(swPfad)) console.log("   Hinweis: sw.js liegt nicht daneben.");
+    else {
+      const sw = fs.readFileSync(swPfad, "utf8");
+      ok("der Service Worker kann melden", /async function melde\(art, text\)/.test(sw));
+      /* IM CACHE ABLEGEN ist der Kern: Im Moment der Störung ist meist KEIN
+         Fenster offen, dem er etwas schicken könnte. Ein Ereignis, das nur
+         ankommt, wenn ohnehin alles läuft, wäre wertlos. */
+      ok("und legt die Meldung im Cache ab", /c\.put\("\.\/__swlog"/.test(sw));
+      ok("zusätzlich als Nachricht an offene Fenster", /type:"SW_LOG"/.test(sw));
+      ok("er meldet eine nicht lieferbare Hülle",
+         /melde\("huelle-fehlt"/.test(sw));
+      ok("und eine aus dem Speicher gelieferte", /melde\("huelle-aus-speicher"/.test(sw));
+    }
+  }
+  /* Die App holt es beim NÄCHSTEN erfolgreichen Start ab — ein Ausfall kann
+     sich nicht selbst melden, aber er kann sich melden, sobald es wieder geht. */
+  ok("die App holt den Nachbericht ab", /c\.match\("\.\/__swlog"\)/.test(roh));
+  ok("und löscht ihn danach", /c\.delete\("\.\/__swlog"\)/.test(roh));
+  ok("eine fehlende Hülle wird als Fehler geführt",
+     /x\.art==="huelle-fehlt"[\s\S]{0,120}?logErr\("Service Worker"/.test(roh));
+
+  /* ---- Routine gehört nicht zwischen die Warnungen ---- */
+  ok("fehlende Höhendaten sind eine Info", /logInfo\("Caddy ohne Höhendaten"/.test(roh));
+  ok("und die Plan-Erneuerung auch", /logInfo\("Gameplan"/.test(roh));
+
+  /* ---- Der Selbsttest liest das Protokoll wirklich ----
+     Er prüfte auf das Feld `level` — das es nicht gibt (es heißt `lvl`). Die
+     Zahl war deshalb IMMER 0: ein still falsches Grün, auf das man sich
+     verlässt. Genau die Sorte Fehler, die dieser Selbsttest finden soll. */
+  ok("der Selbsttest liest das richtige Feld",
+     !/x\.level==="err"/.test(roh) && /x\.lvl!=="warn" && x\.lvl!=="info"/.test(roh));
+  ok("er nennt die häufigste Quelle", /Object\.keys\(nach\)\.sort/.test(roh));
+  ok("und wann zuletzt gestartet wurde", /Letzter Start vor /.test(roh));
+  ok("ein fehlender Startvermerk ist selbst ein Befund",
+     /Kein Startvermerk im Protokoll/.test(roh));
+  /* Und die statische Prüfung darf Infos nicht als Laufzeitfehler zählen. */
+  ok("Infos gelten nicht als Laufzeitfehler",
+     /const echte = \(typeof ERRLOG!=="undefined"/.test(roh));
+}
+
+/* ============ 24er. sw.js ist beschrieben — und die Doku bleibt wahr ============ */
+group("Doku — der Service Worker hat ein Kapitel");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+  const doc = (src.match(/<script[^>]*devdocs[^>]*>([\s\S]*?)<\/script>/) || ["", ""])[1];
+  const swPfad = path.join(__dirname, "sw.js");
+
+  /* ====================================================================
+     NACHGETRAGEN am 29.08.2026
+     --------------------------------------------------------------------
+     `sw.js` wurde in der Doku 13-mal ERWÄHNT und war nirgends BESCHRIEBEN —
+     bis er die App lahmlegte. Dieselbe Lücke wie beim Worker (Kapitel 28):
+     eine Komponente, die über Start oder Nicht-Start entscheidet, ohne dass
+     jemand nachlesen kann, wie sie es tut.
+     Diese Prüfungen halten das Kapitel an die DATEI gebunden — dieselbe
+     Bauart wie 24ca beim Worker, wo eine abgeschriebene Fassungsnummer drei
+     Fassungen lang mitveraltet ist. */
+  ok("es gibt ein Kapitel für sw.js", /## 27b\. `sw\.js`/.test(doc));
+  ok("und es nennt die drei Strategien",
+     /App-Huelle/.test(doc) && /Kartenkacheln/.test(doc) && /isNeverCache/.test(doc));
+  /* Das Zeitlimit ist die Zahl, die erklärt, warum eine neue Fassung erst beim
+     übernächsten Start erscheint. Wer sie ändert, muss die Doku mitziehen. */
+  if (fs.existsSync(swPfad)) {
+    const sw = fs.readFileSync(swPfad, "utf8");
+    const ms = (sw.match(/setTimeout\(\(\) => res\(null\), (\d+)\)/) || [])[1];
+    ok("das Zeitlimit der Hülle steht in der Datei", !!ms, ms || "nicht gefunden");
+    ok("und die Doku nennt dieselbe Zahl",
+       !ms || doc.indexOf((ms / 1000).toString().replace(".", ",") + " s") > 0,
+       ms ? (ms / 1000) + " s" : "—");
+    /* Der Nachbericht ist der Kern von Etappe 2: Der Service Worker legt seine
+       Meldungen ab, weil im Moment der Störung kein Fenster offen ist. */
+    ok("der Service Worker legt Meldungen ab", /__swlog/.test(sw));
+    ok("und die App holt sie beim Start", /__swlog/.test(src));
+    ok("die Doku erklärt warum", /kann sich melden, sobald es wieder geht/.test(doc));
+  }
+  /* DIE REGEL, die diese Woche dreimal verletzt wurde — in drei verschiedenen
+     Dateien. Deshalb steht sie jetzt in allen dreien. */
+  ok("die Regel „erst sichern, dann löschen“ steht im Kapitel",
+     /ERST DEN ERSATZ SICHERN, DANN DAS ALTE WEGWERFEN/.test(doc));
 }
 
 /* ============ 24eq. Aktualisieren darf die App nicht unerreichbar machen ============ */
@@ -15275,8 +15428,12 @@ group("Gameplan hält sich selbst frisch");
   /* Fenster vergrößert (v3.69): Der Kommentar zur Protokollstufe hat die
      Funktion länger gemacht; mit 1400 Zeichen lag das "return" außerhalb, und
      die Prüfung fiel aus einem Grund aus, der nichts mit ihr zu tun hat. */
+  /* 2600 statt 2200 (v5.02): Ein erklärender Kommentar in der Funktion hat den
+     Ausschnitt über die Grenze geschoben, und die Prüfung schlug an, obwohl der
+     Code unverändert war. Ein FESTES ZEICHENFENSTER als Abgrenzung ist
+     zerbrechlich — dieselbe Lehre wie bei den Spann-Mustern. */
   const ar = src.slice(src.indexOf("function gpAutoRefresh()"),
-                       src.indexOf("function gpAutoRefresh()") + 2200);
+                       src.indexOf("function gpAutoRefresh()") + 2600);
   ok("niemals während einer Runde", /PLAY\.active\) return;/.test(ar));
   ok("höchstens ein Plan je Durchgang", /\n      return;\s*\/\/ einer pro Durchgang/.test(ar));
   ok("Abdruck wird mitgeschrieben", /p\.fp=fp; p\.ts=new Date\(\)\.toISOString\(\)/.test(ar));
