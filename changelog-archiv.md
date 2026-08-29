@@ -13,6 +13,37 @@
 
 ---
 
+- **v4.79.1 · 2026-08-26** — **Aufwach-Ausloeser haengt nur noch an `PLAY.active`.**
+  Erster Testlauf nach Ritual (26.08., 05:35): **Der Zaehler haelt** — vier Zeiger-Pruefungen,
+  alle „schon dort", **keine** falsche Uebernahme; die Rueckspruenge sind weg. Versagt hat
+  Punkt (c), Handy-Haelfte: Runde aktiv, Blatt zu, Handy gesperrt — die Uhr schrieb 26 Aktionen
+  mit HTTP 200 ins Repo („Handy sah #0, 26 offen"), das Handy schlief. Beim Aufwecken loeste der
+  `visibilitychange`-Handler das Aufholen nicht aus: Er pruefte noch `PLAY.live` — dieselbe
+  Verwechslung von Anzeige und Datenfluss, die v4.77 im Takt selbst schon behoben hatte, an
+  dieser zweiten Stelle uebersehen. Jetzt zaehlt auch hier nur `PLAY.active`.
+  **Fuers Urteil wichtig:** Aufholen ist ein Lesevorgang und laeuft nur am wachen Geraet. Nach dem
+  Aufwecken dem Spielmodus ~10 s geben, ehe „fehlt" festgestellt wird — die Bilanzzeile
+  („Aufholen", Anzahl) zeigt, wann er durch ist.
+
+- **v4.79.0 · 2026-08-25** — **Zaehler statt Uhrzeit: der Lochwahl-Zaehler `holeSeq`.**
+  v4.52, v4.56, v4.58 und v4.78 haben denselben Fehler in wechselnder Gestalt repariert: ein
+  Lochabgleich in beide Richtungen, entschieden ueber **Zeitstempel zweier Geraete** — dazwischen
+  Echos, Tab-Drosselung (Bilanz 25.08.: Median 47 s), CDN-Latenz. Diese Fassung beseitigt die
+  **Klasse**: Nur eine **Benutzerhandlung** erhoeht den Zaehler (`playHoleStamp`, also
+  `playPrev/Next` — Uebernahmen und der Automatik-Sprung beim Fortsetzen **nicht**), der Zeiger
+  traegt ihn, und es gewinnt schlicht die hoehere Nummer. Ein Echo traegt nie eine hoehere Nummer
+  als die, die es gesehen hat — wirkungslos, egal wie spaet oder wie frisch gestempelt. Fremde
+  Staende werden **immer** angehoben (`playAdoptRemoteHole`, auch bei „schon dort"; ebenso bei der
+  Rundenuebernahme von der Uhr), damit die naechste eigene Wahl auf dem Maximum aufsetzt.
+  Dasselbe Prinzip meldet in der Eingabespur seit Tagen „keine Luecke" — der Lochzeiger bekommt es
+  jetzt auch. **Erfordert Uhr-Fassung 34** fuer die neue Regel; `wahlAt` (v4.78) und die at-Regel
+  bleiben als Netz fuer aeltere Uhren.
+  **Pruefritual** (vor jedem Urteil „geht/geht nicht", 2 Minuten — ausfuehrlich im Uhr-Changelog
+  bei Fassung 34): 1. Fassungen ablesen (hier 4.79.0 auf „Heute"; Pages-CDN cached — frisches
+  `?v=` laden). 2. Skript: Uhr 1→2→3 blaettern, 10 s, Handy zeigt 3; Handy →4, 10 s, Uhr zeigt 4;
+  Score auf L4. 3. Protokoll: Spur vollstaendig, genau EIN „Loch ⇐ Handy 4", kein ungewaehltes
+  Loch, Puls „Handy sah #N ✓". Ein Durchgang, ein eindeutiges Urteil.
+
 - **v4.78.0 · 2026-08-25** — **Die eigene Lochwahl reist im Zeiger mit (`wahlAt`).**
   **Gemessen mit der Spur der Uhr (deren Fassung 33):** Der gedrosselte Tab (Bilanz: Median 47 s)
   uebernahm das Uhr-Loch verspaetet und stempelte die Uebernahme **frisch** — die Uhr las daraus

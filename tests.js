@@ -53,6 +53,16 @@
    2e. AUF DAS ERGEBNIS WARTEN, NICHT AUF EINE FRIST. Eine Pruefung, die eine
       feste Wartezeit setzt, ist mal gruen und mal rot, ohne dass sich etwas
       geaendert hat. Pollen, bis das Erwartete da ist (siehe `bisGrabstein`).
+   2f. BLOCKGRENZE STATT ZEICHENFENSTER. Ein Ausschnitt fester Laenge
+      (`[\s\S]{0,900}`) reisst, sobald der Code darunter waechst — VIERMAL in
+      der Woche vom 24.–29.08. passiert, und jedes Mal wurde zuerst der Code
+      verdaechtigt statt die Pruefung. `blockVon(src, "function name(")`
+      grenzt an der naechsten Deklaration ab und haelt, egal wie lang eine
+      Funktion wird. `FENSTER_DECKEL` deckelt die verbliebenen grossen
+      Fenster — nur senken, nie anheben.
+      ACHTUNG BEI ABWESENHEITSPRUEFUNGEN: `blockVon` gibt bei unbekanntem
+      Anker "" zurueck, und `!/x/.test("")` ist IMMER wahr. Dort also nicht
+      umstellen, sondern das Muster ohne Fenster formulieren.
    3. PRUEFUNGEN AUF ABWESENHEIT laufen durch `ktOhneKommentar()` bzw.
       `codeOhneDoku()`. Der Kommentar, der erklaert, warum etwas NICHT mehr
       dasteht, enthaelt zwangslaeufig genau die Zeichenfolge, nach der die
@@ -215,6 +225,30 @@ const ABDECKUNG_DECKEL = { funcs: 202, strat: 6 };
    wahrscheinlicher hat vorher jemand `DB=merged` gerufen. */
 const STALE_DECKEL = { db: 80, play: 20 };
 
+/* ==========================================================================
+   DECKEL GEGEN GROSSE ZEICHENFENSTER (29.08.2026)
+   --------------------------------------------------------------------------
+   VIER MAL IN EINER WOCHE ist eine Pruefung rot geworden, weil sie einen
+   Quelltext-Ausschnitt FESTER LAENGE las und der Code darunter gewachsen war:
+   `grid()` (14.000), `draftPush` (400), der Fahnen-Rueckbau, der Uhr-Waechter
+   (260). Jedes Mal stimmte der Code — und jedes Mal wurde zuerst der Code
+   verdaechtigt.
+   NUR SENKEN, NIE ANHEBEN. Wer ein grosses Fenster braucht, muss diese Zahl
+   anfassen und stolpert dabei ueber die Frage, ob `blockVon` nicht das
+   richtige Werkzeug waere.
+   WARUM 400 UND NICHT WENIGER: Kleine Fenster pruefen zwei benachbarte
+   Zeilen — dafuer sind sie genau richtig, und ein Block waere dort zu grob.
+   Gefaehrlich sind die, die einen ganzen Funktionskoerper ueberspannen und
+   mit jedem Kommentar mitwachsen.
+   WARUM NICHT ALLE 49 AUF EINMAL: Eine mechanische Umstellung, die den
+   Pruefstand gruen laesst, kann ihn aus dem FALSCHEN Grund gruen lassen —
+   `blockVon` gibt bei unbekanntem Anker "" zurueck, und eine
+   Abwesenheitspruefung auf "" ist immer gruen. Genau das ist beim vierten
+   Kandidaten passiert und nur aufgefallen, weil der Pruefstand rot wurde.
+   Umgestellt wird deshalb einzeln und mit Gegenprobe; der Deckel haelt den
+   Rest an. */
+const FENSTER_DECKEL = 48;
+
 let pass = 0, fail = 0;
 const fails = [];
 
@@ -258,7 +292,21 @@ const sandbox = {
   Object, Array, Map, Set, Promise, RegExp, Error, encodeURIComponent, decodeURIComponent,
   setTimeout: noop, clearTimeout: noop, setInterval: noop, clearInterval: noop,
   fetch: () => Promise.reject(new Error("kein Netz im Test")),
-  localStorage: { getItem: () => null, setItem: noop, removeItem: noop },
+  /* ==================================================================
+     EINE ECHTE ABLAGE STATT EINER ATTRAPPE (29.08.2026)
+     --------------------------------------------------------------------
+     Hier stand `getItem: () => null` — eine Attrappe, die NIE etwas
+     zurueckgibt. Fuer alles, was nur schreibt, genuegt das. Aber jede Regel,
+     die sich etwas MERKT, ist damit nicht pruefbar: Sie sieht immer einen
+     leeren Speicher und meldet folglich immer „zum ersten Mal gesehen".
+     Genau daran ist die Pruefung der Uhr-Fassung gescheitert — sie war rot,
+     obwohl die Funktion stimmte, und ich habe zuerst die Funktion verdaechtigt.
+     EINE ATTRAPPE, DIE IMMER DASSELBE SAGT, PRUEFT NICHTS. Sie ist eine
+     Zusicherung, dass der Aufruf nicht abstuerzt — mehr nicht. */
+  localStorage: (function(){ const _s={};
+    return { getItem:k=>(k in _s?_s[k]:null),
+             setItem:(k,v)=>{ _s[k]=String(v); },
+             removeItem:k=>{ delete _s[k]; } }; })(),
   indexedDB: undefined,
   navigator: { onLine: false, userAgent: "node", geolocation: undefined, vibrate: noop },
   location: { href: "http://test/index.html", protocol: "http:", search: "" },
@@ -302,7 +350,7 @@ try {
                  "GEO_PUNKTE_MAX","GEO_OTHER_MAX","thinRing",
                  "caddyKette","caddyKetteHtml","caddyVergleichHtml","caddyKipppunkt",
                  "unwetterUrteil","istGewitterCode","unwetterBannerHtml","wakeAppAn",
-                 "neueFassungAnzeigen",
+                 "neueFassungAnzeigen","watchFassungPruefen","watchFassung",
                  "logInfo","_logZustand","ERRLOG",
                  "_restZumGruen","_spieltWieM",
                  "pruefeDaten","pruefeRechnung",
@@ -357,6 +405,36 @@ const G = n => (T[n] !== undefined ? T[n] : ctx[n]);
    FUER NEUE PRUEFUNGEN IST `live` PFLICHT; die 81 bestehenden `G("DB")`-Stellen
    bleiben, wo sie sind (sie laufen vor der ersten Neuzuweisung), sind aber
    gedeckelt — siehe `STALE_DECKEL` weiter unten. */
+/* ==========================================================================
+   BLOCKGRENZE STATT ZEICHENFENSTER (29.08.2026)
+   --------------------------------------------------------------------------
+   VIER MAL IN EINER WOCHE ist eine Pruefung rot geworden, weil sie einen
+   Quelltext-Ausschnitt FESTER LAENGE las und der Code darunter gewachsen war:
+   `grid()` (14.000 Zeichen), `draftPush` (400), der Fahnen-Rueckbau, zuletzt
+   der Uhr-Waechter (260). Jedes Mal stimmte der Code, und jedes Mal habe ich
+   zuerst den Code verdaechtigt statt die Pruefung.
+   DAS IST DIE TEUERSTE SORTE FEHLALARM: Er sieht aus wie ein Befund, kostet
+   Zeit — und wenn er sich haeuft, gewoehnt man sich an rote Zeilen. Genau so
+   ist mir diese Woche der Caddy-Waechter durchgerutscht, der die ganze Zeit
+   recht hatte.
+   EIN FENSTER, DAS MAN NACHZIEHEN MUSS, IST KEINE GRENZE, SONDERN EINE
+   VERABREDUNG AUF ZEIT. `blockVon` grenzt stattdessen an dem ab, was der Code
+   selbst hergibt: der naechsten Deklaration auf derselben Ebene. Das haelt,
+   egal wie lang eine Funktion wird.
+   BEWUSST EINFACH: Es wird nicht geparst, sondern bis zur naechsten Zeile
+   gelesen, die am Zeilenanfang (oder mit zwei Leerzeichen, fuer Methoden in
+   einem Objektliteral) eine Deklaration beginnt. Fuer eine Pruefung reicht
+   das — und ein Parser waere ein zweites Werkzeug, das selbst kaputtgehen
+   kann. Findet sich kein Ende, gibt es den Rest der Datei zurueck: lieber zu
+   viel lesen als eine Pruefung, die stumm nichts findet. */
+function blockVon(src, anker){
+  const i = src.indexOf(anker);
+  if (i < 0) return "";
+  const rest = src.slice(i + anker.length);
+  const m = /\n(?:function |async function |const \w+\s*=|let \w+\s*=|  \w+\([^)]*\)\s*\{)/.exec(rest);
+  return anker + (m ? rest.slice(0, m.index) : rest);
+}
+
 function live(name){
   const f = G(name === "DB" ? "dbJetzt" : name === "PLAY" ? "playJetzt" : null);
   if (typeof f === "function") return f();
@@ -3466,7 +3544,7 @@ group("STRAT.tee — vertauschte Tee/Grün-Punkte und Modus-Reaktion");
   /* Der Cache-Schlüssel MUSS den Modus enthalten, sonst hilft das Verwerfen
      nichts — die Bewertung käme aus dem Speicher zurück. */
   ok("Bewertungs-Cache schlüsselt über den Modus",
-     /function _aimTeeEv[\s\S]{0,900}caddyMode\(\)/.test(src));
+     new RegExp("caddyMode\\(\\)").test(blockVon(src, "function _aimTeeEv")));
   /* Und über die POSITION (v2.94) — auf 10 m gerundet: ohne sie bliebe die
      erste Rechnung für immer im Speicher, mit voller Genauigkeit käme bei
      jedem GPS-Zucken eine neue Monte-Carlo-Rechnung. */
@@ -3830,7 +3908,7 @@ group("DGM1 — Raster, Neigung und die Grenze zwischen zwei Quellen");
   ok("beide Wege lesen denselben Schluessel",
      (src.match(/dgmKey\(/g) || []).length >= 4);
   ok("elevGet fragt DGM zuerst",
-     /function elevGet[\s\S]{0,900}?dgmHoehe\(la,lo\)[\s\S]{0,80}?ELEV\[elevKey/.test(src));
+     new RegExp("dgmHoehe\\(la,lo\\)[\\s\\S]{0,80}?ELEV\\[elevKey").test(blockVon(src, "function elevGet")));
 }
 
 /* ============ 24bm6. Hanglage erreicht den Gameplan ============ */
@@ -7170,7 +7248,7 @@ group("Live-Zeiger — beide Geräte, dieselbe Regel");
        zusaetzlich, dass der Changelog einen Eintrag fuer GENAU diese Kennung
        hat — beides zusammen faengt „Code geaendert, Fassung vergessen" und
        „Fassung gezogen, Changelog vergessen". */
-    ok("und die Kennung ist aktuell", /WATCH_APP = "2026-08-28 \(51\)"/.test(kt));
+    ok("und die Kennung ist aktuell", /WATCH_APP = "2026-08-29 \(52\)"/.test(kt));
     ok("das Handy zeigt sie", /function watchFassung\(\)/.test(src));
 
     /* --- STARTBILDSCHIRM (2026-08-25 (20)) ---
@@ -10004,6 +10082,88 @@ group("Protokoll — drei Stufen, ein Startvermerk, ein sprechender Service Work
      /const echte = \(typeof ERRLOG!=="undefined"/.test(roh));
 }
 
+/* ============ 24ex. Welche Uhr-Fassung wirklich läuft ============ */
+group("Uhr-Fassung — im Protokoll, nicht nur auf dem Handgelenk");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+  const roh = ktOhneKommentar(codeOhneDoku(src));
+  const P = G("watchFassungPruefen"), DB0 = live("DB");
+
+  /* ====================================================================
+     BEFUND AUS DEM AUDIT vom 29.08.2026 (umgesetzt in Uhr 52 / PWA v5.13)
+     --------------------------------------------------------------------
+     `watchFassung()` gibt es seit v4.65 — sie ZEIGT die Fassung in einer
+     Ansicht, die man aufrufen muss. Im PROTOKOLL, also dort, wo man nach
+     einem Fehler nachsieht, stand sie nicht.
+     DAS HAT IN DER WOCHE VOM 24.–29.08. MEHRFACH STUNDEN GEKOSTET:
+     Behebungen für die Uhr wurden auf dem Platz geprüft, bevor sie auf dem
+     Handgelenk waren. Weder Nutzer noch Bearbeiter konnten dem Protokoll
+     ansehen, WELCHE Fassungen miteinander geredet haben — und beide hielten
+     die Korrektur für wirkungslos.
+     Die PWA hat dasselbe Problem seit v5.02 gelöst (Startvermerk plus eine
+     Zeile bei jedem Wechsel). Dies ist das Gegenstück für die Uhr. */
+  if (typeof P === "function" && DB0) {
+    const K = "golf_watchver";
+    const altDraft = DB0._draftRound;
+    /* `localStorage` LEBT IM SANDKASTEN, nicht in Node — der Prüfstand hat
+       keins. Der Zugriff geht deshalb über den Kontext der App, wie bei
+       `live("DB")`. Mein erster Anlauf rief es direkt und flog mit
+       „localStorage is not defined". */
+    const LS = ctx.localStorage;
+    if (!LS) { ok("localStorage im Sandkasten vorhanden", false, "fehlt"); return; }
+    try {
+      LS.removeItem(K);
+      const vorLog = (G("ERRLOG") || []).filter(x => x.where === "Uhr-Fassung").length;
+      DB0._draftRound = { live: { src: "watch", app: "TEST (99)",
+        at: new Date().toISOString(), hole: 1 } };
+      P();
+      const nach1 = (G("ERRLOG") || []).filter(x => x.where === "Uhr-Fassung");
+      ok("die erste gesehene Fassung wird protokolliert",
+         nach1.length === vorLog + 1 && /TEST \(99\) gesehen/.test(nach1[nach1.length - 1].msg || ""),
+         nach1.length ? nach1[nach1.length - 1].msg : "keine Zeile");
+      /* KEIN RAUSCHEN: Eine Zeile bei jedem Herzschlag wäre genau der Grund,
+         warum man ein Protokoll irgendwann nicht mehr liest. */
+      P(); P(); P();
+      ok("dieselbe Fassung meldet sich nicht wieder",
+         (G("ERRLOG") || []).filter(x => x.where === "Uhr-Fassung").length === vorLog + 1);
+      /* Der WECHSEL ist die eigentliche Nachricht — er beantwortet „seit
+         wann geht das nicht mehr".
+         DER STAND WIRD HIER AUSDRUECKLICH GESETZT, nicht aus dem Schritt davor
+         uebernommen: Andere Gruppen laufen dazwischen und koennen den Speicher
+         leeren. Mein erster Anlauf verliess sich darauf und bekam „TEST (100)
+         gesehen" statt eines Wechsels — die Pruefung war rot, obwohl die
+         Funktion stimmte. Eine Pruefung, die an fremdem Zustand haengt, misst
+         nicht, was sie behauptet. */
+      LS.setItem(K, "TEST (99)");
+      DB0._draftRound.live.app = "TEST (100)";
+      P();
+      const nach2 = (G("ERRLOG") || []).filter(x => x.where === "Uhr-Fassung");
+      ok("ein Wechsel wird mit beiden Ständen protokolliert",
+         /TEST \(99\) → TEST \(100\)/.test(nach2[nach2.length - 1].msg || ""),
+         nach2[nach2.length - 1].msg);
+      /* Ohne Zeiger der Uhr passiert nichts — der Zeiger des Handys darf
+         keine Uhr-Fassung vortäuschen. */
+      DB0._draftRound = { live: { src: "phone", app: "PWA", at: new Date().toISOString() } };
+      const vor3 = (G("ERRLOG") || []).filter(x => x.where === "Uhr-Fassung").length;
+      P();
+      ok("ein Zeiger des Handys zählt nicht als Uhr-Fassung",
+         (G("ERRLOG") || []).filter(x => x.where === "Uhr-Fassung").length === vor3);
+    } finally {
+      DB0._draftRound = altDraft;
+      try { LS.removeItem(K); } catch (e) {}
+    }
+  }
+  /* GERÄT, NICHT DATENBESTAND: In `DB` gespeichert würde der PC einen Wechsel
+     melden, weil das Handy eine andere Uhr gesehen hat. */
+  ok("der Stand liegt beim Gerät, nicht in DB",
+     /localStorage\.setItem\(K, w\.app\)/.test(roh) && !/DB\.ui\.watchver/.test(roh));
+  /* Und der Aufruf muss dort stehen, wo der Entwurf der Uhr ankommt —
+     beide Wege. */
+  ok("beim Zusammenführen wird geprüft",
+     (roh.match(/watchFassungPruefen\(\);/g) || []).length >= 2,
+     String((roh.match(/watchFassungPruefen\(\);/g) || []).length));
+}
+
 /* ============ 24ew. Eine bereitliegende Fassung meldet sich ============ */
 group("Aktualisieren — der Wettlauf ist nicht zu gewinnen, also Bescheid sagen");
 {
@@ -11442,7 +11602,7 @@ group("Simulation — Platz prüfen, ohne auf dem Platz zu sein");
      Ein Werkzeug für den Spielmodus, das man nur außerhalb erreicht, ist keins. */
   ok("Schalter in der Kartenleiste", /onclick="simFrage\(\)"/.test(src));
   ok("nicht mehr unter Daten", !/id="cfgSim"/.test(src));
-  ok("Kartenleiste rendert ihn", /function playMapCtrlsHtml\(\)\{[\s\S]{0,3000}simFrage\(\)/.test(src));
+  ok("Kartenleiste rendert ihn", new RegExp("simFrage\\(\\)").test(blockVon(src, "function playMapCtrlsHtml")));
   /* RÜCKFRAGE beim Start: Der Knopf sitzt zwischen zehn Schaltern, die man im
      Spiel dauernd antippt. Ein Fehltipp würde die echte Ortung stillstellen —
      mitten auf der Bahn fällt das erst auf, wenn die Distanzen nicht mehr
@@ -12158,8 +12318,16 @@ group("Caddy — vollständig sichtbar, Bedingungen, 2 Iron nur vom Tee");
      /function condZeile\(von, ziel, zielName, gruen, spieltVorgabe\)/.test(src));
   ok("und zeigt die Vorgabe, wenn es eine gibt",
      /const _plays=\(spieltVorgabe!=null&&isFinite\(spieltVorgabe\)\)/.test(src));
+  /* ABWESENHEITSPRUEFUNG — HIER DARF DAS FENSTER NICHT DURCH EINEN BLOCK
+     ERSETZT WERDEN. Findet `blockVon` den Anker nicht, gibt es "" zurueck,
+     und eine Abwesenheitsprüfung auf "" ist IMMER grün: Sie bestätigt dann
+     nicht die Regel, sondern nur, dass sie nichts gefunden hat. Die
+     automatische Umstellung hat das erkannt (der Prüfstand wurde rot) — und
+     das ist genau die Gegenprobe, die eine mechanische Änderung braucht.
+     Stattdessen die alte Signatur direkt ausschließen, ohne Fenster. */
   ok("und benutzt keinen Namen, den es nicht gibt",
-     !/function condZeile\(von, ziel(, zielName)?\)[\s\S]{0,3000}?gruen/.test(src));
+     !/function condZeile\(von, ziel\)/.test(src)
+     && !/function condZeile\(von, ziel, zielName\)/.test(src));
   /* ZWEI ZIELE, ZWEI ZAHLEN (v4.11): Wer die Grünmitte anspielen WILL, fand
      die Zahl dafür nirgends — sie fehlte genau dann, wenn man sie braucht,
      nämlich beim Widerspruch zum Vorschlag. */
@@ -13525,7 +13693,7 @@ group("draft.json — heiß und klein statt kalt und groß");
   ok("leere Datei beendet den Takt NICHT",
     !/if\(p\)\{\s*\n\s*if\(p\.draft\)/.test(src));
   ok("und legt sie stattdessen an", /if\(p && p\.leer && DB\._draftRound\) draftPush\(\);/.test(src));
-  ok("Uhr-Wächter ebenso", /if\(p && p\.draft\)\{[\s\S]{0,260}watchLiveMaybeOpen\(\); watchLiveBusy=false; return;/.test(src));
+  ok("Uhr-Wächter ebenso", /if\(p && p\.draft\)\{[\s\S]{0,420}watchLiveMaybeOpen\(\); watchLiveBusy=false; return;/.test(src));
   ok("Schreiben ist entprellt", /_draftPushT=setTimeout\(\(\)=>\{ draftPush\(\); \}, 2000\)/.test(src));
   /* Die Messungen der Uhr reisen in derselben kleinen Datei mit — winzig, und
      sie dürfen nicht bis zum Rundenende liegenbleiben. Beim eigenen Schreiben
@@ -16618,6 +16786,31 @@ group("Abdeckung — verhindert, dass der Prüfstand veraltet");
        && /function dbJetzt\(\)/.test(fs.readFileSync(FILE, "utf8")));
     if (nDb < STALE_DECKEL.db || nPlay < STALE_DECKEL.play)
       console.log(`   Hinweis: Stale-Deckel nachziehen auf { db: ${nDb}, play: ${nPlay} }`);
+
+    /* ---- Zeichenfenster: nur senken (29.08.2026) ---- */
+    /* OHNE REGULAEREN AUSDRUCK ZAEHLEN: Das Muster muesste sich hier selbst
+       beschreiben — vier Maskierungsebenen, und mein erster Anlauf zaehlte
+       stumm 0. Eine Zaehlung, die 0 meldet, obwohl 49 dastehen, ist schlimmer
+       als keine: Der Deckel waere gruen und nutzlos. Also Zeichenkettensuche. */
+    const marke = "[" + "\\s\\S]{0,";
+    /* IM CODE ZAEHLEN, NICHT IN DEN KOMMENTAREN. Die Erklaerung, warum grosse
+       Fenster gefaehrlich sind, enthaelt zwangslaeufig ein Beispiel — und das
+       machte den Deckel beim ersten Lauf rot. Dieselbe Falle wie beim
+       Stale-Deckel und beim Fahnen-Rueckbau: Eine Abwesenheits- oder
+       Mengenpruefung findet ihre eigene Begruendung. */
+    const selbstCode2 = ktOhneKommentar(selbst);
+    let fenster = 0;
+    for (let pos = selbstCode2.indexOf(marke); pos >= 0; pos = selbstCode2.indexOf(marke, pos + 1)) {
+      const zahl = parseInt(selbstCode2.slice(pos + marke.length), 10);
+      if (isFinite(zahl) && zahl >= 400) fenster++;
+    }
+    ok("keine neuen großen Zeichenfenster", fenster <= FENSTER_DECKEL,
+       fenster + " Fenster ab 400 Zeichen, Deckel " + FENSTER_DECKEL);
+    /* Und der Ausweg muss existieren — ein Deckel ohne Alternative erzieht
+       nur dazu, ihn anzuheben. */
+    ok("und es gibt einen Ausweg", /function blockVon\(src, anker\)/.test(selbst));
+    if (fenster < FENSTER_DECKEL)
+      console.log(`   Hinweis: Fenster-Deckel nachziehen auf ${fenster}`);
   }
   /* Und die Gegenrichtung: Steht der Deckel deutlich ÜBER dem Ist-Stand,
      wurde beim Abdecken das Nachziehen vergessen. Dann ist er wirkungslos —
