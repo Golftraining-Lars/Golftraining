@@ -13,6 +13,42 @@
 
 ---
 
+- **v4.72.0 · 2026-08-25** — **Zwei Messungen, die die Frage direkt beantworten — statt mehr
+  Rohdaten.**
+  **(1) Die Uhr misst sich selbst** (Fassung (27)). Der Verdacht aus (25) — Android friert den
+  Prozess ein, wenn der Bildschirm ausgeht — ließ sich bisher nur aus **Ankunftszeiten** erschließen,
+  und die sind zweideutig: „spät angekommen" kann auch Netz sein. Jetzt wird direkt gemessen: Wir
+  wissen, wie lange ein Durchlauf schlafen **soll**. Dauert er länger als das Doppelte, hat jemand
+  anders die Schleife angehalten — **und das kann nur der Prozess sein.** Gemeldet mit Zahlen
+  („Schleife stand 340 s statt 10 s"), gezählt im Puls.
+  **Das unterscheidet „Netz war weg" von „Prozess war eingefroren"** — genau diese Unterscheidung
+  hat zwei Tage gefehlt, und ohne sie habe ich zwölf Fassungen an der falschen Stelle repariert.
+  **(2) Das Handy rechnet die Bilanz** statt eine Liste auszugeben: „**12 Aktionen · Verzögerung
+  5–27 s (Median 9 s) · keine Lücke**". Bei mehr als einer Minute Median kommt der Hinweis „die Uhr
+  sendet verzögert — Bildschirm aus?" dazu.
+  Beides stand vorher schon in den Zeilen — man musste es von Hand ausrechnen, und **genau das habe
+  ich bei „#1 14:34:55 … empfangen 15:03:11" zweimal übersehen.** Eine Diagnose, die man erst
+  auswerten muss, wird nicht ausgewertet.
+  Die Uhrzeit der Uhr trägt kein Datum; ein Sprung über Mitternacht wird deshalb verworfen statt
+  falsch gerechnet — **lieber keine Zahl als eine erfundene.**
+
+- **v4.71.0 · 2026-08-25** — **Gefunden: Der Dienst der Uhr startete oft gar nicht.** (Uhr-Fassung
+  2026-08-25 (25) — nur die Uhr muss neu.)
+  **Die Eingabespur hat es mit Zahlen gezeigt**, nicht mit einer Vermutung: Die Aktionen #1–#10
+  entstanden um 14:34:55 bis 14:35:45 und kamen um **15:03:11** beim Handy an — 28 Minuten später,
+  alle auf einmal.
+  **Ursache:** `svcStart` lief nur `if (!Live.running)`. Diese Bedingung verwechselt zwei Dinge —
+  „läuft die Ortung" und „läuft der Dienst". Der Dienst hält aber nicht nur GPS, sondern den
+  **PARTIAL_WAKE_LOCK**, und der hält den **Prozess** am Leben. Ohne ihn friert Android die App ein,
+  sobald der Bildschirm ausgeht — samt der Schleife, die den Abgleich sendet.
+  **Besonders tückisch bei GPS-Quelle „Handy":** Dann läuft drüben die Ortung, `Live.running` ist
+  gesetzt, und der Dienst startet **nie**. Das erklärt, warum es mal ging und mal nicht.
+  **Zum Mitnehmen:** Ein Dienst, der den Prozess am Leben hält, darf nicht an einer Bedingung
+  hängen, die von etwas anderem handelt.
+  **Und zur Einordnung:** Zwei Tage lang habe ich nach einem verlorenen Wert gesucht, wo es um einen
+  angehaltenen Takt ging. Gefunden hat es nicht das Nachdenken, sondern die nummerierte Spur — die
+  einzige Messung, die den **Weg** zeigt statt den Zustand.
+
 - **v4.70.0 · 2026-08-25** — **Die Eingabespur hat geantwortet — und ein Lärmherd nebenbei.**
   **DER BEFUND, endlich mit Zahlen.** Das Protokoll zeigt um 15:03:11 die Aktionen **#1 bis #10**
   der Uhr — aufgezeichnet um **14:34:55 bis 14:35:45**. Sie lagen also **28 Minuten** auf der Uhr,

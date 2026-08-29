@@ -297,6 +297,8 @@ try {
                  "kalibrierBericht","kalibrierText","_kalibMedian","_kalibMad","_kalibTauglich",
                  "_playKey","playMarkEnded","playClearEnded","watchLiveDarfOeffnen",
                  "fremderZeigerZaehlt","istRundenStat","poolQuote","teilAnteil",
+                 "geoAbspecken","geoBudget","_punkteDuennen","_koordRunden",
+                 "GEO_PUNKTE_MAX","GEO_OTHER_MAX","thinRing",
                  "caddyKette","caddyKetteHtml","caddyVergleichHtml","caddyKipppunkt",
                  "unwetterUrteil","istGewitterCode","unwetterBannerHtml","wakeAppAn",
                  "logInfo","_logZustand","ERRLOG",
@@ -10000,6 +10002,77 @@ group("Protokoll — drei Stufen, ein Startvermerk, ein sprechender Service Work
      /const echte = \(typeof ERRLOG!=="undefined"/.test(roh));
 }
 
+/* ============ 24es. Platzdaten haben eine Obergrenze ============ */
+group("Platzdaten — eine relative Regel braucht eine absolute Schranke");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+  const DU = G("_punkteDuennen"), RU = G("_koordRunden"), BU = G("geoBudget"),
+        AB = G("geoAbspecken"), TR = G("thinRing");
+
+  /* ====================================================================
+     BEFUND VOM 29.08.2026 (behoben in v5.06)
+     --------------------------------------------------------------------
+     Die App fror auf dem Handy ZWANZIG SEKUNDEN NACH DEM LADEN ein — also
+     genau dann, wenn der Abgleich fertig wird. Gemessen am echten Bestand:
+       Gesamt 3,89 MB, davon `courses` 3,38 MB.
+       Ein Platz (Brodauer Mühle) 2,31 MB.
+       Davon 2,20 MB in 141 Elementen der Art `other`.
+       EIN EINZIGES Element mit 86.840 Stützpunkten: 1,96 MB.
+     UND WOFÜR? `other` wird an genau einer Stelle ausgewertet: ein grauer
+     Punkt mit Radius 1,5 bei 30 % Deckkraft. **Zwei Megabyte für einen grauen
+     Punkt.**
+     DIE URSACHE: `thinRing` entfernt Punkte unter 0,8 m Abstand — eine
+     VERHÄLTNISMÄSSIGE Regel ohne absolute Schranke. Ein Umriss, dessen Punkte
+     weiter auseinanderliegen, kommt unbegrenzt durch. **Eine relative Regel
+     braucht eine absolute Schranke**, sonst hängt die Größe an der
+     Beschaffenheit der Quelle — und die kennt niemand vorher. */
+  if (typeof DU === "function") {
+    const lang = Array.from({ length: 9000 }, (_, i) => [54 + i * 2e-4, 10 + i * 2e-4]);
+    const kurz = DU(lang, 400);
+    ok("lange Umrisse werden ausgedünnt", kurz.length <= 401, String(kurz.length));
+    /* Anfang und Ende müssen bleiben, sonst öffnet sich ein Ring. */
+    ok("Anfang und Ende bleiben erhalten",
+       kurz[0][0] === lang[0][0] && kurz[kurz.length - 1][0] === lang[lang.length - 1][0]);
+    ok("kurze Umrisse bleiben unangetastet", DU([[1, 1], [2, 2]], 400).length === 2);
+  }
+  if (typeof RU === "function") {
+    /* Fünf Stellen sind gut ein Meter. Bei einem Platz, dessen Vermessung
+       ohnehin auf wenige Meter genau ist, kostet die sechste nur Speicher. */
+    ok("Koordinaten werden auf 5 Stellen gerundet",
+       JSON.stringify(RU([[54.1152361, 10.8311934]])) === "[[54.11524,10.83119]]",
+       JSON.stringify(RU([[54.1152361, 10.8311934]])));
+  }
+  if (typeof BU === "function") {
+    const viele = n => Array.from({ length: n }, (_, i) => [54 + i * 1e-4, 10]);
+    /* `other` ist Beiwerk und bekommt weniger Budget als der Rest. */
+    const o = BU({ kind: "other", ring: viele(5000) });
+    const g = BU({ kind: "green", ring: viele(5000) });
+    ok("„other“ bekommt das kleinere Budget", o.ring.length < g.ring.length,
+       o.ring.length + " vs " + g.ring.length);
+    ok("und beide sind gedeckelt",
+       o.ring.length <= G("GEO_OTHER_MAX") + 1 && g.ring.length <= G("GEO_PUNKTE_MAX") + 1);
+    /* NICHT GELÖSCHT, SONDERN GEDECKELT: Die graue Andeutung auf der Karte
+       ist gewollt — nur nicht für zwei Megabyte. */
+    ok("nichts wird ganz verworfen", o.ring.length > 0 && g.ring.length > 0);
+  }
+  /* Der Riegel muss im IMPORT sitzen, nicht nur im Aufräumen — sonst kommt
+     dasselbe beim nächsten Platz zurück. */
+  const roh = ktOhneKommentar(codeOhneDoku(src));
+  ok("thinRing hat jetzt eine Obergrenze",
+     /return _punkteDuennen\(out, GEO_PUNKTE_MAX\);/.test(roh));
+  ok("und jede Einfügestelle geht durch das Budget",
+     (roh.match(/feats\.push\(geoBudget\(/g) || []).length >= 3,
+     String((roh.match(/feats\.push\(geoBudget\(/g) || []).length));
+  /* Und das Aufräumen für den Rückstand — mit Bericht, denn wer Daten
+     verändert, muss sagen, was er getan hat. */
+  if (typeof AB === "function") {
+    ok("Aufräumen liefert einen Bericht",
+       (() => { const b = AB(); return b && typeof b.vorher === "number"
+         && typeof b.gespart === "number" && typeof b.elemente === "number"; })());
+    ok("der Knopf zeigt das Ergebnis", /Platzdaten: "\+mb\(b\.vorher\)/.test(src));
+  }
+}
+
 /* ============ 24er. sw.js ist beschrieben — und die Doku bleibt wahr ============ */
 group("Doku — der Service Worker hat ein Kapitel");
 {
@@ -10058,8 +10131,21 @@ group("Doku — der Service Worker hat ein Kapitel");
   if (fs.existsSync(swPfad)) {
     const sw2 = fs.readFileSync(swPfad, "utf8");
     ok("eine Antwort wird vor dem Ablegen geprüft",
-       /const istGanz = async \(r\)/.test(sw2)
+       /async function istGanz\(r\)/.test(sw2)
        && /t\.length > 500000 && \/<\\\/html>/.test(sw2));
+    /* AUCH DAS VORWAERMEN: `addAll` legt ab, was mit 200 zurückkommt — auch
+       eine halbe Datei. v3 hatte die Prüfung nur im `fetch`-Zweig; das
+       Vorwärmen bei der Installation ging daran vorbei, und es ist der
+       gefährlichere Weg: Es legt die Hülle an, mit der die App danach
+       startet. */
+    {
+      /* OHNE KOMMENTARE PRÜFEN: Die Begründung nennt `addAll` zwangsläufig —
+         mit dem rohen Text fände die Abwesenheitsprüfung ihre eigene
+         Erklärung. Dieselbe Falle wie beim Fahnen-Rückbau. */
+      const swCode = ktOhneKommentar(sw2);
+      ok("auch das Vorwärmen prüft", !/addAll\(/.test(swCode)
+         && /if \(await istGanz\(r\)\) await c\.put/.test(swCode));
+    }
     ok("und nicht mehr blind bei ok gespeichert",
        !/if \(r && r\.ok\) c\.put\("\.\/index\.html"/.test(sw2));
     /* EINE KAPUTTE HÜLLE WIRD WEGGEWORFEN, NICHT AUSGELIEFERT — sonst reicht

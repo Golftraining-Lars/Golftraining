@@ -53,14 +53,42 @@ const isTile = url =>
   /\/\d+\/\d+\/\d+(@2x)?\.(png|jpe?g|webp)/.test(url.pathname) ||
   /tile|wmts|arcgis|basemap/i.test(url.hostname);
 
+/* Vor dem Ablegen pruefen — plausible Groesse und Abschluss des Dokuments.
+   Steht hier oben, weil BEIDE Stellen sie brauchen: das Vorwaermen bei der
+   Installation und der Abruf im Betrieb. */
+async function istGanz(r){
+  try{
+    if (!r || !r.ok) return false;
+    const t = await r.clone().text();
+    return t.length > 500000 && /<\/html>\s*$/.test(t);
+  }catch(_){ return false; }
+}
+
 self.addEventListener("install", ev => {
-  // Huelle vorwaermen; scheitert das (offline beim ersten Start), ist es kein
-  // Grund die Installation abzubrechen.
-  ev.waitUntil(
-    caches.open(SHELL_CACHE)
-      .then(c => c.addAll(["./", "./index.html"]).catch(() => null))
-      .then(() => self.skipWaiting())
-  );
+  /* ==========================================================================
+     AUCH DAS VORWAERMEN PRUEFT (v3.1, 29.08.2026)
+     --------------------------------------------------------------------------
+     Hier stand `c.addAll(["./", "./index.html"])`. `addAll` legt ab, was mit
+     Status 200 zurueckkommt — auch einen Download, der mitten in den 2,7 MB
+     abbricht. Damit hatte der frisch installierte Worker eine LUECKE AN GENAU
+     DER STELLE, die v3 gerade geschlossen hatte: Die Pruefung sass im
+     `fetch`-Zweig, das Vorwaermen ging daran vorbei.
+     Und das Vorwaermen ist der GEFAEHRLICHERE Weg: Es laeuft bei der
+     Installation, oft direkt nach einem Fassungswechsel, und legt die Huelle
+     an, mit der die App danach startet.
+     Jetzt selbst holen und pruefen. Misslingt es, wird NICHTS abgelegt — der
+     Abruf im Betrieb holt die Huelle beim ersten Start nach. Eine fehlende
+     Huelle kostet einen Ladevorgang; eine halbe kostet die App. */
+  ev.waitUntil((async () => {
+    try{
+      const c = await caches.open(SHELL_CACHE);
+      const r = await fetch("./index.html", {cache:"reload"});
+      if (await istGanz(r)) await c.put("./index.html", r.clone());
+      else await melde("vorwaermen",
+        "Hülle beim Installieren unvollständig — nicht gespeichert");
+    }catch(_){ /* offline beim ersten Start: kein Grund abzubrechen */ }
+    await self.skipWaiting();
+  })());
 });
 
 self.addEventListener("activate", ev => {
@@ -140,13 +168,6 @@ self.addEventListener("fetch", ev => {
          DIESELBE REGEL WIE IN `swForceUpdate` (App v5.01) und im
          Archiv-Skript: erst pruefen, dann uebernehmen. Sie wurde in dieser
          Woche viermal gebraucht. */
-      const istGanz = async (r) => {
-        try {
-          if (!r || !r.ok) return false;
-          const t = await r.clone().text();
-          return t.length > 500000 && /<\/html>\s*$/.test(t);
-        } catch (_) { return false; }
-      };
       let cached = await c.match("./index.html");
       /* EINE KAPUTTE HUELLE WIRD WEGGEWORFEN, NICHT AUSGELIEFERT. Sonst
          reicht sie sich selbst von Start zu Start weiter. */
