@@ -348,7 +348,8 @@ try {
                  "fremderZeigerZaehlt","istRundenStat","poolQuote","teilAnteil",
                  "geoAbspecken","geoBudget","_punkteDuennen","_koordRunden",
                  "GEO_PUNKTE_MAX","GEO_OTHER_MAX","thinRing",
-                 "caddyKette","caddyKetteHtml","caddyVergleichHtml","caddyKipppunkt",
+                 "caddyKette","caddyKetteHtml","caddyVergleichHtml","caddyKipppunkt","caddyDreiZeilen",
+                 "elevGet",
                  "unwetterUrteil","istGewitterCode","unwetterBannerHtml","wakeAppAn",
                  "neueFassungAnzeigen","watchFassungPruefen","watchFassung",
                  "logInfo","_logZustand","ERRLOG",
@@ -431,7 +432,13 @@ function blockVon(src, anker){
   const i = src.indexOf(anker);
   if (i < 0) return "";
   const rest = src.slice(i + anker.length);
-  const m = /\n(?:function |async function |const \w+\s*=|let \w+\s*=|  \w+\([^)]*\)\s*\{)/.exec(rest);
+  /* NUR AUF SPALTE 0 — oder als Methode eines Objektliterals mit genau zwei
+     Leerzeichen. Mein erster Anlauf erkannte JEDE `const`-Zeile als neue
+     Deklaration, also auch eine eingerückte INNERHALB der Funktion: Der Block
+     endete nach drei Zeilen, und die Prüfung fand ihren Inhalt nicht.
+     EINE BLOCKGRENZE, DIE MITTEN IM BLOCK LIEGT, IST SCHLIMMER ALS EIN
+     Fenster — sie sieht richtig aus und schneidet trotzdem zu früh. */
+  const m = /\n(?:function |async function |const \w+\s*=|let \w+\s*=|  \w+\([^)]*\)\s*\{\n)/.exec(rest);
   return anker + (m ? rest.slice(0, m.index) : rest);
 }
 
@@ -3195,8 +3202,12 @@ group("Skizzen offline-tauglich, Aufwärmen nur noch auf Heute");
      Es MUSS derselbe Link sein wie in der Wissensdatenbank — zwei Quellen
      laufen früher oder später auseinander. */
   {
-    const sheet=src.slice(src.indexOf("function openStretchSheet"),
-                          src.indexOf("function openStretchSheet")+4200);
+     /* BLOCKGRENZE STATT FENSTER (v5.21). Hier stand ein Ausschnitt von 4200
+        Zeichen — er riss, als die Übungszeilen um die große Skizze und die
+        Sprungmarke wuchsen. Der fünfte Fall dieser Art. */
+     const _oi=src.indexOf("function openStretchSheet");
+     const _oe=src.indexOf("\nfunction ", _oi+20);
+     const sheet=src.slice(_oi, _oe>_oi?_oe:_oi+9000);
     ok("Video im Pre-Round-Blatt eingebunden", /malaskaVideo\(\)/.test(sheet));
     ok("Abspielfläche steht NACH der Übungsliste",
        sheet.indexOf("malaskaVideo") > sheet.indexOf("MALASKA_DYN.forEach"));
@@ -7248,7 +7259,7 @@ group("Live-Zeiger — beide Geräte, dieselbe Regel");
        zusaetzlich, dass der Changelog einen Eintrag fuer GENAU diese Kennung
        hat — beides zusammen faengt „Code geaendert, Fassung vergessen" und
        „Fassung gezogen, Changelog vergessen". */
-    ok("und die Kennung ist aktuell", /WATCH_APP = "2026-08-29 \(52\)"/.test(kt));
+    ok("und die Kennung ist aktuell", /WATCH_APP = "2026-08-30 \(53\)"/.test(kt));
     ok("das Handy zeigt sie", /function watchFassung\(\)/.test(src));
 
     /* --- STARTBILDSCHIRM (2026-08-25 (20)) ---
@@ -10082,6 +10093,305 @@ group("Protokoll — drei Stufen, ein Startvermerk, ein sprechender Service Work
      /const echte = \(typeof ERRLOG!=="undefined"/.test(roh));
 }
 
+/* ============ 24fc. Sprungmarken und große Skizzen ============ */
+group("Dehnroutine — die Skizze erinnert, das Video erklärt");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+  const DYN = G("MALASKA_DYN"), SVG = G("MALASKA_SVG"), BILD = G("malaskaBild");
+
+  /* ====================================================================
+     GEMELDET am 30.08.2026 (umgesetzt in v5.21)
+     --------------------------------------------------------------------
+     „Ich habe das Gefühl, dass die Skizzen überhaupt nicht gut wiedergeben,
+     wie die Übung ausgeführt wird."
+     NACHGEPRÜFT — und die Kritik war berechtigt. Nebeneinander gerendert
+     waren „Arm Circles vorwärts" und „rückwärts" praktisch identisch, „Side
+     Stretch" fast deckungsgleich mit „Triceps", und „Forward Stretch" zeigte
+     Arme über Kopf statt eines Vorbeugens.
+     ABER DAS EIGENTLICHE PROBLEM WAR DAS FORMAT: Bei 44 Pixeln in einer
+     Listenzeile kann eine Strichfigur einen Ausfallschritt nicht von einem
+     Schritt unterscheiden. Neu gezeichnet UND groß darstellbar — plus die
+     Sprungmarke ins Video, denn fünf Sekunden Film erklären mehr als jede
+     Zeichnung. */
+  if (Array.isArray(DYN)) {
+    /* DIE ZEITMARKEN SIND GEMESSEN, nicht geschätzt: aus den Titelwechseln
+       des Videos abgelesen. */
+    const mitZeit = DYN.filter(x => x.vid != null);
+    ok("jede Video-Übung hat eine Zeitmarke",
+       mitZeit.length === 15, mitZeit.length + " von 15");
+    ok("und sie liegen in der Reihenfolge des Videos",
+       mitZeit.every((x, i) => i === 0 || x.vid > mitZeit[i - 1].vid),
+       mitZeit.map(x => x.vid).join(" "));
+    /* Plausibel: Das Video ist 8:42 lang, die letzte Übung beginnt bei 7:19. */
+    ok("und innerhalb der Videolänge", mitZeit.every(x => x.vid > 0 && x.vid < 522),
+       mitZeit.filter(x => !(x.vid > 0 && x.vid < 522)).map(x => x.t).join(", "));
+    /* DIE ERGÄNZUNGEN HABEN KEINE — und sagen das auch. */
+    ok("die Ergänzungen tragen keine Zeitmarke",
+       DYN.slice(15).every(x => x.vid == null));
+  }
+
+  /* Der Sprung geht an die richtige Stelle: `&t=<Sekunden>s`. */
+  ok("die Sprungmarke steht im Link",
+     /watch\?v=SHP70Xv14kY&t=\$\{u\.vid\}s/.test(src));
+  ok("und die Zeit steht auch im Text", /Im Video ab \$\{Math\.floor\(u\.vid\/60\)\}/.test(src));
+  /* Ohne Video ein ehrlicher Satz statt eines toten Links. */
+  ok("ohne Video steht es dabei", /Nicht im Video — eigene Ergänzung/.test(src));
+
+  /* DIE GROSSE SKIZZE: 150 statt 44 Pixel. */
+  ok("die Skizze darf groß werden", /malaskaBild\(i,150\)/.test(src));
+  if (typeof BILD === "function") {
+    ok("und die Größe wirkt", /width="150"/.test(BILD(0, 150)), BILD(0, 150).slice(0, 60));
+  }
+  /* `stopPropagation` IST NÖTIG: Die Zeile selbst hakt die Übung ab. Ohne ihn
+     würde das Aufklappen die Übung als erledigt markieren — genau das
+     Gegenteil dessen, was der Tipp bedeutet. */
+  ok("das Aufklappen hakt die Übung nicht ab",
+     /<details class="st-mehr" onclick="event\.stopPropagation\(\)">/.test(src));
+  ok("die Gestaltung ist da", /\.st-gross\{/.test(src) && /\.st-vid\{/.test(src));
+
+  /* Und die Skizzen wurden wirklich neu gezeichnet — die alten hatten den
+     goldenen Kreis um den RUMPF statt an der Hand. */
+  if (Array.isArray(SVG)) {
+    ok("zu jeder Übung eine Skizze", SVG.length === DYN.length,
+       SVG.length + " / " + DYN.length);
+    ok("Arm Circles vorwärts und rückwärts unterscheiden sich",
+       SVG[2] !== SVG[3]);
+  }
+}
+
+/* ============ 24fb. Der Caddy antwortet in drei Zeilen ============ */
+group("Caddy — was · weil · statt");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+  const D = G("caddyDreiZeilen");
+
+  /* ====================================================================
+     GEMELDET am 30.08.2026 (umgebaut in v5.20)
+     --------------------------------------------------------------------
+     „Die Empfehlung überzeugt mich weiterhin nicht und ich finde es auch
+     extrem unübersichtlich. Ich finde diese Caddy-Seite muss grundsätzlich
+     neu aufgebaut werden."
+     Das Bild zeigte FÜNF Ebenen übereinander, die alle dasselbe erklärten —
+     und die Kernfrage (welchen Schläger nehme ich) stand in der Mitte.
+     DREI ZEILEN, IMMER IN DERSELBEN REIHENFOLGE: was · weil · statt.
+     DIE DRITTE IST DIE WICHTIGSTE — sie beantwortet, warum die Zahl, die
+     schlechter aussieht, gewinnt. Ohne sie bleibt jede Empfehlung eine
+     Behauptung. */
+  if (typeof D === "function") {
+    const g = c => (c && c.score2 != null) ? c.score2 : (c ? c.es : null);
+    const ev = { fracs: { fw: 78, rough: 22, sand: 0, pen: 0 },
+                 alt: { club: { name: "2 Iron" }, es: 4.26, score2: 4.45 } };
+    const b = { club: { name: "6 Iron" }, es: 4.28, score2: 4.31, next: "PW" };
+    const h = D(ev, b, 159, g, true);
+    ok("der Schläger steht oben", /<b>6 Iron<\/b>/.test(h), h.slice(0, 80));
+    ok("mit der Meterzahl daneben", /159 m/.test(h));
+    ok("und was danach bleibt", /danach PW/.test(h));
+    ok("die zweite Zeile nennt den Grund",
+       /weil<\/span><span>beste Rechnung über zwei Schläge/.test(h));
+    /* DIE DRITTE ZEILE — der eigentliche Punkt des Umbaus. */
+    ok("die dritte Zeile nennt die Alternative", /statt<\/span><span>2 Iron/.test(h));
+    ok("mit dem Abstand", /\+0,14/.test(h), h);
+    ok("und erklärt, warum sie verliert",
+       /erster Schlag besser \(4,26 gegen 4,28\), zweiter kostet mehr/.test(h));
+
+    /* KEINE ZEILE OHNE AUSSAGE: Ohne Alternative fällt die dritte weg, statt
+       „keine Alternative" zu behaupten. */
+    const ohne = D({ fracs: { fw: 78, rough: 22, sand: 0, pen: 0 } }, b, 159, g, true);
+    ok("ohne Alternative keine dritte Zeile", !/statt<\/span>/.test(ohne));
+
+    /* DAS RISIKO NUR, WENN ES EINES GIBT. Ein „0 % Risiko" in jeder Zeile
+       liest niemand nach dem dritten Loch. */
+    const sauber = D({ fracs: { fw: 90, rough: 8, sand: 1, pen: 0 } }, b, 159, g, true);
+    ok("ohne Risiko bleibt der Grund knapp", !/bei /.test(sauber.split("statt")[0]));
+    const riskant = D({ fracs: { fw: 40, rough: 30, sand: 5, pen: 14 },
+                        alt: { club: { name: "2 Iron" }, es: 4.5, score2: 4.6 } }, b, 159, g, true);
+    ok("mit Strafrisiko steht es dabei", /Strafrisiko 14 %/.test(riskant));
+    /* Strafrisiko hat Vorrang vor Bunker, Bunker vor Rough — dieselbe
+       Rangfolge wie in der Entscheidungskette. */
+    const sand = D({ fracs: { fw: 40, rough: 30, sand: 22, pen: 2 },
+                     alt: { club: { name: "2 Iron" }, es: 4.5, score2: 4.6 } }, b, 159, g, true);
+    ok("und Bunker, wenn kein Strafrisiko", /Bunker 22 %/.test(sand));
+
+    ok("ohne Schläger keine Zeilen", D(ev, null, 159, g, true) === "");
+  }
+
+  /* KONZEPT C: Die Gesamtrechnung steht im Vergleich ZUERST und fett — sie
+     hat entschieden. Vorher zeigte der Vergleich nur den ersten Schlag, und
+     genau daran ist die Empfehlung unglaubwürdig geworden. */
+  ok("der Vergleich beginnt mit der Gesamtrechnung",
+     /<tr class="cv-gesamt"><td>Gesamt<\/td>/.test(src));
+  ok("und der erste Schlag steht darunter",
+     src.indexOf('<tr class="cv-gesamt">') < src.indexOf('z("Erster Schlag"'));
+  ok("die Gestaltung hebt sie hervor", /\.cad-verg \.cv-gesamt td\{font-weight:700/.test(src));
+}
+
+/* ============ 24fa. Höhenraster und Uhr-Protokoll ============ */
+group("Höhenraster kommt spät — und die Uhr sagt, warum der Schlag nicht ging");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+  const roh = ktOhneKommentar(codeOhneDoku(src));
+  const ktPfad = path.join(__dirname, "MainActivity.kt");
+
+  /* ====================================================================
+     GEMELDET am 30.08.2026 (behoben in v5.19 / Uhr 53)
+     --------------------------------------------------------------------
+     „Ich habe die Runde simuliert und hatte die Höhendaten heruntergeladen.
+     Eigentlich hätte also alles vorliegen müssen."
+     STIMMT — UND GENAU DAS WAR DER FEHLER. `dgmFuerRunde()` holt das Raster
+     ASYNCHRON aus IndexedDB und wartet auf niemanden. Der Caddy rechnet
+     unmittelbar danach, findet `DGM === null`, rechnet ohne Gefälle — und
+     legt dieses Ergebnis in `_aimCache`. Dessen Schlüssel kennt Platz, Tee,
+     Loch, Spielweise und Position, aber NICHT den Zustand der Höhendaten.
+     Sekundenbruchteile später ist das Raster da, die Empfehlung steht aber
+     schon fest.
+     DIESELBE FEHLERKLASSE WIE DER LOCHZEIGER UND DIE KETTE: ein
+     Zwischenspeicher, dessen Schlüssel eine Eingangsgröße nicht kennt. */
+  /* `blockVon` STATT FENSTER — die eigene Regel gilt auch für neue Prüfungen.
+     Mein erster Anlauf nahm ein 700-Zeichen-Fenster, und der Deckel hat ihn
+     sofort gefangen. Genau dafür ist er da. */
+  /* HIER OHNE `blockVon`: Die Funktion beginnt mit mehreren `const`-Zeilen,
+     und die Blockgrenze erkennt eine davon als nächste Deklaration — der
+     Block endete nach drei Zeilen. Das ist eine Schwäche des Helfers bei
+     Funktionen, die mit Deklarationen anfangen; sie hier zu umgehen ist
+     ehrlicher, als den Helfer für einen Einzelfall aufzuweichen.
+     Geprüft wird deshalb die REIHENFOLGE im Quelltext: Das Leeren steht
+     zwischen `dgmSetzen` und der nächsten Funktion. */
+  {
+    const di = src.indexOf("function dgmSetzen(rec){");
+    const dEnd = src.indexOf("\nfunction ", di + 10);
+    const dBlock = di >= 0 ? src.slice(di, dEnd > di ? dEnd : di + 2000) : "";
+    ok("beim Laden des Rasters werden die Zwischenspeicher geleert",
+       /for\(const k in _aimCache\) delete _aimCache\[k\]/.test(dBlock));
+  }
+  /* Auch das Lage-Raster von STRAT hängt an den Höhen. */
+  ok("und das Lage-Raster ebenso", /STRAT\._grids\) STRAT\._grids\.clear\(\)/.test(roh));
+  /* Und die einmal-je-Loch-Meldung „ohne Höhe" wird zurückgesetzt — sonst
+     behauptet sie weiter, es fehle etwas, das längst da ist. */
+  ok("die „ohne Höhe“-Meldung wird zurückgesetzt",
+     /STRAT\._ohneHoeheGemeldet=\{\}/.test(roh));
+  ok("und das Laden steht im Protokoll", /logInfo\("Höhenraster"/.test(roh));
+  /* ZWEITER RIEGEL: der Rasterzustand im Schlüssel selbst — er greift auch,
+     wenn das Raster auf anderem Weg wechselt, etwa beim Platzwechsel. */
+  ok("der Rasterzustand steht im Cache-Schlüssel",
+     /const hk = \(typeof DGM!=="undefined" && DGM\) \? "\|H" : "\|h";/.test(roh)
+     && /caddyMode\(\)\+pk\+hk/.test(roh));
+
+  /* ====================================================================
+     DAS UHR-PROTOKOLL (Uhr 53)
+     --------------------------------------------------------------------
+     „Das Starten des GPS-Trackings funktioniert weiterhin nicht gut. Bitte
+     detailliere das Eventlog der Uhr hierzu deutlich."
+     ZWEI LÜCKEN: Die Schlag-Zeilen kannten den GPS-Zustand nicht („Start
+     abgelehnt · GPS zu ungenau" nannte nicht, WIE ungenau). Und die Uhr
+     schwieg zu ihren eigenen GPS-Lücken — im Handy-Protokoll derselben Runde
+     steht zweimal „Uhr meldet seit über 90 s keine Position".
+     „LÄSST SICH NICHT STARTEN" UND „GPS WAR WEG" SEHEN AUF DER UHR GLEICH
+     AUS. Ab Fassung 53 sind es zwei verschiedene Zeilen. */
+  if (fs.existsSync(ktPfad)) {
+    const kt = ktOhneKommentar(fs.readFileSync(ktPfad, "utf8"));
+    ok("jede Schlag-Zeile trägt den GPS-Zustand",
+       /fun gpsLage\(\)/.test(kt) && /GPS \$\{gpsLage\(\)\}/.test(kt));
+    /* Genauigkeit, Alter, Brauchbarkeit, Ortungszustand — die vier Angaben,
+       aus denen sich die Ablehnung erklärt. */
+    ok("mit Genauigkeit, Alter und Urteil",
+       /±\$\{f\.acc\.toInt\(\)\} m/.test(kt) && /alt, /.test(kt)
+       && /ZU UNGENAU/.test(kt) && /Ortung AUS/.test(kt));
+    /* Die Grenze wird MITGENANNT — sonst weiß niemand, ab wann „zu ungenau"
+       gilt, und dieselbe Zahl steht an zwei Stellen (siehe MAX_ACC-Kopplung). */
+    ok("und nennt die Grenze mit", /Grenze \$\{FixQuality\.MAX_ACC\.toInt\(\)\} m/.test(kt));
+    /* EINE LÜCKE KANN SICH NICHT MELDEN, WÄHREND SIE LÄUFT — es kommt ja
+       nichts. Sie meldet sich, wenn sie endet. */
+    ok("eine GPS-Lücke meldet sich, wenn sie endet",
+       /GPS-Lücke: \$\{\(now - letzte\) \/ 1000\} s ohne Position/.test(kt));
+    ok("mit Genauigkeit und Quelle danach",
+       /\(Satellit\)/.test(kt) && /\(nur Netzwerk\)/.test(kt));
+    /* Ab 20 s, damit ein normales Sammelfenster nicht als Lücke erscheint. */
+    ok("aber erst ab 20 Sekunden", /now - letzte >= 20_000L/.test(kt));
+  }
+}
+
+/* ============ 24ez. Der Caddy zeigt, wonach er entscheidet ============ */
+group("Caddy — die entscheidende Zahl, ein Bezugspunkt, der Hang");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+  const roh = ktOhneKommentar(codeOhneDoku(src));
+  const K = G("caddyKette"), S = G("STRAT");
+
+  /* ====================================================================
+     GEMELDET am 30.08.2026 mit Bildschirmfoto (behoben in v5.18)
+     --------------------------------------------------------------------
+     BEFUND 1: „6 Iron · 4,28 ES", darunter „Alternative: 2 Iron · 4,26 ES",
+     beide 0 % Risiko. WENIGER IST BESSER — nach den angezeigten Zahlen war
+     die Alternative die bessere Wahl. Die Empfehlung widersprach sich selbst.
+     DIE ZAHLEN WAREN NICHT FALSCH, ES WAREN DIE FALSCHEN ZAHLEN: `tee()`
+     wählt `best` nach `score2` (Erwartungswert über ZWEI Schläge), angezeigt
+     wurde `es` (nur der erste). Das 6 Iron gewinnt, weil danach ein PW bleibt.
+     REGEL: WER NACH EINER ZAHL ENTSCHEIDET, MUSS DIESE ZAHL ZEIGEN. Eine
+     Begründung, die eine andere Größe nennt als die entscheidende, ist keine
+     Begründung — sie ist ein Widerspruch mit Nachkommastellen. */
+  ok("die Anzeige nimmt den entscheidenden Wert",
+     /const gesamt=c=>\(c && c\.score2!=null\) \? c\.score2/.test(roh));
+  ok("und sagt, worüber gerechnet wurde",
+     /zweiSchlaege\?"über zwei Schläge":"ES"/.test(roh));
+  /* Kein erfundener Gesamtwert: Steht nur der erste Schlag zur Verfügung,
+     wird auch nur der erste ausgewiesen. */
+  ok("ohne zweite Ebene bleibt es beim ersten Schlag",
+     /\(b && b\.score2!=null\) && \(ev\.alt && ev\.alt\.score2!=null\)/.test(roh));
+  /* Der häufigste Fall — und der, der die Meldung ausgelöst hat: Der erste
+     Schlag der Alternative ist besser. Das gehört dazu, sonst sieht es aus,
+     als hätte die App die bessere Zahl übersehen. */
+  ok("ein besserer erster Schlag der Alternative wird benannt",
+     /erster Schlag \$\{zahl\(ev\.alt\.es\)\} gegen/.test(roh));
+
+  /* ====================================================================
+     BEFUND 2: „Lage 278 m · Spielt wie 159 m · −119 m"
+     --------------------------------------------------------------------
+     Die 119 Meter sind keine Korrektur, sondern ein BEZUGSPUNKT-WECHSEL:
+     278 m ist die Entfernung zur Grünmitte, 159 m die zum Zwischenziel der
+     Kette. Die Zeile las sich, als nähmen Wind und Höhe 119 m weg.
+     Das ist mein eigener Fehler aus v4.99 — dort wurden Kopfzeile und Kette
+     auf dasselbe Ziel gebracht und diese Differenzzeile übersehen. */
+  if (typeof K === "function") {
+    const ev = { fracs: { fw: 70, rough: 20, sand: 5, pen: 1 }, alt: { club: { name: "2 Iron" } } };
+    const b = { club: { name: "6 Iron" } };
+    const layup = K(ev, b, 278, 159).find(x => x.k === "Spielt wie");
+    ok("beim Layup keine irreführende Differenz", !layup.n, layup.n || "");
+    ok("und das Ziel steht dabei", /bis Ziel/.test(layup.v), layup.v);
+    const direkt = K(ev, b, 150, 159).find(x => x.k === "Spielt wie");
+    ok("beim Schlag aufs Grün steht die echte Korrektur", direkt.n === "+9 m", direkt.n || "");
+    /* Und die Lage sagt jetzt, worauf sie sich bezieht. */
+    ok("die Lage nennt ihren Bezugspunkt",
+       /zur Grünmitte/.test(K(ev, b, 278, 159)[0].v));
+  }
+
+  /* ====================================================================
+     BEFUND 3: „Wird der Downslope am Landepunkt nicht berücksichtigt?"
+     --------------------------------------------------------------------
+     DOCH — der Hangterm ist seit v3.95 eingebaut. Aber er war wirkungslos,
+     und das Protokoll sagt es wörtlich: „Hang am Landepunkt — DGM/Höhe nicht
+     verfügbar". `dgmNeigung` braucht das DGM-Raster; fehlt es, gibt sie
+     `null` und `hangZ` wird still 0.
+     DIE LÜCKE: Die grobe Online-Quelle liefert HÖHEN (die „spielt wie"-Zahl
+     stimmte ja) — daraus hat nur nie jemand eine NEIGUNG gebildet. Eine Höhe
+     an drei Punkten IST eine Neigung. */
+  if (S && typeof S.neigungGrob === "function") {
+    ok("es gibt einen Rückfall auf die grobe Quelle", true);
+    /* Ohne Höhen sauber null — kein erfundener Ersatzwert. */
+    const g = { mLat: 110540, mLng: 111320 * Math.cos(54 * Math.PI / 180) };
+    ok("ohne Höhen kein Ersatzwert", S.neigungGrob([54, 10], 0, 150, g) === null);
+    /* 25 m Abstand: Die Online-Quelle hat Stützpunkte im Dutzende-Meter-
+       Abstand. Zwei Punkte 5 m auseinander liefern dort Rauschen, keine
+       Neigung. */
+    ok("mit grobem Abstand statt feinem", /const S=25;/.test(roh));
+    /* Gekennzeichnet, worauf sie beruht. */
+    ok("und als grob gekennzeichnet", /grob:true/.test(roh));
+    /* An BEIDEN Aufrufstellen — Abschlag und Folgeschlag. */
+    ok("an beiden Stellen eingehängt",
+       (roh.match(/this\.neigungGrob\(/g) || []).length >= 2,
+       String((roh.match(/this\.neigungGrob\(/g) || []).length));
+  }
+}
+
 /* ============ 24ey. Die Dehnroutine gibt das Video wieder ============ */
 group("Malaska-Routine — Reihenfolge und Wortlaut aus dem Video");
 {
@@ -10942,8 +11252,15 @@ group("Caddy — warum dieser Schläger");
        Frage zu beantworten. */
     const gleich = KE(ev({ fw: 60, rough: 25, sand: 8, pen: 2 }, "4 Iron"),
                       { club: { name: "5 Iron" } }, 156, 157);
-    ok("bei 1 m Unterschied schweigt „spielt wie“",
-       gleich.every(x => x.k !== "Spielt wie"), gleich.map(x => x.k).join(" · "));
+    /* SEIT v5.18 STEHT DIE ZEILE IMMER — sie trägt nur keine Differenz mehr,
+       wenn es nichts zu vergleichen gibt. Der ursprüngliche Gedanke war
+       richtig (keine Zeile ohne Aussage), aber die Zahl selbst ist die
+       Aussage: „spielt wie 159 m" braucht man am Ball, auch wenn Wind und
+       Höhe nichts ausmachen. Weggelassen wird jetzt die DIFFERENZ, nicht die
+       Zahl. */
+    const swZeile = gleich.find(x => x.k === "Spielt wie");
+    ok("bei 1 m Unterschied keine Differenz", !!swZeile && !swZeile.n,
+       swZeile ? (swZeile.v + " " + (swZeile.n || "")) : "Zeile fehlt");
     const anders = KE(ev({ fw: 60, rough: 25, sand: 8, pen: 2 }, "4 Iron"),
                       { club: { name: "5 Iron" } }, 156, 171);
     const sw = anders.find(x => x.k === "Spielt wie");
@@ -10998,11 +11315,29 @@ group("Caddy — warum dieser Schläger");
 
   /* ---- Der Einbau ---- */
   const roh = ktOhneKommentar(codeOhneDoku(src));
-  ok("Kette und Vergleich stehen im ausgeklappten Caddy",
-     /caddyKetteHtml\(ev, b,[\s\S]{0,80}?caddyVergleichHtml\(ev, b\)/.test(roh));
+  /* SEIT v5.20 STEHT OBEN DIE ANTWORT, nicht die Begründung: drei Zeilen,
+     feste Rangfolge. Kette und Vergleich sind eine Ebene tiefer gewandert —
+     nicht gelöscht, nur nicht mehr im Weg. */
+  ok("oben stehen die drei Zeilen",
+     /\$\{caddyDreiZeilen\(ev, b, _spieltWieM\(_now\), gesamt, zweiSchlaege\)\}/.test(roh));
+  /* OHNE FENSTER — die eigene Regel gilt auch hier. Geprüft wird die
+     REIHENFOLGE der Fundstellen, nicht ihr Abstand. */
+  ok("Kette und Vergleich stehen eine Ebene tiefer",
+     (() => {
+       /* IM RENDERBLOCK SUCHEN, nicht in der ganzen Datei: Die Namen stehen
+          zuerst bei ihrer DEFINITION, und die liegt weit oben. Mein erster
+          Anlauf verglich Definitionsstellen und war rot, obwohl die Anzeige
+          stimmte. */
+       const r = src.indexOf('<details class="cd-mehr">');
+       if (r < 0) return false;
+       const bis = src.indexOf("</details>", r);
+       const blk = src.slice(r, bis);
+       return blk.indexOf("caddyVergleichHtml(ev, b)") >= 0
+           && blk.indexOf("caddyKetteHtml(ev, b,") > blk.indexOf("caddyVergleichHtml(ev, b)");
+     })());
   /* VOR den Streubild-Prozenten: Die sind das Rohmaterial der Rechnung, nicht
      die Antwort auf „warum". */
-  ok("und zwar vor den Streubild-Prozenten",
+  ok("und vor den Streubild-Prozenten",
      roh.indexOf("caddyVergleichHtml(ev, b)") < roh.indexOf("Erwartung aus 150 Streubildern"));
   /* Der Vergleich ist EINGEKLAPPT — fünf Zeilen Kette liest man beim Ball,
      eine Tabelle mit sechs Zeilen nicht. */
@@ -12504,7 +12839,9 @@ group("Caddy — vollständig sichtbar, Bedingungen, 2 Iron nur vom Tee");
   /* „Ganz oben" heisst seit v4.20: direkt nach dem optionalen Umweg-Hinweis.
      Der darf davor, weil er sagt, dass die Zahlen darunter nicht stimmen —
      eine Warnung UNTER dem, wovor sie warnt, ist keine Warnung. */
-  ok("und zwar ganz oben", /<div class="play-caddy">\$\{aimUmwegHtml\(\)\}\$\{spieltWie\}<div class="pc-head">/.test(src));
+  /* v5.20: Nach „spielt wie" kommen die DREI ZEILEN statt der Kopfzeile —
+     oben steht die Antwort, nicht die Bewertung. */
+  ok("und zwar ganz oben", /<div class="play-caddy">\$\{aimUmwegHtml\(\)\}\$\{spieltWie\}[\s\S]{0,40}?\$\{caddyDreiZeilen/.test(src));
   /* Beide Zweige gleich aufgebaut — sonst sucht man die Zahl je nach Lage an
      zwei verschiedenen Stellen. */
   ok("im Regel-Zweig ebenso", /<div class="play-caddy">\$\{aimUmwegHtml\(\)\}\$\{weatherEffectHtml\(bearing,mid\)\}<div class="pc-head">/.test(src));

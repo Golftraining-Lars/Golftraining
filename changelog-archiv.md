@@ -13,6 +13,68 @@
 
 ---
 
+- **v4.82.0 · 2026-08-26** — **Caddy: Hang als Flaeche · fehlende Hoehendaten laut · Gleichstand
+  entscheidet die Sicherheit.** Drei Befunde von der Nordplatz-Runde am 26.08., drei Ursachen:
+  **(1) Loch 1, Eisen 6 auf den Abhang:** Der Hangterm (v3.95/v3.98) fragte EINEN Punkt — das
+  Ziel. Ein Hang zehn Meter dahinter zaehlte null, obwohl die halbe Streuwolke dort landet.
+  `neigungUmZiel` mittelt jetzt ueber drei Punkte entlang der Ziellinie (Ziel, ±0.8·σD).
+  **Dazu die stumme Wurzel:** Die Runde begann direkt nach der DNS-Stoerung — ohne geladenes
+  DGM-Raster wurden Hangterm UND Hoehe in spielt-wie still zu null ("kein stiller Ersatzwert"
+  war richtig, STILL war falsch). Das erklaert Loch 1 (Hang unberuecksichtigt) und Loch 3
+  (Eisen 8 statt 7 bergauf) mit derselben Wurzel; ab jetzt steht es einmal je Loch im Protokoll
+  („Caddy ohne Höhendaten"). **(2) Loch 2, Driver an die Engstelle:** Hauptursache war die bis
+  v4.81.2 verschmutzte Streuung — auf einer flach gewordenen Bewertungslandschaft gewinnt die
+  reine Laenge. Zusaetzlich: Innerhalb von 0.06 ES (Rauschniveau bei N=100) ist „laenger" kein
+  Argument mehr — dort gewinnt ab jetzt der Kandidat mit der hoeheren Fairway-/Gruenquote
+  (`sicherheitsWahl`, markiert im Kandidaten). Ein echter ES-Vorteil darf weiterhin Risiko
+  kaufen. **(3) Loch 3, ein Schlaeger zu kurz:** Neben der Hoehen-Wurzel aus (1) wirken hier die
+  bis v4.80 unbereinigt gelernten Laengen (Bergab-/Rueckenwind-Messungen lehren zu lang — die
+  Neutralwerte korrigieren das; nach ein paar Tagen lohnt ein Blick auf „Gepflegt vs. gemessen"
+  und ggf. „gemessenen Wert übernehmen"). Erwartung fuer die naechste Runde: Taucht „Caddy ohne
+  Höhendaten" auf, ist der Platz-Cache vor dem Start zu laden — die Meldung sagt es dann selbst.
+
+- **v4.81.2 · 2026-08-26** — **Streuungs-Lerner filtert wie der Laengen-Lerner · Driver nur vom
+  Abschlag · Deckelung wird gemeldet.** Befund von der Runde am 26.08.: Driver-/Holz-Ovale am
+  Anschlag, „FW 21 %" vom Tee, und mitten auf Bahn 8 ein Driver-Vorschlag vom Fairway. **Drei
+  Ursachen, drei Aenderungen:** (1) `learnFromGps` nahm — anders als `clubMeasured` — JEDEN Schlag
+  mit dem Etikett: Teilschlaege, Vorlege-Driver, und bis Uhr-Fassung 35 jeden automatisch
+  erfassten Schwung mit geerbtem Plan-Schlaeger. Jetzt: nur volle Schwuenge, und nichts unter 40 %
+  der gepflegten Schlaegerlaenge (ein getoppter 110-m-Drive ist Streuung und bleibt; ein
+  „Driver · 40 m" ist ein falsches Etikett und fliegt). Das 60-Tage-Fenster laesst die Altlast
+  herauswachsen; wer nicht warten will: R10-Import ueberschreibt, oder falsch etikettierte
+  GPS-Schlaege in der Schlagliste loeschen. (2) Die Leitplanke `teeOnly` vergass den DRIVER —
+  sie prueft jetzt Driver UND Driving Iron (`!vomTee`). (3) Wird eine gelernte Streuung vom
+  Deckel (13 %/11 % der Carry) gekappt, steht das jetzt EINMAL je Schlaeger und Sitzung im
+  Protokoll, mit Rohwerten — der Deckel rettete die Rechnung, aber er versteckte den Befund
+  wochenlang.
+
+- **v4.81.1 · 2026-08-26** — **Der Takt starb im `closeSheet()` — behoben, plus Minutenwaechter.**
+  **Gemessen auf der Runde vom 26.08. (08:29-10:58):** keine einzige Abgleich-Zeile im Protokoll —
+  und genau das war der Befund: Der Takt lief nicht, und seine eigene Messung (`taktPruefen`)
+  faehrt IM Takt mit, also blieb auch sie stumm. **Ursache:** `closeSheet()` loeschte den
+  Sync-Zeitgeber bedingungslos (`playStopSync()`) — v4.77 hatte die `PLAY.live`-Verknuepfung nur
+  IM Takt entfernt, die direkte Toetung beim Blatt-Schliessen blieb; neu gestartet wurde erst beim
+  Oeffnen der Live-Ansicht. Auf der Runde (Karte im Vollbild, Blatt auf, Blatt zu) synchronisierten
+  deshalb nur noch die Aufwach-Ausloeser: „Es ging nur, wenn das Handy schwarz war und aufgeweckt
+  wurde." **Zwei Aenderungen:** (1) `closeSheet` stoppt den Takt nur noch OHNE laufende Runde —
+  dieselbe Schutzbedingung wie beim Wake Lock direkt darueber. (2) **Minutenwaechter** (Wunsch):
+  dieselbe Funktion, die beim Aufwecken greift, laeuft zusaetzlich einmal je Minute — beim Laden
+  installiert, von keinem Lebenszyklus erreichbar, prueft auf neue Eintraege (`playSyncBusy`
+  schuetzt vor Doppellauf) und traegt kuenftig die Messung hin: Steht der 2-s-Takt je wieder
+  still, meldet „Takt stand still … ohne Zeitgeber" es binnen einer Minute, statt dass die Stille
+  sich selbst verbirgt.
+
+- **v4.81.0 · 2026-08-26** — **Mitspieler: bis zu drei, je Loch nur der Endscore, mit Namen.**
+  Wunsch vom 26.08. Bereich „Mitspieler" in der Eingabemaske (unter Score/Putts): Name antippen =
+  umbenennen oder entfernen (leerer Name; Scores des Entfernten werden mit entfernt, Nachfolgende
+  ruecken auf — sonst stuenden fremde Scores unter falschem Namen), „+ Mitspieler" bis drei.
+  Stepper wie beim eigenen Score (Start bei Par), laufende Summe im Etikett. **Daten:** Namen in
+  `round.mitspieler`, Scores als `msc1..msc3` je Loch — sie reisen wie jedes Lochfeld ueber den
+  Entwurf (Loch-Zeitstempel entscheidet, null loescht nichts), die Uhr (Fassung 37) zeigt dieselben
+  Zeilen auf Seite 2 und uebernimmt die Namen aus dem Entwurf; vergeben werden sie nur hier (die
+  Uhr hat keine Tastatur). In der gespeicherten Runde stehen Namen und Scores mit drin. **Bewusst
+  nicht:** Putts, Statistik oder SG fuer Mitspieler — „nur der Endscore" ist die Vorgabe.
+
 - **v4.80.1 · 2026-08-26** — **Uhr-Messungen werden beim Eintreffen umgerechnet — die Laengen-Logik
   sitzt allein im Handy.** Aufgabenteilung ausdruecklich festgeschrieben (Vorgabe vom 26.08.): Die
   **Uhr misst rohe Meter** und enthaelt keinerlei Anpassungslogik (kein `playsLike`; ihre
