@@ -13,6 +13,93 @@
 
 ---
 
+- **v4.84.2 · 2026-08-27** — **Rundensimulation ausgebaut: 81 → 124 Prüfungen.** Sie prüfte
+  Distanzen, Caddy und Eingaben — also viel von dem, was die Uhr seit Fassung 38/40 **nicht mehr
+  tut** — und ließ die Wege ungeprüft, an denen die teuersten Fehler dieses Projekts saßen. Neu:
+  **(1) Schlagmessung der Uhr über die ganze Kette** — ein Schlag in exakt der Form, die
+  `MainActivity.kt` schreibt, liegt in `draft.json`, dann läuft `draftPull()`: Rohwert bleibt roh,
+  `distNeutral` wird beim Eintreffen gerechnet, gegen den Wind größer / mit dem Wind kleiner
+  (Vorzeichen!), 3-h-Sperre bei später Ankunft, einmal gerechnet bleibt fest, doppelte Sendung
+  verdoppelt nichts, Teilschwung wird gespeichert aber nicht gelernt, `shotAck` quittiert und der
+  eigene Push löscht die Messungen der Uhr nicht. Das war die größte Lücke: der einzige Zweck der
+  Uhr, gar nicht abgedeckt. **(2) Schreibkonflikt (409)** — der eigene Eintrag kommt an *und* die
+  Messung des anderen Geräts überlebt. **(3) Netzausfall** — Eingaben laufen weiter, nichts Halbes
+  landet im Repo, nach der Rückkehr kommt alles an. **(4) Rundenabschluss** — `playFinish` bis
+  `DB.rounds`, Umdeutung zu „Front 9", `computeRound`, Scorekarte und Teilen-Text mit Mitspielern,
+  Grabstein in `draft.json`. Das Verwerfen war doppelt geprüft, das Beenden gar nicht.
+  **(5) Entwurfs-Merge mit leeren Listen** — hält einen beim Bau gefundenen Befund fest, siehe
+  unten. Kopf der Datei erklärt jetzt, warum sie neben `tests.js` steht, und nennt die zwei Fallen,
+  die den Bau je eine halbe Stunde gekostet haben (kein Zeitstempel in der Zukunft; asynchrones
+  Austrudeln lassen). **BEFUND, nicht geändert:** Auf Loch-Ebene gilt „null löscht nichts" (v2.98).
+  Auf Runden-Ebene nicht — `Object.assign({}, old.round, nw.round)` kopiert auch ein **leeres**
+  Array, ein `mitspieler: []` des jüngeren Entwurfs löscht damit die Namen des älteren. Ein
+  **fehlendes** Feld ist harmlos, und die Uhr schreibt `mitspieler` nur mit Namen — erreichbar ist
+  der Fall über zwei PWA-Instanzen. Ein Riegel hätte einen Preis (der letzte Mitspieler ließe sich
+  von der anderen Seite nicht mehr entfernen); das ist eine Abwägung, keine Fehlerbehebung, und
+  deshalb festgehalten statt still geändert.
+
+- **v4.84.1 · 2026-08-27** — **Arbeitsregel 0: Alle aktuellen Dateien liegen im Repo und werden
+  bei Bedarf dort abgerufen.** Anlass: `runde-simulation.js` ließ sich nicht fahren, weil
+  `runde-harness.js` nicht vorlag — der Lauf brach mit `MODULE_NOT_FOUND` ab, und **zwei echte rote
+  Prüfungen blieben dadurch unentdeckt** (die Simulation forderte die Platzkarte in `watch.json`,
+  die v4.84 gerade entfernt hatte). Nachgeholt: beide gedreht, plus neue Prüfungen, dass Name und
+  Tees bleiben, keine Gameplans mitreisen und die Datei unter 60 kB bleibt — der Zweck der schlanken
+  Datei ist ihre Größe, und ohne Schranke merkt niemand, wenn sie wieder wächst.
+  `runde-simulation.js`: 81 ok, 0 fail. Die Regel steht in den Arbeitsregeln (devdocs), im Kopf von
+  `tests.js` und in Kapitel 8 von `MainActivity.kt`, mit dem Zusatz: **nicht blind ziehen.** Erst
+  `APP_VERSION`/`WATCH_APP` vergleichen — am 26.08. lag im Repo Uhr-Fassung (13), hochgeladen war
+  (37). Regel 0 ist die einzige, die sich nicht technisch erzwingen lässt: Eine fehlende Datei sieht
+  aus wie „geht hier nicht", und genau dann muss der Bearbeiter wissen, dass sie zu holen ist.
+
+- **v4.84.0 · 2026-08-26** — **Gegenstück zum Rückbau der Uhr: keine Karte, keine Gameplans, keine
+  Rechenfragen mehr.** Die Uhr (Fassung 40) hat Caddy, Wetter-Physik, Grün-/Gefahren-Geometrie,
+  Karten-Parser und Gameplan-Ansicht gelöscht — rund 2000 Zeilen. Was sie nicht mehr liest, muss
+  hier nicht mehr geschickt und nicht mehr abgefragt werden. **(1) `watch.json` ohne Geometrie und
+  ohne `strat.gameplans`:** `watchPayload()` schickt Plätze nur noch mit Name und Tees. Die Karte
+  war der Löwenanteil der Datei und kostete bei JEDEM Push eine Serialisierung des größten
+  Datenteils; sie fällt von einigen hundert kB auf wenige. `watchGeo`/`watchElevProfil` bleiben —
+  `schlagNeutral` braucht die Höhenprofile hier weiter, nur ihre Rolle als Zulieferer der Uhr
+  entfällt. **(2) `probePlan()` fragt keine Rechnungen mehr ab:** Die Aufgaben `geo`, `caddy` und
+  `lie` sind weg, samt ihren Auswertungszweigen in `koppelTest()`. Sie verglichen „rechnet
+  dasselbe" — sinnvoll, solange beide Geräte rechneten. Jetzt wären sie unbeantwortet geblieben und
+  der Prüflauf hätte drei Abweichungen gemeldet, wo keine sind; ein Prüfstand, der grundlos Alarm
+  schlägt, bringt einem bei, den Alarm zu ignorieren. Übrig bleiben `club`, `clubs`, `liste`,
+  `quelle` — **welche Daten** hat die Uhr, und genau das entscheidet noch, ob eine Runde auf ihr
+  brauchbar wird. Der Plan braucht damit auch keinen eingezeichneten Platz mehr. Die Prüfung „Uhr
+  hat eine Platzkarte" ist entfallen: Die Uhr meldet dort bewusst `false`, ein Haken darauf wäre ein
+  Fehlalarm bei korrektem Verhalten. **(3) `probeFrage()` entfernt** — der Vorläufer von
+  `probePlan`, eine einzelne Distanzfrage, ohne Aufrufer seit v3.09. **(4) Diagnose neu gefasst:**
+  `cloudDiag` meldete, welche Plätze ihre Karte in der Uhr-Datei haben; jetzt meldet es, was zählt —
+  Größe der Datei und ob die Schläger drin sind. Ohne sie kann die Aufnahmezeile auf der Uhr keinen
+  zuordnen, und eine Messung ohne Schläger ist für die gelernten Längen wertlos.
+
+- **v4.83.0 · 2026-08-26** — **Mitspieler stehen auf der Scorekarte · die Uhr eröffnet Plätze
+  statt Namen zu brauchen.** Zwei gemeldete Lücken, eine gemeinsame Ursache. **(1) Auf der Karte
+  fehlten sie:** `msc1..msc3` wurden seit v4.81 gespeichert und reisten über den Entwurf, aber
+  `cardBlock` kannte die Felder nicht — und `playCardHtml` baute sich sogar ein Runden-Objekt
+  **ohne** `mitspieler` zusammen. Achtzehnmal tippen und nichts dafür bekommen ist schlimmer als
+  gar nicht zu erfassen. Jetzt hängt `cardBlock(hs,von,bis,lab,mitspieler)` je **belegtem** Platz
+  eine `.sc-ms`-Zeile an (Name oder „Mitspieler 2", Summe rechts); leere Plätze bekommen keine
+  Zeile (Regel wie `penAny`), fremde Scores **keine** Birdie/Bogey-Farben — die sind die Sprache
+  der eigenen Zeile. `roundShareText` nennt je Platz die Summe; geteilt wird meist direkt nach der
+  Runde, und dann sitzen genau die Leute daneben. **(2) Auf der Uhr war kein Mitspieler
+  erfassbar:** Die Zeilen hingen an den NAMEN, und Namen vergibt allein das Handy — wer die Runde
+  auf der Uhr begann (Handy im Bag), bekam gar keine Zeile. **Der Punkt: `msc1..msc3` sind Zahlen
+  an festen PLÄTZEN.** Um Platz 1 zu füllen, braucht die Uhr keinen Namen, sondern eine Zeile; der
+  Name ist Beschriftung und wirkt **rückwirkend**, weil nach Platz gespeichert wird und nicht nach
+  Person. Die Uhr (Fassung 39) eröffnet deshalb Plätze („+ Mitspieler", Langdruck schließt, löscht
+  nichts) und vergibt weiterhin **keine** Namen. **Kein neues Datenfeld:** Das Handy sieht die
+  Belegung an den Daten (irgendwo ein `msc2` ⇒ Platz 2 in Gebrauch); ein eigenes Feld im Entwurf
+  wäre eine zweite Wahrheit und liefe auseinander, sobald beide Seiten schreiben. **(3) Scharfe
+  Kante entschärft:** Beim Entfernen rücken die Plätze auf — trägt die Uhr in derselben Minute auf
+  Platz 2 ein, landen ihre Werte danach unter dem Namen des bisherigen Spielers 3, lautlos.
+  `mitspielerName` fragt jetzt nach, wenn schon Zahlen im Rücken stehen, und benennt die Folge.
+  Der saubere Riegel wäre eine Kennung je Person; dafür müsste die Uhr Namen kennen, und genau das
+  soll sie nicht. **Prüfstand:** neuer Abschnitt 24db (Karte mit/ohne Namen, gemischt, leerer
+  Platz, keine Farben, Plätze statt Namen auf der Uhr, kein zweites Feld, Compose-Spiegel). Dabei
+  riss zum dritten Mal ein festes Zeichenfenster an einer harmlosen Ergänzung („Spielmodus baut
+  über roundCardHtml", 400 Zeichen) — es misst jetzt den Block.
+
 - **v4.82.3 · 2026-08-26** — **9-Loch-Spielvorgabe: das HI wird halbiert (WHS).** Befund von der
   Front-9-Runde am 26.08.: „Stableford 38 / Course HCP 24" bei +4 brutto — 14 Brutto plus 24
   Vorgabeschlaege. CR/Slope/Par kamen korrekt von der Neun, aber das (per Definition auf 18 Loch

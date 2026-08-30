@@ -3901,8 +3901,28 @@ group("DGM1 — Raster, Neigung und die Grenze zwischen zwei Quellen");
 
   /* --- Bezugsflächen dürfen nicht gemischt werden --- */
   const src = fs.readFileSync(FILE, "utf8");
-  const ed = src.slice(src.indexOf("function elevDelta(from,to)"), src.indexOf("function elevDelta(from,to)") + 1200);
-  ok("elevDelta verweigert gemischte Paare", /dA!=null \|\| dB!=null\) return null/.test(ed));
+  /* BLOCKGRENZE STATT FENSTER — das feste 1200-Zeichen-Fenster riss, als
+     `elevDelta` um den Rückfall auf die grobe Quelle wuchs (v5.28). */
+  const _ei = src.indexOf("function elevDelta(from,to)");
+  const _ee = src.indexOf("\nfunction ", _ei + 20);
+  const ed = src.slice(_ei, _ee > _ei ? _ee : _ei + 3000);
+  /* ==================================================================
+     GEDREHT (v5.28): „Gemischt heißt nicht unbrauchbar."
+     --------------------------------------------------------------------
+     Die Regel „nie zwei Quellen mischen" bleibt — sie ist richtig: Ein
+     DGM-Wert minus einem Open-Meteo-Wert ist keine Höhendifferenz, sondern
+     der Abstand zweier Bezugsflächen plus Zufall.
+     ABER DIE FOLGERUNG WAR ZU HART. Liegt ein Punkt im Raster und der andere
+     nicht — am Rand des geladenen Rasters der Normalfall —, gab die Funktion
+     auf. Im Protokoll stand daraufhin „DGM/Höhe nicht verfügbar", obwohl das
+     Raster geladen war. Jetzt wird auf die GROBE Quelle für BEIDE Punkte
+     umgeschaltet: gleiche Bezugsfläche, saubere Differenz.
+     Es wird also weiterhin nie gemischt — es wird nur nicht mehr die
+     schlechtere Quelle verworfen, bloß weil die bessere halb vorliegt. */
+  ok("elevDelta mischt keine Quellen",
+     /const a=elevOnline\(from\[0\],from\[1\]\), b=elevOnline\(to\[0\],to\[1\]\)/.test(ed));
+  ok("und gibt bei halbem Raster nicht mehr auf",
+     !/dA!=null \|\| dB!=null\) return null/.test(ed));
   ok("feinere Rauschsperre bei DGM", /Math\.abs\(d\)<0\.3/.test(ed));
   ok("grobe Sperre bleibt für die Online-Quelle", /Math\.abs\(d\)<1\.5/.test(ed));
   /* BEIDE BEDIENWEGE muessen dieselbe Ablage benutzen — sonst zeigt die eine
@@ -7264,7 +7284,7 @@ group("Live-Zeiger — beide Geräte, dieselbe Regel");
        zusaetzlich, dass der Changelog einen Eintrag fuer GENAU diese Kennung
        hat — beides zusammen faengt „Code geaendert, Fassung vergessen" und
        „Fassung gezogen, Changelog vergessen". */
-    ok("und die Kennung ist aktuell", /WATCH_APP = "2026-08-30 \(56\)"/.test(kt));
+    ok("und die Kennung ist aktuell", /WATCH_APP = "2026-08-30 \(57\)"/.test(kt));
     ok("das Handy zeigt sie", /function watchFassung\(\)/.test(src));
 
     /* --- STARTBILDSCHIRM (2026-08-25 (20)) ---
@@ -10139,6 +10159,45 @@ group("Uhr — Turniermodus: zwei Zahlen, sonst nichts");
     /* Und keine doppelt — das war der andere Teil desselben Fehlers. */
     ok("keine doppelte Annotation", !/@Composable\s*@Composable/.test(kt));
 
+    /* ================================================================
+       SENDESTAU MESSEN, BEVOR MAN IHN BEHEBT (Uhr 57)
+       ----------------------------------------------------------------
+       BEFUND aus dem Protokoll vom 30.08.: „Bilanz: 20 Aktionen ·
+       Verzögerung 682–2096 s (Median 1438 s)". Zwanzig Eingaben kamen auf
+       einen Schlag am Handy an, die älteste **35 Minuten** alt. Danach sprang
+       der Lochzeiger zwischen 14, 16, 18 und 11 — beide Geräte reagierten auf
+       veraltete Meldungen. Der Stau ist die Ursache, das Zeiger-Chaos die
+       Folge.
+       DAS HANDY BEMERKT DEN STAU, ABER ES KANN IHN NICHT ERKLÄREN. Es sieht
+       nur, wann etwas ankommt, nicht warum es liegenblieb. Die Entprellung
+       auf der Uhr beträgt 600 ms — der Verzug entsteht also danach, und nur
+       die Uhr weiß wo.
+       ERST MESSEN, DANN BAUEN: Der naheliegende Verdacht ist, dass Wear OS
+       die App bei ausgeschaltetem Bildschirm einfriert; die Abhilfe wäre ein
+       Vordergrunddienst. Das ist ein Eingriff in Manifest und Lebenszyklus,
+       der hier nicht übersetzbar ist — und die letzte unverifizierte
+       Strukturänderung hat den Build zerlegt. */
+    ok("die Uhr misst, wie lange eine Eingabe lag",
+       /var aeltesteOffenMs by remember/.test(kt));
+    /* NUR DER ERSTE WERT ZÄHLT — er ist die älteste offene Eingabe. */
+    ok("und merkt sich nur die älteste",
+       /if \(aeltesteOffenMs == 0L\) aeltesteOffenMs = System\.currentTimeMillis\(\)/.test(kt));
+    /* Ohne Fenster — die eigene Regel gilt auch hier. Geprüft wird die
+       Reihenfolge der Fundstellen im Block. */
+    {
+      const si = kt.indexOf("fun syncNow() {");
+      const sBlk = si >= 0 ? kt.slice(si, si + 1200) : "";
+      ok("beim Abgleich wird sie zurückgesetzt", /aeltesteOffenMs = 0L/.test(sBlk));
+    }
+    /* AB EINER MINUTE — darunter ist Warten normal und im Protokoll Rauschen. */
+    ok("gemeldet wird erst ab einer Minute", /if \(wartete >= 60L\)/.test(kt));
+    /* KEINE ERFUNDENE NETZPRÜFUNG: Die Uhr hat keine, und eine zu erfinden
+       beantwortet die Frage nicht. Gemeldet wird, was wirklich bekannt ist. */
+    ok("gemeldet wird nur, was bekannt ist",
+       /Sendestau: älteste Eingabe wartete/.test(kt)
+       && /seit letztem Abgleich/.test(kt)
+       && !/Netz\.online/.test(kt));
+
     ok("es gibt einen Turnier-Zustand", /var turnier by remember/.test(kt));
     ok("und einen Umschalter auf der Startseite",
        /Text\(if \(turnier\) "Turniermodus AN" else "Turniermodus"\)/.test(kt));
@@ -10653,6 +10712,9 @@ group("Uhr-Fassung — im Protokoll, nicht nur auf dem Handgelenk");
       DB0._draftRound = { live: { src: "watch", app: "TEST (99)",
         at: new Date().toISOString(), hole: 1 } };
       P();
+      DB0._draftRound = { live: { src: "watch", app: "TEST (99)",
+        at: new Date().toISOString(), hole: 1 } };
+      P();
       const nach1 = (G("ERRLOG") || []).filter(x => x.where === "Uhr-Fassung");
       ok("die erste gesehene Fassung wird protokolliert",
          nach1.length === vorLog + 1 && /TEST \(99\) gesehen/.test(nach1[nach1.length - 1].msg || ""),
@@ -10679,13 +10741,51 @@ group("Uhr-Fassung — im Protokoll, nicht nur auf dem Handgelenk");
          nach2[nach2.length - 1].msg);
       /* Ohne Zeiger der Uhr passiert nichts — der Zeiger des Handys darf
          keine Uhr-Fassung vortäuschen. */
+      /* OHNE EINGANG UND MIT HANDY-ZEIGER: Der Zeiger des Handys darf keine
+         Uhr-Fassung vortäuschen — auch nicht, wenn er ein `app`-Feld trüge. */
+      /* DER SPEICHERSTAND MUSS PASSEN: Bliebe eine andere Fassung darin
+         stehen, meldete die Funktion einen WECHSEL — und die Prüfung wäre rot,
+         obwohl der Handy-Zeiger korrekt übergangen wurde. Der Stand wird
+         deshalb ausdrücklich auf den zuletzt gesehenen gesetzt. */
+      LS.setItem(K, "PWA");
       DB0._draftRound = { live: { src: "phone", app: "PWA", at: new Date().toISOString() } };
       const vor3 = (G("ERRLOG") || []).filter(x => x.where === "Uhr-Fassung").length;
       P();
+      /* ================================================================
+         AUS DEM EINGANG, NICHT AUS DEM ERGEBNIS (v5.26)
+         ----------------------------------------------------------------
+         GEMELDET am 30.08.: Die Uhr lief auf (56), aber im Protokoll stand
+         keine einzige „Uhr-Fassung"-Zeile.
+         URSACHE: `watchFassung()` liest den Zeiger NACH dem Zusammenführen —
+         und dort gewinnt fast immer das Handy, weil es seinen eigenen Zeiger
+         alle 2 s schreibt und die Uhr nur alle 10 s. Die Fassung wurde
+         übertragen und war trotzdem nie lesbar.
+         EIN WERT IM FLÜCHTIGSTEN FELD DER ÜBERTRAGUNG IST SO GUT WIE NICHT
+         ÜBERTRAGEN. */
+      LS.removeItem(K);
+      DB0._draftRound = { live: { src: "phone", at: new Date().toISOString() } };
+      const vorE = (G("ERRLOG") || []).filter(x => x.where === "Uhr-Fassung").length;
+      P({ live: { src: "watch", app: "TEST (98)", at: new Date().toISOString() } });
+      const nachE = (G("ERRLOG") || []).filter(x => x.where === "Uhr-Fassung");
+      ok("die Fassung wird auch erkannt, wenn der Handy-Zeiger gewinnt",
+         nachE.length === vorE + 1 && /TEST \(98\)/.test(nachE[nachE.length - 1].msg || ""),
+         nachE.length ? nachE[nachE.length - 1].msg : "keine Zeile");
+      /* Und sie wird an beiden Zusammenführungs-Stellen mitgegeben. */
+      ok("der Eingang wird übergeben",
+         (src.match(/watchFassungPruefen\(p\.draft\)/g) || []).length >= 2,
+         String((src.match(/watchFassungPruefen\(p\.draft\)/g) || []).length));
+
+
+      /* OHNE EINGANG UND MIT HANDY-ZEIGER: Der Zeiger des Handys darf keine
+         Uhr-Fassung vortäuschen. Der Speicherstand wird passend gesetzt, sonst
+         meldete die Funktion einen WECHSEL und die Prüfung wäre rot. */
+      LS.setItem(K, "PWA");
+      DB0._draftRound = { live: { src: "phone", app: "PWA", at: new Date().toISOString() } };
+      const vorH = (G("ERRLOG") || []).filter(x => x.where === "Uhr-Fassung").length;
+      P();
       ok("ein Zeiger des Handys zählt nicht als Uhr-Fassung",
-         (G("ERRLOG") || []).filter(x => x.where === "Uhr-Fassung").length === vor3);
+         (G("ERRLOG") || []).filter(x => x.where === "Uhr-Fassung").length === vorH);
     } finally {
-      DB0._draftRound = altDraft;
       try { LS.removeItem(K); } catch (e) {}
     }
   }
@@ -10695,9 +10795,10 @@ group("Uhr-Fassung — im Protokoll, nicht nur auf dem Handgelenk");
      /localStorage\.setItem\(K, w\.app\)/.test(roh) && !/DB\.ui\.watchver/.test(roh));
   /* Und der Aufruf muss dort stehen, wo der Entwurf der Uhr ankommt —
      beide Wege. */
+  /* v5.26: mit dem Eingang als Argument — deshalb `(p.draft)` statt `()`. */
   ok("beim Zusammenführen wird geprüft",
-     (roh.match(/watchFassungPruefen\(\);/g) || []).length >= 2,
-     String((roh.match(/watchFassungPruefen\(\);/g) || []).length));
+     (src.match(/watchFassungPruefen\(p\.draft\)/g) || []).length >= 2,
+     String((src.match(/watchFassungPruefen\(p\.draft\)/g) || []).length));
 }
 
 /* ============ 24ey. Der Start zeigt, dass er lebt ============ */
@@ -10844,8 +10945,14 @@ group("Caddy — eine Kette, ein Aufruf");
      /const L0=_ch0;/.test(code) && /const zielPt=\(_ch0&&_ch0\.to\)/.test(code));
   /* `condFaktor` muss gegen genau dieses Ziel rechnen — sonst vergleicht die
      Kopfzeile wieder einen anderen Punkt als die Kette. */
+  /* v5.25: Nicht nur dasselbe ZIEL, auch derselbe URSPRUNG. `condFaktor` maß
+     ab `pos`, die Kette ab `legs[0].from` — auf Loch 18 lagen 36 m dazwischen,
+     und heraus kamen „72 m · Kette 35 m". Zwei Ursprünge sind dasselbe
+     Problem wie zwei Ziele, nur eine Ebene tiefer. */
   ok("condFaktor rechnet gegen dasselbe Ziel",
-     /condFaktor\(pos, zielPt\)/.test(code));
+     /condFaktor\(cwVon, zielPt\)/.test(code));
+  ok("und ab demselben Ursprung",
+     /const cwVon = \(_ch0 && _ch0\.from\) \? _ch0\.from : pos;/.test(code));
   /* Der Wachhund bleibt: Er hat den Fehler gefunden und soll den nächsten
      finden. Eine Meldung abzuschalten, weil sie unbequem ist, wäre der
      falsche Schluss aus dieser Woche. */
