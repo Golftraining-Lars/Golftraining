@@ -6285,7 +6285,12 @@ group("Gleichlauf Uhr ↔ App — dieselbe Frage, dieselbe Antwort");
       const blkW = iW < 0 ? "" : ktOhneKommentar(kt.slice(iW, iW + 3000));
       ok("HolePage ist nicht mehr im Pager",
          blkW.length > 0 && !/HolePage\(/.test(blkW));
-      ok("Seite 0 ist die Score-Seite", /0 -> ScorePage\(/.test(blkW));
+      /* SEIT UHR 54 entscheidet der Turniermodus, WELCHE Score-Seite die
+         erste ist — die volle Maske oder die auf zwei Zahlen reduzierte. Nur
+         die erste Seite wird getauscht, der Pager bleibt derselbe: Alles
+         dahinter (Karte, Caddy, Wetter) ist im Turnier weiter erreichbar. */
+      ok("Seite 0 ist eine Score-Seite",
+         /0 -> if \(turnier\) TurnierPage\(/.test(blkW) && /\) else ScorePage\(/.test(blkW));
     }
 
     /* --- WAS VON SEITE 0 MITKOMMEN MUSSTE ---
@@ -7259,7 +7264,7 @@ group("Live-Zeiger — beide Geräte, dieselbe Regel");
        zusaetzlich, dass der Changelog einen Eintrag fuer GENAU diese Kennung
        hat — beides zusammen faengt „Code geaendert, Fassung vergessen" und
        „Fassung gezogen, Changelog vergessen". */
-    ok("und die Kennung ist aktuell", /WATCH_APP = "2026-08-30 \(53\)"/.test(kt));
+    ok("und die Kennung ist aktuell", /WATCH_APP = "2026-08-30 \(55\)"/.test(kt));
     ok("das Handy zeigt sie", /function watchFassung\(\)/.test(src));
 
     /* --- STARTBILDSCHIRM (2026-08-25 (20)) ---
@@ -10091,6 +10096,94 @@ group("Protokoll — drei Stufen, ein Startvermerk, ein sprechender Service Work
   /* Und die statische Prüfung darf Infos nicht als Laufzeitfehler zählen. */
   ok("Infos gelten nicht als Laufzeitfehler",
      /const echte = \(typeof ERRLOG!=="undefined"/.test(roh));
+}
+
+/* ============ 24fd. Turniermodus auf der Uhr ============ */
+group("Uhr — Turniermodus: zwei Zahlen, sonst nichts");
+{
+  const ktPfad = path.join(__dirname, "MainActivity.kt");
+  if (fs.existsSync(ktPfad)) {
+    const kt = ktOhneKommentar(fs.readFileSync(ktPfad, "utf8"));
+    const roh = fs.readFileSync(ktPfad, "utf8");
+
+    /* ====================================================================
+       GEWÜNSCHT am 30.08.2026 (Uhr 54)
+       --------------------------------------------------------------------
+       „Führe auf der Uhr noch einen Turniermodus ein, den ich auf der
+       Startseite auswählen kann. Da erfasse ich dann auf einem Loch nur den
+       Gesamtscore von mir und einem Mitspieler. Nichts anderes."
+       NICHTS ANDERES HEISST NICHTS ANDERES: Im Turnier zählt man unter
+       Zeitdruck und mit Handschuh. Jede zusätzliche Zeile ist eine
+       Gelegenheit, das Falsche zu tippen. */
+    ok("es gibt einen Turnier-Zustand", /var turnier by remember/.test(kt));
+    ok("und einen Umschalter auf der Startseite",
+       /Text\(if \(turnier\) "Turniermodus AN" else "Turniermodus"\)/.test(kt));
+
+    /* DER MITSPIELER KOMMT VOM HANDY — Regel aus Fassung 42: Die index.html
+       ist bei Mitspielern führend, die Uhr führt keine eigene Liste. */
+    ok("der Mitspieler kommt vom Handy",
+       /turnierName = data\?\.draft\?\.mitspieler\?\.firstOrNull\(\)/.test(kt));
+    /* OHNE MITSPIELER KEIN TURNIERMODUS — aber mit einem Satz, der sagt, was
+       zu tun ist. Ein gesperrter Knopf ohne Grund erzeugt genau die
+       Ratlosigkeit, die diese App vermeiden soll. */
+    ok("ohne Mitspieler bleibt er verschlossen",
+       /if \(!turnierName\.isNullOrBlank\(\)\) onTurnier\(\)/.test(kt));
+    ok("und sagt, was fehlt", /Mitspieler am Handy anlegen/.test(kt));
+
+    /* DIE SEITE SELBST: zwei Zeilen, sonst nichts. */
+    ok("es gibt eine eigene Turnierseite", /private fun TurnierPage\(/.test(kt));
+    ok("mit einer Zeile je Spieler",
+       /TurnierZeile\("Ich", entry\.score/.test(kt)
+       && /TurnierZeile\(mitName, entry\.msc1/.test(kt));
+    /* KEIN PUTT, KEINE LAGE, KEIN SCHLÄGER, KEIN STRAFSCHLAG. Geprüft am
+       Block der Turnierseite — sonst findet die Prüfung die normale Maske. */
+    {
+      const ti = kt.indexOf("private fun TurnierPage(");
+      const te = kt.indexOf("private fun TurnierZeile(", ti);
+      const blk = ti >= 0 ? kt.slice(ti, te > ti ? te : ti + 4000) : "";
+      ok("und wirklich nichts anderem",
+         blk.length > 0 && !/onPutts|onLie|onPen|onPick|clubNames/.test(blk),
+         (blk.match(/onPutts|onLie|onPen|onPick|clubNames/g) || []).join(", "));
+    }
+    /* ================================================================
+       EIN ZÄHLER, KEINE AUSWAHL (Uhr 55) — GEDREHT
+       ----------------------------------------------------------------
+       In (54) setzte der erste Tipp PAR. Das war für eine ANDERE Benutzung
+       gedacht: Endscore nach dem Loch eintragen, und dort ist Par der
+       häufigste Wert.
+       KORRIGIERT auf Nachfrage: „Ich möchte, dass er auf 1 startet, da ich
+       die Uhr benutzen will, um JEDEN SCHLAG MITZUZÄHLEN."
+       Für das Mitzählen war Par genau falsch — wer beim ersten Schlag tippt
+       und eine 4 sieht, muss dreimal zurück. **Das ist der Unterschied
+       zwischen einem Zähler und einer Auswahl**, und er entscheidet über die
+       ganze Bedienung: Ein Zähler wird WÄHREND des Lochs benutzt, eine
+       Auswahl danach. Meine Annahme in (54) war die falsche. */
+    ok("die Zählung beginnt bei 1",
+       /onSet\(if \(wert == null\) 1 else wert \+ 1\)/.test(kt));
+    /* Und `par` ist als Parameter entfallen — ein Wert, den niemand liest,
+       lässt beim nächsten Lesen fragen, wo er einfließt. */
+    ok("und Par wird dafür nicht mehr gebraucht",
+       !/TurnierZeile\([^)]*par: Int/.test(kt));
+    /* „−" IST HIER WICHTIGER ALS VORHER: Beim Mitzählen vertippt man sich
+       mitten im Loch. Ein Zähler ohne Rückweg wäre auf der Bahn unbrauchbar. */
+    ok("und es gibt einen Rückweg",
+       /if \(\(wert \?: 0\) > 1\) onSet\(\(wert \?: 0\) - 1\)/.test(kt));
+
+    /* KEIN EIGENER SPEICHERWEG: Die Eingaben gehen durch dasselbe
+       `change()` wie sonst und landen im selben Entwurf — `msc1` reist seit
+       Langem zum Handy. Ein zweiter Speicherweg wäre ein zweiter Ort für
+       dieselben Fehler. */
+    ok("die Eingaben gehen den gewohnten Weg",
+       /onMsc = \{ v ->[\s\S]{0,120}?change\(hd\.hole\) \{ it\.copy\(msc1 = v/.test(kt));
+    /* ABSOLUTWERT STATT DELTA — die normale Maske erwartet eine Änderung,
+       die Turnierzeile kennt den Zielwert. */
+    ok("und setzen einen Absolutwert",
+       /onScore = \{ v ->[\s\S]{0,140}?it\.copy\(score = v\.coerceIn\(1, 15\)/.test(kt));
+
+    /* Und die Begründung steht im Quelltext — wer den Modus später ändert,
+       liest zuerst, warum er so schmal ist. */
+    ok("die Entscheidung ist begründet", /NICHTS ANDERES HEISST NICHTS ANDERES/.test(roh));
+  }
 }
 
 /* ============ 24fc. Sprungmarken und große Skizzen ============ */

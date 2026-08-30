@@ -391,6 +391,81 @@ import kotlin.math.sqrt
  *  ------------------------------------------------------------------------
  *  CHANGELOG (neueste zuerst — bei JEDER Änderung ergänzen: Datum · was · wo)
  *  ------------------------------------------------------------------------
+ *  2026-08-30 (55) · DER TURNIERMODUS ZAEHLT MIT, STATT AUSZUWAEHLEN.
+ *     KORRIGIERT auf Nachfrage, einen Tag nach (54): „Ich moechte, dass er auf
+ *     1 startet, da ich die Uhr benutzen will, um JEDEN SCHLAG MITZUZAEHLEN.
+ *     Ich will also im Laufe des Loches den Score immer weiter hochzaehlen,
+ *     bis dann am Ende der Endscore feststeht."
+ *     IN (54) SETZTE DER ERSTE TIPP PAR. Das war fuer eine ANDERE Benutzung
+ *     gedacht — den Endscore NACH dem Loch eintragen, und dort ist Par
+ *     tatsaechlich der haeufigste Wert.
+ *     FUER DAS MITZAEHLEN IST ES GENAU FALSCH: Wer beim ersten Schlag tippt
+ *     und eine 4 sieht, muss dreimal zurueck. Jetzt beginnt die Zaehlung bei
+ *     1 — jeder Tipp ein Schlag, der erste Tipp der erste Schlag. Am Ende des
+ *     Lochs steht die Zahl, die man ohnehin im Kopf mitgefuehrt hat.
+ *     DAS IST DER UNTERSCHIED ZWISCHEN EINEM ZAEHLER UND EINER AUSWAHL, und er
+ *     entscheidet ueber die ganze Bedienung: Ein Zaehler wird WAEHREND des
+ *     Lochs benutzt, eine Auswahl danach. Meine Annahme in (54) war die
+ *     falsche — und sie stand sogar begruendet im Quelltext, was sie nicht
+ *     richtiger gemacht hat.
+ *     `par` ALS PARAMETER ENTFALLEN: Es diente nur dem Startwert. Ein Wert,
+ *     den niemand liest, laesst beim naechsten Lesen fragen, wo er einfliesst.
+ *     „−" BLEIBT und ist hier wichtiger als vorher: Beim Mitzaehlen vertippt
+ *     man sich mitten im Loch. Ein Zaehler ohne Rueckweg waere auf der Bahn
+ *     unbrauchbar.
+ *
+ *  2026-08-30 (54) · TURNIERMODUS — ZWEI ZAHLEN, SONST NICHTS.
+ *     GEWUENSCHT: „Fuehre auf der Uhr noch einen Turniermodus ein, den ich auf
+ *     der Startseite auswaehlen kann. Da erfasse ich dann auf einem Loch nur
+ *     den Gesamtscore von mir und einem Mitspieler. Nichts anderes."
+ *     WOZU: Im Turnier zaehlt man fuer sich UND fuer einen Mitspieler, unter
+ *     Zeitdruck und oft mit Handschuh. Alles, was die normale Maske sonst kann
+ *     — Putts, Lage, Schlaeger, Strafschlaege —, ist dort nicht nur
+ *     ueberfluessig, sondern IM WEG: Jede zusaetzliche Zeile ist eine
+ *     Gelegenheit, das Falsche zu tippen.
+ *     NICHTS ANDERES HEISST NICHTS ANDERES. Zwei Zahlen, ein Loch, weiter.
+ *     EIGENE SEITE STATT ABGESPECKTER `ScorePage`: Wer dieselbe Seite mit
+ *     einem Schalter halbiert, hat zwei Seiten in einer, und jede spaetere
+ *     Aenderung muss beide Faelle bedenken. `TurnierPage` hat einen einzigen
+ *     Zweck und passt auf einen Bildschirm.
+ *     NUR DIE ERSTE SEITE WIRD GETAUSCHT, nicht der Pager: Karte, Caddy und
+ *     Wetter bleiben erreichbar. Wer im Turnier doch einmal eine Entfernung
+ *     braucht, wischt weiter.
+ *     DER MITSPIELER KOMMT VOM HANDY — Regel aus (42): Die `index.html` ist
+ *     dort fuehrend, die Uhr fuehrt keine eigene Liste. Ohne angelegten
+ *     Mitspieler bleibt der Modus verschlossen, aber der Knopf SAGT, was zu
+ *     tun ist. Ein gesperrter Knopf ohne Grund erzeugt genau die
+ *     Ratlosigkeit, die diese App vermeiden soll.
+ *     DER ERSTE TIPP SETZT PAR, nicht 1: Im Turnier ist Par der haeufigste
+ *     Wert; wer eine 5 braucht, tippt einmal weiter statt fuenfmal von null.
+ *     KEIN EIGENER SPEICHERWEG: Die Eingaben gehen durch dasselbe `change()`
+ *     wie sonst und landen im selben Entwurf. `msc1` reist seit Langem zum
+ *     Handy — es ist dieselbe Runde, nur eine andere Ansicht.
+ *
+ *  2026-08-30 (53) · DAS PROTOKOLL SAGT JETZT, WARUM DER SCHLAG NICHT GING.
+ *     GEMELDET am 30.08.: „Das Starten des GPS-Trackings von der Uhr
+ *     funktioniert weiterhin nicht gut. Bitte detailliere das Eventlog der Uhr
+ *     hierzu deutlich."
+ *     ZWEI LUECKEN IM PROTOKOLL, und beide betreffen dieselbe Frage:
+ *     1. DIE SCHLAG-ZEILEN KANNTEN DEN GPS-ZUSTAND NICHT. Sie sagten, WAS
+ *        passierte und WIE LANGE es dauerte — aber nicht, worauf die
+ *        Entscheidung beruhte. „Start abgelehnt · GPS zu ungenau" nannte nicht,
+ *        WIE ungenau. Jetzt traegt jede Zeile Genauigkeit, Alter des Fixes, ob
+ *        er nach `FixQuality.usable` brauchbar waere, und ob die Ortung
+ *        ueberhaupt laeuft (`Diagnose.gpsLage()`).
+ *     2. DIE UHR SCHWIEG ZU IHREN EIGENEN GPS-LUECKEN. Im Handy-Protokoll
+ *        derselben Runde steht zweimal „Uhr meldet seit ueber 90 s keine
+ *        Position" — das HANDY bemerkt die Luecke, die UHR sagt nichts dazu.
+ *        Dabei ist sie die einzige, die weiss, woran es lag.
+ *        EINE LUECKE KANN SICH NICHT MELDEN, WAEHREND SIE LAEUFT — es kommt ja
+ *        nichts. Sie meldet sich jetzt, wenn sie ENDET: Der erste Fix danach
+ *        traegt die Dauer, die Genauigkeit und ob er vom Satelliten oder nur
+ *        vom Netzwerk kam. Ab 20 Sekunden, damit ein normales Sammelfenster
+ *        nicht als Luecke erscheint.
+ *     WOZU DAS GUT IST: „Laesst sich nicht starten" und „GPS war weg" sehen
+ *     auf der Uhr gleich aus. Ab dieser Fassung stehen sie als zwei
+ *     verschiedene Zeilen im Protokoll.
+ *
  *  2026-08-29 (52) · DIE UHR SAGT, WELCHE FASSUNG SIE IST.
  *     BEFUND AUS DEM AUDIT vom 29.08.: Ob auf dem Geraet wirklich die neueste
  *     Fassung laeuft, wusste niemand. Der Pruefstand vergleicht nur Dateien,
@@ -3114,7 +3189,7 @@ import kotlin.math.sqrt
 /* Fassungskennung der Uhr-App — steht im Kopplungstest neben der der PWA.
    Bei JEDER Aenderung hier mitziehen; sonst vergleicht man zwei Staende und
    glaubt, sie seien gleich (2026-08-15 (13)). */
-private const val WATCH_APP = "2026-08-29 (52)"
+private const val WATCH_APP = "2026-08-30 (55)"
 /* ==========================================================================
    WAS HAT DIESE FASSUNG GEAENDERT? (2026-08-25 (22))
    --------------------------------------------------------------------------
@@ -5966,11 +6041,44 @@ object Diagnose {
        Ergebnis. Erst daran sieht man, ob das Warten am GPS liegt (langes
        Sammelfenster) oder am Funk (langer Vorgang danach). */
     @Volatile var schlagBeginnMs: Long = 0L
+    /* ==================================================================
+       JEDE SCHLAG-ZEILE TRAEGT DEN GPS-ZUSTAND (2026-08-30 (53))
+       --------------------------------------------------------------------
+       GEMELDET am 30.08.: „Das Starten des GPS-Trackings von der Uhr
+       funktioniert weiterhin nicht gut. Bitte detailliere das Eventlog der
+       Uhr hierzu deutlich."
+       BISHER stand in der Zeile nur, WAS passierte und WIE LANGE es dauerte.
+       Die Frage, die man danach immer stellt — WARUM ging es nicht —, blieb
+       offen, weil der Zustand fehlte, der die Entscheidung getroffen hat.
+       Im Handy-Protokoll vom 30.08. steht zweimal „Uhr meldet seit ueber 90 s
+       keine Position". Das ist der Verdacht; belegen konnte ihn niemand, weil
+       die Schlag-Zeilen die Genauigkeit nicht mitfuehrten.
+       JETZT STEHT BEI JEDEM SCHRITT: Genauigkeit des letzten Fixes, sein
+       Alter, ob er nach `FixQuality.usable` brauchbar waere, und ob die
+       Ortung ueberhaupt laeuft. Damit beantwortet EINE Zeile die Frage, fuer
+       die es bisher drei Vermutungen brauchte.
+       WARUM NICHT ALLES IMMER: Der Puls laeuft im Sekundentakt und wuerde das
+       Protokoll fluten. Der GPS-Zustand haengt deshalb NUR an den
+       Schlag-Zeilen — dort, wo er die Entscheidung erklaert. */
+    fun gpsLage(): String {
+        return try {
+            val f = Live.fix
+            if (f == null) "kein Fix" + (if (Live.running) "" else " · Ortung AUS")
+            else {
+                val alter = (System.currentTimeMillis() - f.ts) / 1000
+                val brauchbar = FixQuality.usable(f)
+                "±${f.acc.toInt()} m, ${alter}s alt, " +
+                    (if (brauchbar) "brauchbar" else "ZU UNGENAU (Grenze ${FixQuality.MAX_ACC.toInt()} m)") +
+                    (if (Live.running) "" else " · Ortung AUS")
+            }
+        } catch (e: Exception) { if (e.istAbbruch()) throw e; "Lage unbekannt" }
+    }
     fun schlag(was: String, zusatz: String = "") {
         try {
             val dauer = if (schlagBeginnMs > 0)
                 " nach ${(System.currentTimeMillis() - schlagBeginnMs) / 100 / 10.0} s" else ""
-            aktion("Schlag: $was$dauer" + (if (zusatz.isNotBlank()) " · $zusatz" else ""))
+            aktion("Schlag: $was$dauer · GPS ${gpsLage()}" +
+                (if (zusatz.isNotBlank()) " · $zusatz" else ""))
         } catch (e: Exception) { if (e.istAbbruch()) throw e }
     }
 
@@ -6332,6 +6440,9 @@ object Live {
         if (gewandert || genauer) fixUi = f
     }
     var running: Boolean by mutableStateOf(false)
+    /* Wann kam der letzte Fix? Fuer die Luecken-Meldung (53) — bewusst ein
+       schlichtes Feld und kein Zustand: Es zeichnet nichts neu. */
+    @Volatile var letzterFixMs: Long = 0L
     var err: String? by mutableStateOf(null)
     var src: String by mutableStateOf("")   // aktive GPS-Quelle: "⌚ Uhr" / "📱 Handy"
 
@@ -6387,6 +6498,34 @@ class RoundService : Service() {
 
             val fromGps = loc.provider == LocationManager.GPS_PROVIDER
             val now = System.currentTimeMillis()
+
+            /* ==============================================================
+               EINE GPS-LUECKE MELDET SICH, WENN SIE ENDET (2026-08-30 (53))
+               --------------------------------------------------------------
+               GEMELDET am 30.08.: „Das Starten des GPS-Trackings von der Uhr
+               funktioniert weiterhin nicht gut."
+               IM HANDY-PROTOKOLL derselben Runde steht zweimal „Uhr meldet
+               seit ueber 90 s keine Position" — das HANDY bemerkt die Luecke
+               also, die UHR selbst schwieg dazu. Und die Uhr ist die einzige,
+               die weiss, WORAN es lag: kein Satellitenfix, nur Netzwerk-Fixe,
+               oder Ortung gar nicht gestartet.
+               EINE LUECKE KANN SICH NICHT MELDEN, WAEHREND SIE LAEUFT — es
+               kommt ja nichts. Sie meldet sich, wenn sie ENDET: Der erste Fix
+               danach traegt, wie lange nichts kam und wie gut er ist. Genau
+               diese Zeile fehlte, um „laesst sich nicht starten" von „GPS war
+               weg" zu unterscheiden.
+               AB 20 SEKUNDEN, nicht ab jeder Sekunde: Das Sammelfenster einer
+               Messung dauert wenige Sekunden; darunter ist eine Pause normal
+               und im Protokoll nur Rauschen. */
+            try {
+                val letzte = Live.letzterFixMs
+                if (letzte > 0L && now - letzte >= 20_000L) {
+                    Diagnose.aktion("GPS-Lücke: ${(now - letzte) / 1000} s ohne Position — " +
+                        "wieder da mit ±${(if (loc.hasAccuracy()) loc.accuracy else 99f).toInt()} m" +
+                        (if (fromGps) " (Satellit)" else " (nur Netzwerk)"))
+                }
+                Live.letzterFixMs = now
+            } catch (e: Exception) { if (e.istAbbruch()) throw e }
 
             if (fromGps) {
                 lastGpsMs = now
@@ -7013,6 +7152,29 @@ fun GolfWatchApp(
     var screen by remember {
         mutableStateOf("home")
     }
+
+    /* ==================================================================
+       TURNIERMODUS (2026-08-30 (54))
+       --------------------------------------------------------------------
+       GEWUENSCHT am 30.08.: „Fuehre auf der Uhr noch einen Turniermodus ein,
+       den ich auf der Startseite auswaehlen kann. Da erfasse ich dann auf
+       einem Loch nur den Gesamtscore von mir und einem Mitspieler. Nichts
+       anderes."
+       WOZU: Im Turnier zaehlt man fuer sich UND fuer einen Mitspieler, und
+       zwar unter Zeitdruck und mit Handschuh. Alles, was die normale
+       Eingabemaske sonst kann — Putts, Lage, Schlaeger, Strafschlaege —, ist
+       dort nicht nur ueberfluessig, sondern im Weg: Jede zusaetzliche Zeile
+       ist eine Gelegenheit, das Falsche zu tippen.
+       NICHTS ANDERES HEISST NICHTS ANDERES. Zwei Zahlen, ein Loch, weiter.
+       DER MITSPIELER KOMMT VOM HANDY, wie alle Mitspieler seit (42): Die
+       `index.html` ist dort fuehrend, die Uhr fuehrt keine eigene Liste. Ohne
+       angelegten Mitspieler bleibt der Modus verschlossen — mit einem Satz,
+       der sagt, was zu tun ist, statt eines gesperrten Knopfes ohne Grund.
+       ES IST EIN ZUSTAND, KEIN ZWEITER ABLAUF: Die Runde kommt weiterhin vom
+       Handy, wird dort beendet, und die Eingaben gehen denselben Weg in den
+       Entwurf. Nur die MASKE ist eine andere. Ein zweiter Ablauf waere ein
+       zweiter Ort fuer dieselben Fehler. */
+    var turnier by remember { mutableStateOf(false) }
 
     var data by remember {
         mutableStateOf<AppData?>(null)
@@ -9021,6 +9183,10 @@ fun GolfWatchApp(
                 gpsSource = gpsSource,
                 awaitingPhone = awaitingPhone,
 
+                turnier = turnier,
+                turnierName = data?.draft?.mitspieler?.firstOrNull(),
+                onTurnier = { turnier = !turnier },
+
                 // ---- Weg 1: Runde vom Handy übernehmen (der Normalfall) ----
                 // Sucht AUSSCHLIESSLICH nach Entwürfen, die das Handy angelegt
                 // hat (roundId oder live.src == "phone"). Ein eigener Entwurf
@@ -9516,6 +9682,7 @@ fun GolfWatchApp(
                     }
 
                     PlayPager(
+                        turnier = turnier,
 
                         pagerState = pagerState,
                         detailListState = playListState,
@@ -10013,6 +10180,12 @@ private fun HomeScreen(
     keepScreen: Boolean,
     gpsSource: String,
     awaitingPhone: Boolean,
+    /* TURNIERMODUS (54): Zustand und Umschalter. `turnierName` ist der
+       Mitspieler VOM HANDY — ist er leer, gibt es nichts zu erfassen, und der
+       Knopf sagt das, statt gesperrt und unerklaert dazustehen. */
+    turnier: Boolean,
+    turnierName: String?,
+    onTurnier: () -> Unit,
     onFetchPhone: () -> Unit,
     onCancelFetch: () -> Unit,
     /* App wirklich beenden (2026-08-25 (20)). Der Wisch nach rechts schiebt sie
@@ -10123,6 +10296,39 @@ private fun HomeScreen(
                Handgelenk — und es schrieb einen Grabstein ins Repo, der die
                Runde auch am Handy beendete. Verwerfen passiert dort, wo man
                sieht, was man wegwirft. */
+        }
+
+        /* ==============================================================
+           TURNIERMODUS — UMSCHALTER, KEIN ZWEITER RUNDENSTART (54)
+           --------------------------------------------------------------
+           Er steht VOR dem Handy-Knopf, weil er die Frage „wie erfasse ich"
+           beantwortet und nicht „welche Runde". Die Runde kommt danach wie
+           immer vom Handy.
+           OHNE MITSPIELER KEIN TURNIERMODUS: Der Knopf bleibt sichtbar und
+           sagt, was fehlt. Ein gesperrter Knopf ohne Grund erzeugt genau die
+           Ratlosigkeit, die diese App vermeiden soll. */
+        item {
+
+            Chip(
+                onClick = { if (!turnierName.isNullOrBlank()) onTurnier() },
+                label = {
+                    Text(if (turnier) "Turniermodus AN" else "Turniermodus")
+                },
+                secondaryLabel = {
+                    Text(
+                        if (turnierName.isNullOrBlank())
+                            "Mitspieler am Handy anlegen"
+                        else if (turnier) "nur Score · mit $turnierName"
+                        else "nur Score · $turnierName",
+                        maxLines = 1
+                    )
+                },
+                colors =
+                    if (turnier) ChipDefaults.primaryChipColors()
+                    else ChipDefaults.secondaryChipColors(),
+                modifier =
+                    Modifier.fillMaxWidth()
+            )
         }
 
         // Der Normalweg: Runde am Handy anlegen (Platz, Tee, Umfang, EDS)
@@ -10558,6 +10764,10 @@ private fun AmbientPlayScreen(
 
 @Composable
 private fun PlayPager(
+    /* TURNIERMODUS (54): Er entscheidet nur, welche Seite die ERSTE ist —
+       alles dahinter bleibt erreichbar. Als Parameter und nicht als globaler
+       Zustand, damit die Seite ohne die ganze App pruefbar bleibt. */
+    turnier: Boolean = false,
     pagerState: PagerState,
     detailListState: ScalingLazyListState,
     scoreListState: ScalingLazyListState,
@@ -10684,7 +10894,41 @@ private fun PlayPager(
                            Fassung (39), damit eine Verhaltensaenderung und ein
                            Rueckbau nicht in derselben Fassung liegen (siehe
                            (35), gleiche Regel). */
-                        0 -> ScorePage(
+                        /* ==================================================
+                           TURNIERMODUS: eine andere MASKE, dieselbe Runde (54)
+                           --------------------------------------------------
+                           Der Umschalter von der Startseite entscheidet hier,
+                           welche Seite die erste ist. Alles dahinter — Karte,
+                           Caddy, Wetter — bleibt erreichbar; wer im Turnier
+                           doch einmal eine Entfernung braucht, wischt weiter.
+                           NUR DIE ERSTE SEITE WIRD GETAUSCHT, nicht der
+                           Pager: Ein zweiter Bildschirmaufbau waere ein
+                           zweiter Ort fuer dieselben Fehler.
+                           ABSOLUTWERT STATT DELTA: `onScore` der normalen
+                           Maske erwartet eine AENDERUNG (+1/−1); die
+                           Turnierzeile kennt den Zielwert. Deshalb eigene
+                           Rueckrufe, die denselben `change()`-Weg gehen. */
+                        0 -> if (turnier) TurnierPage(
+                            listState = scoreListState,
+                            hd = hd,
+                            entry = entry,
+                            idx = idx,
+                            total = total,
+                            mitName = mitspielerNamen.firstOrNull() ?: "Mitspieler",
+                            toPar = toPar,
+                            thru = thru,
+                            onScore = { v ->
+                                change(hd.hole) {
+                                    it.copy(score = v.coerceIn(1, 15), putts = it.putts ?: 2)
+                                }
+                            },
+                            onMsc = { v ->
+                                change(hd.hole) { it.copy(msc1 = v.coerceIn(1, 15)) }
+                            },
+                            onPrev = onPrev,
+                            onNext = onNext,
+                            onHome = onHome
+                        ) else ScorePage(
                             active = pagerState.currentPage == 0,
                             listState = scoreListState,
                             course = course,
@@ -10787,6 +11031,165 @@ private fun PlayPager(
 // ============================================================
 
 @Composable
+/* ==========================================================================
+   TURNIERSEITE — ZWEI ZAHLEN, SONST NICHTS (2026-08-30 (54))
+   --------------------------------------------------------------------------
+   GEWUENSCHT: „Da erfasse ich dann auf einem Loch nur den Gesamtscore von mir
+   und einem Mitspieler. Nichts anderes."
+   EIGENE SEITE STATT EINER ABGESPECKTEN `ScorePage`. Das ist bewusst: Wer
+   dieselbe Seite mit einem Schalter halbiert, hat zwei Seiten in einer, und
+   jede spaetere Aenderung muss beide Faelle bedenken. Diese hier hat einen
+   einzigen Zweck und passt auf einen Bildschirm.
+   WAS DRAUFSTEHT: Lochnummer und Par oben, darunter zwei Zeilen — meine und
+   die des Mitspielers, jede mit Minus, Zahl, Plus. Unten Loch zurueck und
+   weiter. Kein Putt, keine Lage, kein Schlaeger, kein Strafschlag.
+   GROSSE FLAECHEN: Im Turnier zaehlt man unter Zeitdruck und oft mit
+   Handschuh. Die Tippflaechen sind deshalb so gross, wie der Bildschirm
+   hergibt — lieber drei Zeilen als sechs kleine Knoepfe.
+   KEIN EIGENER SPEICHERWEG: Die Eingaben gehen durch dieselben Rueckrufe wie
+   sonst (`onScore`, `onMsc`) und landen im selben Entwurf. Ein zweiter
+   Speicherweg waere ein zweiter Ort fuer dieselben Fehler. */
+@Composable
+private fun TurnierPage(
+    listState: ScalingLazyListState,
+    hd: HoleDef,
+    entry: HoleEntry,
+    idx: Int,
+    total: Int,
+    mitName: String,
+    toPar: Int,
+    thru: Int,
+    onScore: (Int) -> Unit,
+    onMsc: (Int) -> Unit,
+    onPrev: () -> Unit,
+    onNext: () -> Unit,
+    onHome: () -> Unit
+) {
+    ScalingLazyColumn(
+        state = listState,
+        modifier = Modifier.fillMaxSize(),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        item {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(
+                    "Loch ${hd.hole} · Par ${hd.par}",
+                    fontSize = 15.sp,
+                    color = PineText
+                )
+                /* Der Stand der Runde — die einzige Zahl ausser den beiden
+                   Scores, und die einzige, die man im Turnier wirklich
+                   dauernd im Kopf hat. */
+                Text(
+                    (if (toPar > 0) "+$toPar" else if (toPar < 0) "$toPar" else "E") +
+                        " nach $thru",
+                    fontSize = 12.sp,
+                    color = GoldText
+                )
+            }
+        }
+
+        /* MEINE ZAHL. `entry.score` ist dieselbe Groesse wie in der normalen
+           Maske — es ist dieselbe Runde, nur eine andere Ansicht. */
+        item { TurnierZeile("Ich", entry.score, onScore) }
+
+        /* DIE DES MITSPIELERS. Der Name kommt vom Handy (Regel aus (42)):
+           Die `index.html` ist bei Mitspielern fuehrend, die Uhr fuehrt keine
+           eigene Liste. */
+        item { TurnierZeile(mitName, entry.msc1, onMsc) }
+
+        item {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                modifier = Modifier.fillMaxWidth().padding(top = 4.dp)
+            ) {
+                CompactChip(
+                    onClick = onPrev,
+                    label = { Text("‹", fontSize = 18.sp) },
+                    colors = ChipDefaults.secondaryChipColors(),
+                    modifier = Modifier.weight(1f)
+                )
+                CompactChip(
+                    onClick = onHome,
+                    label = { Text("⌂", fontSize = 15.sp) },
+                    colors = ChipDefaults.secondaryChipColors(),
+                    modifier = Modifier.weight(1f)
+                )
+                CompactChip(
+                    onClick = onNext,
+                    label = { Text("›", fontSize = 18.sp) },
+                    colors = ChipDefaults.primaryChipColors(),
+                    modifier = Modifier.weight(1f)
+                )
+            }
+        }
+        item { Spacer(Modifier.height(18.dp)) }
+    }
+}
+
+/* ==========================================================================
+   EIN ZAEHLER, KEINE SCORE-AUSWAHL (2026-08-30 (55))
+   --------------------------------------------------------------------------
+   KORRIGIERT auf Nachfrage: „Ich moechte, dass er auf 1 startet, da ich die
+   Uhr benutzen will, um JEDEN SCHLAG MITZUZAEHLEN. Ich will also im Laufe des
+   Loches den Score immer weiter hochzaehlen, bis dann am Ende der Endscore
+   feststeht."
+   IN (54) SETZTE DER ERSTE TIPP PAR. Das war fuer eine ANDERE Benutzung
+   gedacht — Endscore am Ende des Lochs eintragen, und dort ist Par der
+   haeufigste Wert. Fuer das MITZAEHLEN ist es genau falsch: Wer beim ersten
+   Schlag tippt und eine 4 sieht, muss dreimal zurueck.
+   JETZT BEGINNT DIE ZAEHLUNG BEI 1. Jeder Tipp ist ein Schlag — der erste
+   Tipp der erste Schlag. Am Ende des Lochs steht die Zahl, die man ohnehin im
+   Kopf mitgefuehrt hat, und niemand muss sie noch einmal umrechnen.
+   DAS IST DER UNTERSCHIED ZWISCHEN EINEM ZAEHLER UND EINER AUSWAHL, und er
+   entscheidet ueber die ganze Bedienung: Ein Zaehler wird waehrend des Lochs
+   benutzt, eine Auswahl danach. Meine Annahme in (54) war die falsche.
+   „−" BLEIBT, und es ist hier wichtiger als vorher: Beim Mitzaehlen tippt man
+   sich irgendwann einmal vertan, und zwar mitten im Loch. Ein Zaehler ohne
+   Rueckweg waere auf der Bahn unbrauchbar.
+   ========================================================================== */
+@Composable
+private fun TurnierZeile(
+    name: String,
+    wert: Int?,
+    /* `par` ist mit (55) entfallen — es diente nur dem Startwert, und der ist
+       jetzt 1. Ein Parameter, den niemand liest, ist eine Zusage, die niemand
+       einloest: Beim naechsten Lesen fragt man sich, wo das Par einfliesst. */
+    onSet: (Int) -> Unit
+) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp)
+    ) {
+        Text(name, fontSize = 12.sp, color = PineText, maxLines = 1)
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            CompactChip(
+                onClick = { if ((wert ?: 0) > 1) onSet((wert ?: 0) - 1) },
+                label = { Text("−", fontSize = 20.sp) },
+                colors = ChipDefaults.secondaryChipColors(),
+                modifier = Modifier.weight(1f)
+            )
+            Text(
+                wert?.toString() ?: "–",
+                fontSize = 26.sp,
+                color = if (wert == null) PineText else GoldText,
+                modifier = Modifier.weight(1f),
+                textAlign = TextAlign.Center
+            )
+            CompactChip(
+                /* BEI 1 BEGINNEN (55): jeder Tipp ein Schlag. Siehe oben. */
+                onClick = { onSet(if (wert == null) 1 else wert + 1) },
+                label = { Text("+", fontSize = 20.sp) },
+                colors = ChipDefaults.primaryChipColors(),
+                modifier = Modifier.weight(1f)
+            )
+        }
+    }
+}
+
 private fun ScorePage(
     active: Boolean,
     listState: ScalingLazyListState,

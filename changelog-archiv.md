@@ -13,6 +13,38 @@
 
 ---
 
+- **v4.82.2 · 2026-08-26** — **Pruefstand-Runde: drei gefangene Fehler, Verträge nachgezogen,
+  Changelog archiviert.** `node tests.js` gegen den Tagesstand — drei ECHTE Faenge: (1) `from`
+  statt `teeP` in `tee()` — jede Abschlagsbewertung waere im Browser mit ReferenceError gestorben;
+  (2) `N` statt `S.length` ebenda; (3) `caddyClubs` verlor durch die Driver-Leitplanke den Driver
+  aus jeder positionslosen Liste — die Leitplanke kennt jetzt drei Zustaende (Abschlag /
+  nachweislich Boden / unbekannt). Dazu: `DGM_KORRIDOR` 130 statt 160 — der Pruefstand wies ±80
+  (17.496 Punkte) und ±70 (16.384) am 16.000er-Ladelauf-Deckel zurueck; ±65 traegt die
+  Abtastgeometrie exakt, den Rest faengt die einseitige Differenz. `sigmaFor` baut die Rueckgabe
+  vor der Deckel-Meldung. Changelog auf die 40 neuesten Fassungen gekuerzt (Regel v3.11), der
+  Ueberhang liegt als `changelog-archiv-nachtrag.md` bereit. Neue Doku-Kapitel: Mitspieler,
+  Neutralwerte, Lochzeiger-Zaehler & Rundenende. Neue Pruefgruppen fuer `schlagNeutral`,
+  `neutralBasis`, `gpsShotsNachziehen`, `sicherheitsWahl`, `neigungUmZiel`, `ohneHoehe`;
+  veraltete Vertraege (Streifenbreite, Rand-/Lueckenverhalten, Uhr-Kennung 37, Beenden-Regel der
+  Uhr, Stummel-Fixture ohne Driver) aktualisiert.
+
+- **v4.82.1 · 2026-08-26** — **Das Hoehenraster wird jetzt auch am Rand VERWENDET — der Download
+  war nie das Problem.** Einwand vom 26.08., zu Recht: „Ich habe das Raster extra vorher
+  heruntergeladen — das muss 100 % funktionieren." Die Kette Download -> IndexedDB -> Laden beim
+  Rundenstart war intakt. Der Fehler sass im NACHSCHLAGEN: Der Streifen war ±60 m um die
+  Ideallinie, die Engine zielt aber bis ±10° daneben (±40 m bei 230 m Carry), und die
+  Neigungsmessung tastet weitere 2,5 Maschen (12-50 m) darueber hinaus — 90 m Bedarf gegen 60 m
+  Streifen, konstruktionsbedingt. Und EIN fehlender Tastpunkt machte die GANZE Neigung null,
+  eine fehlende Ecke die ganze Hoehe: Am Rand der Normalfall, nicht die Ausnahme. **Drei
+  Reparaturen:** (1) Streifen ±80 m (`DGM_KORRIDOR` 160); bestehende Raster zeigen die neuen
+  Randzellen als „fehlend" — einmal Nachladen fuellt sie, online holt `gpRasterBereit` sie beim
+  naechsten Planlauf. (2) `dgmHoehe` randfest: halbe Masche Klemmtoleranz am Rahmen, und fehlt
+  eine Ecke, tragen die vorhandenen mit neu normierten Gewichten (gleiche Quelle, weniger
+  Stuetzen) — erst ohne jede Ecke null. (3) `dgmNeigung` einseitig statt gar nicht: je Achse
+  zentrale Differenz wie bisher, sonst einseitige zur Mitte, markiert als `genaehert`; null nur
+  noch, wenn keine Achse rechenbar ist — und dann sagt es die 4.82-Meldung. Damit gilt: Ein
+  vollstaendig geladenes Raster liefert an jedem Punkt des Platzes eine Auskunft.
+
 - **v4.82.0 · 2026-08-26** — **Caddy: Hang als Flaeche · fehlende Hoehendaten laut · Gleichstand
   entscheidet die Sicherheit.** Drei Befunde von der Nordplatz-Runde am 26.08., drei Ursachen:
   **(1) Loch 1, Eisen 6 auf den Abhang:** Der Hangterm (v3.95/v3.98) fragte EINEN Punkt — das
