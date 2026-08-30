@@ -13,6 +13,17 @@
 
 ---
 
+- **v4.82.3 · 2026-08-26** — **9-Loch-Spielvorgabe: das HI wird halbiert (WHS).** Befund von der
+  Front-9-Runde am 26.08.: „Stableford 38 / Course HCP 24" bei +4 brutto — 14 Brutto plus 24
+  Vorgabeschlaege. CR/Slope/Par kamen korrekt von der Neun, aber das (per Definition auf 18 Loch
+  bezogene) HI ging voll in die Formel. Nach WHS gilt fuer 9 Loecher `HI/2 × Slope9/113 +
+  (CR9 − Par9)` — korrekt ~12 Schlaege, ~26 Netto-Punkte. Behoben an BEIDEN Rechenstellen
+  (`_computeRoundRoh` fuer die Auswertung, `playVorgabe` fuer den Live-Zaehler — auch das
+  „31 Pkt nach 7" unterwegs war dieselbe Inflation). Das **Score-Differential war korrekt**
+  (3,4 gespielt + 11,6 erwartete Haelfte = 15,0 — die erwartete Haelfte stammt laut WHS aus dem
+  eigenen HI, deshalb wirkt ein starkes Neun-Loch-Ergebnis dort nur zur Haelfte). Neue
+  Pruefgruppe: 9-Loch-Runde mit Seiten-Rating, Vorgabe halbiert, 18-Loch-Rechnung unveraendert.
+
 - **v4.82.2 · 2026-08-26** — **Pruefstand-Runde: drei gefangene Fehler, Verträge nachgezogen,
   Changelog archiviert.** `node tests.js` gegen den Tagesstand — drei ECHTE Faenge: (1) `from`
   statt `teeP` in `tee()` — jede Abschlagsbewertung waere im Browser mit ReferenceError gestorben;

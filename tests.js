@@ -7264,7 +7264,7 @@ group("Live-Zeiger — beide Geräte, dieselbe Regel");
        zusaetzlich, dass der Changelog einen Eintrag fuer GENAU diese Kennung
        hat — beides zusammen faengt „Code geaendert, Fassung vergessen" und
        „Fassung gezogen, Changelog vergessen". */
-    ok("und die Kennung ist aktuell", /WATCH_APP = "2026-08-30 \(55\)"/.test(kt));
+    ok("und die Kennung ist aktuell", /WATCH_APP = "2026-08-30 \(56\)"/.test(kt));
     ok("das Handy zeigt sie", /function watchFassung\(\)/.test(src));
 
     /* --- STARTBILDSCHIRM (2026-08-25 (20)) ---
@@ -10115,6 +10115,30 @@ group("Uhr — Turniermodus: zwei Zahlen, sonst nichts");
        NICHTS ANDERES HEISST NICHTS ANDERES: Im Turnier zählt man unter
        Zeitdruck und mit Handschuh. Jede zusätzliche Zeile ist eine
        Gelegenheit, das Falsche zu tippen. */
+    /* ================================================================
+       JEDE COMPOSABLE BRAUCHT IHRE ANNOTATION (55.1)
+       ----------------------------------------------------------------
+       BEIM UEBERSETZEN AUFGEFALLEN: Mein Kommentarblock zur Turnierseite
+       schob sich ZWISCHEN ein bestehendes `@Composable` und `ScorePage`.
+       Folge: doppelte Annotation an der einen Stelle („This annotation is
+       not repeatable"), gar keine an der anderen — und daraus zwölf
+       Folgefehler („@Composable invocations can only happen from the
+       context of a @Composable function").
+       EIN KOMMENTAR ZWISCHEN ANNOTATION UND DEKLARATION IST KEIN
+       KOMMENTAR MEHR, SONDERN EINE TRENNUNG. Der Prüfstand konnte das
+       nicht sehen — er liest keinen Kotlin-Übersetzer. Diese Prüfung
+       schließt die Lücke für die Fälle, die er prüfen KANN: Jede
+       Composable, die hier gebaut wurde, trägt ihre Annotation direkt
+       darüber. */
+    ["TurnierPage", "TurnierZeile", "ScorePage", "PlayPager", "HomeScreen"].forEach(f => {
+      const i = kt.indexOf("private fun " + f + "(");
+      const davor = i > 0 ? kt.slice(Math.max(0, i - 40), i) : "";
+      ok(f + " trägt @Composable direkt darüber",
+         i > 0 && /@Composable\s*$/.test(davor), davor.trim().slice(-30));
+    });
+    /* Und keine doppelt — das war der andere Teil desselben Fehlers. */
+    ok("keine doppelte Annotation", !/@Composable\s*@Composable/.test(kt));
+
     ok("es gibt einen Turnier-Zustand", /var turnier by remember/.test(kt));
     ok("und einen Umschalter auf der Startseite",
        /Text\(if \(turnier\) "Turniermodus AN" else "Turniermodus"\)/.test(kt));
@@ -10173,12 +10197,22 @@ group("Uhr — Turniermodus: zwei Zahlen, sonst nichts");
        `change()` wie sonst und landen im selben Entwurf — `msc1` reist seit
        Langem zum Handy. Ein zweiter Speicherweg wäre ein zweiter Ort für
        dieselben Fehler. */
+    /* v55.1: Die Rückrufe werden dort GEBAUT, wo `change()` lebt — in
+       `GolfWatchApp` — und an `PlayPager` nur weitergereicht. Der erste
+       Anlauf rief `change()` in `PlayPager` direkt; der Übersetzer hat es
+       gefangen („Unresolved reference"), und das ist die richtige Stelle
+       dafür: `PlayPager` ist die ANSICHT, nicht der Ort, an dem Zustand
+       geändert wird. */
     ok("die Eingaben gehen den gewohnten Weg",
-       /onMsc = \{ v ->[\s\S]{0,120}?change\(hd\.hole\) \{ it\.copy\(msc1 = v/.test(kt));
+       /onTurnierMsc = \{ v ->[\s\S]{0,140}?change\(hd\.hole\) \{ it\.copy\(msc1 = v/.test(kt));
     /* ABSOLUTWERT STATT DELTA — die normale Maske erwartet eine Änderung,
        die Turnierzeile kennt den Zielwert. */
     ok("und setzen einen Absolutwert",
-       /onScore = \{ v ->[\s\S]{0,140}?it\.copy\(score = v\.coerceIn\(1, 15\)/.test(kt));
+       /onTurnierScore = \{ v ->[\s\S]{0,160}?it\.copy\(score = v\.coerceIn\(1, 15\)/.test(kt));
+    /* Und die Ansicht bekommt sie als Parameter, statt Zustand zu ändern. */
+    ok("die Seite ändert selbst keinen Zustand",
+       /onTurnierScore: \(Int\) -> Unit = \{\}/.test(kt)
+       && /onScore = onTurnierScore/.test(kt));
 
     /* Und die Begründung steht im Quelltext — wer den Modus später ändert,
        liest zuerst, warum er so schmal ist. */

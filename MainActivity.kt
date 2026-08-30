@@ -391,6 +391,27 @@ import kotlin.math.sqrt
  *  ------------------------------------------------------------------------
  *  CHANGELOG (neueste zuerst — bei JEDER Änderung ergänzen: Datum · was · wo)
  *  ------------------------------------------------------------------------
+ *  2026-08-30 (56) · UEBERSETZUNGSFEHLER AUS (54) UND (55) BEHOBEN.
+ *     GEMELDET mit Bildschirmfoto aus Android Studio: 16 Fehler, „Gradle build
+ *     failed". Zwei Ursachen, beide meine:
+ *     1. `change()` IN DER FALSCHEN EBENE. Die Turnierseite rief es direkt in
+ *        `PlayPager` — dort gibt es das nicht; es lebt in `GolfWatchApp`.
+ *        Der Uebersetzer nannte es „Unresolved reference 'change'", und er hat
+ *        recht: `PlayPager` ist die ANSICHT, nicht der Ort, an dem Zustand
+ *        geaendert wird. Die Rueckrufe werden jetzt dort GEBAUT, wo `change()`
+ *        lebt, und hier nur weitergereicht (`onTurnierScore`, `onTurnierMsc`).
+ *     2. EIN KOMMENTAR ZWISCHEN ANNOTATION UND DEKLARATION. Mein Kommentarblock
+ *        zur Turnierseite schob sich ZWISCHEN ein bestehendes `@Composable`
+ *        und `ScorePage`: doppelte Annotation an der einen Stelle, gar keine
+ *        an der anderen — und daraus zwoelf Folgefehler.
+ *        EIN KOMMENTAR ZWISCHEN ANNOTATION UND DEKLARATION IST KEIN KOMMENTAR
+ *        MEHR, SONDERN EINE TRENNUNG.
+ *     WARUM DER PRUEFSTAND DAS NICHT SAH: Er liest keinen Kotlin-Uebersetzer;
+ *     er prueft Struktur und Text. Fuer den Teil, den er pruefen KANN, gibt es
+ *     jetzt eine Sperrklinke: Jede hier gebaute Composable muss ihre Annotation
+ *     DIREKT darueber tragen, und keine doppelt. Gegenprobe gemacht — ohne die
+ *     Annotation wird sie rot.
+ *
  *  2026-08-30 (55) · DER TURNIERMODUS ZAEHLT MIT, STATT AUSZUWAEHLEN.
  *     KORRIGIERT auf Nachfrage, einen Tag nach (54): „Ich moechte, dass er auf
  *     1 startet, da ich die Uhr benutzen will, um JEDEN SCHLAG MITZUZAEHLEN.
@@ -3189,7 +3210,7 @@ import kotlin.math.sqrt
 /* Fassungskennung der Uhr-App — steht im Kopplungstest neben der der PWA.
    Bei JEDER Aenderung hier mitziehen; sonst vergleicht man zwei Staende und
    glaubt, sie seien gleich (2026-08-15 (13)). */
-private const val WATCH_APP = "2026-08-30 (55)"
+private const val WATCH_APP = "2026-08-30 (56)"
 /* ==========================================================================
    WAS HAT DIESE FASSUNG GEAENDERT? (2026-08-25 (22))
    --------------------------------------------------------------------------
@@ -9683,6 +9704,14 @@ fun GolfWatchApp(
 
                     PlayPager(
                         turnier = turnier,
+                        onTurnierScore = { v ->
+                            change(hd.hole) {
+                                it.copy(score = v.coerceIn(1, 15), putts = it.putts ?: 2)
+                            }
+                        },
+                        onTurnierMsc = { v ->
+                            change(hd.hole) { it.copy(msc1 = v.coerceIn(1, 15)) }
+                        },
 
                         pagerState = pagerState,
                         detailListState = playListState,
@@ -10768,6 +10797,10 @@ private fun PlayPager(
        alles dahinter bleibt erreichbar. Als Parameter und nicht als globaler
        Zustand, damit die Seite ohne die ganze App pruefbar bleibt. */
     turnier: Boolean = false,
+    /* Absolutwert-Rueckrufe fuer die Turnierseite (55.1) — gebaut dort, wo
+       `change()` lebt, und hier nur weitergereicht. */
+    onTurnierScore: (Int) -> Unit = {},
+    onTurnierMsc: (Int) -> Unit = {},
     pagerState: PagerState,
     detailListState: ScalingLazyListState,
     scoreListState: ScalingLazyListState,
@@ -10917,14 +10950,16 @@ private fun PlayPager(
                             mitName = mitspielerNamen.firstOrNull() ?: "Mitspieler",
                             toPar = toPar,
                             thru = thru,
-                            onScore = { v ->
-                                change(hd.hole) {
-                                    it.copy(score = v.coerceIn(1, 15), putts = it.putts ?: 2)
-                                }
-                            },
-                            onMsc = { v ->
-                                change(hd.hole) { it.copy(msc1 = v.coerceIn(1, 15)) }
-                            },
+                            /* DIE RUECKRUFE KOMMEN VON AUSSEN (55.1). Erster
+                               Anlauf rief hier `change()` direkt — das lebt
+                               aber in der uebergeordneten Composable, nicht in
+                               `PlayPager`. Der Uebersetzer hat es gefangen
+                               („Unresolved reference 'change'"), und das ist
+                               die richtige Stelle dafuer: `PlayPager` ist die
+                               ANSICHT, nicht der Ort, an dem Zustand geaendert
+                               wird. */
+                            onScore = onTurnierScore,
+                            onMsc = onTurnierMsc,
                             onPrev = onPrev,
                             onNext = onNext,
                             onHome = onHome
@@ -11030,7 +11065,6 @@ private fun PlayPager(
 //  dazwischen die Rundenaktionen (Abschluss, Übersicht).
 // ============================================================
 
-@Composable
 /* ==========================================================================
    TURNIERSEITE — ZWEI ZAHLEN, SONST NICHTS (2026-08-30 (54))
    --------------------------------------------------------------------------
@@ -11190,6 +11224,7 @@ private fun TurnierZeile(
     }
 }
 
+@Composable
 private fun ScorePage(
     active: Boolean,
     listState: ScalingLazyListState,
