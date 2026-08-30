@@ -13,6 +13,46 @@
 
 ---
 
+- **v4.80.1 · 2026-08-26** — **Uhr-Messungen werden beim Eintreffen umgerechnet — die Laengen-Logik
+  sitzt allein im Handy.** Aufgabenteilung ausdruecklich festgeschrieben (Vorgabe vom 26.08.): Die
+  **Uhr misst rohe Meter** und enthaelt keinerlei Anpassungslogik (kein `playsLike`; ihre
+  Caddy-Werte kommen fertig gerechnet vom Handy — das war schon so und bleibt so, die Uhr-App ist
+  unveraendert auf Fassung 35). Neu: `gpsShotsNachziehen` rechnet Uhr-Messungen am **Engpass ihres
+  Eintreffens** (`draftPull`-Vereinigung) auf den Neutralwert um — waehrend der Runde treffen sie
+  binnen Sekunden ein, das Wetter von JETZT ist das Wetter des Schlags, die volle Rechnung ist
+  ehrlich. Spaete Ankuenfte (Gross-Datei-Merges in beiden Takten) laufen durch dieselbe Funktion;
+  die 3-h-Sperre in `schlagNeutral` laesst dann von selbst nur die zeitlose Hoehe rechnen. Einmal
+  berechnet, persistiert der Wert am Schlag; das Protokoll nennt die Anzahl („n Uhr-Schlaege auf
+  Neutralwert umgerechnet"). `neutralBasis` bleibt Rueckfall fuer Altdaten ohne Kontext.
+
+- **v4.80.0 · 2026-08-26** — **Gelernte Schlaegerlaengen auf Neutralbedingungen („spielt-wie" rueckwaerts).**
+  Die spielt-wie-Rechnung (Wind, Temperatur, Hoehe, Regen) gab es laengst — aber nur auf der
+  EMPFEHLUNGS-Seite. Die LERN-Seite frass rohe Messwerte: Ein Bergab-Rueckenwind-Drive lehrte
+  „Driver = 260", ein Bergauf-Gegenwind-Eisen lernte systematisch zu kurz. **Die Umkehrung ist
+  dieselbe Funktion:** Ein unter Bedingungen C gemessener M-Meter-Schlag hat die Aufgabe
+  `playsLike(M, C)` geloest — das ist sein Neutralwert (`schlagNeutral`, gespeichert als
+  `distNeutral` + `dElev` am Schlag). Berechnet an allen drei Entstehungsorten
+  (`playRecStop`, `gpsSaveShot`, `watchRecFinish`). **Wetter nur zeitnah** (±3 h — WEATHER ist
+  das Wetter JETZT; fuer spaet eingetroffene Uhr-Messungen waere es das falsche): danach rechnet
+  nur die Hoehe, die ist zeitlos. **Altdaten:** `neutralBasis` bereinigt Schlaege mit Koordinaten
+  beim Lernen wenigstens um die Hoehe (DGM/Cache, synchron); ohne Kontext bleibt der Rohwert —
+  ehrlich, statt zu raten. `clubMeasured` lernt auf dieser Basis; der Vergleich „Gepflegt vs.
+  gemessen" sagt es dazu. Die Empfehlungs-Seite bleibt unveraendert — sie rechnete schon richtig.
+
+- **v4.79.2 · 2026-08-26** — **Frist auf jeden Abgleich-Fetch · Waechter fuer `busy` · Fehler sagen ihren Namen.**
+  **Korrektur der Deutung von v4.79.1:** Das Handy war wach und im Vollbild — und tat ab
+  05:35:06 trotzdem nichts, ohne eine Zeile zu schreiben. Diese Signatur hat genau eine
+  Mechanik: Ein Abgleich-Fetch OHNE Frist blieb auf stockendem Netz HAENGEN (kein Fehler — er
+  kam schlicht nie zurueck; dass das Heimnetz an diesem Morgen wacklig war, zeigen die zwoelf
+  DNS-Fehler der Uhr bis 05:34). `await` wartete ewig, `playSyncBusy` blieb true, und jeder
+  weitere Takt kehrte in der ersten Zeile still um — waehrend `taktPruefen` die Takte puenktlich
+  kommen sah und deshalb auch nichts meldete. Drei Aenderungen: **`fetchMitFrist`** (12 s lesen,
+  15 s senden, 20 s grosse Datei) auf draftPull, draftPush, draftPushRaw, freshRepoSha,
+  freshRepoFetch; ein **Waechter**, der ein laenger als 30 s gehaltenes `busy` meldet und
+  freigibt; und der Takt-`catch` **protokolliert** statt zu schlucken (das Protokoll
+  dedupliziert Wiederholungen selbst). Die naechste Stille hat damit einen Namen im Protokoll —
+  oder sie tritt nicht mehr ein.
+
 - **v4.79.1 · 2026-08-26** — **Aufwach-Ausloeser haengt nur noch an `PLAY.active`.**
   Erster Testlauf nach Ritual (26.08., 05:35): **Der Zaehler haelt** — vier Zeiger-Pruefungen,
   alle „schon dort", **keine** falsche Uebernahme; die Rueckspruenge sind weg. Versagt hat

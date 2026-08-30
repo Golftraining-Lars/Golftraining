@@ -10082,6 +10082,105 @@ group("Protokoll — drei Stufen, ein Startvermerk, ein sprechender Service Work
      /const echte = \(typeof ERRLOG!=="undefined"/.test(roh));
 }
 
+/* ============ 24ey. Die Dehnroutine gibt das Video wieder ============ */
+group("Malaska-Routine — Reihenfolge und Wortlaut aus dem Video");
+{
+  const DYN = G("MALASKA_DYN"), SVG = G("MALASKA_SVG"), POST = G("POST_ROUND");
+
+  /* ====================================================================
+     GEMELDET am 30.08.2026 mit der Videovorlage (behoben in v5.16)
+     --------------------------------------------------------------------
+     „Die Anleitungen geben die Schritte falsch und unvollständig wieder."
+     ES STIMMTE, und der Kern war eine alte ENTSCHEIDUNG, nicht Schlamperei:
+     Bis v5.15 war das Programm in 13 dynamische Übungen (vor der Runde) und
+     6 statische (nach der Runde) geteilt — mit der Begründung, statisches
+     Dehnen vor dem Spiel senke die Kraftentfaltung. Sportlich richtig, ABER
+     IM VIDEO GIBT ES DIESE TRENNUNG NICHT: Malaska zeigt EINE durchgehende
+     Routine, und Triceps, Side, Hamstring, Forward und Seated Rotation
+     stehen darin an Position 7, 8, 11, 12 und 15 — also VOR der Runde.
+     ENTSCHIEDEN AM 30.08. (Variante A): Die App bildet ab, was das Video
+     zeigt.
+     DIESE PRÜFUNGEN HALTEN DIE VIDEOTREUE FEST — sie sind der Grund, warum
+     die Reihenfolge nicht beim nächsten Umbau wieder verrutscht. */
+  if (Array.isArray(DYN)) {
+    /* DIE ERSTEN FÜNFZEHN sind das Video, danach kommen Ergänzungen (v5.17).
+       Geprüft wird deshalb nicht die Gesamtzahl, sondern der VIDEOTEIL —
+       sonst müsste diese Zahl bei jeder Ergänzung angefasst werden, und eine
+       Prüfung, die man ständig nachzieht, prüft irgendwann nichts mehr. */
+    const video = DYN.filter(x => x.q === "Malaska");
+    ok("fünfzehn Übungen aus dem Video", video.length === 15, String(video.length));
+    /* Und sie stehen VORN, nicht verstreut — die Reihenfolge des Videos darf
+       eine Ergänzung nicht auseinanderreißen. */
+    ok("und sie stehen zusammenhängend am Anfang",
+       DYN.slice(0, 15).every(x => x.q === "Malaska"),
+       DYN.slice(0, 15).filter(x => x.q !== "Malaska").map(x => x.t).join(", "));
+    /* DIE REIHENFOLGE IST DER EIGENTLICHE BEFUND. Vorher standen
+       Wrist/Forearm an 7–8 statt 9–10 und Mid-Back/Rotation an 9–11 statt
+       13–14. */
+    const soll = ["Golfer's Grip", "Forearm Stretch", "Arm Circles vorwärts",
+      "Arm Circles rückwärts", "Shoulder Stretch, Daumen nach unten",
+      "Shoulder Stretch, Finger verschränkt", "Triceps Stretch", "Side Stretch",
+      "Wrist Strengthening", "Forearm Strength", "Hamstring Stretch",
+      "Forward Stretch", "Mid-Back Stretch", "Upper Body Rotation",
+      "Seated Rotation"];
+    ok("in Malaskas Reihenfolge",
+       DYN.slice(0, 15).map(x => x.t).join(" | ") === soll.join(" | "),
+       DYN.slice(0, 15).map((x, i) => (x.t === soll[i] ? "" : (i + 1) + ":" + x.t)).filter(Boolean).join(", ") || "");
+
+    /* JEDE ÜBUNG TRÄGT DEN ORIGINALWORTLAUT der eingeblendeten Karte — wer
+       sie im Video nachschlägt, erkennt die Stelle wieder. */
+    ok("jede Übung nennt den Originalwortlaut",
+       DYN.every(x => x.o && x.o.length > 8),
+       DYN.filter(x => !x.o).map(x => x.t).join(", ") || "");
+
+    /* DIE ANWEISUNGEN, DIE MALASKA AUSDRÜCKLICH EINBLENDET und die vorher
+       fehlten. Das sind genau die Sätze, die eine Übung richtig oder falsch
+       machen — deshalb werden sie einzeln geprüft. */
+    const text = DYN.map(x => (x.d || "") + " " + (x.o || "")).join(" ");
+    [["Shoulders Stay In Line", /Schultern bleiben in einer Linie|Shoulders Stay In Line/],
+     ["Don't Hold Your Breath", /nicht die Luft anhalten|Don't Hold Your Breath/],
+     ["Lift Your Front Toe", /Zehenspitze des vorderen Fußes anheben|Lift Your Front Toe/],
+     ["Choked Up", /choked up/i],
+     ["Thumbs Extended", /Daumen lang ausstrecken|Thumbs Extended/],
+     ["Palms Up, Circle Backwards", /Handflächen nach oben drehen|Palms Up/]
+    ].forEach(([name, re]) => ok("Anweisung „" + name + "“ steht drin", re.test(text)));
+
+    /* ERGÄNZUNGEN SIND ERLAUBT — ABER GEKENNZEICHNET (v5.17). v5.16 hatte
+       Lunge und Backswing-Stretch entfernt, weil sie im Video fehlen; auf
+       Nachfrage stehen sie wieder da, ans Ende gehängt. Der ursprüngliche
+       Befund war ja nicht, dass sie da sind, sondern dass sie AUSSAHEN wie
+       Teil des Video-Programms.
+       DIE KENNZEICHNUNG IST DIE EIGENTLICHE REGEL: Wer die Routine mit dem
+       Video vergleicht, muss sehen, was daraus stammt und was nicht. */
+    DYN.slice(15).forEach(x => {
+      ok("„" + x.t + "“ ist als Ergänzung gekennzeichnet", x.q === "ergänzt", x.q);
+      ok("und sagt, dass sie nicht im Video steht", /nicht im Video/.test(x.o || ""), x.o || "");
+    });
+    /* Der Backswing-Stretch steht GANZ AM SCHLUSS: Er ist die Brücke zum
+       ersten Schwung und die einzige Übung, die man während der Runde
+       wiederholen kann. */
+    ok("der Backswing-Stretch steht am Ende",
+       DYN[DYN.length - 1].t === "Backswing-Stretch", DYN[DYN.length - 1].t);
+  }
+
+  /* DIE SKIZZEN SIND INDEXGEBUNDEN: Skizze n gehört zu Übung n. Läuft die
+     Zahl auseinander, steht ab der Bruchstelle das falsche Bild neben dem
+     Text — und genau das war ein Teil der Meldung („die Grafiken sind sehr
+     schlecht"). */
+  if (Array.isArray(DYN) && Array.isArray(SVG))
+    ok("zu jeder Übung gehört eine Skizze", SVG.length === DYN.length,
+       SVG.length + " Skizzen für " + DYN.length + " Übungen");
+
+  /* NACH DER RUNDE bleibt ein eigenes Programm — dieselben Dehnungen, aber
+     länger gehalten, plus Ergänzungen. Es beansprucht nicht mehr, das
+     Video-Programm zu sein. */
+  if (Array.isArray(POST)) {
+    ok("das Programm nach der Runde bleibt bestehen", POST.length >= 10, String(POST.length));
+    ok("und kennzeichnet, was ergänzt ist",
+       POST.some(x => x.q === "ergänzt") && POST.some(x => x.q === "Malaska"));
+  }
+}
+
 /* ============ 24ex. Welche Uhr-Fassung wirklich läuft ============ */
 group("Uhr-Fassung — im Protokoll, nicht nur auf dem Handgelenk");
 {
@@ -10162,6 +10261,71 @@ group("Uhr-Fassung — im Protokoll, nicht nur auf dem Handgelenk");
   ok("beim Zusammenführen wird geprüft",
      (roh.match(/watchFassungPruefen\(\);/g) || []).length >= 2,
      String((roh.match(/watchFassungPruefen\(\);/g) || []).length));
+}
+
+/* ============ 24ey. Der Start zeigt, dass er lebt ============ */
+group("Ladeanzeige — das erste, was der Browser malen kann");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+
+  /* ====================================================================
+     GEMELDET am 30.08.2026 (umgesetzt in v5.15)
+     --------------------------------------------------------------------
+     „Beim Start aus der Verknüpfung bleibt der grüne Startbildschirm stehen,
+     und man weiß nicht, ob die App lädt oder hängt."
+     DEN STARTBILDSCHIRM SELBST KANN MAN NICHT ANIMIEREN — er kommt vom
+     Browser (Symbol, Name, Farbe aus dem Manifest) und steht, bis die Seite
+     ihr ERSTES BILD zeichnet. Man kann ihn nur früher ablösen.
+     UND GENAU DA LAG DAS PROBLEM: Zwischen `<body>` und dem ersten sichtbaren
+     Element standen **499 kB Datenblöcke**. Der Parser muss sie lesen, bevor
+     er zum `<header>` kommt — bei 9 Sekunden Startzeit sieht man neun
+     Sekunden lang einen unbewegten Bildschirm. */
+  const iBody = src.indexOf("<body>");
+  const iLade = src.indexOf('id="ladeSchirm"');
+  const iDaten = src.indexOf('id="gplib"');
+  /* DAS ECHTE `<header>`, nicht die Erwähnung in der Doku: `indexOf` findet
+     den ersten Treffer, und der steht im devdocs-Block weit oben. Mein erster
+     Anlauf verglich gegen eine Fundstelle in einem Kommentar. */
+  const iHeader = src.indexOf("<header>\n  <div class=\"h-top\">");
+  ok("es gibt eine Ladeanzeige", iLade > 0);
+  /* DAS IST DER KERN: Sie muss VOR den Datenblöcken stehen, sonst zeichnet
+     der Browser sie genauso spät wie alles andere — und dann bringt sie
+     nichts. */
+  ok("und sie steht vor den Datenblöcken", iLade > iBody && iLade < iDaten,
+     "body " + iBody + " · Anzeige " + iLade + " · Daten " + iDaten);
+  ok("und weit vor dem ersten sichtbaren Element", iLade < iHeader);
+  /* Sie muss ohne alles auskommen, was weiter unten steht — sonst wartet sie
+     auf genau das, was sie überbrücken soll. */
+  ok("sie bringt ihre Gestaltung selbst mit",
+     /#ladeSchirm\{position:fixed/.test(src));
+  /* Kein grosses Zeichenfenster hier — der Deckel gilt auch fuer neue
+     Pruefungen, und der Ausschnitt tut es genauso. */
+  ok("und braucht keine Funktion von weiter unten",
+     !/(esc\(|logErr\(|toast\()/.test(src.slice(iLade, iLade + 2500)));
+
+  /* KEINE PROZENTE: Wie weit das Laden ist, weiß niemand ehrlich zu sagen.
+     Ein Balken, der bei 80 % stehenbleibt, ist schlimmer als ein Kreisel. */
+  ok("keine erfundene Fortschrittsanzeige",
+     !/ladeBalken|progress|%\s*geladen/.test(src.slice(iLade, iLade + 2500)));
+  ok("dafür Sätze nach 8 und 20 Sekunden",
+     /\}, 8000\)/.test(src) && /\}, 20000\)/.test(src));
+
+  /* NOTAUSGANG: Bricht der Start ab, räumt niemand die Anzeige weg — dann
+     wäre sie genau das, was sie verhindern soll. */
+  ok("nach 45 s bietet sie das Neuladen an",
+     /\}, 45000\)/.test(src) && /location\.reload\(\)/.test(src.slice(iLade, iLade + 3000)));
+
+  /* WEG ERST NACH DEM ERSTEN BILD: Verschwindet sie vorher, sieht man kurz
+     eine leere Fläche — und genau der Eindruck war die Meldung. */
+  const roh = ktOhneKommentar(codeOhneDoku(src));
+  ok("sie verschwindet erst nach renderAll und setView",
+     /renderAll\(\);\s*\n\s*setView\("heute"\);[\s\S]{0,200}?getElementById\("ladeSchirm"\)/.test(roh));
+  ok("und ein Bild später, nicht sofort",
+     /requestAnimationFrame\(\(\)=>\{[\s\S]{0,120}?opacity="0"/.test(roh));
+  /* Auch wer Bewegung nicht mag, bekommt etwas Bewegtes — ein unbewegter
+     Kreis ist genau das, was gemeldet wurde. */
+  ok("bei reduzierter Bewegung pulsiert sie statt zu drehen",
+     /prefers-reduced-motion:reduce[\s\S]{0,200}?lsPuls/.test(src));
 }
 
 /* ============ 24ew. Eine bereitliegende Fassung meldet sich ============ */
