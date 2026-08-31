@@ -13,6 +13,29 @@
 
 ---
 
+- **v4.93.0 · 2026-08-28** — **Der Lochzeiger pendelte: zwei Regeln für dieselbe Frage.** Im
+  Protokoll vom 28.08. sprang er Loch 8 ⇄ 1 ⇄ 2 innerhalb einer Minute — auf der Uhr stand
+  „Handy-Loch verworfen · seq=33/eigen 33", am Handy „Uhr meldet Loch 8 · ÜBERNOMMEN". Beide hielten
+  sich für im Recht, **und beide hatten nach ihrer eigenen Regel recht.** Uhr-Fassung (34) hatte den
+  **Zähler** eingeführt, weil Zeitstempel zwischen zwei Geräten dreimal gescheitert waren; die Uhr
+  entscheidet seither streng nach `seq > ownSeq`. **Das Handy hat den Zähler nur gelesen, nicht
+  befragt** — es hob brav seinen eigenen Stand an (v4.79) und entschied weiter nach `lv.at >
+  playLiveSeenAt`, also nach dem Schreibzeitpunkt, der bei einem Gerät im Sekundentakt praktisch
+  immer frisch ist. Ergebnis: Das Handy folgte jedem Zeiger der Uhr, die Uhr verwarf jeden des
+  Handys. **Besonders teuer nach einem Neustart der Uhr:** Ihr `ownHoleSeq` lebt nur im Speicher und
+  fängt bei 0 an — eine frisch gestartete Uhr meldete Loch 1, und das Handy sprang mitten auf Loch 8
+  zurück. Genau das steht im Protokoll unmittelbar nach dem OutOfMemory-Absturz. **Behoben:** neue
+  Funktion `fremderZeigerZaehlt(fremderSeq, eigenerSeq)` — **derselbe Name wie auf der Uhr**, damit
+  beim Lesen auffällt, wenn eine Seite abweicht. Höherer Zähler gewinnt, bei Gleichstand bleibt jeder
+  stehen, ohne Zähler gilt weiter der Zeitvergleich (altes Netz für ältere Uhr-Fassungen). Ein
+  **verworfener** Zeiger wird bewusst **nicht abgehakt**: Die Uhr sendet ihn weiter, und sobald ihr
+  Zähler steigt, soll die Handlung wirken — häkte man ihn ab, ginge genau diese verloren. Das
+  Protokoll nennt jetzt **beide Zählerstände** und „VERWORFEN (Zähler)"; bisher argumentierte die Uhr
+  mit Zählern und das Handy mit Zeitstempeln, was den Vergleich der beiden Protokolle wertlos machte.
+  **Prüfstand 24cw** prüft die Regel rein — `playAdoptRemoteHole` braucht `PLAY`, `DB` und einen
+  Bildschirmwechsel, und `G("DB")` liefert nur eine Momentaufnahme. Zum dritten Mal diese Woche
+  dieselbe Lehre: **Eine Entscheidung, die man nicht einzeln befragen kann, wird nicht geprüft.**
+
 - **v4.92.0 · 2026-08-28** — **Ein Protokoll statt zwei · Uhr 48: der Rückfallweg hat die App
   getötet.** **(1) DER ABSTURZ.** Gemeldet: „Das Schlagtracken dauert sehr lange bis es startet, auch
   nach mehreren Anläufen nicht. Dann bricht es zwischendurch ab und die ganze App schließt sich."

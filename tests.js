@@ -10125,6 +10125,71 @@ group("Protokoll — drei Stufen, ein Startvermerk, ein sprechender Service Work
      /const echte = \(typeof ERRLOG!=="undefined"/.test(roh));
 }
 
+/* ============ 24fk. Wettkämpfe brauchen einen stabilen Schlüssel ============ */
+group("Abgleich — ein Schlüssel, der sich mit dem Inhalt ändert, ist keiner");
+{
+  const K = G("MERGE_KEY"), M = G("mergeDB");
+
+  /* ====================================================================
+     GEMELDET am 31.08.2026 (behoben in v5.38)
+     --------------------------------------------------------------------
+     „Bei der Synchronisierung von geplanten Turnieren, Golfrunden und
+     durchgeführten Turnieren kommt es erneut zu Synchronisationsproblemen
+     zwischen den Geräten."
+     NACHGESTELLT — und es war genau EINE der drei Listen: `competitions`.
+     Ihr Schlüssel war `x.id || _J(x)`, und Wettkämpfe haben keine `id`. Der
+     Schlüssel war also DAS GANZE OBJEKT als JSON. Sobald sich ein Feld ändert
+     — Handicap nachgetragen, Putts ergänzt, seit v5.29 die `holeScores` —,
+     ist es ein anderer Schlüssel: Der Abgleich hält beide Stände für
+     verschiedene Einträge und behält BEIDE. Aus einem Turnier werden zwei.
+     EIN SCHLÜSSEL, DER SICH MIT DEM INHALT ÄNDERT, IST KEIN SCHLÜSSEL. Er
+     beantwortet „ist das dasselbe Ding?" mit „nur wenn sich nichts geändert
+     hat" — also nie dann, wenn es darauf ankommt. */
+  if (K && typeof K.competitions === "function") {
+    const c = { date: "2026-05-17", course: "X", tournament: "T", gbe: 78 };
+    const k1 = K.competitions(c);
+    const k2 = K.competitions(Object.assign({}, c, { hcpAfter: 21.4, putts: 31 }));
+    ok("der Schlüssel überlebt eine Feldänderung", k1 === k2, k1 + " ≠ " + k2);
+    /* Aus einer Runde erzeugte Einträge tragen `roundId` — die stärkste
+       Klammer, weil sie unabhängig von Namen und Datum ist. */
+    ok("`roundId` hat Vorrang",
+       K.competitions({ roundId: "R-9", date: "a", course: "b", tournament: "c" }) === "R-9");
+    /* Altbestand ohne roundId fällt auf Datum + Platz + Name — und das ist
+       richtig: Zwei Einträge mit gleichem Datum, Platz und Namen SIND
+       derselbe Wettkampf. */
+    ok("sonst Datum, Platz und Name", k1 === "2026-05-17|X|T", k1);
+    /* Und der Schlüssel darf NICHT das ganze Objekt sein. */
+    ok("nicht mehr das ganze Objekt", !/^\{/.test(k1), k1);
+  }
+
+  /* ---- Und der Abgleich selbst ---- */
+  if (typeof M === "function") {
+    const c = { date: "2026-05-17", course: "X", tournament: "T", gbe: 78 };
+    const A = { rounds: [], testDefs: [], version: 1,
+      competitions: [Object.assign({}, c, { hcpAfter: 21.4, savedAt: "2026-08-31T10:00:00Z" })] };
+    const B = { rounds: [], testDefs: [], version: 1,
+      competitions: [Object.assign({}, c, { savedAt: "2026-08-30T10:00:00Z" })] };
+    const r = M(A, B);
+    ok("aus einem Wettkampf wird nicht zwei", (r.competitions || []).length === 1,
+       String((r.competitions || []).length));
+    ok("und der neuere Stand gewinnt",
+       (r.competitions || [])[0] && r.competitions[0].hcpAfter === 21.4);
+  }
+
+  /* DIE ANDEREN BEIDEN LISTEN WAREN IN ORDNUNG — nachgeprüft, nicht
+     angenommen: Runden und geplante Turniere haben durchweg `id`, und ihre
+     Schlüssel sind aus Datum und Name gebaut, nicht aus dem Inhalt. */
+  if (K) {
+    ok("Runden nutzen ihre Kennung",
+       K.rounds({ id: "R1", date: "x", course: "y" }) === "R1");
+    ok("geplante Turniere ebenso",
+       K.tournaments({ id: "T1", date: "x", name: "y" }) === "T1");
+    ok("und keiner von beiden das ganze Objekt",
+       !/^\{/.test(K.rounds({ date: "a", course: "b" }))
+       && !/^\{/.test(K.tournaments({ date: "a", name: "b" })));
+  }
+}
+
 /* ============ 24fj. Runden nachträglich zum Turnier erklären ============ */
 group("Runde → Turnier: eine Umrechnung, zwei Aufrufer");
 {
