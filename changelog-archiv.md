@@ -13,6 +13,49 @@
 
 ---
 
+- **v4.90.0 · 2026-08-27** — **Eine beendete Runde sprang immer wieder auf.** Gemeldet: „Wenn ich
+  auf dem Handy eine Runde verwerfe oder speichere und beende, wird sie danach ganz oft trotzdem
+  wieder aufgerufen — ich springe grundlos wieder in den Spielmodus." **Zwei Ursachen, beide
+  bestätigt. (1) Der Riegel wurde am Ende absichtlich gelöst:** `playFinish` und `playDiscard`
+  setzten `watchAutoOpenedFor=""` — den Schutz gegen Wieder-Aufspringen — mit dem Kommentar „Runde
+  ist durch, nächste darf wieder aufspringen". Die Absicht war richtig, der **Ort** falsch: Die Uhr
+  meldet dieselbe Runde noch bis zu **vier Stunden** weiter (`WATCH_LIVE_MAX_AGE_MS`), und der
+  Wächter läuft jede Minute plus bei jedem Aufwecken des Handys. Wer den Riegel beim Aufhören löst,
+  lädt genau die Runde wieder ein, die er gerade beendet hat. **(2) Der Grabstein verglich
+  Zeitstempel:** durchgelassen wurde alles mit `d.ts > draftDiscardedTs` — und die Uhr schreibt
+  weiter mit frischem Zeitstempel, bis sie den Grabstein selbst gelesen hat. Ein Wettrennen, das der
+  Grabstein nicht gewinnen kann. **Behebung — Identität statt Zeit:** `_playKey(r)` =
+  „Platz|Datum|Umfang"; `playMarkEnded(r)` hält die beendete Runde in `ui.playEndedKey` fest
+  (**persistent**, überlebt ein Neuladen — anders als die Variable), `playClearEnded()` gibt sie
+  frei, und zwar in **`playBegin`**: Wer wieder anfängt, sagt damit, dass die alte Runde erledigt
+  ist. Diese eine Runde springt nicht mehr auf, egal wie frisch die Uhr sie meldet; eine andere
+  (anderer Tag, anderer Platz, andere Neun) ist unberührt. **Warum es so lange unbemerkt blieb:** Die
+  Regel war nur über `watchLiveMaybeOpen` erreichbar — also nur zusammen mit `PLAY`, `DB` und einem
+  echten Bildschirmwechsel. **Eine Entscheidung, die man nicht einzeln befragen kann, wird nicht
+  geprüft.** Sie steckt jetzt in `watchLiveDarfOeffnen(d, ui, jetzt, maxAlter, weggetippt)` — rein,
+  ohne eine einzige Globale, mit Begründung im Rückgabewert (`{ok, grund}`); `watchLiveMaybeOpen`
+  führt nur noch die Nebenwirkung aus. **Prüfstand 24cx** stellt das Wettrennen nach (Grabstein eine
+  Minute alt, Uhr-Meldung von jetzt), lässt den Wächter zehnmal klopfen und prüft, dass eine andere
+  Runde weiterhin öffnen darf.
+
+- **v4.89.0 · 2026-08-27** — **F/M/B zeigte 2,4 km, während die Zeile darunter „zu weit" sagte.**
+  Gemeldet mit Bildschirmfoto: Loch 2, Par 5, 499 m — und in der Kopfzeile des Vollbilds stand
+  **„F 2384 · M 2395 · B 2407"**. Das Handy lag zu Hause, zweieinhalb Kilometer vom Grün.
+  **Gerechnet war nichts falsch:** Front zu Back waren 23 m auseinander, also eine ganz normale
+  Grüntiefe; nur der Bezugspunkt war 2,4 km entfernt. Genau dafür gibt es `playTooFar()` seit v1.77,
+  und `playInfoHtml` wie `pfCaddyKurz` befolgen sie — **die Kurzzeile im selben Bild sagte korrekt
+  „2,4 km — zu weit · ab Tee Driver 237 m"**. Die dritte Anzeige, die Kopfzeile des Vollbilds, wurde
+  beim Einbau übersehen. **Das ist die schlimmere Sorte Fehler: nicht falsch gerechnet, sondern
+  inkonsistent angezeigt.** Zwei Felder desselben Bildschirms geben verschiedene Auskünfte über
+  dieselbe Lage, und der Spieler muss raten, welchem er glaubt. Jetzt stehen dort drei gedämpfte
+  Striche (`pf-fmb-fern`) — **nicht** nichts: Eine verschwundene Zeile sieht aus wie fehlendes GPS,
+  drei Striche sagen „gemessen, aber hier ohne Aussage". **Prüfstand:** Die neue Prüfung zählt die
+  Aufrufstellen von `greenFMB` in der Anzeige und verlangt, dass **jede einzelne** hinter
+  `playTooFar` liegt — sie greift damit auch bei einer vierten Anzeige, die noch niemand gebaut hat.
+  Ein Riegel gegen die Fehlerklasse, nicht gegen den Einzelfall.
+  **Gegenstück auf der Uhr (Fassung 45):** Der Schlag-Knopf zeigt während der Aufnahme die
+  **gelaufenen Meter** statt des Stopp-Rechtecks.
+
 - **v4.88.0 · 2026-08-27** — **Etappe 3 des Audits: Testabdeckung mit Rückweg, Kalibrierung, echte
   Ladezeitmessung.**
   **(W-2) DIE ABDECKUNGS-SPERRKLINKE HATTE KEINEN RÜCKWEG.** Sie verhinderte NEUE ungetestete

@@ -10124,6 +10124,62 @@ group("Protokoll — drei Stufen, ein Startvermerk, ein sprechender Service Work
      /const echte = \(typeof ERRLOG!=="undefined"/.test(roh));
 }
 
+/* ============ 24fh. Das Dashboard fror für 13 Sekunden ein ============ */
+group("Ansichtswechsel — erst prüfen, dann rechnen");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+  const S = G("STRAT"), DB0 = live("DB");
+
+  /* ====================================================================
+     GEMELDET am 31.08.2026 (behoben in v5.34)
+     --------------------------------------------------------------------
+     „Wenn die App gestartet ist, friert sie zwischendurch für zehn Sekunden
+     ein, wenn man Ansichten wechselt."
+     GEMESSEN: `renderDash` brauchte **13 Sekunden**. Zwei Ursachen, beide
+     dieselbe Sorte:
+     1. FALSCHE REIHENFOLGE. `sgHoleShots` baute das Lage-Raster, BEVOR es
+        prüfte, ob das Loch überhaupt aufgezeichnete Schläge hat. Im eigenen
+        Bestand haben **28 von 342** Löchern welche — für die anderen 314
+        wurde ein Raster über den halben Platz gerechnet und weggeworfen.
+        DIE TEUERSTE ZEILE GEHÖRT HINTER DIE BILLIGSTE PRÜFUNG.
+     2. TEURER SCHLÜSSEL. Danach blieben 208 Aufrufe für nur 8 verschiedene
+        Raster — der Zwischenspeicher traf also fast immer, und trotzdem
+        kostete es 1,6 s: Der Schlüssel entsteht aus der Vorauswahl aller
+        Elemente im Umkreis (~11 ms), und die lief auch bei einem Treffer.
+        EIN ZWISCHENSPEICHER, DESSEN SCHLÜSSEL MAN ERST TEUER AUSRECHNEN
+        MUSS, SPART NUR DIE HALBE ARBEIT.
+     ERGEBNIS: 13.065 ms → 87 ms. */
+  ok("die Schlagzahl wird vor dem Raster geprüft",
+     /const nSchlaegeVorab=h\.shots\.length-1;[\s\S]{0,160}?const g=STRAT\.grid/.test(src));
+  ok("und nicht doppelt", (src.match(/nSchlaegeVorab !== \(h\.score/g) || []).length === 1);
+  ok("es gibt eine billige erste Stufe", /_gridsFast:new Map\(\)/.test(src)
+     && /const t=this\._gridsFast && this\._gridsFast\.get\(_fast\); if\(t\) return t;/.test(src));
+  /* Der billige Schlüssel darf nur gelten, weil jeder, der Geometrie ändert,
+     den Speicher leert — das ist die Bedingung, nicht ein Detail. */
+  ok("wer Geometrie ändert, leert beide Stufen",
+     (src.match(/_gridsFast\.clear\(\)/g) || []).length >= 2,
+     String((src.match(/_gridsFast\.clear\(\)/g) || []).length));
+  /* 12 war um EINS zu klein für den eigenen Bestand — ein Zwischenspeicher,
+     der um eins zu klein ist, ist schlimmer als keiner. */
+  ok("der Speicher fasst mehr als eine Runde", /this\._grids\.size>36/.test(src));
+
+  /* ---- Und die Messung selbst ---- */
+  if (S && typeof S.grid === "function" && DB0 && (DB0.courses || []).some(c => c.geo)) {
+    const c = (DB0.courses || []).find(x => x.geo && x.geo.holes);
+    const h = c && Object.keys(c.geo.holes)[0];
+    if (c && h) {
+      S._grids.clear(); if (S._gridsFast) S._gridsFast.clear();
+      S.grid(c.geo, c.name, +h);
+      const t0 = Date.now();
+      for (let i = 0; i < 50; i++) S.grid(c.geo, c.name, +h);
+      const ms = Date.now() - t0;
+      /* 50 Treffer müssen zusammen unter einer Zehntelsekunde bleiben — vorher
+         waren es rund 550 ms allein für die Schlüssel. */
+      ok("50 Treffer kosten fast nichts", ms < 100, ms + " ms für 50 Aufrufe");
+    }
+  }
+}
+
 /* ============ 24fg. Ein gemessener Schlag muss plausibel sein ============ */
 group("Schlagmessung — Ausreißer kommen nicht in den Bestand");
 {
@@ -11490,9 +11546,16 @@ group("Doku — der Service Worker hat ein Kapitel");
        !/if \(r && r\.ok\) c\.put\("\.\/index\.html"/.test(sw2));
     /* EINE KAPUTTE HÜLLE WIRD WEGGEWORFEN, NICHT AUSGELIEFERT — sonst reicht
        sie sich selbst von Start zu Start weiter. */
-    ok("eine kaputte Hülle wird verworfen",
-       /if \(cached && !\(await istGanz\(cached\)\)\)/.test(sw2)
-       && /c\.delete\("\.\/index\.html"\)/.test(sw2));
+     /* v3.2: Die Prüfung liest den Text jetzt EINMAL (`huelleLesen`) und
+        stellt ihm beide Fragen — vollständig? welche Fassung? Vorher wurden
+        2,7 MB zweimal in Text verwandelt, beide Male VOR dem ersten Bild.
+        Zwei Prüfungen an derselben Datei sind ein Lesevorgang, nicht zwei. */
+     ok("eine kaputte Hülle wird verworfen",
+        /if \(cached && !textIstGanz\(cachedText\)\)/.test(sw2)
+        && /c\.delete\("\.\/index\.html"\)/.test(sw2));
+     ok("und der Text wird nur einmal gelesen",
+        (sw2.match(/clone\(\)\.text\(\)/g) || []).length === 1,
+        String((sw2.match(/clone\(\)\.text\(\)/g) || []).length));
     /* Und beides landet im Protokoll — der Nachbericht aus Etappe 2 ist genau
        für diesen Fall gebaut. */
     ok("beides wird gemeldet",

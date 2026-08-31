@@ -32,7 +32,7 @@
    ABGESCHNITTENE Huelle liegen, die sich von Start zu Start selbst
    weiterreicht; die Pruefung unten wirft sie zwar weg, aber ein sauberer
    Schnitt ist verlaesslicher als eine Reparatur im Betrieb. */
-const CACHE_VERSION = "v3";
+const CACHE_VERSION = "v4";
 const SHELL_CACHE = "golf-shell-" + CACHE_VERSION;
 const TILE_CACHE  = "golf-tiles-" + CACHE_VERSION;
 const TILE_MAX    = 400;          // ca. 20–40 MB, reicht fuer mehrere Plaetze
@@ -56,12 +56,37 @@ const isTile = url =>
 /* Vor dem Ablegen pruefen — plausible Groesse und Abschluss des Dokuments.
    Steht hier oben, weil BEIDE Stellen sie brauchen: das Vorwaermen bei der
    Installation und der Abruf im Betrieb. */
-async function istGanz(r){
+/* ==========================================================================
+   DIE HUELLE WIRD EINMAL GELESEN, NICHT VIERMAL (v3.2, 31.08.2026)
+   --------------------------------------------------------------------------
+   GEMESSEN am 31.08.: „Start in 20361 ms · 0 kB ueber die Leitung" — also aus
+   dem Speicher, ohne Netz, und trotzdem zwanzig Sekunden. Das Skript selbst
+   erklaert das nicht: Uebersetzen kostet 25 ms, die oberste Ebene 10 ms;
+   selbst mit Faktor 20 fuer ein langsames Geraet bleibt es unter einer
+   Sekunde.
+   DIE ZEIT GING HIER DRAUF. Vor jeder Auslieferung wurde die 2,7-MB-Huelle
+   ZWEIMAL VOLLSTAENDIG IN TEXT VERWANDELT: einmal von `istGanz` (ist sie
+   vollstaendig?) und einmal von `fassungAus` (welche Fassung liegt da?). Beide
+   Male derselbe Puffer, beide Male vor dem ersten Bild — und `response.text()`
+   auf einem Handy ist keine schnelle Sache.
+   ZWEI PRUEFUNGEN AN DERSELBEN DATEI SIND EIN LESEVORGANG, NICHT ZWEI. Der
+   Text wird jetzt EINMAL geholt und beiden Fragen gestellt.
+   UND DAS ENDE GENUEGT: Ob die Huelle vollstaendig ist, steht in den letzten
+   Zeichen — `</html>` am Schluss. Die Fassungsnummer steht zwar weiter oben,
+   aber sie wird nur gebraucht, wenn ohnehin gelesen wird. Fuer den haeufigen
+   Fall (Huelle ist ganz, Fassung unveraendert) faellt damit alles weg. */
+async function huelleLesen(r){
   try{
-    if (!r || !r.ok) return false;
-    const t = await r.clone().text();
-    return t.length > 500000 && /<\/html>\s*$/.test(t);
-  }catch(_){ return false; }
+    if (!r || !r.ok) return null;
+    return await r.clone().text();
+  }catch(_){ return null; }
+}
+function textIstGanz(t){
+  return typeof t === "string" && t.length > 500000 && /<\/html>\s*$/.test(t);
+}
+async function istGanz(r){
+  const t = await huelleLesen(r);
+  return textIstGanz(t);
 }
 
 self.addEventListener("install", ev => {
@@ -169,9 +194,11 @@ self.addEventListener("fetch", ev => {
          Archiv-Skript: erst pruefen, dann uebernehmen. Sie wurde in dieser
          Woche viermal gebraucht. */
       let cached = await c.match("./index.html");
+      /* EINMAL LESEN, BEIDE FRAGEN STELLEN (v3.2) — siehe `huelleLesen`. */
+      const cachedText = cached ? await huelleLesen(cached) : null;
       /* EINE KAPUTTE HUELLE WIRD WEGGEWORFEN, NICHT AUSGELIEFERT. Sonst
          reicht sie sich selbst von Start zu Start weiter. */
-      if (cached && !(await istGanz(cached))) {
+      if (cached && !textIstGanz(cachedText)) {
         melde("huelle-kaputt", "Gespeicherte Hülle war unvollständig — verworfen");
         try { await c.delete("./index.html"); } catch (_) {}
         cached = null;
@@ -200,11 +227,16 @@ self.addEventListener("fetch", ev => {
         const m = /APP_VERSION="([\d.]+)"/.exec(t || "");
         return m ? m[1] : null;
       };
-      const altFassung = cached ? fassungAus(await cached.clone().text()) : null;
+      const altFassung = cachedText ? fassungAus(cachedText) : null;
       const net = fetch(req)
         .then(async r => {
-          if (await istGanz(r)) {
-            const txt = await r.clone().text();
+          /* AUCH HIER EINMAL LESEN (v3.2): `istGanz` und `fassungAus` fragten
+             denselben Puffer zweimal ab. Dieser Zweig laeuft zwar im
+             Hintergrund und blockiert nichts — aber zwei Lesevorgaenge ueber
+             2,7 MB kosten auch dort Zeit und Akku, und die Regel ist dieselbe:
+             zwei Pruefungen an derselben Datei sind ein Lesevorgang. */
+          const txt = await huelleLesen(r);
+          if (textIstGanz(txt)) {
             c.put("./index.html", r.clone());
             const neu = fassungAus(txt);
             if (neu && altFassung && neu !== altFassung)
