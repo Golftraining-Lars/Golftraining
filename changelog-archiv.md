@@ -13,6 +13,77 @@
 
 ---
 
+- **v4.95.0 · 2026-08-28** — **Selbstprüfung in fünf Teilen — mit Trockenlauf einer ganzen Runde.**
+  Vorgabe: „deutlich detaillierter … vielleicht auch mit einer Rundensimulation koppeln … richtig
+  intensiv und umfassend." **Der Anlass ist ein Befund über die Prüfung selbst:** Bis v4.94 las sie
+  nur den Quelltext — und hat von dem, was in dieser Woche wirklich weh tat, **nichts** gefunden.
+  Der pendelnde Lochzeiger, der Rückfallweg mit dem OutOfMemory, die Mitspieler, die nicht
+  verschwanden: keine davon war eine Quelltext-Frage. Neu:
+  **(2) Daten** — Widersprüche im eigenen Bestand: Runden ohne Kennung/Platz/Datum, Runden deren
+  Platz es nicht mehr gibt, gewertete Löcher ohne auffindbares Par, mehr Putts als Schläge, doppelte
+  Schlägereinträge, Messungen ohne Schläger oder ohne Neutralwert, ein Entwurf der älter ist als sein
+  eigener Grabstein. **Streng lesend** — eine Prüfung, die etwas repariert, ist keine mehr.
+  **(3) Rechnung** — Sätze, die unabhängig von jeder Kalibrierung gelten und deren Verletzung auf der
+  Bahn Unsinn empfiehlt: Gegenwind macht länger und wirkt stärker als Rückenwind, näher ist nie
+  teurer, Rough kostet mehr als Fairway, der höhere Zähler gewinnt den Lochzeiger, `null` löscht beim
+  Zusammenführen nichts, ein Grabstein räumt ab.
+  **(4) Trockenlauf** — eine **erfundene** 18-Loch-Runde durch `computeRound`, `roundCardHtml` und
+  `roundShareText`. Das ist die Kopplung mit der Rundensimulation, so weit sie auf dem Gerät geht:
+  `runde-simulation.js` fährt am Rechner eine echte Runde gegen einen nachgebauten Worker; hier gibt
+  es nur **einen** Bestand, und der gehört dir — eine Prüfung, die eine Runde anlegt, um sie zu
+  prüfen, hinterlässt eine Runde.
+  **(5) Umgebung** — Auslieferung, Größe des Bestands, Abgleich, Uhr-Protokoll; sonst über drei
+  Ansichten verstreut, jetzt an einem Ort, den man **vor** der Runde ansieht.
+  **Nur Teil 1 braucht Netz.** Bis v4.94 brach die ganze Prüfung mit „Quelltext nicht ladbar" ab —
+  ausgerechnet auf dem Platz, wo man sie am ehesten braucht. Ein Absturz in einem Teil reißt die
+  anderen nicht mehr mit. Fehler stehen je Teil oben, grüne Zeilen unten: Wer die Prüfung öffnet,
+  sucht Befunde, nicht Bestätigung.
+  **Drei eigene Falschalarme beim Bauen abgestellt** — und das ist die wichtigste Lehre daraus:
+  „Löcher ohne Par" (das Par steht am **Platz**, nicht am Loch), „Schläger doppelt" („SW 54° · 75 m"
+  und „· 65 m" sind zwei echte Einträge, dieselbe Wedge mit verschiedenen Schwunglängen) und
+  „Summe 0" im Trockenlauf (`computeRound` braucht den Platz). **Eine Prüfung, die richtige Daten
+  anmeckert, bringt einem bei, sie zu ignorieren — und dann überliest man auch die echten Befunde.**
+  Prüfstand 24cu bewacht das: Die fünf Teile müssen laufen, dürfen den Bestand **nicht verändern**,
+  keinen Prüfplatz zurücklassen und auf gesunden Daten **nicht klagen**.
+
+- **v4.94.0 · 2026-08-28** — **Etappe A und B des Folge-Audits · Uhr 49: kein großer Abruf mehr.**
+  **(W-2, deine Entscheidung)** Der Big-File-Rückfall soll nicht bleiben. Uhr-Fassung 49 entfernt ihn
+  aus `loadData` — damit fielen `readData`, `fetchRaw`, `fetchData`, `fullSha`, `DATA_URL` und
+  `FRESH_URL` als toter Code mit. **Die Uhr liest nur noch `watch.json`, `draft.json` und
+  `probe.json`**, zusammen wenige Kilobyte; scheitert das, greift der lokale Zwischenspeicher — der
+  war immer die bessere Antwort, der große Rückfall stand nur davor. `leseBegrenzt` wurde **nicht**
+  mitgelöscht, sondern auf **alle vier** verbliebenen Lesestellen gesetzt: Ein Riegel, der nur dort
+  sitzt, wo es einmal knallte, schützt nur vor der Wiederholung.
+  **(W-1)** `MAX_ACC` (Uhr) und `GPS_MAX_ACC` (Handy) beantworten dieselbe Frage — ab welcher
+  Streuung ein Punkt für eine Schlagmessung unbrauchbar ist. Beide stehen auf 15 m, und **nichts
+  hielt sie zusammen**. Das ist dasselbe Muster wie beim Lochzeiger, nur eine Ebene tiefer: keine
+  Rechnung, sondern eine gemeinsame **Annahme** — und die braucht dieselbe Klammer. Prüfstand 24cv
+  liest beide Zahlen aus den Quelltexten und vergleicht sie.
+  **(W-3)** `dbJetzt()` / `playJetzt()` geben die **jeweils aktuelle** Bindung von `DB` und `PLAY`
+  zurück. Beide sind `let` und werden komplett ersetzt (`DB=merged` an sieben Stellen,
+  `PLAY=Object.assign(…)` bei jedem Rundenstart); eine `let`-Bindung im VM-Kontext ist keine
+  Eigenschaft des Kontextobjekts, der Prüfstand hielt also Momentaufnahmen. **Das hat diese Woche
+  dreimal einen halben Nachmittag gekostet** und jedes Mal wie ein Produktfehler ausgesehen. Der
+  Prüfstand hat dafür `live(...)` und einen Deckel gegen neue Momentaufnahme-Stellen (80/20, nur
+  senken).
+  **(W-4)** Der **Lochzeiger** wird jetzt über den echten Weg geprüft — `playSyncTick`, echte
+  Dateien, echter Merge: Die Uhr zieht das Handy mit, gleicher Zähler zieht es nicht zurück, eigenes
+  Blättern hebt den Zähler, eine neu gestartete Uhr zieht nichts zurück. Das ist das am häufigsten
+  wiederkehrende Thema des Projekts (fünf Anläufe über fünf Fassungen) und war bisher **nur an der
+  reinen Funktion** geprüft. Der Abschnitt steht **abgeschottet am Dateiende mit eigener Runde**: Er
+  stößt ein Dutzend Abgleich-Takte an, und `draftPushSoon` hängt an einem **Zeitgeber**, nicht an
+  einem Takt — ein Nachzügler überschrieb sonst den Grabstein des folgenden Abschnitts.
+  **(N-1)** 15 Prüfungen für `pointESTo`, `shotEV` und `grid` — die drei, die die Entscheidung auf
+  der Bahn tragen (**34 → 37 von 43** STRAT-Methoden). Geprüft gegen golferische Wahrheiten, die
+  unabhängig von jeder Kalibrierung gelten: Näher ist nie teurer, Wasser kostet rund einen Schlag
+  mehr als daneben, mehr Streuung ist nie besser, zu kurz trifft das Grün nicht, und derselbe Schlag
+  liefert zweimal dasselbe Ergebnis (die Halton-Folge ist fest, nicht zufällig).
+  **Beim Bauen selbst gelernt:** Ein Schnitt per Textsuche in einer 1300-Zeilen-Datei traf das
+  falsche von zwei gleichlautenden Vorkommen und duplizierte 69 Zeilen. Die Reparatur lief
+  zeilenbasiert mit Gegenprobe vor jedem Schreiben. Und die Grabstein-Prüfung wartet jetzt **auf das
+  Ergebnis statt auf eine Frist** — sie pollt bis zu drei Sekunden. Eine Prüfung, die auf eine
+  Uhrzeit wartet, ist mal grün und mal rot, ohne dass sich etwas geändert hat.
+
 - **v4.93.0 · 2026-08-28** — **Der Lochzeiger pendelte: zwei Regeln für dieselbe Frage.** Im
   Protokoll vom 28.08. sprang er Loch 8 ⇄ 1 ⇄ 2 innerhalb einer Minute — auf der Uhr stand
   „Handy-Loch verworfen · seq=33/eigen 33", am Handy „Uhr meldet Loch 8 · ÜBERNOMMEN". Beide hielten

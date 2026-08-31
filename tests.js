@@ -353,7 +353,7 @@ try {
                  "elevGet",
                  "unwetterUrteil","istGewitterCode","unwetterBannerHtml","wakeAppAn",
                  "neueFassungAnzeigen","watchFassungPruefen","watchFassung",
-                 "renderComp","renderPlanung","$","rundeAlsTurnier",
+                 "renderComp","renderPlanung","$","rundeAlsTurnier","stampAltbestand","tombAll",
                  "logInfo","_logZustand","ERRLOG",
                  "_restZumGruen","_spieltWieM",
                  "pruefeDaten","pruefeRechnung",
@@ -10123,6 +10123,153 @@ group("Protokoll — drei Stufen, ein Startvermerk, ein sprechender Service Work
   /* Und die statische Prüfung darf Infos nicht als Laufzeitfehler zählen. */
   ok("Infos gelten nicht als Laufzeitfehler",
      /const echte = \(typeof ERRLOG!=="undefined"/.test(roh));
+}
+
+/* ============ 24fl. Gelöscht heißt gelöscht — auch nach dem Abgleich ============ */
+group("Löschen — jede Benutzer-Löschung setzt einen Grabstein");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+  const M = G("mergeDB"), TD = G("tombDel"), TA = G("tombAll"), DB0 = live("DB");
+
+  /* ====================================================================
+     GEMELDET am 31.08.2026 (behoben in v5.39)
+     --------------------------------------------------------------------
+     „Wenn ich geplante Turniere lösche, tauchen sie immer wieder auf."
+     DIE URSACHE: Das Löschen entfernte den Eintrag aus `DB.tournaments`, legte
+     aber keinen GRABSTEIN an. Der Abgleich vereinigt die Listen beider Geräte
+     — ein Eintrag, der auf dem einen fehlt und auf dem anderen steht, sieht
+     für ihn aus wie ein NEUER Eintrag vom anderen Gerät. Er kommt also
+     pflichtbewusst zurück, jedes Mal.
+     EIN LÖSCHEN OHNE GRABSTEIN IST KEIN LÖSCHEN, SONDERN EIN VERSTECKEN BIS
+     ZUM NÄCHSTEN ABGLEICH.
+     Dieselbe Lücke gab es bei den Saisonzielen. Runden und Wettkämpfe waren in
+     Ordnung — nachgeprüft, nicht angenommen. */
+  ok("Turniere setzen einen Grabstein",
+     /tombDel\("tournaments", x\);/.test(src));
+  ok("Saisonziele ebenso", /tombDel\("seasonGoals", x\);/.test(src));
+  /* `tombDel` STATT `tombAdd` VON HAND: Es bildet den Schlüssel selbst aus
+     `MERGE_KEY`. Ein von Hand gebauter Schlüssel wäre eine zweite Wahrheit
+     neben der Tabelle — und die laufen auseinander. */
+  ok("und benutzen dafür tombDel, nicht Handarbeit",
+     !/tombAdd\("(tournaments|seasonGoals)", MERGE_KEY/.test(src));
+
+  /* ---- Der Nachweis am Abgleich ---- */
+  if (typeof M === "function" && typeof TD === "function" && DB0) {
+    const altTomb = DB0.tomb;
+    try {
+      DB0.tomb = {};
+      const t = { id: "T-PRUEF", name: "Prüfturnier", date: "2026-09-20" };
+      TD("tournaments", t);
+      const A = { rounds: [], testDefs: [], version: 1, tournaments: [], tomb: TA() };
+      const B = { rounds: [], testDefs: [], version: 1, tournaments: [t] };
+      ok("ein gelöschtes Turnier kommt nicht zurück",
+         (M(A, B).tournaments || []).length === 0,
+         String((M(A, B).tournaments || []).length));
+      /* GEGENPROBE: OHNE Grabstein kommt es zurück — das war der gemeldete
+         Zustand. Ohne diese Zeile prüfte die Prüfung nur, dass die Liste leer
+         ist, nicht dass der Grabstein wirkt. */
+      const A2 = { rounds: [], testDefs: [], version: 1, tournaments: [] };
+      ok("ohne Grabstein käme es zurück",
+         (M(A2, B).tournaments || []).length === 1);
+
+      DB0.tomb = {};
+      const g = { id: "G-PRUEF", phase: "Aufbau", label: "Ziel" };
+      TD("seasonGoals", g);
+      const A3 = { rounds: [], testDefs: [], version: 1, seasonGoals: [], tomb: TA() };
+      const B3 = { rounds: [], testDefs: [], version: 1, seasonGoals: [g] };
+      ok("ein gelöschtes Saisonziel ebenso",
+         (M(A3, B3).seasonGoals || []).length === 0);
+    } finally { DB0.tomb = altTomb; }
+  }
+
+  /* ---- Die Sperrklinke gegen die Fehlerklasse ----
+     Nicht gegen diese zwei Stellen, sondern gegen die Sorte: Jede Stelle, die
+     eine Liste per `filter` verkürzt, muss vorher einen Grabstein setzen —
+     oder eine Aufräumroutine sein, die keinen braucht (Altlasten, Papierkorb).
+     Wer eine neue Löschstelle baut, muss diese Liste anfassen. */
+  {
+    const _i = src.lastIndexOf("<script>");
+    const code = src.slice(_i, src.indexOf("</script>", _i)).replace(/\/\*[\s\S]*?\*\//g, " ");
+    const re = /DB\.(\w+)\s*=\s*(?:DB\.)?\1\.filter\(/g;
+    const erlaubt = ["tests", "notesTrash"];   // Aufräumroutinen, kein Benutzer-Löschen
+    const offen = []; let m2;
+    while ((m2 = re.exec(code))) {
+      const um = code.slice(Math.max(0, m2.index - 300), m2.index + 40);
+      if (!/tomb(Add|Del)\(/.test(um) && erlaubt.indexOf(m2[1]) < 0) offen.push(m2[1]);
+    }
+    ok("keine Löschstelle ohne Grabstein", offen.length === 0, offen.join(", "));
+  }
+}
+
+/* ============ 24fl. Gelöschtes bleibt gelöscht ============ */
+group("Abgleich — ohne Zeitstempel hat ein Eintrag keine Stimme");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+  const roh = ktOhneKommentar(codeOhneDoku(src));
+  const SA = G("stampAltbestand"), M = G("mergeDB");
+
+  /* ====================================================================
+     GEMELDET am 31.08.2026 (behoben in v5.39)
+     --------------------------------------------------------------------
+     „Wenn ich geplante Turniere lösche, tauchen sie immer wieder auf."
+     DER GRABSTEIN WAR NICHT DAS PROBLEM — den setzt der Löschknopf seit je
+     (`tombDel("tournaments", x)`), und er wirkt: nachgestellt, Eintrag weg.
+     ES WAR DER FEHLENDE ZEITSTEMPEL. Geplante Turniere wurden ohne `stamp()`
+     gespeichert; im eigenen Bestand trug **keines** der 14 ein `updated`.
+     `_mergeArr` entscheidet bei zwei Ständen nach `updated` — fehlt er auf
+     beiden Seiten, fällt es auf „das längere JSON gewinnt" zurück, also auf
+     einen Zufall, der mit Aktualität nichts zu tun hat. Und ein Eintrag
+     überlebt seinen Grabstein nur, wenn er JÜNGER ist; ohne Stempel ist die
+     Antwort immer „nein" — hier zufällig richtig, aber aus dem falschen
+     Grund.
+     EIN EINTRAG OHNE ZEITSTEMPEL HAT IM ABGLEICH KEINE STIMME. Er kann weder
+     gewinnen noch verlieren — er wird geraten. */
+  ok("geplante Turniere werden beim Speichern gestempelt",
+     /stamp\(rec\);\s*\n\s*if\(isNew\)\(DB\.tournaments=DB\.tournaments\|\|\[\]\)\.push\(rec\)/.test(roh));
+  /* Und das Löschen setzt weiterhin den Grabstein — beides zusammen ergibt
+     erst ein Löschen, das den Abgleich überlebt. */
+  ok("und beim Löschen bleibt der Grabstein",
+     /tombDel\("tournaments", x\)/.test(roh));
+  /* MEIN EIGENER FEHLER AUS v5.37: Die Umbuchung Runde → Turnier entfernte
+     die Runde ohne Grabstein — sie wäre beim nächsten Abgleich zurückgekommen
+     und hätte dann doppelt gestanden. */
+  ok("die Umbuchung zum Turnier setzt einen Grabstein",
+     /tombDel\("rounds", ed\);[\s\S]{0,160}?DB\.rounds\.splice\(i,1\)/.test(roh));
+
+  /* ---- Die Nachrüstung ---- */
+  if (typeof SA === "function") {
+    const db = { tournaments: [{ id: "T1", name: "A" }, { id: "T2", updated: "2026-01-01" }],
+                 competitions: [{ date: "x" }], rounds: [], nichts: [{ a: 1 }] };
+    const n = SA(db);
+    ok("Einträge ohne Stempel werden nachgetragen", n === 2, String(n));
+    ok("vorhandene Stempel bleiben unangetastet", db.tournaments[1].updated === "2026-01-01");
+    /* DER STEMPEL IST EIN ALTER ZEITPUNKT, NICHT `now`. Nimmt man „jetzt",
+       sähe jeder Altbestand nach dem nächsten Start jünger aus als alles auf
+       dem anderen Gerät, und der Abgleich kippte in die andere Richtung. Ein
+       alter Eintrag SOLL alt aussehen. */
+    ok("und liegt in der Vergangenheit",
+       db.tournaments[0].updated < new Date().toISOString(), db.tournaments[0].updated);
+    ok("Listen außerhalb der Liste bleiben unberührt", db.nichts[0].updated === undefined);
+    /* Ab dem zweiten Lauf gibt es nichts mehr zu tun — sonst liefe bei jedem
+       Laden eine Wanderung über den ganzen Bestand. */
+    ok("der zweite Lauf tut nichts", SA(db) === 0);
+  }
+
+  /* ---- Und der Abgleich selbst: gelöscht bleibt gelöscht ---- */
+  if (typeof M === "function") {
+    const alt = new Date(Date.now() - 60000).toISOString();
+    const tot = new Date().toISOString();
+    const t = { id: "T9", name: "X", date: "2026-09-15", updated: alt };
+    const A = { rounds: [], testDefs: [], version: 1, tournaments: [],
+                tomb: { tournaments: { T9: tot } } };
+    const B = { rounds: [], testDefs: [], version: 1, tournaments: [t] };
+    ok("ein gelöschtes Turnier kommt nicht zurück",
+       (M(A, B).tournaments || []).length === 0);
+    /* ABER EIN NEU ANGELEGTES SCHON — sonst wäre der Name dauerhaft verbrannt. */
+    const neu = Object.assign({}, t, { updated: new Date(Date.now() + 60000).toISOString() });
+    ok("ein danach neu angelegtes aber schon",
+       (M(A, { rounds: [], testDefs: [], version: 1, tournaments: [neu] }).tournaments || []).length === 1);
+  }
 }
 
 /* ============ 24fk. Wettkämpfe brauchen einen stabilen Schlüssel ============ */
