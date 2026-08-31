@@ -391,6 +391,49 @@ import kotlin.math.sqrt
  *  ------------------------------------------------------------------------
  *  CHANGELOG (neueste zuerst — bei JEDER Änderung ergänzen: Datum · was · wo)
  *  ------------------------------------------------------------------------
+ *  2026-08-30 (57) · SENDESTAU MESSEN, BEVOR MAN IHN BEHEBT.
+ *     BEFUND AUS DEM PROTOKOLL DER RUNDE VOM 30.08.:
+ *       „Bilanz: 20 Aktionen · Verzoegerung 682–2096 s (Median 1438 s)"
+ *     Zwanzig Eingaben kamen auf einen Schlag am Handy an, die aelteste
+ *     FUENFUNDDREISSIG MINUTEN alt. Unmittelbar danach sprang der Lochzeiger
+ *     zwischen 14, 16, 18 und 11 — beide Geraete reagierten auf veraltete
+ *     Meldungen. DER STAU IST DIE URSACHE, DAS ZEIGER-CHAOS DIE FOLGE.
+ *     DAS HANDY BEMERKT DEN STAU, ABER ES KANN IHN NICHT ERKLAEREN: Es sieht
+ *     nur, WANN etwas ankommt, nicht warum es liegenblieb. Die Entprellung
+ *     hier betraegt 600 ms — der Verzug entsteht also DANACH, und nur die Uhr
+ *     weiss wo.
+ *     JETZT MISST SIE ES SELBST: Wie lange lag die aelteste ungesendete
+ *     Eingabe, als der Abgleich startete? Ab einer Minute ist das ein Stau und
+ *     wird gemeldet — mit Wartezeit, Zeit seit dem letzten gelungenen Abgleich
+ *     und der Fehlerbilanz.
+ *     KEINE ERFUNDENE NETZPRUEFUNG: Die Uhr hat keine, und eine zu erfinden
+ *     beantwortet die Frage nicht. Gemeldet wird, was WIRKLICH bekannt ist.
+ *     WARUM NICHT GLEICH DIE URSACHE BEHEBEN: Weil ich sie nicht kenne. Der
+ *     naechstliegende Verdacht ist, dass Wear OS die App bei ausgeschaltetem
+ *     Bildschirm einfriert; die Abhilfe waere ein Vordergrunddienst fuer die
+ *     Dauer der Runde. Das ist ein Eingriff in Manifest und Lebenszyklus, den
+ *     ich nicht uebersetzen kann — und die letzte unverifizierte
+ *     Strukturaenderung hat den Build zerlegt. ERST MESSEN, DANN BAUEN.
+ *
+ *  2026-08-31 (57) · IM TURNIERMODUS ZAEHLEN AUCH DIE EIGENEN PUTTS MIT.
+ *     GEWUENSCHT: „Fuer meine persoenliche Score-Eingabe moechte ich zusaetzlich
+ *     neben dem Score auch die Putts eingeben. Fuer den Mitspieler ist das egal
+ *     — da bitte nur den Gesamtscore belassen."
+ *     DIE ASYMMETRIE IST GEWOLLT UND SIE IST SACHLICH RICHTIG: Die eigenen
+ *     Putts tragen die halbe Auswertung dieser App — Putt-Kurve, Strokes
+ *     Gained, Scrambling. Die des Mitspielers wertet niemand aus; sie kosten
+ *     auf der Bahn nur Tipps. „Nichts anderes" aus (54) heisst also weiterhin
+ *     nichts anderes: keine Lage, kein Schlaeger, kein Strafschlag. Die Grenze
+ *     verlaeuft nicht bei „wenig", sondern bei „was ausgewertet wird".
+ *     PUTTS BEGINNEN BEI 0, Schlaege bei 1 (`ab`-Parameter): Einen Schlag hat
+ *     man immer gemacht, wenn man zaehlt — aber ein eingelochter Chip hat NULL
+ *     Putts, und das ist kein Sonderfall, sondern genau das Ergebnis, das man
+ *     festhalten will. Wer hier 1 erzwingt, verfaelscht die Putt-Statistik
+ *     systematisch nach oben.
+ *     OPTIONAL BLEIBEN SIE: Wer die Putts im Turnier nicht mitzaehlen will,
+ *     laesst die Zeile leer. Ein Pflichtfeld waere genau die Reibung, wegen der
+ *     man den Turniermodus dann doch nicht benutzt.
+ *
  *  2026-08-30 (56) · UEBERSETZUNGSFEHLER AUS (54) UND (55) BEHOBEN.
  *     GEMELDET mit Bildschirmfoto aus Android Studio: 16 Fehler, „Gradle build
  *     failed". Zwei Ursachen, beide meine:
@@ -3210,7 +3253,7 @@ import kotlin.math.sqrt
 /* Fassungskennung der Uhr-App — steht im Kopplungstest neben der der PWA.
    Bei JEDER Aenderung hier mitziehen; sonst vergleicht man zwei Staende und
    glaubt, sie seien gleich (2026-08-15 (13)). */
-private const val WATCH_APP = "2026-08-30 (56)"
+private const val WATCH_APP = "2026-08-30 (57)"
 /* ==========================================================================
    WAS HAT DIESE FASSUNG GEAENDERT? (2026-08-25 (22))
    --------------------------------------------------------------------------
@@ -7613,6 +7656,12 @@ fun GolfWatchApp(
        Ohne Anzeige weiss man nie, ob die Zahlen von jetzt oder von vor zehn
        Minuten sind — und haelt einen veralteten Score fuer einen Fehler. */
     var lastSyncMs by remember { mutableLongStateOf(0L) }
+    /* Seit wann liegt etwas UNGESENDET? Nur der ERSTE Wert zaehlt — er ist die
+       aelteste offene Eingabe, und um deren Alter geht es (57). Als
+       `remember` und nicht als Feld in `Net`: `syncNow` lebt hier in der
+       Komposition, nicht im Netz-Objekt. Mein erster Anlauf schrieb
+       `Net.aeltesteOffenMs` und haette den Build zerlegt. */
+    var aeltesteOffenMs by remember { mutableLongStateOf(0L) }
 
     /* Alter des letzten Abgleichs als kurzer Text. Ab 5 Minuten in Rot —
        dann stimmt etwas nicht (Funkloch, Worker weg), und man sollte sich
@@ -7627,7 +7676,52 @@ fun GolfWatchApp(
         }
     }
 
+    /* ==================================================================
+       WIE ALT WAR DIE AELTESTE EINGABE BEIM SENDEN? (2026-08-30 (57))
+       --------------------------------------------------------------------
+       BEFUND AUS DEM PROTOKOLL VOM 30.08.: „Bilanz: 20 Aktionen · Verzoegerung
+       682–2096 s (Median 1438 s)". Zwanzig Eingaben kamen auf einen Schlag am
+       Handy an, die aelteste FUENFUNDDREISSIG MINUTEN alt. Danach sprang der
+       Lochzeiger zwischen 14, 16, 18 und 11 — beide Geraete reagierten auf
+       veraltete Meldungen.
+       DAS HANDY BEMERKT DEN STAU, ABER ES KANN IHN NICHT ERKLAEREN. Es sieht
+       nur, wann etwas ankommt, nicht warum es liegenblieb. Die Entprellung
+       betraegt 600 ms — der Verzug entsteht also DANACH, und nur die Uhr weiss
+       wo: kein Netz, eingefrorene Nebenlaeufigkeit bei ausgeschaltetem
+       Bildschirm, oder ein Abgleich, der laeuft und scheitert.
+       DESHALB MISST DIE UHR JETZT SELBST: Wie lange lag die aelteste
+       ungesendete Eingabe, als der Abgleich startete? Ueber einer Minute ist
+       das ein Stau und wird gemeldet — mit der Wartezeit und dem Netzzustand.
+       WARUM NICHT GLEICH DIE URSACHE BEHEBEN: Weil ich sie nicht kenne. Der
+       naechstliegende Verdacht ist, dass Wear OS die App bei ausgeschaltetem
+       Bildschirm einfriert; die Abhilfe waere ein Vordergrunddienst fuer die
+       Dauer der Runde. Das ist ein Eingriff in Manifest und Lebenszyklus, den
+       ich hier nicht uebersetzen kann — und die letzte unverifizierte
+       Strukturaenderung hat den Build zerlegt. ERST MESSEN, DANN BAUEN. */
     fun syncNow() {
+        try {
+            if (aeltesteOffenMs > 0L) {
+                val wartete = (System.currentTimeMillis() - aeltesteOffenMs) / 1000
+                if (wartete >= 60L) {
+                    /* KEINE NETZPRUEFUNG: Die Uhr hat keine — und eine zu
+                       erfinden waere hier falsch, weil sie die Frage nicht
+                       beantwortet. Gemeldet wird, was WIRKLICH bekannt ist:
+                       die Wartezeit, der letzte gelungene Abgleich und die
+                       bisherigen Fehlerarten. Aus dem Muster laesst sich
+                       ablesen, ob es am Funk lag oder daran, dass die App
+                       ueberhaupt nicht lief. */
+                    val seit = if (lastSyncMs > 0)
+                        "${(System.currentTimeMillis() - lastSyncMs) / 1000}s seit letztem Abgleich"
+                        else "noch kein Abgleich"
+                    Diagnose.aktion(
+                        "Sendestau: älteste Eingabe wartete ${wartete}s · $seit · " +
+                            Diagnose.fehlerBilanz()
+                    )
+                }
+                aeltesteOffenMs = 0L
+            }
+        } catch (e: Exception) { if (e.istAbbruch()) throw e }
+
 
         val cs = course ?: return
 
@@ -7869,6 +7963,10 @@ fun GolfWatchApp(
         }
         Diagnose.aktion("Eingabe L$hole $geaendert")
         persist()          // lokal SOFORT sichern (jede Eingabe)
+        /* Merken, seit wann etwas UNGESENDET liegt (57). Nur der ERSTE Wert
+           zaehlt — er ist die aelteste offene Eingabe, und um deren Alter geht
+           es. Wird beim erfolgreichen Abgleich zurueckgesetzt. */
+        if (aeltesteOffenMs == 0L) aeltesteOffenMs = System.currentTimeMillis()
         scheduleSync()     // Repo-Sync entprellt anstoßen (jede Eingabe)
     }
 
@@ -9709,6 +9807,12 @@ fun GolfWatchApp(
                                 it.copy(score = v.coerceIn(1, 15), putts = it.putts ?: 2)
                             }
                         },
+                        /* PUTTS AB 0, nicht ab 1: Ein eingelochter Chip hat
+                           null Putts, und das ist kein Sonderfall, sondern
+                           genau das Ergebnis, das man festhalten will (57). */
+                        onTurnierPutts = { v ->
+                            change(hd.hole) { it.copy(putts = v.coerceIn(0, 10)) }
+                        },
                         onTurnierMsc = { v ->
                             change(hd.hole) { it.copy(msc1 = v.coerceIn(1, 15)) }
                         },
@@ -10800,6 +10904,7 @@ private fun PlayPager(
     /* Absolutwert-Rueckrufe fuer die Turnierseite (55.1) — gebaut dort, wo
        `change()` lebt, und hier nur weitergereicht. */
     onTurnierScore: (Int) -> Unit = {},
+    onTurnierPutts: (Int) -> Unit = {},
     onTurnierMsc: (Int) -> Unit = {},
     pagerState: PagerState,
     detailListState: ScalingLazyListState,
@@ -10959,6 +11064,7 @@ private fun PlayPager(
                                ANSICHT, nicht der Ort, an dem Zustand geaendert
                                wird. */
                             onScore = onTurnierScore,
+                            onPutts = onTurnierPutts,
                             onMsc = onTurnierMsc,
                             onPrev = onPrev,
                             onNext = onNext,
@@ -11094,6 +11200,7 @@ private fun TurnierPage(
     toPar: Int,
     thru: Int,
     onScore: (Int) -> Unit,
+    onPutts: (Int) -> Unit,
     onMsc: (Int) -> Unit,
     onPrev: () -> Unit,
     onNext: () -> Unit,
@@ -11123,14 +11230,30 @@ private fun TurnierPage(
             }
         }
 
-        /* MEINE ZAHL. `entry.score` ist dieselbe Groesse wie in der normalen
-           Maske — es ist dieselbe Runde, nur eine andere Ansicht. */
-        item { TurnierZeile("Ich", entry.score, onScore) }
+        /* ==============================================================
+           MEINE ZEILEN: SCHLAEGE UND PUTTS (2026-08-31 (57))
+           --------------------------------------------------------------
+           GEWUENSCHT: „Fuer meine persoenliche Score-Eingabe moechte ich
+           zusaetzlich neben dem Score auch die Putts eingeben. Fuer den
+           Mitspieler ist das egal — da bitte nur den Gesamtscore belassen."
+           DIE ASYMMETRIE IST GEWOLLT UND SIE IST RICHTIG: Die eigenen Putts
+           tragen die halbe Auswertung dieser App — Putt-Kurve, Strokes
+           Gained, Scrambling. Die des Mitspielers traegt niemand aus, sie
+           kosten auf der Bahn nur Tipps.
+           `entry.score` und `entry.putts` sind dieselben Groessen wie in der
+           normalen Maske — es ist dieselbe Runde, nur eine andere Ansicht.
+           DIE PUTTS BLEIBEN OPTIONAL: Wer sie im Turnier nicht mitzaehlen
+           will, laesst die Zeile leer. Ein Pflichtfeld waere genau die
+           Reibung, wegen der man den Turniermodus dann doch nicht benutzt. */
+        item { TurnierZeile("Ich · Schläge", entry.score, onScore) }
+        item { TurnierZeile("Ich · Putts", entry.putts, 0, onPutts) }
 
         /* DIE DES MITSPIELERS. Der Name kommt vom Handy (Regel aus (42)):
            Die `index.html` ist bei Mitspielern fuehrend, die Uhr fuehrt keine
            eigene Liste. */
-        item { TurnierZeile(mitName, entry.msc1, onMsc) }
+        /* NUR DER GESAMTSCORE (57): Die Putts des Mitspielers wertet niemand
+           aus — sie kosten auf der Bahn nur Tipps. Die Asymmetrie ist gewollt. */
+        item { TurnierZeile(mitName + " · Schläge", entry.msc1, onMsc) }
 
         item {
             Row(
@@ -11186,6 +11309,12 @@ private fun TurnierPage(
 private fun TurnierZeile(
     name: String,
     wert: Int?,
+    /* AB 0 ODER AB 1 (2026-08-31 (57)). Schlaege beginnen bei 1 — einen Schlag
+       hat man immer gemacht, wenn man zaehlt. PUTTS BEGINNEN BEI 0: Ein
+       eingelochter Chip hat null Putts, und das ist kein Sonderfall, sondern
+       genau das Ergebnis, das man festhalten will. Wer hier 1 erzwingt,
+       verfaelscht die Putt-Statistik systematisch nach oben. */
+    ab: Int = 1,
     /* `par` ist mit (55) entfallen — es diente nur dem Startwert, und der ist
        jetzt 1. Ein Parameter, den niemand liest, ist eine Zusage, die niemand
        einloest: Beim naechsten Lesen fragt man sich, wo das Par einfliesst. */
@@ -11201,7 +11330,7 @@ private fun TurnierZeile(
             verticalAlignment = Alignment.CenterVertically
         ) {
             CompactChip(
-                onClick = { if ((wert ?: 0) > 1) onSet((wert ?: 0) - 1) },
+                onClick = { if ((wert ?: ab) > ab) onSet((wert ?: ab) - 1) },
                 label = { Text("−", fontSize = 20.sp) },
                 colors = ChipDefaults.secondaryChipColors(),
                 modifier = Modifier.weight(1f)
@@ -11215,7 +11344,7 @@ private fun TurnierZeile(
             )
             CompactChip(
                 /* BEI 1 BEGINNEN (55): jeder Tipp ein Schlag. Siehe oben. */
-                onClick = { onSet(if (wert == null) 1 else wert + 1) },
+                onClick = { onSet(if (wert == null) ab else wert + 1) },
                 label = { Text("+", fontSize = 20.sp) },
                 colors = ChipDefaults.primaryChipColors(),
                 modifier = Modifier.weight(1f)
