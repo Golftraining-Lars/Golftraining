@@ -343,12 +343,13 @@ try {
                  "STRAT","clubPick","playsLike","pinPoint","geoDist","playMapBox",
                  "liveStart","liveStop","liveStopAll","liveVerbraucher","LIVEPOS",
                  "kalibrierBericht","kalibrierText","_kalibMedian","_kalibMad","_kalibTauglich",
-                 "_playKey","playMarkEnded","playClearEnded","watchLiveDarfOeffnen",
+                 "_playKey","playMarkEnded","playClearEnded","watchLiveDarfOeffnen","playDefaults",
                  "draftPushAus",
                  "fremderZeigerZaehlt","istRundenStat","poolQuote","teilAnteil",
                  "geoAbspecken","geoBudget","_punkteDuennen","_koordRunden",
                  "GEO_PUNKTE_MAX","GEO_OTHER_MAX","thinRing",
                  "caddyKette","caddyKetteHtml","caddyVergleichHtml","caddyKipppunkt","caddyDreiZeilen",
+                 "schlagPlausibel",
                  "elevGet",
                  "unwetterUrteil","istGewitterCode","unwetterBannerHtml","wakeAppAn",
                  "neueFassungAnzeigen","watchFassungPruefen","watchFassung",
@@ -9543,7 +9544,12 @@ group("Caddy befragen — „warum nicht X?“ mit echten Zahlen");
      man nicht vergleichen kann. Deshalb ein Parameter, keine zweite Funktion. */
   ok("ein Parameter statt zweiter Funktion",
     /tee\(geo,courseName,holeNo,mode,hcp,von,nurClub\)\{/.test(src));
-  ok("Filter auf genau einen Schläger", /clubs=caddyClubs\(null, true\)\.filter\(c=>c\.name===nurClub\)/.test(src));
+  /* v5.32: `_amTee` statt hart `true` — „vom Abschlag" gilt nur am Abschlag.
+     Auch beim gezielten Vergleich („warum nicht der?") muss dieselbe Lage
+     gelten, sonst antwortet die Erklärung für eine andere Situation als die,
+     in der man steht. */
+  ok("Filter auf genau einen Schläger",
+     /clubs=caddyClubs\(null, _amTee\)\.filter\(c=>c\.name===nurClub\)/.test(src));
   /* Beim gezielten Vergleich darf die 140-m-Vorauswahl NICHT greifen: Gefragt
      wird nach einem bestimmten Schläger, auch wenn er kürzer ist. */
   ok("Vorauswahl beim Vergleich aus", /Beim gezielten Vergleich NICHT die Vorauswahl/.test(src));
@@ -10118,6 +10124,200 @@ group("Protokoll — drei Stufen, ein Startvermerk, ein sprechender Service Work
      /const echte = \(typeof ERRLOG!=="undefined"/.test(roh));
 }
 
+/* ============ 24fg. Ein gemessener Schlag muss plausibel sein ============ */
+group("Schlagmessung — Ausreißer kommen nicht in den Bestand");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+  const roh = ktOhneKommentar(codeOhneDoku(src));
+  const P = G("schlagPlausibel");
+
+  /* ====================================================================
+     GEMELDET am 31.08.2026 (behoben in v5.33)
+     --------------------------------------------------------------------
+     „Nicht die Breite ist mein Problem, sondern die LÄNGSSTREUUNG — mehrere
+     hundert Meter."
+     NACHGERECHNET: Die gerechnete Streuung kann das nicht erklären. Driver,
+     Niveau 20: σD 18 m, mit steilster Hanglage 29 m; das gezeichnete Oval
+     misst 72 m in der Länge. Mehrere hundert Meter entstehen dort nicht —
+     also stammen sie aus den DATEN.
+     UND DA GAB ES KEINE PRÜFUNG. Beide Aufnahmewege — Knopf auf der Uhr und
+     Messung von Hand — schrieben `dist` ungeprüft in den Bestand. Ein
+     einziger schlechter Fix genügt: Aufnahme am Abschlag gestartet, am Grün
+     beendet = die Lochlänge als „Schlag"; ein Netzwerk-Fix statt eines
+     Satellitenfixes verlegt den Punkt um Hunderte Meter. **Und ab 20 solcher
+     Messungen ersetzen sie die Heuristik.**
+     EIN AUSREISSER IN DEN DATEN IST SCHLIMMER ALS EINE UNGENAUE FORMEL: Die
+     Formel ist begründet und gilt für alle Schläge, der Ausreißer wirkt still
+     und einseitig. */
+  if (typeof P === "function") {
+    ok("ein normaler Schlag geht durch", P(220, 5, 5).ok === true);
+    /* 400 M ALS GRENZE: Der längste je gemessene Golfschlag liegt darunter,
+       Fahnen stehen nie so weit auseinander. Alles darüber ist eine kaputte
+       Messung, kein Rekord. */
+    ok("über 400 m wird verworfen", P(480, 5, 5).ok === false, P(480, 5, 5).grund);
+    ok("und die Grenze steht im Grund", /über 400 m/.test(P(480, 5, 5).grund || ""));
+    /* Ein Fix, dessen Ungenauigkeit in der Größenordnung des Schlags liegt,
+       misst nicht den Schlag, sondern das Rauschen. */
+    ok("ein Kurzschlag mit grobem Fix wird verworfen", P(30, 20, 25).ok === false,
+       P(30, 20, 25).grund);
+    ok("derselbe Schlag mit gutem Fix nicht", P(30, 3, 3).ok === true);
+    ok("Entfernung 0 wird verworfen", P(0, 5, 5).ok === false);
+    /* KEIN FEHLALARM BEI LANGEN, SAUBEREN SCHLÄGEN — sonst verliert man
+       ausgerechnet die Driver-Messungen, um die es hier geht. */
+    ok("ein sauberer Drive bleibt", P(255, 4, 5).ok === true);
+  }
+  /* AN BEIDEN AUFNAHMEWEGEN — eine Regel, eine Stelle, zwei Aufrufer. */
+  ok("beide Aufnahmewege prüfen",
+     (roh.match(/schlagPlausibel\(/g) || []).length >= 3,
+     String((roh.match(/schlagPlausibel\(/g) || []).length));
+  /* VERWORFEN WIRD NICHT STILL: Wer eine Messung verliert, soll erfahren
+     warum — sonst sucht er sie später im Bestand. */
+  ok("und melden, was sie verwerfen",
+     (roh.match(/logWarn\("Schlag verworfen"/g) || []).length >= 2);
+  ok("sichtbar, nicht nur im Protokoll",
+     (roh.match(/toast\("Messung verworfen: "/g) || []).length >= 2);
+}
+
+/* ============ 24ff. Driver nur vom Abschlag, Streuung nachgemessen ============ */
+group("Caddy — der Driver und die Streuung, geprüft");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+  const S = G("STRAT");
+
+  /* ====================================================================
+     GEMELDET nach der Runde vom 30.08.2026 (behoben in v5.32)
+     --------------------------------------------------------------------
+     „Der Caddy hat mir einmal empfohlen, den Driver vom BODEN zu spielen."
+     DIE LEITPLANKE `teeOnly` GIBT ES SEIT v4.81.2 und `approach()` filtert
+     den Driver sauber heraus. ABER `tee()` kann seit v2.94 ab JEDER Position
+     rechnen (`von`) — und rief trotzdem unverändert `caddyClubs(null, true)`,
+     also „vom Abschlag, Driver erlaubt".
+     EINE FUNKTION, DIE „tee" HEISST, ABER AUCH WOANDERS RECHNET, MUSS IHRE
+     ANNAHME PRÜFEN STATT SIE ZU FÜHREN. Steht man auf der Bahn und der Caddy
+     rechnet über `tee()` — was er tut, solange das Loch lang genug ist —,
+     kam der Driver durch die Hintertür zurück. */
+  ok("tee() prüft, ob man wirklich am Abschlag steht",
+     /const _amTee = \(\(\)=>\{/.test(src));
+  ok("und fragt die Schlägerliste damit",
+     /caddyClubs\(null, _amTee\)/.test(src)
+     && !/caddyClubs\(null, true\)/.test(ktOhneKommentar(codeOhneDoku(src))));
+  /* SCHWELLE 3 M wie beim Positions-Caddy (`TEE_ONLY`, v3.62) — dieselbe Zahl
+     für dieselbe Frage, statt einer zweiten Wahrheit daneben. */
+  ok("mit derselben 3-m-Schwelle wie sonst", /geoDist\(von, t\) <= 3/.test(src));
+  /* IM ZWEIFEL WIE BISHER: ohne Position oder ohne Tee-Punkt gilt Abschlag —
+     sonst verschwindet der Driver aus der Zielkette am Abschlag, und genau
+     das ist v4.82.2 schon einmal passiert. */
+  ok("ohne Position gilt weiterhin Abschlag",
+     /if\(!von\) return true;/.test(src));
+  /* Und `approach()` filtert ihn unverändert — zwei Wege, dieselbe Regel. */
+  ok("approach filtert den Driver weiterhin",
+     /clubs\.filter\(c=>!\/driver\|1er\|1\[-\\s\]\?holz\/i\.test/.test(src));
+
+  /* ====================================================================
+     „Der Driver hatte eine riesengroße Streuung im GPS-Bild."
+     --------------------------------------------------------------------
+     NACHGERECHNET — UND DAS GEGENTEIL IST DER FALL. σL 19 m (Driver, Niveau
+     20) sagt bei 30 m Fairwaybreite und dem gelernten Versatz **54 %**
+     Treffer voraus; gemessen im eigenen Bestand sind es **38 %** (39 von 103
+     Abschlägen „Hit"). Zur gemessenen Quote passt σL um 25–28 m.
+     DAS OVAL SIEHT NICHT ZU GROSS AUS — ES IST ZU KLEIN. Und weil enge
+     Streuung den langen Schläger sicherer aussehen lässt, verschiebt das die
+     Empfehlung nach aggressiv.
+     NICHTS GEÄNDERT, ABER FESTGEHALTEN: Die Zahl ist an zwei veröffentlichten
+     Ankern kalibriert; sie gegen einen Spieler mit 103 selbst eingeschätzten
+     Lagen nachzuziehen hieße, eine begründete Kalibrierung durch eine
+     Stichprobe zu ersetzen. Der richtige Weg ist der, den es schon gibt:
+     gelernte GPS-Schläge (`st.n>=20`) ersetzen die Heuristik ohnehin. */
+  ok("der gemessene Befund steht im Quelltext",
+     /GEMESSEN AM 31\.08\.: DIE HEURISTIK IST ZU OPTIMISTISCH/.test(src));
+  if (S && typeof S.sigmaFor === "function") {
+    const dr = S.sigmaFor({ name: "Driver 10,5°", carry: 200, dist: 220 });
+    /* Die Größenordnung muss stimmen — ein Oval von 5 m oder 60 m wäre ein
+       Rechenfehler, keine Kalibrierungsfrage. */
+    ok("die Driver-Streuung liegt in plausibler Größenordnung",
+       dr && dr.sigL > 12 && dr.sigL < 35, dr ? "σL " + dr.sigL.toFixed(0) : "keine");
+    /* Und sie wächst mit der Spielstärke — das war der Punkt von v4.25. */
+    const ir = S.sigmaFor({ name: "7 Iron", carry: 135, dist: 140 });
+    ok("und ist größer als beim Eisen", dr.sigL > ir.sigL,
+       dr.sigL.toFixed(0) + " gegen " + ir.sigL.toFixed(0));
+  }
+  /* Das Oval wird mit 2σ gezeichnet — das gehört festgehalten, weil es die
+     Größe auf der Karte bestimmt und sonst beim nächsten Umbau still
+     wechselt. */
+  ok("das Oval wird mit 2σ gezeichnet", /ring\(2\)/.test(src));
+}
+
+/* ============ 24fe. Turnier beim Start wählen, Löcher von Hand ============ */
+group("Turnier — beim Start entschieden, Loch für Loch erfassbar");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+  const roh = ktOhneKommentar(codeOhneDoku(src));
+  const PD = G("playDefaults");
+
+  /* ====================================================================
+     GEWÜNSCHT am 31.08.2026 (v5.29)
+     --------------------------------------------------------------------
+     „Wenn ich den Spielmodus starte, möchte ich selektieren können, ob es
+     sich um ein Turnier handelt — und wenn es ein Turnier ist, soll es beim
+     Speichern den TURNIEREN hinzugefügt werden und nicht den Runden."
+     BEIM START UND NICHT AM ENDE: Am Ende einer Runde will man abhaken und
+     weitergehen, nicht eine Zuordnung treffen. Und wer es beim Start sagt,
+     kann die App die Runde anders behandeln, solange sie läuft. */
+  if (typeof PD === "function") {
+    const d = PD();
+    ok("die Turnier-Kennung steht in den Vorgaben",
+       "turnier" in d && "tname" in d, Object.keys(d).filter(k => /turnier|tname/.test(k)).join(","));
+    ok("und ist voreingestellt aus", d.turnier === false);
+  }
+  ok("beim Start gibt es ein Turnier-Feld", /id="pl_turnier"/.test(src));
+  /* NAME OPTIONAL: Ein Pflichtfeld auf dem Parkplatz vor dem Start ist genau
+     die Hürde, wegen der man es dann doch nicht ankreuzt. */
+  ok("der Name darf leer bleiben",
+     /placeholder="Name des Turniers \(kann leer bleiben\)"/.test(src));
+  ok("und erscheint erst beim Ankreuzen",
+     /nm\.style\.display=cb\.checked\?"":"none"/.test(roh));
+  ok("die Kennung reist ab dem Start mit",
+     /turnier: !!\(turnierOpt&&turnierOpt\.turnier\)/.test(roh));
+
+  /* DER ABSCHLUSS LEITET UM — und speichert die Löcher mit. */
+  ok("ein Turnier landet bei den Turnieren",
+     /if\(PLAY\.turnier\)\{/.test(roh) && /DB\.competitions\.push\(stamp\(t\)\)/.test(roh));
+  ok("und eine normale Runde weiterhin bei den Runden",
+     /\} else \{[\s\S]{0,160}?DB\.rounds\.push\(r\)/.test(roh));
+  /* EIN TURNIER OHNE SEINE LÖCHER WÄRE EIN RÜCKSCHRITT: Alles, was diese App
+     an Auswertung kann, hängt an den einzelnen Löchern. */
+  ok("mit den Lochergebnissen",
+     /holeScores:\(r\.holes\|\|\[\]\)\.map/.test(roh));
+  /* `holes` BLEIBT DIE ANZAHL — wer ein gewachsenes Feld umdeutet, bricht
+     jede Auswertung, die es schon liest. */
+  ok("und `holes` bleibt die Anzahl",
+     /holes:\(r\.holes\|\|\[\]\)\.filter\(h=>h\.score!=null\)\.length/.test(roh));
+
+  /* ====================================================================
+     UND VON HAND: LOCH FÜR LOCH IM TURNIEREDITOR
+     --------------------------------------------------------------------
+     „Wenn ich bei den Turnieren Turniere hinzufüge, möchte ich neben den
+     Daten, die dort bereits existieren, auch den Score von allen Löchern
+     einzeln eingeben können."
+     Bisher lag jedes von Hand erfasste Turnier nur als Summe im Bestand und
+     fiel damit aus Streuung, Approach-Klassen, Strokes Gained und der
+     Putt-Kurve heraus. */
+  ok("der Turniereditor hat eine Loch-Eingabe", /<details class="cs-loecher">/.test(src));
+  ok("mit Par, Schlägen und Putts je Loch",
+     /id="cs_p\$\{i\}"/.test(src) && /id="cs_s\$\{i\}"/.test(src) && /id="cs_t\$\{i\}"/.test(src));
+  /* PAR WIRD VORBELEGT, wenn der Platz bekannt ist — sonst trägt man
+     achtzehnmal zwei Zahlen statt einer. */
+  ok("Par wird aus dem Platz vorbelegt",
+     /courseTee\(kurs,tee\)[\s\S]{0,120}?pars\[x\.hole\]=x\.par/.test(roh));
+  /* LEER BLEIBT LEER: Es müssen nicht alle Löcher ausgefüllt sein. */
+  ok("unausgefüllte Löcher werden übersprungen",
+     /if\(par==null && sc==null && pu==null\) continue;/.test(roh));
+  /* DIE SUMME RECHNET SICH MIT — und man kann sich dabei nicht verrechnen. */
+  ok("Summen lassen sich übernehmen", /id="c_sum"/.test(src)
+     && /\$\("#c_gbe"\)\.value=gbe;/.test(roh));
+  ok("und die Löcher werden gespeichert", /holeScores:\(\(\)=>\{ const hs=holeLesen\(\)/.test(roh));
+}
+
 /* ============ 24fd. Turniermodus auf der Uhr ============ */
 group("Uhr — Turniermodus: zwei Zahlen, sonst nichts");
 {
@@ -10215,18 +10415,33 @@ group("Uhr — Turniermodus: zwei Zahlen, sonst nichts");
 
     /* DIE SEITE SELBST: zwei Zeilen, sonst nichts. */
     ok("es gibt eine eigene Turnierseite", /private fun TurnierPage\(/.test(kt));
-    ok("mit einer Zeile je Spieler",
-       /TurnierZeile\("Ich", entry\.score/.test(kt)
-       && /TurnierZeile\(mitName, entry\.msc1/.test(kt));
+    /* ================================================================
+       ASYMMETRIE IST GEWOLLT (Uhr 57)
+       ----------------------------------------------------------------
+       GEWÜNSCHT am 31.08.: „Für meine persönliche Score-Eingabe möchte ich
+       zusätzlich neben dem Score auch die Putts eingeben. Für den Mitspieler
+       ist das egal — da bitte nur den Gesamtscore belassen."
+       UND DAS IST SACHLICH RICHTIG: Die eigenen Putts tragen die halbe
+       Auswertung dieser App — Putt-Kurve, Strokes Gained, Scrambling. Die des
+       Mitspielers wertet niemand aus; sie kosten auf der Bahn nur Tipps. */
+    ok("meine Zeilen: Schläge und Putts",
+       /TurnierZeile\("Ich · Schläge", entry\.score/.test(kt)
+       && /TurnierZeile\("Ich · Putts", entry\.putts, 0/.test(kt));
+    ok("der Mitspieler nur Schläge",
+       /TurnierZeile\(mitName \+ " · Schläge", entry\.msc1/.test(kt)
+       && !/mitName[^)]*putts/.test(kt));
     /* KEIN PUTT, KEINE LAGE, KEIN SCHLÄGER, KEIN STRAFSCHLAG. Geprüft am
        Block der Turnierseite — sonst findet die Prüfung die normale Maske. */
     {
       const ti = kt.indexOf("private fun TurnierPage(");
       const te = kt.indexOf("private fun TurnierZeile(", ti);
       const blk = ti >= 0 ? kt.slice(ti, te > ti ? te : ti + 4000) : "";
+      /* PUTTS SIND SEIT (57) GEWOLLT — Lage, Schläger und Strafschläge
+         weiterhin nicht. Die Grenze verläuft nicht bei „wenig", sondern bei
+         „was ausgewertet wird". */
       ok("und wirklich nichts anderem",
-         blk.length > 0 && !/onPutts|onLie|onPen|onPick|clubNames/.test(blk),
-         (blk.match(/onPutts|onLie|onPen|onPick|clubNames/g) || []).join(", "));
+         blk.length > 0 && !/onLie|onPen|onPick|clubNames/.test(blk),
+         (blk.match(/onLie|onPen|onPick|clubNames/g) || []).join(", "));
     }
     /* ================================================================
        EIN ZÄHLER, KEINE AUSWAHL (Uhr 55) — GEDREHT
@@ -10241,16 +10456,27 @@ group("Uhr — Turniermodus: zwei Zahlen, sonst nichts");
        zwischen einem Zähler und einer Auswahl**, und er entscheidet über die
        ganze Bedienung: Ein Zähler wird WÄHREND des Lochs benutzt, eine
        Auswahl danach. Meine Annahme in (54) war die falsche. */
-    ok("die Zählung beginnt bei 1",
-       /onSet\(if \(wert == null\) 1 else wert \+ 1\)/.test(kt));
+    /* AB 0 ODER AB 1 (57): Schläge beginnen bei 1 — einen Schlag hat man
+       immer gemacht, wenn man zählt. PUTTS BEGINNEN BEI 0: Ein eingelochter
+       Chip hat null Putts, und das ist kein Sonderfall, sondern genau das
+       Ergebnis, das man festhalten will. Wer hier 1 erzwingt, verfälscht die
+       Putt-Statistik systematisch nach oben. */
+    ok("die Zählung beginnt beim Startwert",
+       /onSet\(if \(wert == null\) ab else wert \+ 1\)/.test(kt));
+    ok("Schläge starten bei 1, Putts bei 0",
+       /ab: Int = 1,/.test(kt) && /entry\.putts, 0, onPutts/.test(kt));
+    ok("und der Rückweg endet beim Startwert",
+       /if \(\(wert \?: ab\) > ab\) onSet\(\(wert \?: ab\) - 1\)/.test(kt));
     /* Und `par` ist als Parameter entfallen — ein Wert, den niemand liest,
        lässt beim nächsten Lesen fragen, wo er einfließt. */
     ok("und Par wird dafür nicht mehr gebraucht",
        !/TurnierZeile\([^)]*par: Int/.test(kt));
     /* „−" IST HIER WICHTIGER ALS VORHER: Beim Mitzählen vertippt man sich
-       mitten im Loch. Ein Zähler ohne Rückweg wäre auf der Bahn unbrauchbar. */
+       mitten im Loch. Ein Zähler ohne Rückweg wäre auf der Bahn unbrauchbar.
+       Seit (57) endet er beim jeweiligen Startwert — 1 bei Schlägen, 0 bei
+       Putts; siehe die Prüfung oben. */
     ok("und es gibt einen Rückweg",
-       /if \(\(wert \?: 0\) > 1\) onSet\(\(wert \?: 0\) - 1\)/.test(kt));
+       /if \(\(wert \?: ab\) > ab\) onSet\(\(wert \?: ab\) - 1\)/.test(kt));
 
     /* KEIN EIGENER SPEICHERWEG: Die Eingaben gehen durch dasselbe
        `change()` wie sonst und landen im selben Entwurf — `msc1` reist seit
@@ -15128,6 +15354,43 @@ group("Selbstprüfung — fünf Teile, und keiner meldet Falschalarm");
   /* Der Quelltext-Teil braucht Netz, die anderen vier nicht — bis v4.94 brach
      die ganze Prüfung ab, wenn der Abruf misslang. Ausgerechnet auf dem
      Platz, wo man sie am ehesten braucht. */
+  /* ==================================================================
+     KEINE LEEREN catch-BLOECKE MEHR (v5.30)
+     --------------------------------------------------------------------
+     DIE SELBSTPRUEFUNG HAT SIE GEMELDET — sechs Stueck, im Bildschirmfoto
+     vom 31.08. unter „QUELLTEXT — 1 Hinweise". Das ist genau der Zweck, den
+     sie haben soll: Fehler, die in einem leeren `catch` verschwinden, tauchen
+     nirgends auf, und man sucht sie an der falschen Stelle.
+     JEDER EINZELN ANGESEHEN, nicht pauschal gefuellt. Bei dreien war das
+     Schweigen richtig (kein Tee = der Fall, den die Zeile darunter meldet;
+     unbekannter Platz = Par bleibt leer; Ladeschirm schon entfernt) — dort
+     steht jetzt ein Kommentar im leeren Block, der sagt WARUM. Bei dreien war
+     es falsch: Absturz der Neun-Loch-Auswertung, Aufraeumen des Pruefplatzes,
+     fehlgeschlagene Vibration. Die melden sich jetzt.
+     EIN LEERER catch OHNE BEGRUENDUNG IST EINE ENTSCHEIDUNG, DIE NIEMAND
+     GETROFFEN HAT. Mit Begruendung ist er eine. */
+  {
+    const _i = src.lastIndexOf("<script>");
+    const code = src.slice(_i, src.indexOf("</script>", _i));
+    const leer = (code.match(/catch\s*\(\s*\w*\s*\)\s*\{\s*\}/g) || []).length;
+    eq("keine leeren catch-Blöcke", leer, 0);
+  }
+  /* Und die Selbstprüfung muss dasselbe sagen — sonst prüfen die beiden
+     verschiedene Dinge und eine von ihnen ist wertlos. */
+  {
+    const sc = G("selfCheck");
+    if (typeof sc === "function") {
+      /* „Laufzeitfehler protokolliert" ist im PRÜFSTAND immer wahr: Er ruft
+         Render-Funktionen ohne DOM auf, und die melden sich ordnungsgemäß.
+         Das ist ein Befund über die Prüfumgebung, nicht über den Quelltext —
+         deshalb hier ausgenommen. Auf dem Gerät bleibt er aussagekräftig. */
+      const offen = sc(src).filter(x => x.level !== "ok"
+        && !/Laufzeitfehler protokolliert/.test(x.title));
+      ok("die Selbstprüfung findet im Quelltext nichts mehr", offen.length === 0,
+         offen.map(x => x.title).join(" | "));
+    }
+  }
+
   ok("ohne Quelltext laufen die übrigen Teile weiter",
      /die übrigen Prüfungen laufen trotzdem/.test(src)
      && !/if\(!src\)\{ toast\("Quelltext nicht ladbar/.test(src));

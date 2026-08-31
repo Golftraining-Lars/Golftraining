@@ -13,6 +13,139 @@
 
 ---
 
+- **v4.88.0 · 2026-08-27** — **Etappe 3 des Audits: Testabdeckung mit Rückweg, Kalibrierung, echte
+  Ladezeitmessung.**
+  **(W-2) DIE ABDECKUNGS-SPERRKLINKE HATTE KEINEN RÜCKWEG.** Sie verhinderte NEUE ungetestete
+  Funktionen — aber nichts drückte den Altbestand nach unten, und der bewegte sich seit Wochen nicht
+  (202 reine Funktionen, 17 von 43 STRAT-Methoden ohne Verhaltenstest). Neu: **41 Prüfungen für acht
+  STRAT-Methoden** (Abschnitt 24da2), gegen **bekannte Wahrheiten** statt gegen sich selbst — die
+  Quantile der Normalverteilung stehen in jeder Tabelle, eine Halton-Folge hat bekannte erste
+  Glieder, ein Punkt 100 m nach Norden liegt 0,000905° weiter nördlich. So findet die Prüfung einen
+  Vorzeichenfehler auch dann, wenn die Funktion sich selbst gegenüber konsistent bleibt. Abgedeckt:
+  `_invNorm`, `_halton`, `samples`, `_off`, `_segDist`, `_interp`, `esOffset`, `playingLevel` —
+  **26 → 34 von 43**. Dazu `ABDECKUNG_DECKEL`, die Zahl der offenen Altlasten: **darf nur sinken**.
+  Keine Quote, denn eine Prozentzahl steigt auch, wenn jemand getestete Funktionen hinzufügt — sie
+  belohnt Wachstum statt Abdeckung.
+  **(W-3) DIE KOEFFIZIENTEN WAREN GESETZT, NICHT GEMESSEN.** Gegenwind 1,4 %/m/s, Rückenwind 0,8 %,
+  bergauf voll / bergab 0,75, Regen 3 % — plausibel, aber nie an den eigenen Schlägen geprüft, obwohl
+  die Daten seit v4.80.1 dafür da sind. Neu `kalibrierBericht()`/`kalibrierText()`, Knopf
+  „📏 Rechnung prüfen" unter Mehr → Daten. **Die prüfbare Behauptung:** Wenn `playsLike` stimmt,
+  streuen die neutralisierten Werte je Schläger **weniger** als die rohen — das ist ihre Aufgabe.
+  Wird die Streuung größer, ist ein Koeffizient falsch oder ein Vorzeichen verdreht, und der Bericht
+  sagt das als **Warnung**, nicht als Zahl unter vielen. Gemessen mit dem Median der absoluten
+  Abweichung, damit ein einzelner GPS-Ausreißer das Urteil nicht kippt; unter 6 Schlägen je Schläger
+  bzw. 20 gesamt schweigt er, statt zu raten. **Und was man nicht aufschreibt, kann man nicht
+  nachprüfen:** `schlagNeutral` speicherte nur das Ergebnis. Für eine echte Nachjustierung braucht es
+  die Bedingungen JE SCHLAG — sie werden ab jetzt als `wx:{t,w,d,b}` mitgeschrieben (rund 40 Byte).
+  Altdaten haben sie nicht, das lässt sich nicht nachholen, und der Bericht sagt es.
+  **(W-4) LADEZEIT: GEMESSEN STATT GESCHÄTZT.** Ob die 2,5-MB-Datei komprimiert ankommt, lässt sich
+  am Schreibtisch nicht beantworten — der Browser weiß es. `ladeBericht()` liest `transferSize` gegen
+  `decodedBodySize` und meldet Klartext: komprimiert (dann ist nichts zu tun) oder nicht (dann sind
+  zwei Drittel einsparbar). `transferSize === 0` heißt „aus dem Cache"; dann sagt die Messung nichts
+  über die Leitung, und genau das steht da. Lokal gemessen: 2519 kB → **897 kB gzip (36 %)**, die
+  Doku allein 353 → 148 kB.
+  **Beim Bauen aufgefallen:** Meine ersten Kalibrier-Tests fütterten zwölf Schläge — der Bericht
+  urteilte deshalb gar nicht und `madRoh` war `undefined`. Die Testdaten lesen die Schwelle jetzt
+  aus der App, statt sie abzuschreiben. Und die Detail-Argumente von `ok(...)` werden **immer**
+  ausgewertet, auch wenn die Prüfung besteht — ein `undefined.toFixed()` reißt dann den ganzen Lauf
+  ab, statt eine Zeile rot zu färben.
+
+- **v4.87.0 · 2026-08-27** — **Etappe 1 des Audits: Worker-Wahrheit, Funk-Fristen, geteilte Ortung.**
+  Drei Befunde aus dem Audit vom 27.08., alle mit Riegel im Prüfstand statt nur mit Behebung an der
+  Fundstelle.
+  **(1) DER WORKER HATTE KEINE EINZIGE WAHRHEIT.** Bei Cloudflare lief v2.11, der devdocs-Abzug
+  stand auf v2.8 und die Datei `worker.js` im Repo auf **v2.1** — mit `PATHS` nur für
+  `trainingsdaten.json` und `wissen-bilder.json`. Dieser Worker hätte **jeden Rundenentwurf, jede
+  Uhr-Datei und jeden Kopplungstest mit 403 abgewiesen**; dass der Abgleich trotzdem lief, war der
+  Beleg, dass niemand mehr wusste, welcher Code dort arbeitet. Der echte Stand liegt jetzt im Repo
+  und wörtlich in Abschnitt 28. **Prüfstand 24ca vergleicht ab jetzt zwei Artefakte statt Sätze zu
+  suchen:** Die Fassungsnummer wird aus `worker.js` gelesen und gegen die Überschrift gehalten, und
+  jeder Pfad, den App oder Uhr per `X-Path` senden, muss in `CFG.PATHS` stehen — nachgewiesen wirksam
+  (Testlauf mit entferntem `draft.json` meldet „fehlt: draft.json"). Die alte Prüfung `/Fassung v2\.8/`
+  war eine abgeschriebene Zahl und konnte gar nichts merken. Neue Arbeitsregel **0b**.
+  **(2) SIEBEN WORKER-AUFRUFE OHNE FRIST.** `fetchMitFrist()` gibt es seit v4.83, benutzt wurde sie
+  siebenmal — daneben standen sieben Aufrufe ohne. Der Kommentar an der Funktion beschreibt den
+  Schaden genau: „drei Minuten Totenstille, während die Uhr 26 Aktionen mit HTTP 200 ablieferte."
+  Behoben wurde damals die Fundstelle, nicht das Muster. Betroffen war unter anderem
+  `watchFilePush` — der läuft **während der Runde**, also wenn ein Funkloch wahrscheinlich ist. Alle
+  Aufrufe laufen jetzt über die Frist, und **24cy verbietet den nächsten ohne**.
+  **(3) EIN GPS-WÄCHTER, ZWEI VERBRAUCHER, EIN RÜCKRUF.** `liveStart(cb)` setzte `LIVEPOS.cb`,
+  **bevor** geprüft wurde, ob schon ein Wächter läuft. Wer als Zweiter startete, übernahm die Ortung
+  stillschweigend; `liveStop()` aus einem der beiden hielt sie für **beide** an. Erreichbar ohne
+  Zutun: `openCaddyPosition()` rief in seiner ersten Zeile `liveStop()` — **wer während einer
+  laufenden Runde die On-Course-Ansicht öffnete, spielte danach ohne Live-Position weiter**, ohne
+  Loch-Erkennung, ohne Positionsmeldung an die Uhr, ohne jede Meldung. Der Fehler machte kein
+  Geräusch. Jetzt `liveStart(kennung, cb)` / `liveStop(kennung)` mit Verbraucherliste, `liveStopAll()`
+  für „Blatt schließen", `liveVerbraucher()` für die Diagnose; der Wächter hält erst an, wenn der
+  letzte gegangen ist. Kennungen: `play`, `caddypos`. **24cz prüft das als Verhalten**, nicht als
+  Text: zwei Verbraucher anmelden, einen abmelden, nachsehen wer noch versorgt wird — inklusive des
+  Falls, dass ein Rückruf sich während der Zustellung abmeldet (genau das tun sie, wenn ihre Ansicht
+  weg ist). Ein Wächter für alle bleibt richtig: `watchPosition` mit `enableHighAccuracy` ist der
+  teuerste Posten im Akkuhaushalt auf der Runde — er muss nur wissen, für wen er läuft.
+
+- **v4.86.0 · 2026-08-27** — **Eine auf der Uhr begonnene Messung erscheint jetzt auch hier
+  (Gegenstück zu Uhr-Fassung 44).** Gemeldet: „Wenn ein Schlagtracking auf der Uhr eingeleitet wurde,
+  soll das auch auf dem Handy aufgerufen und angezeigt werden." **Zwei Ursachen. (1) Hier:**
+  `watchRecBanner()` gibt es seit v1.68 und hatte **keinen einzigen Aufrufer** — nur das Vollbild
+  (`pfBottom`) baute sich ein eigenes Band. In der Eingabemaske, wo man die halbe Runde verbringt,
+  stand nichts. Eine geschriebene Funktion ohne Aufrufer sieht in der Doku aus wie eine Zusage und
+  ist keine. Das Band steht jetzt **ganz oben** in `renderPlay()`, vor Lochnummer und Navigation:
+  Eine laufende Messung ist ein Zustand, kein Detail — wer sie übersieht, lässt sie über das halbe
+  Loch weiterlaufen, und der Endpunkt landet irgendwo. **(2) Auf der Uhr:** Der Live-Zeiger reiste
+  erst, wenn ein Schläger gewählt war (behoben in Fassung 44). **Ohne Schläger wird jetzt trotzdem
+  angezeigt** — „Uhr trackt · Schläger offen" —, nur **abschließen** geht dann nicht: Ein Schlag ohne
+  Schläger ist für die gelernten Längen wertlos, und der Knopf wäre ein Angebot, das man bereut. Gilt
+  für beide Bänder (Eingabemaske und Vollbild). **Prüfstand:** Die v2.08-Regel „Eingabemaske ohne
+  Uhr-Aufnahmeband" ist **gedreht** — v2.08 warf Karte, Caddy und Distanzen heraus, weil sie doppelt
+  und teuer waren (Monte-Carlo, Geo-Raster). Das Uhr-Band ist nichts davon: Es rechnet nicht und
+  dupliziert nicht, es meldet den Zustand des **anderen** Geräts. Die eigene Aufnahmesteuerung
+  (`shotRecHtml()`) bleibt draußen. **Zur Uhr-Seite:** Runde anlegen, abschließen und verwerfen gehen
+  ab Fassung 44 **nur noch hier** — auf der Uhr sind Alleinstart, Platzauswahl, „Sichern &
+  abschließen" und „Verwerfen" entfernt.
+
+- **v4.85.1 · 2026-08-27** — **Uhr zeigte mehr Mitspieler als die PWA — Handy führt jetzt
+  ausnahmslos (Uhr-Fassung 42).** Gemeldet und nachgestellt. **Zwei Ursachen, beide aus Uhr-Fassung
+  39,** wo die Uhr selbst Plätze eröffnen durfte: **(1)** `Mitspieler.plaetze` lag in den Prefs und
+  **wuchs nur** — wer einmal drei Plätze aufgemacht hatte, sah drei Zeilen, auch auf der nächsten
+  Runde und auch ohne Namen im Handy. Ein Zähler, der nur eine Richtung kennt, ist kein Zustand,
+  sondern eine Hochwassermarke. **(2)** Die Uhr übernahm die Namensliste nur, wenn sie **nicht leer**
+  war — ein hier entfernter Mitspieler kam damit **nie** an. Entfernen war die einzige Änderung, die
+  nicht reiste. **Behoben auf der Uhr:** Plätze, Chip „+ Mitspieler" und Pref `mitspielerN` sind weg,
+  die Zeilen entstehen wieder aus den Namen; `RepoDraft.mitspieler` ist jetzt `List<String>?`, weil
+  **`null` („nicht gesagt") und leere Liste („ausdrücklich keine") verschiedene Auskünfte sind** —
+  das alte `?: emptyList()` machte aus dem einen das andere. Die Uhr **echot die Namen nicht mehr**:
+  Die Rundensimulation (v4.84.2) hat gezeigt, dass ein fehlender Schlüssel beim Merge übergangen wird
+  und die Namen bleiben, ein mitgeschickter veralteter Stand sie dagegen überschreibt — Schweigen ist
+  hier der sichere Weg. **Auf dieser Seite unverändert**, aber jetzt tragend: `playRound()` schreibt
+  `mitspieler` immer, auch leer. **Prüfstand:** 24db gedreht (die Prüfungen aus 39 verlangten das
+  Gegenteil), Rundensimulation um „Entfernen muss auch reisen" ergänzt — mit dem Hinweis, dass der
+  absichtlich in die Zukunft gestempelte Uhr-Entwurf im Mitspieler-Abschnitt jeden späteren Merge
+  gewinnt und man danach besser mit einer frischen Runde weiterprüft. **Preis, ausdrücklich:**
+  Uhr-Fassung 39 ist damit zurückgenommen — wer die Runde auf der Uhr beginnt und das Handy im Bag
+  lässt, kann keinen Mitspieler erfassen. Das ist die Kehrseite von „eine Wahrheit" und billiger als
+  zwei Listen, die auseinanderlaufen.
+
+- **v4.85.0 · 2026-08-27** — **Das Changelog-Archiv gab es nicht — wiederhergestellt und
+  automatisiert.** Befund: `changelog-archiv.md` existierte im Repo **nie**. Die Sperrklinke 24ct
+  kürzt das Changelog seit Wochen auf 45 Einträge und verweist dabei auf ein Archiv — angelegt hat
+  es niemand. **366 Fassungen an Begründungen waren weg**, von v1.0.0 bis v4.49.0.
+  **Wiederhergestellt aus der Git-Historie des Repos**, nicht aus Gesprächsverläufen: 340 Commits
+  von `index.html` (29.07.–27.08.), davon 35 Schnappschüsse gelesen und alle jemals vorhandenen
+  Einträge nach Fassungsnummer vereinigt. Ein zusammengeschriebenes Archiv hätte Einträge erfunden
+  oder verkürzt; die Herkunft steht im Kopf der Datei, samt der Lücke, die bleibt (die vier
+  ältesten Schnappschüsse hatten noch gar kein Changelog).
+  **Neu `changelog-archiv.js`** — Kürzen ist ab jetzt ein Befehl: liest den devdocs-Block, behält
+  die neuesten 45, hängt den Rest oben ans Archiv, schreibt beide Dateien. **Wiederholbar** (nach
+  Fassungsnummer, zweimal laufen ändert beim zweiten Mal nichts), **verlustfrei** (Gegenprobe vor
+  dem Schreiben, Archiv zuerst — bricht es dazwischen ab, steht etwas doppelt statt zu fehlen),
+  **ehrlich** (`--pruefen` ändert nichts). Legt das Archiv an, wenn es fehlt: Ein Werkzeug, das eine
+  Datei voraussetzt, die es selbst erzeugen könnte, ist der Anfang derselben Lücke.
+  **Prüfstand 24ct** nennt jetzt den Befehl in der Meldung und prüft, dass es das Skript gibt, dass
+  das Archiv die älteren Einträge trägt, keine Fassung doppelt vorkommt und **nichts an beiden Orten
+  steht**. Genau diese Prüfung hatte gefehlt: Der Verweis auf das Archiv war da, das Archiv nicht.
+  **Arbeitsregel 0 erweitert:** Auch die Repo-**Historie** ist abrufbar (Commit-Liste über die API,
+  alte Stände über `raw`), und sie ist die belastbarste Quelle für alles, was „mal dastand".
+
 - **v4.84.2 · 2026-08-27** — **Rundensimulation ausgebaut: 81 → 124 Prüfungen.** Sie prüfte
   Distanzen, Caddy und Eingaben — also viel von dem, was die Uhr seit Fassung 38/40 **nicht mehr
   tut** — und ließ die Wege ungeprüft, an denen die teuersten Fehler dieses Projekts saßen. Neu:
