@@ -353,6 +353,7 @@ try {
                  "elevGet",
                  "unwetterUrteil","istGewitterCode","unwetterBannerHtml","wakeAppAn",
                  "neueFassungAnzeigen","watchFassungPruefen","watchFassung",
+                 "renderComp","renderPlanung","$","rundeAlsTurnier",
                  "logInfo","_logZustand","ERRLOG",
                  "_restZumGruen","_spieltWieM",
                  "pruefeDaten","pruefeRechnung",
@@ -10122,6 +10123,130 @@ group("Protokoll — drei Stufen, ein Startvermerk, ein sprechender Service Work
   /* Und die statische Prüfung darf Infos nicht als Laufzeitfehler zählen. */
   ok("Infos gelten nicht als Laufzeitfehler",
      /const echte = \(typeof ERRLOG!=="undefined"/.test(roh));
+}
+
+/* ============ 24fj. Runden nachträglich zum Turnier erklären ============ */
+group("Runde → Turnier: eine Umrechnung, zwei Aufrufer");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+  const roh = ktOhneKommentar(codeOhneDoku(src));
+  const F = G("rundeAlsTurnier");
+
+  /* ====================================================================
+     GEWÜNSCHT am 31.08.2026 (v5.37)
+     --------------------------------------------------------------------
+     „Wenn ich Runden bearbeite, möchte ich diese auch nachträglich zu
+     Turnierergebnissen umdeklarieren können — und sie sollen dann vom Reiter
+     Runden in den Reiter Turnier verschoben werden."
+     DAS IST DER HÄUFIGERE FALL als der Haken beim Start: Man spielt, merkt
+     hinterher, dass es zählt — oder hat den Haken schlicht vergessen. */
+  if (typeof F === "function") {
+    const r = { id: "R-TEST", date: "2026-08-30", course: "Prüfplatz", tee: "Gelb", hi: 20,
+      holes: [{ hole: 1, par: 4, score: 5, putts: 2 }, { hole: 2, par: 3, score: 3, putts: 1 },
+              { hole: 3, par: 5, score: null, putts: null }] };
+    const t = F(r, " Clubmeisterschaft ", "Runde");
+    ok("Datum und Platz wandern mit", t.date === "2026-08-30" && t.course === "Prüfplatz");
+    ok("der Name wird getrimmt", t.tournament === "Clubmeisterschaft", t.tournament);
+    /* OHNE NAMEN TROTZDEM EIN TURNIER — ein Pflichtfeld wäre die Hürde, wegen
+       der man es dann doch nicht macht. */
+    ok("ohne Namen gibt es einen Ersatz", /^Turnier 2026-08-30$/.test(F(r, "", "Runde").tournament),
+       F(r, "", "Runde").tournament);
+    /* `holes` IST DIE ANZAHL GEWERTETER LÖCHER, nicht die Liste — wie in allen
+       bisherigen Einträgen. Wer ein gewachsenes Feld umdeutet, bricht jede
+       Auswertung, die es schon liest. */
+    ok("`holes` zählt nur gewertete Löcher", t.holes === 2, String(t.holes));
+    /* DIE LÖCHER SIND DER EIGENTLICHE GEWINN: Streuung, Approach-Klassen,
+       Strokes Gained und die Putt-Kurve hängen alle daran. */
+    ok("die Lochergebnisse reisen mit", Array.isArray(t.holeScores) && t.holeScores.length === 3);
+    ok("mit Par, Schlägen und Putts",
+       t.holeScores[0].par === 4 && t.holeScores[0].score === 5 && t.holeScores[0].putts === 2);
+    /* `roundId` IST DIE KLAMMER: Wer dieselbe Runde zweimal umdeklariert,
+       aktualisiert den Eintrag, statt einen zweiten anzulegen. */
+    ok("die Herkunft steht dabei", t.roundId === "R-TEST" && t.quelle === "Runde");
+  }
+
+  /* ZWEI AUFRUFER, EINE UMRECHNUNG. Das Herauslösen ist keine Aufräumarbeit,
+     sondern die Bedingung dafür, dass beide Wege dasselbe Ergebnis liefern.
+     Zwei Umrechnungen für dieselbe Sache laufen auseinander — das hat dieses
+     Projekt bei Scorekarte, Layup-Grenze und Caddy schon dreimal gekostet. */
+  ok("beide Wege nutzen dieselbe Umrechnung",
+     (roh.match(/rundeAlsTurnier\(/g) || []).length >= 3,
+     String((roh.match(/rundeAlsTurnier\(/g) || []).length));
+  ok("das Feld gibt es im Runden-Editor", /id="r_turnier"/.test(src));
+  /* NUR BEIM BEARBEITEN: Wer eine Runde neu erfasst und weiß, dass es ein
+     Turnier war, trägt sie gleich dort ein. Das Feld beantwortet „ich habe
+     mich vertan", und die Frage stellt sich nur bei einer bestehenden Runde. */
+  ok("und nur beim Bearbeiten", /\$\{ed\?`<div class="field"[\s\S]{0,80}?r_turnier/.test(src));
+  /* VERSCHOBEN HEISST VERSCHOBEN: An beiden Orten geführt zählte jede
+     Auswertung sie doppelt, und der WHS-Index zählt Turnierrunden getrennt. */
+  ok("die Runde wird aus den Runden entfernt",
+     /if\(i>=0\) DB\.rounds\.splice\(i,1\);/.test(roh));
+  ok("und der Turniereintrag gestempelt",
+     /DB\.competitions\.push\(stamp\(t\)\)/.test(roh));
+  /* Dieselbe Runde zweimal: Eintrag aktualisieren, nicht verdoppeln. */
+  ok("kein zweiter Eintrag bei Wiederholung",
+     /findIndex\(x=>x\.roundId===r\.id\)/.test(roh));
+}
+
+/* ============ 24fi. Die Turnierplanung steht beim Turnier ============ */
+group("Turnierkalender — im richtigen Reiter, an der richtigen Stelle");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+  const RC = G("renderComp"), RP = G("renderPlanung"), DB0 = live("DB");
+
+  /* ====================================================================
+     GEWÜNSCHT am 31.08.2026 (v5.36)
+     --------------------------------------------------------------------
+     „Verschiebe die Turnierplanung aus dem Reiter Planung in den Reiter
+     Turnier, unterhalb der Grafik WHS-Index."
+     UND DAS IST DER RICHTIGE ORT: „Planung" trägt Saisonziele, Makrozyklen
+     und Mesoblöcke — Dinge, die man einmal im Quartal anfasst. Der
+     Turnierkalender gehört zu dem, was man wöchentlich ansieht: neben die
+     gespielten Wettkämpfe und den Index, den sie bewegen. */
+  {
+    const ci = src.indexOf("function renderComp()");
+    const ce = src.indexOf("\nfunction ", ci + 20);
+    const comp = src.slice(ci, ce > ci ? ce : ci + 12000);
+    ok("der Turnierkalender steht im Turnier-Reiter",
+       /Turnierkalender · anstehend/.test(comp));
+    /* UNTERHALB DER GRAFIK — die Nachbarschaft ist der Grund für den Umzug. */
+    ok("und zwar unter der WHS-Grafik",
+       comp.indexOf("WHS-Index · Best 8 aus 20") < comp.indexOf("Turnierkalender · anstehend"));
+    ok("mit dem Knopf zum Hinzufügen",
+       /openTournamentEditor\(-1\)/.test(comp));
+    /* Auch die vergangenen Turniere sind mitgewandert, nicht nur die Hälfte. */
+    ok("und den vergangenen Turnieren", /past\.length/.test(comp));
+  }
+  {
+    const pi = src.indexOf("function renderPlanung()");
+    const pe = src.indexOf("\nfunction ", pi + 20);
+    const plan = src.slice(pi, pe > pi ? pe : pi + 12000);
+    ok("in „Planung“ ist er nicht mehr", !/Turnierkalender/.test(plan));
+    /* ABER DER REST BLEIBT — verschoben heißt nicht gelöscht. */
+    ok("Saisonziele bleiben dort", /Saisonziele/.test(plan));
+    ok("Periodisierung bleibt dort", /Mesozyklus-Blöcke/.test(plan));
+  }
+
+  /* ---- Und beide Ansichten müssen laufen ---- */
+  if (typeof RC === "function" && typeof RP === "function" && DB0) {
+    const alt = DB0.tournaments;
+    try {
+      DB0.tournaments = [{ id: "T1", name: "PrüfTurnier", date: "2099-09-15", prio: "A" }];
+      let fehler = null;
+      try { RC(); } catch (e) { fehler = String(e && e.message || e); }
+      ok("renderComp läuft mit dem neuen Block", fehler === null, fehler || "");
+      /* DIE AUSGABE ÜBER DEN SANDKASTEN LESEN, nicht über `G("$")` — die
+         Übergabeliste hält eine Momentaufnahme, die Ansicht schreibt in das
+         LEBENDE Element. Dieselbe Falle wie bei `G("DB")`. */
+      const el = ctx.document && ctx.document.getElementById
+        ? ctx.document.getElementById("v-comp") : null;
+      const h = (el && el.innerHTML) || "";
+      ok("und zeigt das anstehende Turnier", /PrüfTurnier/.test(h), h ? "" : "keine Ausgabe");
+      fehler = null;
+      try { RP(); } catch (e) { fehler = String(e && e.message || e); }
+      ok("renderPlanung läuft ohne ihn", fehler === null, fehler || "");
+    } finally { DB0.tournaments = alt; }
+  }
 }
 
 /* ============ 24fh. Das Dashboard fror für 13 Sekunden ein ============ */

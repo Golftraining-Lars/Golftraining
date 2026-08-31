@@ -13,6 +13,56 @@
 
 ---
 
+- **v4.92.0 · 2026-08-28** — **Ein Protokoll statt zwei · Uhr 48: der Rückfallweg hat die App
+  getötet.** **(1) DER ABSTURZ.** Gemeldet: „Das Schlagtracken dauert sehr lange bis es startet, auch
+  nach mehreren Anläufen nicht. Dann bricht es zwischendurch ab und die ganze App schließt sich."
+  Das Uhr-Protokoll nannte die Ursache wörtlich: `OutOfMemoryError: Failed to allocate a 14784520
+  byte allocation @Net.readData < Net.pushDraft`. In `pushDraft` stand ein Rückfallweg: Gelang der
+  schlanke Schreibvorgang in `draft.json` nicht, holte er die **große `trainingsdaten.json`** —
+  mehrere Megabyte —, parste sie und schickte alles zurück. **Er konnte seit Worker v2.9 gar nicht
+  mehr gelingen** (ALT-Modus geschlossen, 426), er sprengte den Speicher, und er lief **genau dann,
+  wenn es ohnehin klemmte** — ausgelöst vom Fehlschlag des schlanken Weges, also bei schlechtem Funk.
+  Auf eine überlastete Leitung legte er Megabyte obendrauf; 37 von 60 Vorgängen misslangen. Ein
+  Sicherheitsnetz, das bei jedem Auffangen reißt und den Springenden mitnimmt, ist keines. Entfernt,
+  ebenso der gleichartige Rückfall in `fetchDraft`. Neu `leseBegrenzt()` — über 6 MB wird abgebrochen
+  und gemeldet statt abzustürzen. **(2) EIN PROTOKOLL, ZWEI GERÄTE.** Vorgabe: „Nur ein großes
+  Fehlerprotokoll, in dem aber das Uhr-eigene gut unterscheidbar ist." Der zweite Knopf
+  (`showWatchLog`) ist weg — er zwang zu einer Entscheidung, die man vor dem Suchen nicht treffen
+  kann. Unterscheidbar bleibt es doppelt: eigener Rahmen (`.uhr-log`) und ein ⌚ vor **jeder** Zeile —
+  der Rahmen geht beim Kopieren verloren, das Zeichen nicht. Der eine Knopf trägt beide Zahlen, und
+  im Uhr-Block steht der Nachlade-Knopf. Übernommen wird nichts: nur angezeigt, damit erkennbar
+  bleibt, **wo** ein Fehler entstand. **(3) DIAGNOSE ERWEITERT** um die drei Größen, die am 28.08.
+  gefehlt haben: **Speicher** (im Puls und Abzug, Warnung unter 20 MB Rest — eine Größe, die einen
+  umbringen kann, gehört ins Protokoll, bevor sie es tut), **Fehlerarten** (Zeitablauf /
+  Verbindungsabriss / Konflikt statt einer richtungslosen Zahl — ich habe sie von Hand ausgezählt)
+  und die **Schlag-Spur** (das Schlagtracken ist der einzige Zweck der Uhr und kam im Protokoll
+  überhaupt nicht vor; jetzt jeder Schritt mit Dauer). **Offen und nicht behoben:** Der Lochzeiger
+  pendelte zwischen Uhr und Handy (Loch 8 ⇄ 1 ⇄ 2) — eigener Befund, eigene Fassung.
+
+- **v4.91.0 · 2026-08-27** — **Ruhigeres Scrollen in der Eingabemaske · Uhr 46: drei Vibrationen,
+  kein Wegwischen.** Gemeldet: „Gibt es eine Möglichkeit, dass das Scrollen in der App noch smoother
+  wird" — gemeint war die Liste der Felder, die man während der Runde einträgt.
+  **Nicht die Eingabe war die Ursache:** `playField()` speichert nur und zeichnet nichts neu. Die
+  Kosten lagen im Compositing. **Drei Flächen mit `backdrop-filter: blur()`** liegen über oder um die
+  scrollende Liste — die Fußleiste `nav` (12 px), die `.play-navbar` (9 px) und der `.backdrop`
+  hinter dem Sheet (2 px). Ein Weichzeichner ist nicht gratis: Er liest bei **jedem Bild** neu, was
+  hinter ihm liegt, und über einem scrollenden Bereich ändert sich das per Definition ständig — 60
+  Gauß-Rechnungen je Sekunde über mehrere hundert Pixel Höhe, während der Browser ohnehin die Liste
+  bewegt. **Die Lösung behält das Aussehen:** `scrollMarkeAn()` setzt `body.scrollt`, solange
+  gescrollt wird; die drei Flächen schalten für diese Zeit auf eine deckende Farbe und bekommen
+  140 ms nach dem letzten Ereignis ihre Tiefe zurück. Im Stand sieht alles aus wie vorher, und genau
+  im Stand schaut man hin. **`passive:true` ist dabei keine Kleinigkeit:** Ein Scroll-Zuhörer ohne
+  dieses Merkmal zwingt den Browser, vor jedem Bild abzuwarten, ob der Zuhörer die Bewegung abbricht
+  — man baute sich mit dem Ruckel-Fix ein neues Ruckeln ein. Dazu `overscroll-behavior:contain` auf
+  `#sheetBody`: Ohne sie reicht jede Bewegung über den Rand hinaus an die Seite dahinter weiter, und
+  der Browser muss bei jeder Berührung erst entscheiden, wer scrollt — das fühlt sich am Listenanfang
+  und -ende als Zähigkeit an. **Bewusst NICHT gemacht:** `content-visibility` auf den Feldern. Es
+  wäre der nächste Hebel, braucht aber eine ehrliche `contain-intrinsic-size`; rät man sie falsch,
+  springt die Bildlaufleiste, und man tauscht ein Ruckeln gegen ein Zucken. Erst am Gerät messen.
+  **Nebenbei entschärft:** Die Prüfung „`_errLogGeholt` beim Schließen zurückgesetzt" nagelte die
+  **erste Zeile** von `closeSheet` fest und brach bei der harmlosen Ergänzung davor. Sie prüft jetzt,
+  **dass** es geschieht, nicht **wo**.
+
 - **v4.90.0 · 2026-08-27** — **Eine beendete Runde sprang immer wieder auf.** Gemeldet: „Wenn ich
   auf dem Handy eine Runde verwerfe oder speichere und beende, wird sie danach ganz oft trotzdem
   wieder aufgerufen — ich springe grundlos wieder in den Spielmodus." **Zwei Ursachen, beide
