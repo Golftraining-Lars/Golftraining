@@ -415,6 +415,33 @@ import kotlin.math.sqrt
  *     ich nicht uebersetzen kann — und die letzte unverifizierte
  *     Strukturaenderung hat den Build zerlegt. ERST MESSEN, DANN BAUEN.
  *
+ *  2026-09-01 (58) · NACH DEM AUFWACHEN SOFORT SENDEN, NICHT AUSSCHLAFEN.
+ *     GEMELDET am 30.08. im Handy-Protokoll: „Bilanz: 20 Aktionen ·
+ *     Verzoegerung 682–2096 s (Median 1438 s)" — zwanzig Eingaben kamen auf
+ *     einen Schlag an, die aelteste 35 MINUTEN alt. Danach sprang der
+ *     Lochzeiger wild (L14 → L16 → L18 → L17), weil beide Geraete auf
+ *     veraltete Meldungen reagierten.
+ *     DIE URSACHE STAND IM CODE, NICHT IM NETZ. Wear OS friert die Coroutine
+ *     ein, sobald der Bildschirm aus ist — das misst die Schleife seit (47)
+ *     sogar SELBST („Schleife stand ... s"). Aber beim AUFWACHEN passierte
+ *     nichts: `onExitAmbient()` setzte nur ein Kennzeichen, und der Sendetakt
+ *     schlief seinen `delay(60_000)` zu Ende, bevor er es bemerkte.
+ *     ZWEI WARTEZEITEN ADDIEREN SICH: erst die Einfrierdauer, dann der Rest
+ *     des Schlafs. Wer nach zwanzig Minuten aufs Handgelenk sieht und ein Loch
+ *     weiterschaltet, wartet noch einmal bis zu eine Minute — und genau in
+ *     dieser Minute schaltet er am Handy weiter. Dann widersprechen sich die
+ *     Zeiger, und das Handy verwirft den der Uhr als veraltet.
+ *     BEHOBEN MIT EINEM WECKSIGNAL (`Live.weckMs` / `weckAuf()`): Der Takt
+ *     schlaeft in Halbsekunden-Scheiben statt am Stueck und bricht ab, sobald
+ *     jemand ihn weckt. Geweckt wird beim Verlassen des Ambient-Modus UND bei
+ *     jeder Eingabe — im Turniermodus tippt man mehrmals je Loch.
+ *     EIN ZUSTAND, DER SICH AENDERT, MUSS DEN WECKEN, DER AUF IHN WARTET. Ein
+ *     Kennzeichen zu setzen und zu hoffen, dass es jemand bemerkt, ist kein
+ *     Wecken — es ist Warten mit Extraschritt.
+ *     DIE EINFRIER-MESSUNG BLEIBT: Sie ist der Beleg dafuer, dass die Ursache
+ *     das Einfrieren war, und die einzige Zahl, an der man sieht, ob es besser
+ *     wird. Neu daneben: „Takt geweckt nach N s".
+ *
  *  2026-08-31 (57) · IM TURNIERMODUS ZAEHLEN AUCH DIE EIGENEN PUTTS MIT.
  *     GEWUENSCHT: „Fuer meine persoenliche Score-Eingabe moechte ich zusaetzlich
  *     neben dem Score auch die Putts eingeben. Fuer den Mitspieler ist das egal
@@ -3253,7 +3280,7 @@ import kotlin.math.sqrt
 /* Fassungskennung der Uhr-App — steht im Kopplungstest neben der der PWA.
    Bei JEDER Aenderung hier mitziehen; sonst vergleicht man zwei Staende und
    glaubt, sie seien gleich (2026-08-15 (13)). */
-private const val WATCH_APP = "2026-08-30 (57)"
+private const val WATCH_APP = "2026-09-01 (58)"
 /* ==========================================================================
    WAS HAT DIESE FASSUNG GEAENDERT? (2026-08-25 (22))
    --------------------------------------------------------------------------
@@ -6507,6 +6534,30 @@ object Live {
     /* Wann kam der letzte Fix? Fuer die Luecken-Meldung (53) — bewusst ein
        schlichtes Feld und kein Zustand: Es zeichnet nichts neu. */
     @Volatile var letzterFixMs: Long = 0L
+    /* ==================================================================
+       EIN WECKSIGNAL FUER DEN SENDETAKT (2026-09-01 (58))
+       --------------------------------------------------------------------
+       GEMELDET am 30.08. im Handy-Protokoll: „Bilanz: 20 Aktionen ·
+       Verzoegerung 682–2096 s (Median 1438 s)" — zwanzig Eingaben kamen auf
+       einen Schlag an, die aelteste 35 Minuten alt. Danach sprang der
+       Lochzeiger wild (L14 → L16 → L18 → L17), weil beide Geraete auf
+       veraltete Meldungen reagierten.
+       DIE URSACHE STEHT IM CODE, nicht im Netz: Wear OS friert die Coroutine
+       ein, sobald der Bildschirm aus ist — das misst die Schleife seit (47)
+       sogar selbst („Schleife stand ... s"). Aber beim AUFWACHEN passierte
+       nichts: `onExitAmbient()` setzte nur ein Kennzeichen. Der Sendetakt
+       schlief seinen `delay(60_000)` zu Ende, bevor er ueberhaupt bemerkte,
+       dass der Arm wieder oben ist.
+       ZWEI WARTEZEITEN ADDIEREN SICH: Erst die Einfrierdauer, dann der Rest
+       des Schlafs. Wer nach zwanzig Minuten aufs Handgelenk sieht und sofort
+       ein Loch weiterschaltet, wartet noch einmal bis zu einer Minute — und
+       genau in dieser Minute schaltet er am Handy weiter, und beide Zeiger
+       widersprechen sich.
+       EIN ZUSTAND, DER SICH AENDERT, MUSS DEN WECKEN, DER AUF IHN WARTET.
+       Ein Kennzeichen zu setzen und darauf zu hoffen, dass es jemand bemerkt,
+       ist kein Wecken — es ist Warten mit Extraschritt. */
+    @Volatile var weckMs: Long = 0L
+    fun weckAuf() { weckMs = System.currentTimeMillis() }
     var err: String? by mutableStateOf(null)
     var src: String by mutableStateOf("")   // aktive GPS-Quelle: "⌚ Uhr" / "📱 Handy"
 
@@ -7062,6 +7113,8 @@ class MainActivity : ComponentActivity() {
 
             override fun onExitAmbient() {
                 AmbientState.isAmbient = false
+                /* SOFORT SENDEN, NICHT AUSSCHLAFEN (58) — siehe `Live.weckAuf`. */
+                try { Live.weckAuf() } catch (e: Exception) { if (e.istAbbruch()) throw e }
             }
 
             // ~1x pro Minute — löst die Neuzeichnung im Ambient aus
@@ -7923,6 +7976,12 @@ fun GolfWatchApp(
                 entries[hole]
                     ?: HoleEntry()
             ).copy(ts = isoNow())
+        /* JEDE EINGABE WECKT DEN SENDETAKT (58). Ohne das wartet ein Score,
+           den man gerade getippt hat, bis zu eine Minute auf den naechsten
+           Durchlauf — und im Turniermodus tippt man mehrmals je Loch. Der
+           Takt entscheidet danach selbst, ob er eilig ist; geweckt wird er
+           hier nur. */
+        try { Live.weckAuf() } catch (e: Exception) { if (e.istAbbruch()) throw e }
 
         lastEditMs = System.currentTimeMillis()
         /* ==================================================================
@@ -8388,7 +8447,27 @@ fun GolfWatchApp(
                    im ungeduldigsten Moment. */
                 val sollWarten = if (rec != null || frisch || bewegt) 10_000L else 60_000L
                 val vorSchlaf = System.currentTimeMillis()
-                delay(sollWarten)
+                /* ==================================================================
+                   IN SCHEIBEN SCHLAFEN, DAMIT MAN WECKBAR BLEIBT (58)
+                   --------------------------------------------------------------------
+                   `delay(60_000)` ist nicht unterbrechbar — wer waehrend des Schlafs
+                   den Arm hebt, wartet trotzdem die volle Minute ab. In
+                   Halbsekunden-Scheiben zu schlafen kostet nichts (die Coroutine
+                   schlaeft dazwischen genauso) und macht den Takt weckbar.
+                   DER WECKRUF WIRD VERBRAUCHT, nicht nur gelesen: Sonst weckt
+                   derselbe Zeitstempel jeden folgenden Durchlauf erneut, und aus
+                   einem Wecken wird eine Dauerschleife. */
+                val weckStand = Live.weckMs
+                var geschlafen = 0L
+                while (geschlafen < sollWarten) {
+                    delay(500)
+                    geschlafen += 500
+                    if (Live.weckMs != weckStand) {
+                        Diagnose.aktion("Takt geweckt nach ${geschlafen / 1000} s " +
+                            "(statt ${sollWarten / 1000} s) — Bildschirm wieder an")
+                        break
+                    }
+                }
                 val tatsaechlich = System.currentTimeMillis() - vorSchlaf
                 if (tatsaechlich > sollWarten * 2) {
                     Fehler.warn("Takt",

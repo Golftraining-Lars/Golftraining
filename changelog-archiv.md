@@ -13,6 +13,69 @@
 
 ---
 
+- **v5.06.0 · 2026-08-29** — **Zwei Megabyte für einen grauen Punkt.** Die entscheidende Auskunft
+  kam von dir: **Im Inkognito-Fenster lud die App — und hängte sich nach 20 Sekunden auf.** Damit war
+  klar, dass es weder die Datei noch der Cache ist, sondern etwas, das *nach* dem Laden passiert. Und
+  20 Sekunden ist genau die Zeit, in der der Abgleich fertig wird.
+  **Am echten Bestand gemessen:** 3,89 MB gesamt, davon `courses` **3,38 MB**. Ein einziger Platz
+  (Brodauer Mühle) 2,31 MB. Davon 2,20 MB in 141 Elementen der Art `other`. **Ein einziges Element
+  mit 86.840 Stützpunkten: 1,96 MB.** Und `other` wird an genau einer Stelle ausgewertet: ein grauer
+  Punkt mit Radius 1,5 bei 30 % Deckkraft.
+  **Die Ursache:** `thinRing` entfernt Punkte unter 0,8 m Abstand — eine **verhältnismäßige** Regel
+  ohne absolute Schranke. Ein Umriss, dessen Punkte weiter auseinanderliegen, kommt unbegrenzt durch.
+  **Eine relative Regel braucht eine absolute Schranke**, sonst hängt die Größe an der Beschaffenheit
+  der Quelle — und die kennt niemand vorher.
+  **Warum es den Start blockiert:** `cloudLoad` holt und parst den ganzen Bestand, `mergeDB`
+  vereinigt ihn, `persist` serialisiert ihn erneut, `snapshot` noch einmal — **vier Durchläufe über
+  knapp 4 MB.** Auf einem Rechner unauffällig, auf einem Handy die Last, die alles blockiert. Das
+  erklärt auch, warum es am PC durchgehend lief.
+  **Behoben, zweifach:** `geoBudget(f)` beim **Import** (der Riegel: 400 Punkte je Element, für
+  `other` nur 120) und `geoAbspecken()` für den **Rückstand**, über den neuen Knopf „🗜 Platzdaten
+  verschlanken". **Am echten Bestand: 3,08 MB → 0,87 MB, minus 72 %** — und nur 9 von 3160 Elementen
+  mussten überhaupt ausgedünnt werden. Nicht gelöscht, sondern gedeckelt: Die graue Andeutung auf der
+  Karte bleibt, nur nicht für zwei Megabyte.
+  **Ehrlich dazu:** Ich habe für dieses Problem vier Ursachen genannt und dreimal gebaut, bevor die
+  richtige Frage gestellt war. Der Inkognito-Test hat mehr geklärt als alles, was ich vorher geprüft
+  habe.
+
+- **v5.05.0 · 2026-08-29** — **Das Vorwärmen des Service Workers umging die eigene Prüfung.** v5.04
+  hat die Vollständigkeitsprüfung im `fetch`-Zweig eingebaut — aber `install` legte die Hülle
+  weiterhin mit `c.addAll(["./", "./index.html"])` ab. **`addAll` speichert, was mit Status 200
+  zurückkommt**, auch einen Download, der mitten in den 2,7 MB abbricht. Damit hatte der frisch
+  installierte Worker eine Lücke an genau der Stelle, die v5.04 gerade geschlossen hatte.
+  **Und es ist der gefährlichere Weg:** Das Vorwärmen läuft bei der Installation, oft direkt nach
+  einem Fassungswechsel, und legt die Hülle an, mit der die App danach startet. Jetzt holt `install`
+  die Datei selbst und prüft sie; misslingt es, wird **nichts** abgelegt und der reguläre Abruf holt
+  sie beim ersten Start nach. **Eine fehlende Hülle kostet einen Ladevorgang, eine halbe kostet die
+  App.**
+  **Fünfte Anwendung derselben Regel in einer Woche** — und die erste, bei der ich sie beim eigenen
+  Nachziehen übersehen hatte: Ich habe den Riegel an einer Stelle gesetzt und die zweite Tür
+  offengelassen.
+
+- **v5.04.0 · 2026-08-29** — **Der Service Worker speicherte halbe Dateien.** Gemeldet: Nach einer
+  Neuinstallation blieb die App im Startbild hängen; in Chrome erschien nur das **statische Gerüst** —
+  Kopfzeile mit Platzhaltern („● lokal", „Start – → Ziel –") und Navigationsleiste. Das ist alles
+  festes HTML: **Das Skript lief gar nicht.** Repo-Datei und lokale Datei waren syntaktisch
+  fehlerfrei — also bekam das Handy eine **andere** Datei.
+  **Die Ursache in `sw.js`:** `if (r && r.ok) c.put(...)` nahm jede Antwort mit Status 200 an — auch
+  einen Download, der mitten in den 2,7 MB abbrach. Die halbe Datei wanderte in den Cache, und weil
+  der Wettlauf um die Hülle fast immer der Cache gewinnt (2,7 MB kommen nie in 1,5 s an), bekam man
+  sie danach bei **jedem** Start wieder. Eine abgeschnittene Datei ist ein Syntaxfehler: Gerüst
+  sichtbar, nichts läuft. **Und sie überlebt eine Neuinstallation** — eine Verknüpfung vom
+  Startbildschirm zu entfernen räumt weder Service Worker noch Caches ab. Deshalb half das Neu-
+  Hinzufügen nicht.
+  **Behoben in `sw.js`:** Eine Vollständigkeitsprüfung greift vor dem Ablegen **und** vor dem
+  Ausliefern — plausible Größe und Abschluss des Dokuments. Eine kaputte Hülle wird verworfen statt
+  weitergereicht; beides landet im Protokoll, wo es der Nachbericht aus v5.02 beim nächsten Start
+  erzählt.
+  `CACHE_VERSION` auf **v3**: der saubere Schnitt für Geräte, auf denen noch eine abgeschnittene
+  Hülle liegt.
+  **Vierte Anwendung derselben Regel in einer Woche:** erst prüfen, dann übernehmen — Archiv-Skript,
+  Rückfallweg der Uhr, `swForceUpdate`, jetzt der Cache selbst.
+  **Nebenbei entschärft:** Die Prüfung `eq("CACHE_VERSION erhöht", …, "v2")` nagelte die Nummer fest
+  und wurde rot, sobald man sie erhöht — also genau dann, wenn man das Richtige tut. Sie prüft jetzt
+  die **Form** statt des Werts. Dieselbe Lehre wie beim Worker.
+
 - **v5.03.0 · 2026-08-29** — **Doku-Durchsicht nach dem Protokoll-Audit: `sw.js` bekommt ein
   Kapitel.** Auftrag war, nach den drei Etappen zu prüfen, ob die Doku noch stimmt. **Ergebnis:** Sie
   stimmt — mit einer Lücke. Geprüft habe ich, ob die Doku Funktionen verspricht, die es nicht mehr

@@ -138,6 +138,43 @@ export default {
     if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: CORS });
     const url = new URL(req.url);
 
+    /* ==========================================================================
+       GET ?ics=<Adresse>: EINEN GOOGLE-KALENDER DURCHREICHEN (v2.12)
+       --------------------------------------------------------------------------
+       GEWUENSCHT am 01.09.2026: Die App soll einen oeffentlich freigegebenen
+       Google-Kalender anzeigen. Das geht nicht direkt aus dem Browser — Google
+       liefert die ICS-Adresse OHNE die Freigabe, die eine fremde Seite zum
+       Lesen braucht (CORS). Der Worker holt sie stellvertretend.
+       KEIN OFFENER VERMITTLER: Erlaubt sind AUSSCHLIESSLICH Adressen von
+       Google Kalender. Ein Worker, der beliebige Adressen abruft, ist ein
+       offener Weiterleiter — der wird gefunden und missbraucht, und zwar
+       zuverlaessig. Die Beschraenkung ist keine Vorsicht, sondern Pflicht.
+       NUR LESEN, NUR ICS: keine Kopfzeilen des Aufrufers weiterreichen, kein
+       POST, und die Antwort wird als Text zurueckgegeben. Es gibt nichts, was
+       ein Aufrufer hier auesser einem Kalender bekommen koennte.
+       GROESSENGRENZE: Ein Jahreskalender sind wenige Zehntausend Zeichen. Ein
+       Megabyte ist so weit darueber, dass alles Groessere ein Fehler oder ein
+       Missbrauchsversuch ist.
+       ========================================================================== */
+    if (req.method === "GET" && url.searchParams.get("ics")) {
+      const ziel = url.searchParams.get("ics");
+      let u;
+      try { u = new URL(ziel); } catch (_) { return resp(400, { ok: false, error: "url" }); }
+      const erlaubt = (u.protocol === "https:") &&
+        (u.hostname === "calendar.google.com" || u.hostname === "www.google.com");
+      if (!erlaubt) return resp(403, { ok: false, error: "nur Google Kalender" });
+      try {
+        const r = await fetch(u.toString(), { headers: { "User-Agent": "golftraining-sync" } });
+        if (!r.ok) return resp(502, { ok: false, error: "HTTP " + r.status });
+        const t = await r.text();
+        if (t.length > 1000000) return resp(413, { ok: false, error: "zu gross" });
+        return new Response(t, {
+          status: 200,
+          headers: Object.assign({}, CORS, { "Content-Type": "text/calendar; charset=utf-8" })
+        });
+      } catch (e) { return resp(502, { ok: false, error: String(e) }); }
+    }
+
     /* -------- GET ?sha=1: NUR die Dateikennung --------
        Waehrend einer Runde fragt die App im Minutentakt, ob sich im Repo etwas
        geaendert hat. Vorher zog sie dafuer die ganze Datei (~3 MB) und las die
@@ -154,7 +191,7 @@ export default {
     /* -------- GET ?fresh=1: roh + SHA-Header -------- */
     if (req.method === "GET") {
       if (url.searchParams.get("fresh") !== "1")
-        return resp(200, { ok: true, worker: "golftraining-sync v2.11" });
+        return resp(200, { ok: true, worker: "golftraining-sync v2.12" });
       const p = url.searchParams.get("path") || "trainingsdaten.json";
       if (!CFG.PATHS.includes(p)) return resp(403, { ok: false, error: "path" });
       try {

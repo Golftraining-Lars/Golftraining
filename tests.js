@@ -354,7 +354,7 @@ try {
                  "unwetterUrteil","istGewitterCode","unwetterBannerHtml","wakeAppAn",
                  "neueFassungAnzeigen","watchFassungPruefen","watchFassung",
                  "renderComp","renderPlanung","$","rundeAlsTurnier","stampAltbestand","openTournamentEditor",
-                 "icsParse","kalHtml","kalLink","anmeldeFaellig","gpsAusreisser","gpsAlleHtml","gpsZuKlaeren","gpsGegenSoll","tombAll",
+                 "icsParse","kalHtml","kalLink","anmeldeFaellig","gpsAusreisser","gpsAlleHtml","gpsZuKlaeren","lmDispTag","lmRollTag","lmTage","lmDriverTag","lmEisenTag","gpsGegenSoll","tombAll",
                  "logInfo","_logZustand","ERRLOG",
                  "_restZumGruen","_spieltWieM",
                  "pruefeDaten","pruefeRechnung",
@@ -7287,7 +7287,7 @@ group("Live-Zeiger — beide Geräte, dieselbe Regel");
        zusaetzlich, dass der Changelog einen Eintrag fuer GENAU diese Kennung
        hat — beides zusammen faengt „Code geaendert, Fassung vergessen" und
        „Fassung gezogen, Changelog vergessen". */
-    ok("und die Kennung ist aktuell", /WATCH_APP = "2026-08-30 \(57\)"/.test(kt));
+    ok("und die Kennung ist aktuell", /WATCH_APP = "2026-09-01 \(58\)"/.test(kt));
     ok("das Handy zeigt sie", /function watchFassung\(\)/.test(src));
 
     /* --- STARTBILDSCHIRM (2026-08-25 (20)) ---
@@ -10424,6 +10424,198 @@ group("Schlag-GPS — Ausreißer sehen und loswerden");
          /\(\(typeof roundShots==="function"\)\?roundShots\(\):\[\]\)/.test(roh));
       ok("und ist anklickbar", /data-runde="/.test(src) && /openAddRound\(r\)/.test(roh));
       ok("der Grund steht an der markierten Zeile", /m zum Median/.test(src));
+    }
+  }
+}
+
+/* ============ 24ft. Der Sendetakt der Uhr ist weckbar ============ */
+group("Uhr — nach dem Aufwachen sofort senden, nicht ausschlafen");
+{
+  const ktPfad = path.join(__dirname, "MainActivity.kt");
+  if (fs.existsSync(ktPfad)) {
+    const kt = ktOhneKommentar(fs.readFileSync(ktPfad, "utf8"));
+    const roh = fs.readFileSync(ktPfad, "utf8");
+
+    /* ====================================================================
+       GEMELDET am 30.08.2026 im Handy-Protokoll (behoben in Uhr 58)
+       --------------------------------------------------------------------
+       „Bilanz: 20 Aktionen · Verzögerung 682–2096 s (Median 1438 s)" —
+       zwanzig Eingaben kamen auf einen Schlag an, die älteste **35 Minuten**
+       alt. Danach sprang der Lochzeiger wild (L14 → L16 → L18 → L17), weil
+       beide Geräte auf veraltete Meldungen reagierten.
+       DIE URSACHE STAND IM CODE, NICHT IM NETZ: Wear OS friert die Coroutine
+       ein, sobald der Bildschirm aus ist — das misst die Schleife seit (47)
+       sogar selbst. Aber beim AUFWACHEN passierte nichts: `onExitAmbient()`
+       setzte nur ein Kennzeichen, und der Sendetakt schlief seinen
+       `delay(60_000)` zu Ende, bevor er es überhaupt bemerkte.
+       ZWEI WARTEZEITEN ADDIEREN SICH: erst die Einfrierdauer, dann der Rest
+       des Schlafs. Wer nach zwanzig Minuten aufs Handgelenk sieht und ein Loch
+       weiterschaltet, wartet noch einmal bis zu einer Minute — und genau in
+       dieser Minute schaltet er am Handy weiter. Dann widersprechen sich die
+       Zeiger.
+       EIN ZUSTAND, DER SICH ÄNDERT, MUSS DEN WECKEN, DER AUF IHN WARTET. Ein
+       Kennzeichen zu setzen und zu hoffen, dass es jemand bemerkt, ist kein
+       Wecken — es ist Warten mit Extraschritt. */
+    ok("es gibt ein Wecksignal", /@Volatile var weckMs: Long = 0L/.test(kt)
+       && /fun weckAuf\(\) \{ weckMs = System\.currentTimeMillis\(\) \}/.test(kt));
+    /* DER SCHLAF MUSS UNTERBRECHBAR SEIN: `delay(60_000)` am Stück ist es
+       nicht — wer während des Schlafs den Arm hebt, wartet trotzdem die volle
+       Minute ab. */
+    ok("der Sendetakt schläft in Scheiben",
+       /while \(geschlafen < sollWarten\) \{[\s\S]{0,120}?delay\(500\)/.test(kt));
+    ok("und bricht beim Wecken ab",
+       /if \(Live\.weckMs != weckStand\) \{/.test(kt));
+    /* DER WECKRUF WIRD VERBRAUCHT, nicht nur gelesen — sonst weckt derselbe
+       Zeitstempel jeden folgenden Durchlauf erneut, und aus einem Wecken wird
+       eine Dauerschleife. */
+    ok("der Weckstand wird vor dem Schlaf gemerkt",
+       /val weckStand = Live\.weckMs/.test(kt));
+    /* Zwei Auslöser: Arm hoch, und jede Eingabe. */
+    ok("das Aufwachen weckt", /onExitAmbient\(\) \{[\s\S]{0,140}?Live\.weckAuf\(\)/.test(kt));
+    ok("und jede Eingabe ebenso",
+       (kt.match(/Live\.weckAuf\(\)/g) || []).length >= 2,
+       String((kt.match(/Live\.weckAuf\(\)/g) || []).length));
+    /* Und es steht im Protokoll — sonst lässt sich später nicht sagen, ob das
+       Wecken überhaupt greift. */
+    ok("das Wecken wird protokolliert", /Takt geweckt nach \$\{geschlafen \/ 1000\} s/.test(roh));
+    /* Die Messung des Einfrierens bleibt: Sie ist der Beleg dafür, dass die
+       Ursache das Einfrieren war — und die einzige Zahl, an der man sieht, ob
+       es besser wird. */
+    ok("die Einfrier-Messung bleibt erhalten",
+       /Schleife stand \$\{tatsaechlich \/ 1000\} s/.test(roh));
+  }
+}
+
+/* ============ 24fs. Dispersion und Rollverhältnis aus dem Launch Monitor ============ */
+group("Launch Monitor — zwei weitere Tests leiten sich ab");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+  const roh = ktOhneKommentar(codeOhneDoku(src));
+  const D = G("lmDispTag"), R = G("lmRollTag");
+
+  /* ====================================================================
+     GEWÜNSCHT am 01.09.2026 (v5.49)
+     --------------------------------------------------------------------
+     „Der Smash Factor Test und der R10 Dispersion Test müssten sich ja
+     ebenso am besten automatisch aus den Launch-Monitor-Daten bedienen."
+     Smash und Swing Speed liefen schon; neu sind **R10 Dispersion** und
+     **Rollverhältnis**.
+     EINGEHÄNGT IN `lmTestsSync`, NICHT DANEBEN. Mein erster Anlauf hat eine
+     zweite Ableitung neben die bestehende gebaut — **genau die Fehlerklasse,
+     die dieses Projekt in einer Woche viermal gekostet hat**, und diesmal im
+     eigenen Code. Zwei Erzeuger für dieselbe Liste heißt: doppelte Einträge,
+     zwei Aufräumregeln, zwei Vorrangregeln für Handeinträge. */
+  ok("alle abgeleiteten Tests stehen in der Auto-Liste",
+     /LM_AUTO_TESTS = \["smashfactor","swingspeed","r10disp","chiproll","driverfw","eisenstreu"\]/.test(roh));
+  ok("und werden im selben Durchlauf erzeugt",
+     /\["r10disp",     lmDispTag\(shots\)\]/.test(src)
+     && /\["chiproll",    lmRollTag\(shots\)\]/.test(src));
+
+  if (typeof D === "function") {
+    const mk = (club, n, lat, carry) => Array.from({ length: n }, (_, i) =>
+      ({ club, carryLat: (i % 2 ? lat : -lat), carry }));
+    /* DER SCHLÄGER MIT DEN MEISTEN SCHLÄGEN DES TAGES — das ist der, den man
+       geübt hat. Ein Mittel über alle Schläger wäre sinnlos: Ein Wedge streut
+       naturgemäß weniger als ein Holz. */
+    const r = D(mk("7 Iron", 10, 5, 150).concat(mk("Driver", 3, 20, 240)));
+    ok("der meistgespielte Schläger zählt", r && r["Schläger"] === "7 Iron", r && r["Schläger"]);
+    ok("mit gemitteltem Carry", r && r["Ø Carry (m)"] === 150);
+    /* Die Herleitung: 5/150 = 3,3 % → nahe der Bestmarke, also hoher Score. */
+    ok("enge Streuung gibt einen hohen Score", r && r["Score /30"] >= 26, r && String(r["Score /30"]));
+    const weit = D(mk("7 Iron", 10, 25, 150));
+    ok("weite Streuung einen niedrigen", weit && weit["Score /30"] <= 6, weit && String(weit["Score /30"]));
+    /* UNTER FÜNF SCHLÄGEN NICHTS: Ein Testwert aus drei Schlägen ist keine
+       Messung, sondern eine Anekdote — und er sähe in der Verlaufskurve wie
+       ein echter Einbruch aus. */
+    ok("unter fünf Schlägen wird nichts abgeleitet", D(mk("7 Iron", 3, 5, 150)) === null);
+    ok("und ohne Daten auch nicht", D([]) === null && D(null) === null);
+  }
+
+  if (typeof R === "function") {
+    const mk = (club, n, carry, total) => Array.from({ length: n }, () => ({ club, carry, total }));
+    const r = R(mk("Pitching Wedge", 6, 110, 120).concat(mk("7 Iron", 6, 150, 165)));
+    ok("Carry und Gesamt je Schläger", r && r["PW Carry (m)"] === 110 && r["PW Gesamt (m)"] === 120);
+    ok("auch für das 7er", r && r["7er Carry (m)"] === 150 && r["7er Gesamt (m)"] === 165);
+    /* NUR VOLLE SÄTZE: Fehlt ein Schläger, bleiben seine Felder leer, statt
+       sie aus einem anderen zu raten. */
+    ok("ein fehlender Schläger bleibt leer", r && r["9er Carry (m)"] === undefined);
+    /* „Streuung /15" aus der Schwankung des ROLLANTEILS — gleichmäßig
+       gerollte Bälle sind das, was der Test misst. */
+    ok("gleichmäßiges Rollen gibt volle Punkte", r && r["Streuung /15"] === 15,
+       r && String(r["Streuung /15"]));
+    ok("ohne passende Schläger nichts", R(mk("Driver", 8, 240, 260)) === null);
+  }
+
+  /* ================================================================
+     DRIVER CONSISTENCY UND EISEN-RICHTUNG (v5.50)
+     ----------------------------------------------------------------
+     ICH HATTE VORGESCHLAGEN, „FW-Hits /10" LEER ZU LASSEN — das wäre falsch
+     gewesen. Die Wertung ist `sum`: Ein fehlendes Feld senkt die Summe, und
+     der Eintrag sähe im Verlauf wie ein Einbruch aus. **Ein teilweise
+     gefüllter Testeintrag ist schlimmer als keiner** — er misst etwas anderes
+     als die Einträge daneben.
+     Es geht aber ganz: Die Punktregel steht in der Testbeschreibung selbst
+     und ist mit der seitlichen Abweichung ausrechenbar. */
+  {
+    const DR = G("lmDriverTag"), EI = G("lmEisenTag");
+    const mkD = (n, lat, carry) => Array.from({ length: n }, (_, i) =>
+      ({ club: "Driver", carryLat: (i % 2 ? lat : -lat), carry, smash: 1.45 }));
+    if (typeof DR === "function") {
+      const gut = DR(mkD(10, 6, 230));
+      ok("enge Drives geben volle Fairway-Punkte", gut && gut["FW-Hits /10"] === 10,
+         gut && String(gut["FW-Hits /10"]));
+      const weit = DR(mkD(10, 30, 230));
+      ok("weite Drives keine", weit && weit["FW-Hits /10"] === 0, weit && String(weit["FW-Hits /10"]));
+      /* Die mittlere Stufe der Regel: < 20 m daneben = ein halber Punkt. */
+      const mittel = DR(mkD(10, 15, 230));
+      ok("dazwischen ein halber Punkt", mittel && mittel["FW-Hits /10"] === 5,
+         mittel && String(mittel["FW-Hits /10"]));
+      ok("mit Carry, Max und Smash",
+         gut && gut["Ø Carry (m)"] === 230 && gut["Max Carry (m)"] === 230 && gut["Smash"] === 1.45);
+      ok("unter fünf Drives nichts", DR(mkD(3, 6, 230)) === null);
+      /* OHNE RICHTUNGSWERTE FEHLT DIE HÄLFTE DES TESTS — dann lieber nichts. */
+      ok("ohne Richtungswerte nichts",
+         DR(Array.from({ length: 8 }, () => ({ club: "Driver", carry: 230, smash: 1.4 }))) === null);
+    }
+    if (typeof EI === "function") {
+      const mkE = n => Array.from({ length: n }, (_, i) => ({ club: "7 Iron", carryLat: i - 5 }));
+      const r = EI(mkE(12));
+      /* DIE LETZTEN ZEHN: „Die besten zehn" wäre geschummelt, „die ersten
+         zehn" wäre das Einschlagen. */
+      ok("zehn Bälle werden erfasst", r && Object.keys(r).length === 10);
+      ok("und zwar die letzten", r && r["B1"] === -3 && r["B10"] === 6,
+         r && (r["B1"] + " … " + r["B10"]));
+      /* GENAU ZEHN ODER GAR NICHTS: Mit sieben Werten gerechnet ergäbe der
+         Test eine kleinere Spannweite und damit ein besseres Ergebnis — das
+         wäre kein unvollständiger Eintrag, sondern ein falscher. */
+      ok("unter zehn Bällen nichts", EI(mkE(7)) === null);
+      ok("und ein anderer Schläger zählt nicht",
+         EI(Array.from({ length: 12 }, () => ({ club: "Driver", carryLat: 3 }))) === null);
+    }
+  }
+
+  /* ---- Wiedererkennung: EIN AUTOMATISMUS OHNE SIE IST EINE
+     DUBLETTENMASCHINE. Der bestehende Mechanismus löst das über `auto` +
+     Datum; geprüft wird, dass die neuen Tests darin mitlaufen. ---- */
+  {
+    const S = G("lmTestsSync"), DB1 = live("DB");
+    if (typeof S === "function" && DB1 && (DB1.lmSessions || []).length) {
+      const alt = DB1.tests;
+      try {
+        DB1.tests = (alt || []).slice();
+        S();
+        const n1 = DB1.tests.length;
+        S();
+        ok("ein zweiter Lauf erzeugt nichts", DB1.tests.length === n1,
+           n1 + " → " + DB1.tests.length);
+        const auto = DB1.tests.filter(t => t && t.auto);
+        ok("die neuen Tests werden abgeleitet",
+           auto.some(t => t.defKey === "r10disp") && auto.some(t => t.defKey === "chiproll"),
+           [...new Set(auto.map(t => t.defKey))].join(", "));
+        /* VON HAND ANGELEGTE EINTRÄGE HABEN VORRANG — sie tragen kein `auto`
+           und werden nie überschrieben. */
+        ok("Handeinträge behalten Vorrang", /if\(vorhanden\.some\(t=>!t\.auto\)\) return;/.test(roh));
+      } finally { DB1.tests = alt; }
     }
   }
 }
