@@ -354,7 +354,7 @@ try {
                  "unwetterUrteil","istGewitterCode","unwetterBannerHtml","wakeAppAn",
                  "neueFassungAnzeigen","watchFassungPruefen","watchFassung",
                  "renderComp","renderPlanung","$","rundeAlsTurnier","stampAltbestand","openTournamentEditor",
-                 "icsParse","kalHtml","kalLink","anmeldeFaellig","gpsAusreisser","gpsAlleHtml","gpsZuKlaeren","tombAll",
+                 "icsParse","kalHtml","kalLink","anmeldeFaellig","gpsAusreisser","gpsAlleHtml","gpsZuKlaeren","gpsGegenSoll","tombAll",
                  "logInfo","_logZustand","ERRLOG",
                  "_restZumGruen","_spieltWieM",
                  "pruefeDaten","pruefeRechnung",
@@ -10269,6 +10269,101 @@ group("Schlag-GPS — Ausreißer sehen und loswerden");
        Object.keys(A([{ id: "a", dist: 150 }, { id: "b", dist: 151 }, { id: "c", dist: 150 },
                       { id: "d", dist: 152 }, { id: "e", dist: 149 }, { id: "f", dist: 153 }])).length === 0);
   }
+
+  /* ================================================================
+     VON LANG NACH KURZ, UND EINE ZWEITE PRÜFUNG (v5.47)
+     ----------------------------------------------------------------
+     GEWÜNSCHT: „Bitte stelle sicher, dass dieser Bereich von langen zu kurzen
+     Schlägern sortiert wird."
+     Vorher stand die HÄUFIGKEIT vorne — eine Auskunft über die Datenlage,
+     nicht über die Bag. **Die Reihenfolge einer Liste ist eine Aussage
+     darüber, wonach man sucht**, und gesucht wird ein Schläger. */
+  /* GEDREHT IN v5.48 auf Nachfrage: „Eine feste Reihenfolge ist mir lieber —
+     sortiere nach LÄNGE DES SCHLÄGERS (Driver ist der längste im Bag, dann
+     3 Wood usw.)."
+     UND DIE NACHFRAGE HAT RECHT. Mein Argument von v5.47 (die angezeigten
+     Zahlen sollen monoton fallen) war nicht falsch, aber zweitrangig: Eine
+     nicht ganz monotone Zahlenreihe liest man in zwei Sekunden — einen
+     Schläger, der jedes Mal woanders steht, sucht man jedes Mal neu. Beim
+     Median rutscht ein Schläger mit zwei schlechten Messungen quer durch die
+     Liste: Das 3 Wood liegt im eigenen Bestand bei 105 m Median und stünde
+     damit zwischen den Wedges, obwohl es der zweitlängste Schläger ist.
+     WER EINE LISTE ZUM SUCHEN BENUTZT, BRAUCHT SIE VORHERSAGBAR, NICHT SCHÖN. */
+  ok("nach der Reihenfolge der Bag sortiert",
+     /const bagPos=\(\(\)=>\{ const m=\{\};/.test(roh)
+     && /if\(A!=null && B!=null\) return A-B;/.test(roh));
+  /* KEINE ZWEITE RANGFOLGE DANEBEN: `DB.clubDistances` steht bereits vom
+     längsten zum kürzesten Schläger — es genügt, ihre POSITION zu nehmen. */
+  ok("und nimmt dafür die Position, nicht eine eigene Liste",
+     /\(DB\.clubDistances\|\|\[\]\)\.forEach\(\(c,i\)=>\{ if\(c&&c\.club\) m\[c\.club\]=i; \}\)/.test(roh));
+  /* Was nicht in der Bag steht, kommt ans Ende — dort nach gemessener Länge,
+     damit auch da eine Ordnung herrscht. */
+  ok("Unbekanntes kommt ans Ende", /if\(A!=null\) return -1;/.test(roh)
+     && /const mA=medOf\(a\), mB=medOf\(b\);/.test(roh));
+
+  /* ---- Und der Nachweis am Ergebnis, nicht nur am Quelltext ---- */
+  {
+    const H2 = G("gpsAlleHtml"), DB1 = live("DB");
+    if (typeof H2 === "function" && DB1) {
+      const altS = DB1.gpsShots, altB = DB1.clubDistances;
+      try {
+        DB1.clubDistances = [{ club: "Driver" }, { club: "3 Wood" }, { club: "7 Iron" }, { club: "SW" }];
+        /* Absichtlich SO gemessen, dass Median und Bag-Reihenfolge
+           AUSEINANDERGEHEN: Das 3 Wood hat hier den kürzesten Median, gehört
+           aber an Position 2. Nur so prüft der Test wirklich die Bag. */
+        DB1.gpsShots = [
+          { id: "1", club: "Driver",  dist: 240, ts: "2026-08-01T10:00:00Z" },
+          { id: "2", club: "3 Wood",  dist: 40,  ts: "2026-08-01T10:00:00Z" },
+          { id: "3", club: "7 Iron",  dist: 150, ts: "2026-08-01T10:00:00Z" },
+          { id: "4", club: "SW",      dist: 80,  ts: "2026-08-01T10:00:00Z" },
+          { id: "5", club: "Fremder", dist: 200, ts: "2026-08-01T10:00:00Z" }];
+        const namen = [...H2().matchAll(/<summary>([\s\S]*?)<\/summary>/g)]
+          .map(m => m[1].split("·")[0].trim());
+        ok("die Reihenfolge folgt der Bag",
+           namen.slice(0, 4).join(" → ") === "Driver → 3 Wood → 7 Iron → SW",
+           namen.join(" → "));
+        /* Auch wenn der Median das Gegenteil sagt — genau das war der Punkt. */
+        ok("auch gegen den Median", namen[1] === "3 Wood", namen.join(" → "));
+        ok("Unbekanntes steht hinten", namen[namen.length - 1] === "Fremder", namen.join(" → "));
+      } finally { DB1.gpsShots = altS; DB1.clubDistances = altB; }
+    }
+  }
+  ok("und bei Gleichstand stabil nach Name",
+     /return String\(a\)\.localeCompare\(String\(b\)\);/.test(roh));
+
+  /* ---- Die zweite Prüfung: gegen den Sollwert ----
+     `gpsAusreisser` braucht mindestens fünf Schläge; im Bestand haben elf von
+     zwölf Schlägern weniger. Sie ist damit blind für genau die Fälle, die am
+     offensichtlichsten falsch sind. **EIN LOB WEDGE FLIEGT KEINE 165 METER** —
+     dafür braucht man keine Statistik, sondern den Sollwert. */
+  {
+    const S = G("gpsGegenSoll"), DBx = live("DB");
+    if (typeof S === "function" && DBx) {
+      const alt = DBx.clubDistances;
+      try {
+        DBx.clubDistances = [{ club: "LW 58°", carry: 60, total: 64 },
+                             { club: "Driver", carry: 225, total: 240 }];
+        const f = S([{ id: "a", club: "LW 58°", dist: 165 },
+                     { id: "b", club: "LW 58°", dist: 36 },
+                     { id: "c", club: "Driver", dist: 260 },
+                     { id: "d", club: "Ohne Soll", dist: 999 }]);
+        ok("ein unmöglicher Wert wird gefunden", f.a && f.a.soll === 64);
+        /* GROSSZÜGIG: Ein guter Tag mit Rückenwind bringt beim Driver leicht
+           30 m mehr — gemeldet werden soll, was nicht mehr derselbe Schläger
+           sein KANN. */
+        ok("ein guter Tag bleibt ruhig", !f.c);
+        ok("ein plausibler Wedge-Schlag ebenso", !f.b);
+        /* Ohne hinterlegte Länge kein Urteil — Schweigen ist hier richtig. */
+        ok("ohne Sollwert kein Urteil", !f.d);
+        ok("die Grenze ist großzügig", /Math\.max\(25, soll\*0\.45\)/.test(roh));
+      } finally { DBx.clubDistances = alt; }
+    }
+  }
+  /* ZWEI UNABHÄNGIGE PRÜFUNGEN, EINE MARKIERUNG — und der Grund steht dabei. */
+  ok("beide Prüfungen färben dieselbe Zeile",
+     /const soll=gpsGegenSoll\(l\);/.test(roh)
+     && /Object\.keys\(soll\)\.forEach\(id=>\{ flag\[id\]=true; \}\);/.test(roh));
+  ok("mit dem Sollwert als Begründung", /passt nicht zum Schläger/.test(src));
 
   /* ---- Die Liste ---- */
   if (typeof H === "function" && DB0) {

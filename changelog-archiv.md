@@ -13,6 +13,59 @@
 
 ---
 
+- **v5.03.0 · 2026-08-29** — **Doku-Durchsicht nach dem Protokoll-Audit: `sw.js` bekommt ein
+  Kapitel.** Auftrag war, nach den drei Etappen zu prüfen, ob die Doku noch stimmt. **Ergebnis:** Sie
+  stimmt — mit einer Lücke. Geprüft habe ich, ob die Doku Funktionen verspricht, die es nicht mehr
+  gibt (11 Treffer, **alle korrekt** — zehn stehen in Sätzen der Form „ersatzlos entfallen", einer
+  ist `leseBegrenzt` der Uhr), ob die Neuerungen dieser Woche beschrieben sind (`logInfo`,
+  Startvermerk, `__swlog`, `_logZustand`, `pruefeDaten`, `unwetterUrteil`, `wakeAppAn`, `caddyKette`,
+  `teilAnteil`, `fremderZeigerZaehlt`, `poolQuote`, `dbJetzt` — **alle vorhanden**), und ob die
+  Worker-Fassung noch gekoppelt ist (Datei v2.11, Abzug v2.11 — **stimmt überein**).
+  **DIE LÜCKE:** `sw.js` wurde **13-mal erwähnt und nirgends beschrieben** — bis er diese Woche die
+  App lahmlegte. Das ist dieselbe Lücke wie beim Worker vor zwei Tagen: eine Komponente, die über
+  Start oder Nicht-Start entscheidet, ohne dass jemand nachlesen kann, wie sie es tut. Neues Kapitel
+  **27b** mit den drei Strategien (Hülle mit 1,5-s-Zeitlimit, Kacheln cache-first, `isNeverCache`),
+  der Erklärung, **warum eine neue Fassung erst beim übernächsten Start erscheint** (2,7 MB kommen
+  nie in 1,5 s an — im Normalbetrieb gewinnt immer der Cache), dem Nachbericht über `./__swlog` und
+  der Regel, die diese Woche **dreimal in drei verschiedenen Dateien** verletzt wurde: **erst den
+  Ersatz sichern, dann das Alte wegwerfen.** Sie steht jetzt in allen dreien.
+  **Prüfstand 24er** bindet das Kapitel an die Datei — dieselbe Bauart wie 24ca beim Worker: Das
+  Zeitlimit wird aus `sw.js` gelesen und gegen die Doku gehalten, der Nachbericht muss auf beiden
+  Seiten existieren. Eine abgeschriebene Zahl veraltet mit; eine verglichene kann es nicht.
+
+- **v5.02.0 · 2026-08-29** — **Das Protokoll erzählt den Ausfall jetzt.** Gemeldet: „Von diesem
+  ganzen Problem findet sich anscheinend nichts im Fehlerlog." Stimmte — und der Grund war
+  strukturell, nicht Nachlässigkeit.
+  **(1) DER STARTVERMERK.** Je Start eine `info`-Zeile: Fassung, Dauer bis zum ersten Bild, Herkunft
+  der Hülle (`transferSize===0` heißt „aus dem Speicher"), Online-Status. Ein **Fassungswechsel**
+  bekommt eine eigene Zeile — er ist der häufigste Auslöser für „seit heute geht etwas nicht mehr".
+  **Damit wäre der Ausfall in einem Blick sichtbar gewesen:** letzter Start 04:42 mit 5.00.0, danach
+  nichts mehr. **Die Lücke ist die Nachricht.**
+  **(2) DER SERVICE WORKER MELDET SICH** (`sw.js` v3). Er war der größte blinde Fleck: Er entscheidet
+  über Start oder Nicht-Start und schrieb nie eine Zeile. Jetzt legt er den Grund im Cache ab
+  (`./__swlog`) — im Moment der Störung ist meist **kein** Fenster offen, dem er etwas schicken
+  könnte — und die App holt ihn beim **nächsten erfolgreichen Start** ab. **Ein Ausfall kann sich
+  nicht selbst melden, aber er kann sich melden, sobald es wieder geht.** Kein Fernprotokoll: Die
+  Meldung bleibt auf dem Gerät.
+  **(3) DRITTE STUFE `logInfo`.** Start, Fassungswechsel, Plan-Erneuerung, fehlende Höhendaten sind
+  keine Warnungen. Sie liefen bisher als `warn` und verdrängten echte Warnungen aus einem Ring, der
+  bei 40 endete — das ganze Protokoll bestand am 29.08. aus drei Routine-Zeilen. **Ein Ereignis, das
+  bei jedem Aufruf eintritt und sich nie ändert, ist ein Zustand und keine Nachricht.** Ring auf 60,
+  weil Kontext ohne Vorgeschichte keiner ist.
+  **(4) HERKUNFT STATT „PROMISE".** `unhandledrejection` nennt jetzt den ersten Stapelrahmen. „Promise"
+  allein ist keine Quelle, sondern die Bauart des Fehlers — deshalb stand am 29.08. ein anonymes
+  „Promise · Failed to fetch" im Log, und ich habe die Zeile falsch gedeutet.
+  **(5) ZUSTAND AM EINTRAG** (`_logZustand`): Fassung, Ansicht, laufende Runde, offline. Beantwortet
+  die erste Rückfrage, bevor sie gestellt wird.
+  **(6) DER SELBSTTEST LIEST DAS PROTOKOLL** — und dabei ein eigener Fund: Er prüfte auf das Feld
+  `level`, **das es gar nicht gibt** (es heißt `lvl`). Die Zahl war damit **immer 0**, und er meldete
+  brav „keine Fehler", während das Protokoll voll war. **Ein still falsches Grün ist schlimmer als
+  ein Rot** — man verlässt sich darauf. Jetzt: Fehler seit dem letzten Start, häufigste Quelle,
+  Zeitpunkt des letzten Starts, und ein fehlender Startvermerk ist selbst ein Befund.
+  **Doku:** Der Abschnitt zum Fehlerprotokoll stand noch auf „letzte 40" und „nur Sitzung, nicht
+  gespeichert" — beides seit Langem falsch. Jetzt vollständig, mit den drei Stufen und ihrer
+  Abgrenzung.
+
 - **v5.01.0 · 2026-08-29** — **„Neueste Fassung laden" konnte die App unerreichbar machen.**
   Gemeldet: „Die App lädt überhaupt nicht mehr" — auf dem Handy, während sie am PC weiterlief. Im
   Protokoll dazu: `Promise: Failed to fetch`. **Die Kette war hausgemacht:** `swForceUpdate` löschte
