@@ -353,7 +353,7 @@ try {
                  "elevGet",
                  "unwetterUrteil","istGewitterCode","unwetterBannerHtml","wakeAppAn",
                  "neueFassungAnzeigen","watchFassungPruefen","watchFassung",
-                 "renderComp","renderPlanung","$","rundeAlsTurnier","stampAltbestand","tombAll",
+                 "renderComp","renderPlanung","$","rundeAlsTurnier","stampAltbestand","openTournamentEditor","tombAll",
                  "logInfo","_logZustand","ERRLOG",
                  "_restZumGruen","_spieltWieM",
                  "pruefeDaten","pruefeRechnung",
@@ -10199,6 +10199,81 @@ group("Löschen — jede Benutzer-Löschung setzt einen Grabstein");
     }
     ok("keine Löschstelle ohne Grabstein", offen.length === 0, offen.join(", "));
   }
+}
+
+/* ============ 24fm. Turnier-Status als Auswahl, Farbe im Kalender ============ */
+group("Turnierkalender — Status steuert die Farbe");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+  const RC = G("renderComp"), OE = G("openTournamentEditor"), DB0 = live("DB");
+
+  /* ====================================================================
+     GEWÜNSCHT am 01.09.2026 (v5.40)
+     --------------------------------------------------------------------
+     „Ein Dropdown für den Status. Weiterhin möchte ich eingeben können, ob es
+     ein 9-Loch- oder 18-Loch-Turnier ist. Status gemeldet → grün, offen →
+     gelb."
+     WARUM EINE AUSWAHL BESSER IST ALS EIN FREITEXT: Der Status steuert eine
+     FARBE. Ein Freitext kann das nicht — „Gemeldet", „gemeldet " und
+     „angemeldet" wären drei Zustände, und die Farbe bliebe aus, ohne dass
+     jemand weiß warum. **Wer eine Eingabe auswertet, muss ihre Werte kennen.** */
+  ok("der Status ist ein Auswahlfeld", /<select id="tn_status">/.test(src));
+  ok("mit den gebrauchten Werten",
+     /"offen","gemeldet","geplant","optional","abgesagt"/.test(src));
+  ok("und der Umfang ebenso", /<select id="tn_holes">/.test(src)
+     && /\["9","9 Loch"\]/.test(src) && /\["18","18 Loch"\]/.test(src));
+  ok("beide werden gespeichert",
+     /status:\$\("#tn_status"\)\.value\.trim\(\)\|\|null/.test(src)
+     && /holes:num\(\$\("#tn_holes"\)\.value\)/.test(src));
+
+  /* ---- Ein Altwert darf nicht verschwinden ----
+     Im eigenen Bestand stehen „geplant", „offen", „gemeldet", „optional" —
+     alle vier sind in der Liste. Ein UNBEKANNTER Altwert wird zusätzlich
+     aufgenommen, statt beim Öffnen still auf den ersten zu springen: Das
+     bloße Öffnen des Editors darf den Status nicht ändern. */
+  if (typeof OE === "function" && DB0) {
+    const alt = DB0.tournaments;
+    try {
+      DB0.tournaments = [{ id: "X", name: "Alt", date: "2099-01-01", status: "Quali-Runde" }];
+      OE("X");
+      const el = ctx.document && ctx.document.getElementById
+        ? ctx.document.getElementById("sheetBody") : null;
+      const h = (el && el.innerHTML) || "";
+      const sel = /<select id="tn_status">([\s\S]*?)<\/select>/.exec(h);
+      ok("ein unbekannter Altwert bleibt erhalten", !!sel && /Quali-Runde/.test(sel[1]));
+      ok("und ist ausgewählt", !!sel && /value="Quali-Runde" selected/.test(sel[1]));
+    } finally { DB0.tournaments = alt; }
+  }
+
+  /* ---- Die Farbe ----
+     GRÜN HEISST ERLEDIGT, GELB HEISST OFFEN — dieselbe Bedeutung wie überall
+     sonst in dieser App. Eine Farbe, die an einer Stelle „gut" und an einer
+     anderen „Achtung" hieße, wäre schlimmer als keine. */
+  if (typeof RC === "function" && DB0) {
+    const alt = DB0.tournaments;
+    try {
+      DB0.tournaments = [
+        { id: "A", name: "GemeldetT", date: "2099-09-15", status: "gemeldet", holes: 18 },
+        { id: "B", name: "OffenT", date: "2099-09-20", status: "offen", holes: 9 },
+        { id: "C", name: "GeplantT", date: "2099-09-25", status: "geplant" }];
+      RC();
+      const el = ctx.document && ctx.document.getElementById
+        ? ctx.document.getElementById("v-comp") : null;
+      const h = (el && el.innerHTML) || "";
+      ok("gemeldet wird grün hinterlegt",
+         /tn-gemeldet[^>]*>[\s\S]{0,220}?GemeldetT/.test(h));
+      ok("offen wird gelb hinterlegt",
+         /tn-offen[^>]*>[\s\S]{0,220}?OffenT/.test(h));
+      /* NUR DIESE BEIDEN: Wenn jede Zeile eine Farbe trägt, trägt keine mehr
+         eine Aussage. */
+      ok("alles andere bleibt ungefärbt",
+         !/tn-(gemeldet|offen)[^>]*>[\s\S]{0,220}?GeplantT/.test(h));
+      ok("der Umfang steht in der Zeile", /9 Loch/.test(h) && /18 Loch/.test(h));
+    } finally { DB0.tournaments = alt; }
+  }
+  ok("die Gestaltung ist da",
+     /\.row\.tn-gemeldet\{border-left:4px solid #2e7d32/.test(src)
+     && /\.row\.tn-offen\{border-left:4px solid #c9a227/.test(src));
 }
 
 /* ============ 24fl. Gelöschtes bleibt gelöscht ============ */
