@@ -1,6 +1,13 @@
 /* =====================================================================
- *  GOLF-TRAINING SYNC-WORKER v2.11  (Cloudflare Worker)
+ *  GOLF-TRAINING SYNC-WORKER v2.12  (Cloudflare Worker)
  *  ---------------------------------------------------------------
+ *  NEU IN v2.12 (2026-09-01): `?ics=<Adresse>` reicht einen oeffentlich
+ *  freigegebenen Google-Kalender durch — die App kann ihn nicht direkt lesen,
+ *  weil Google die dafuer noetige Freigabe (CORS) nicht setzt. AUSSCHLIESSLICH
+ *  Google-Adressen, nur https, mit Groessengrenze: Ein Worker, der beliebige
+ *  Adressen abruft, ist ein offener Weiterleiter — der wird gefunden und
+ *  missbraucht. Die Beschraenkung ist keine Vorsicht, sondern Pflicht.
+ *
  *  NEU IN v2.11 (2026-08-24): `watchlog.json` in der Whitelist — das
  *  Fehlerprotokoll der Uhr, auch ohne laufende Runde.
  *

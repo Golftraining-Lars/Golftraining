@@ -17386,6 +17386,29 @@ group("Worker-Code in der Doku");
          fehlt.length ? "fehlt: " + fehlt.join(", ") : [...gesendet].sort().join(", "));
       ok("und der Abzug zeigt dieselbe Whitelist",
          [...wl].every(x => doc.indexOf('"' + x + '"') > 0), [...wl].join(", "));
+
+      /* ==================================================================
+         AUCH DIE ZWEIGE, NICHT NUR DIE FASSUNG (v5.52)
+         --------------------------------------------------------------------
+         NACHGEFRAGT am 01.09.: „Hast du den neuen Worker auch in der Doku
+         hinterlegt?" — NEIN. Der ICS-Zweig aus v2.12 stand in `worker.js`,
+         aber nicht im Abzug; die Überschrift führte noch v2.11.
+         UND DIESE PRÜFUNG WAR TROTZDEM GRÜN: Sie verglich Fassungsnummer und
+         Whitelist — beides stimmte, weil die Fassungsnummer aus der DATEI
+         gelesen wird und der neue Zweig keine neuen Pfade braucht.
+         EINE PRÜFUNG, DIE NUR DIE ÜBERSCHRIFT VERGLEICHT, BEMERKT KEINEN
+         NEUEN INHALT. Der Abzug soll den Code zeigen, nicht seine Nummer.
+         Deshalb wird jetzt jeder EINSTIEGSPUNKT verglichen: Jeder
+         `searchParams.get("…")`-Zweig in `worker.js` muss im Abzug
+         auftauchen. Wer einen Zweig hinzufügt, muss den Abzug anfassen. */
+      {
+        const zweige = [...new Set(
+          (w.match(/searchParams\.get\("(\w+)"\)/g) || [])
+            .map(m => (m.match(/"(\w+)"/) || [])[1]).filter(Boolean))];
+        const fehlen = zweige.filter(z => doc.indexOf('searchParams.get("' + z + '")') < 0);
+        ok("der Abzug zeigt alle Worker-Zweige", fehlen.length === 0,
+           fehlen.length ? "fehlt im Abzug: " + fehlen.join(", ") : zweige.join(", "));
+      }
     }
   }
   /* Beim Bau von v2.87 landete eine mergeDB-Änderung im Worker-ABZUG statt in

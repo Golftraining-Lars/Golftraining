@@ -13,6 +13,30 @@
 
 ---
 
+- **v5.07.0 · 2026-08-29** — **Das Einfrieren nach 20 Sekunden: gemessen statt vermutet.** Ein
+  CPU-Profil eines einzigen Rasteraufbaus hat es gezeigt — nach vier falschen Verdächtigen (Datei,
+  Cache, Service Worker, Datenmenge):
+  **Rasteraufbau EINES Lochs: 3.591 ms, davon 77 % in `haversine`/`geoDist`.** Raster 71 × 166 =
+  11.786 Zellen, 250 Bäume in der Vorauswahl → **2,9 Millionen Haversine-Aufrufe je Loch**. Und
+  `gameplanTick` rechnet beim Start **vier Gameplans × 18 Löcher** neu: 38 s je Plan auf dem Rechner,
+  auf einem Handy ein Vielfaches. Das ist das Einfrieren — es hat mit Dateigröße, Cache und Service
+  Worker **nichts** zu tun.
+  **Die Ursache stand in einer Zeile:** `trees.some(t => geoDist(p, t.pt) < 3.5)`. Für jede Zelle
+  gegen jeden Baum eine Kugelrechnung mit Sinus, Kosinus und Wurzel — um zu entscheiden, ob ein Punkt
+  näher als 3,5 Meter liegt. **Haversine für 3,5 Meter ist mit Kanonen auf Spatzen geschossen:** Sie
+  rechnet auf der Kugel und ist auf Hunderte Kilometer genau; auf dieser Entfernung ist die
+  Erdkrümmung bedeutungslos.
+  **Behoben:** ebene Rechnung mit den Metern je Grad, die das Raster ohnehin kennt, im Quadrat
+  verglichen — zwei Subtraktionen, zwei Multiplikationen, ein Vergleich. Die Umrechnung passiert
+  **einmal je Raster**, nicht je Zelle; Bäume außerhalb des Rasters fallen vorher raus; Ringe bekommen
+  ein umfassendes Rechteck vor den Punkt-in-Ring-Test.
+  **Ergebnis: Raster 3.591 ms → 79 ms, ein ganzer Gameplan 37.983 ms → 1.579 ms — Faktor 24.**
+  Nachgeprüft: Von 11.786 Zellen weichen **3** ab, Randfälle genau auf der 3,5-m-Grenze.
+  **Nebenbei entschärft:** Die Prüfung „Raster zählt Grünzellen" las `grid()` über ein festes
+  14.000-Zeichen-Fenster und musste schon zweimal nachgezogen werden. Sie grenzt den Block jetzt an
+  der nächsten Methode ab. **Ein Fenster, das man nachziehen muss, ist keine Grenze, sondern eine
+  Verabredung auf Zeit.**
+
 - **v5.06.0 · 2026-08-29** — **Zwei Megabyte für einen grauen Punkt.** Die entscheidende Auskunft
   kam von dir: **Im Inkognito-Fenster lud die App — und hängte sich nach 20 Sekunden auf.** Damit war
   klar, dass es weder die Datei noch der Cache ist, sondern etwas, das *nach* dem Laden passiert. Und
