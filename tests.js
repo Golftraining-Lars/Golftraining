@@ -354,7 +354,7 @@ try {
                  "unwetterUrteil","istGewitterCode","unwetterBannerHtml","wakeAppAn",
                  "neueFassungAnzeigen","watchFassungPruefen","watchFassung",
                  "renderComp","renderPlanung","$","rundeAlsTurnier","stampAltbestand","openTournamentEditor",
-                 "icsParse","kalHtml","kalLink","anmeldeFaellig","gpsAusreisser","gpsAlleHtml","tombAll",
+                 "icsParse","kalHtml","kalLink","anmeldeFaellig","gpsAusreisser","gpsAlleHtml","gpsZuKlaeren","tombAll",
                  "logInfo","_logZustand","ERRLOG",
                  "_restZumGruen","_spieltWieM",
                  "pruefeDaten","pruefeRechnung",
@@ -10237,6 +10237,30 @@ group("Schlag-GPS — Ausreißer sehen und loswerden");
        /const med=median\(d\);/.test(roh) && /median\(d\.map\(x=>Math\.abs\(x-med\)\)\)/.test(roh));
     /* UNTER FÜNF SCHLÄGEN WIRD NICHTS MARKIERT: „ungewöhnlich" braucht einen
        Vergleich. */
+    /* ================================================================
+       DIE MINDESTBREITE MUSS MIT DER SCHLAGWEITE WACHSEN (v5.46)
+       ----------------------------------------------------------------
+       GEMELDET: „Ich verstehe nicht, warum die zwei Schläge gelb markiert
+       wurden" — Driver, Median 241 m, markiert 218 m und 260 m.
+       DAS WAR MEIN FEHLER: Die übrigen Werte lagen bei 239–245 m, der
+       mittlere Abstand war 3 m, und die feste Mindestbreite von 8 m griff.
+       **Wer beim Driver ab 9 Metern warnt, warnt bei jedem zweiten Schlag** —
+       218 bis 260 m ist für einen Driver keine Auffälligkeit, sondern
+       Dienstag. Eine feste Schwelle passt nicht auf Schläger, deren Längen um
+       den Faktor vier auseinanderliegen.
+       LIEBER EINE WARNUNG ZU WENIG ALS EINE ZU VIEL: Eine Markierung, die man
+       bei jedem zweiten Schlag sieht, liest man nach einer Woche nicht mehr —
+       und übersieht dann auch die richtige. */
+    ok("normale Driver-Streuung bleibt ruhig",
+       Object.keys(A([241,239,245,218,260,239,244].map((d,i)=>({id:"d"+i,dist:d})))).length === 0);
+    /* Aber eine echte Fehlmessung fällt weiterhin auf — auch beim Driver. */
+    ok("eine Fehlmessung fällt trotzdem auf",
+       A([241,239,245,218,260,239,244,420].map((d,i)=>({id:"d"+i,dist:d})))["d7"] === true);
+    /* Und beim Wedge greift sie enger, weil die Schwelle mitwächst. */
+    ok("beim Wedge greift sie enger",
+       A([90,92,88,91,89,45].map((d,i)=>({id:"w"+i,dist:d})))["w5"] === true);
+    ok("die Schwelle wächst mit der Schlagweite", /Math\.max\(10, med\*0\.12/.test(roh));
+
     ok("bei zu wenigen Schlägen schweigt es",
        Object.keys(A([{ id: "a", dist: 150 }, { id: "b", dist: 400 }])).length === 0);
     /* Und eine sehr gleichmäßige Reihe darf nicht ständig anschlagen —
@@ -10284,6 +10308,29 @@ group("Schlag-GPS — Ausreißer sehen und loswerden");
      ein guter Tag war, weiß nur der Spieler. */
   ok("nichts wird automatisch gelöscht",
      /gelöscht wird nichts automatisch/i.test(src));
+
+  /* ================================================================
+     ZU KLÄREN — WAS DIE DATENBASIS SCHWÄCHT (v5.46)
+     ----------------------------------------------------------------
+     GEMELDET: „Er sagt, dass ein getrackter Schlag keinen Schläger hat — das
+     sollte unter Schlag-GPS aufgeführt sein, eine Tabelle mit Schlägen, wo
+     was unklar und zu tun ist."
+     Der Hinweis stand als SATZ da, mit einer Anleitung zum Selbersuchen.
+     **EIN BEFUND OHNE WEG ZUR STELLE IST EINE HAUSAUFGABE, KEINE HILFE.** */
+  {
+    const Z = G("gpsZuKlaeren");
+    if (typeof Z === "function") {
+      ok("es gibt eine Liste der offenen Punkte", Array.isArray(Z()));
+      /* DIESELBE QUELLE WIE DER HINWEIS DARÜBER: `roundShots()` filtert Putts
+         und Abbrüche bereits heraus. Ein erster Anlauf las die Runden roh und
+         kam auf 29 statt 1 — **wer neben einer bestehenden Zählung eine zweite
+         baut, baut einen Widerspruch.** */
+      ok("sie nutzt dieselbe Quelle wie der Hinweis",
+         /\(\(typeof roundShots==="function"\)\?roundShots\(\):\[\]\)/.test(roh));
+      ok("und ist anklickbar", /data-runde="/.test(src) && /openAddRound\(r\)/.test(roh));
+      ok("der Grund steht an der markierten Zeile", /m zum Median/.test(src));
+    }
+  }
 }
 
 /* ============ 24fq. Die Selbstprüfung wächst mit ============ */

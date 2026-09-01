@@ -13,6 +13,26 @@
 
 ---
 
+- **v5.01.0 · 2026-08-29** — **„Neueste Fassung laden" konnte die App unerreichbar machen.**
+  Gemeldet: „Die App lädt überhaupt nicht mehr" — auf dem Handy, während sie am PC weiterlief. Im
+  Protokoll dazu: `Promise: Failed to fetch`. **Die Kette war hausgemacht:** `swForceUpdate` löschte
+  den Hüllen-Cache **ganz vorn** — die gespeicherte Fassung war weg, **bevor** irgendetwas Neues da
+  war. Dann `location.replace(...)`; der Service Worker versucht 2,7 MB aus dem Netz zu holen, und
+  bei schwachem Funk misslingt das. Danach gibt es **weder Cache noch Netz** — und der Weg zurück
+  führt über genau den Knopf, den man nicht mehr erreicht.
+  **Dieselbe Fehlerklasse wie der Rückfallweg der Uhr (48)** und wie das Archiv-Skript (v4.85):
+  **erst schreiben, dann löschen — nie umgekehrt.** Jetzt wird die neue Fassung zuerst geholt und auf
+  Vollständigkeit geprüft (ein abgebrochener Download liefert oft 200 mit zu wenig Inhalt); erst dann
+  wird der **eine** Hüllen-Eintrag ersetzt. Misslingt der Abruf, bleibt die alte Hülle unangetastet,
+  die App startet weiter, und es kommt eine ehrliche Meldung statt eines weißen Bildschirms. Die
+  Kartenkacheln werden nicht mehr mitgelöscht — sie neu zu laden kostet Funk, den man auf dem Platz
+  nicht hat.
+  **Zweiter Fund aus demselben Protokoll:** `unwetterTick` rief `unwetterHolen(...).then(...)` **ohne
+  `.catch`**. Ein misslungener Wetterabruf wurde damit zur unbehandelten Zurückweisung und landete
+  als „Promise: Failed to fetch" im Protokoll — ohne Hinweis darauf, **wer** sie ausgelöst hat. Genau
+  diese Zeile hat mich zunächst in die falsche Richtung geschickt. Eine Prüfung fängt den Rückfall
+  für alle `fetchMitFrist`-Aufrufe ab.
+
 - **v5.00.0 · 2026-08-28** — **Gewitterwarnung auf dem Platz · Bildschirm bleibt an.**
   **(1) DIE WARNUNG.** Vorgabe: „Wetterwarnungen in den Spielmodus einbinden, ob sich Blitze oder
   Unwetter meiner Position nähern … ob es für mich auf dem Golfplatz gefährlich wird." **Das ist die
