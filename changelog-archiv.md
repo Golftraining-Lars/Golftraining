@@ -13,6 +13,126 @@
 
 ---
 
+- **v5.00.0 · 2026-08-28** — **Gewitterwarnung auf dem Platz · Bildschirm bleibt an.**
+  **(1) DIE WARNUNG.** Vorgabe: „Wetterwarnungen in den Spielmodus einbinden, ob sich Blitze oder
+  Unwetter meiner Position nähern … ob es für mich auf dem Golfplatz gefährlich wird." **Das ist die
+  einzige Funktion dieser App, bei der ein Fehler wehtun kann** — ein Golfplatz ist offenes Gelände,
+  und ein Spieler mit einem Metallschläger ist der höchste Punkt weit und breit. Deshalb gelten hier
+  vier Regeln, die im Rest der App nicht gelten:
+  **Keine Warnung heißt NICHT „sicher".** Der Kasten bleibt auch bei Ruhe stehen und nennt Quelle und
+  **Alter** der Daten. Ein leeres Feld liest sich als Entwarnung — und eine Entwarnung, die niemand
+  ausgesprochen hat, wäre bei einer Warnfunktion die gefährlichste Anzeige.
+  **Es ist eine Vorhersage, keine Blitzortung.** Der Satz steht auch im ruhigen Zustand da: „Wer
+  Donner hört, ist bereits in Reichweite."
+  **Im Zweifel warnen:** Fehlende Felder gelten als *unbekannt*, nie als harmlos; ein misslungener
+  Abruf wird gemeldet, nicht verschwiegen.
+  **Die 30/30-Regel** steht bei jeder Warnung — unter 30 s zwischen Blitz und Donner sofort Schutz,
+  erst 30 min nach dem letzten Donner zurück. Sie hängt nicht an dieser App, genau deshalb steht sie
+  da.
+  Stufen: Gewitter ≤30 min → *Gefahr* (roter Kasten, Vibration, Protokoll) · ≤120 min → *Warnung*
+  („Rückweg jetzt einplanen — von Loch 9 zum Clubhaus dauert es länger als die Vorwarnzeit") ·
+  CAPE ≥1500 mit Regen oder Böen ≥17 m/s → *Warnung* · Starkregen → *Hinweis* („für die Sicherheit
+  unkritisch"). Mehrere Signale, weil keines allein verlässlich ist und `lightning_potential`
+  außerhalb Mitteleuropas gar nicht kommt. **Neu gezeichnet und gemeldet wird nur bei
+  Stufenwechsel** — ein Kasten, der sich alle zehn Minuten selbst neu malt, zieht den Blick ab, ohne
+  etwas zu sagen. Beim Rundenstart wird sofort geprüft.
+  **Ehrlich gekennzeichnet:** Der Bausandkasten kommt nicht an `api.open-meteo.com`. Die Auswertung
+  ist defensiv gebaut und mit 17 Prüfungen abgedeckt, aber **was das Gerät wirklich liefert, muss die
+  erste Runde zeigen.**
+  **(2) BILDSCHIRM BLEIBT AN.** Vorgabe: „Immer wenn die App an ist, soll das Handy always on
+  bleiben." Die Sperre hing bisher an `gps` und `runde` — wer Schlägerlängen pflegte oder eine Runde
+  nachtrug, saß nach 30 Sekunden im Dunkeln. Neu der Grund `app`, in derselben Zählweise:
+  freigegeben wird erst, wenn **niemand** mehr will, damit keiner der drei dem anderen die Sperre
+  wegnimmt. Nach jedem Wechsel wird neu angefordert — der Browser gibt sie beim Wegschalten frei und
+  holt sie nicht von allein zurück. **Der Preis, ausdrücklich:** Ein dauerhaft helles Display ist der
+  größte Einzelposten im Akkuverbrauch, größer als GPS.
+
+- **v4.99.0 · 2026-08-28** — **Der Caddy begründet seine Empfehlung.** Vorgabe: „Wenn der Caddy im
+  Spielmodus ausgeklappt wird, soll er eine detaillierte Begründung für seine Empfehlungen geben."
+  Bis v4.98 sagte er nur das **was** — Schläger, Ziel, ES-Wert, Streubild-Prozente. Das **warum**
+  fehlte: warum dieser Schläger und nicht der nächstlängere, und was den Ausschlag gab.
+  **Konzept A — die Entscheidungskette** (`caddyKette`), fünf Zeilen in der Reihenfolge, in der ein
+  Caddy denkt: *Lage* · *Spielt wie* · *In Frage* · *Ausschlag*. „Spielt wie" erscheint **nur**, wenn
+  Wind und Höhe mindestens 2 m ausmachen — eine Zeile „spielt wie genauso weit" ist
+  Platzverschwendung. Der *Ausschlag* nennt das Risiko, das in Kauf genommen wurde („bester Wert bei
+  vertretbarem Risiko — Bunker 22 %"); Strafrisiko hat dabei Vorrang vor Bunker, Bunker vor Rough.
+  **Konzept B — der Vergleich mit der Alternative** (`caddyVergleichHtml`), eingeklappt und einen
+  Tipp entfernt: Erwartung, Fairway, Strafrisiko, Weite, Rest zum Grün — das Bessere fett, bei
+  Gleichstand nichts hervorgehoben, denn eine erfundene Auszeichnung suggeriert einen Vorsprung, den
+  es nicht gibt. **Automatisch gegen den nächstbesten Schläger:** Wer beim Ball steht, weiß nicht,
+  welchen er zum Vergleich wählen soll. Die manuelle Auswahl „Warum nicht …?" bleibt daneben, sie
+  beantwortet eine andere Frage. Gerechnet wird über `caddyWarumNicht` — **beide Seiten aus derselben
+  Rechnung**, sonst ist der Vergleich wertlos.
+  **`caddyKipppunkt` sagt, wie fest die Empfehlung steht:** unter 0,03 Schlägen „praktisch gleichauf
+  — hier entscheidet das Gefühl, nicht die Rechnung", unter 0,10 „knapp, bei anderem Wind kippt das",
+  darüber „deutlich". Der Satz benennt den **Abstand** und behauptet keine Ursache, die nicht
+  gerechnet wurde — „ohne den Bunker wäre X besser" klänge klüger, wäre aber erfunden.
+  Beides steht **vor** den Streubild-Prozenten: Die sind das Rohmaterial der Rechnung, nicht die
+  Antwort auf „warum". `_restZumGruen` und `_spieltWieM` holen ihre Zahlen aus derselben Quelle wie
+  die Zeile darüber — zwei Rechnungen für dieselbe Zahl laufen früher oder später auseinander, und
+  genau das war schon einmal ein gemeldeter Fehler.
+  **Beim Bauen:** Mein erster Anlauf las `ev.alts` (Mehrzahl). Das Feld heißt `ev.alt` — die
+  Kandidaten-Zeile blieb stumm leer. Ein Feldname, den man rät, prüft sich nicht selbst.
+
+- **v4.98.0 · 2026-08-28** — **Fahnenposition entfernt.** Entscheidung: „Die Fahnenposition soll aus
+  dem Caddy entfernt werden. Die Funktion soll vollkommen entfernt werden." Weg sind `PIN_RAND`,
+  `pinZeile`, `pinFuer`, `pinSetz`, `pinPunkt`, die Schalterzeile vorn/Mitte/hinten aus **beiden**
+  Caddy-Ansichten, die Fahne im Cache-Schlüssel und `PLAY.pins`. **Ziel ist wieder durchgängig die
+  Grünmitte** — derselbe Stand wie zwischen v1.90 und v3.87.
+  **Was bewusst bleibt:** der Parameter `flag` in `STRAT.approach` sowie `pointESTo` und `shotEV`.
+  Dort ist die Fahne kein Schalter, sondern der **Bezugspunkt jeder Erwartungsrechnung** — wer sie
+  dort mit entfernte, nähme der ganzen Strokes-Gained-Rechnung ihren Nullpunkt. `greenDims` bleibt
+  ebenfalls: Die Grüntiefe wird an drei weiteren Stellen gebraucht.
+  **Prüfstand 24en gedreht statt gelöscht** — die Prüfungen verlangten genau das Gegenteil, und eine
+  gedrehte Prüfung hält fest, dass die Umkehr gewollt war. Dabei selbst hereingefallen: Die
+  Abwesenheitsprüfung fand zunächst ihre **eigene Begründung**, weil `codeOhneDoku` nur den
+  devdocs-Block schneidet und nicht die Kommentare im Code — jetzt läuft sie durch beide Filter.
+
+- **v4.97.0 · 2026-08-28** — **„Aus Teilrunden" steht jetzt dabei.** Die dritte Familie aus v4.96 —
+  GIR-, Fairway- und Scrambling-Quote — ist je **Loch** definiert und damit aus einer Teilrunde
+  rechenbar. Aber **die Auswahl der Löcher ist nicht zufällig:** Wer drei Löcher spielt, nimmt die
+  nahe am Clubhaus oder gezielt die schweren, und über viele Teilrunden mittelt sich das nicht
+  heraus — es zieht systematisch. **Zwei falsche Antworten standen zur Wahl:** ausschließen (verliert
+  echte Daten, und bei überwiegend kurzen Übungsrunden bliebe die Quote leer) oder stillschweigend
+  mitzählen (dann liest man eine Zahl als vergleichbar, die es nicht ist). **Die dritte ist die
+  richtige: mitzählen und es dazuschreiben.** Neu `teilAnteil(liste)`; der Hinweis nennt Anzahl
+  **und** Löcher („2 von 5 Runden unvollständig (12 Löcher) — die Loch-Auswahl ist dort nicht
+  zufällig"), weil die Anzahl allein nicht sagt, wie schwer sie wiegen. Er erscheint **nur**, wenn
+  wirklich Teilrunden dabei sind: Eine Kennzeichnung, die immer dasteht, liest man nach drei Tagen
+  nicht mehr. Gekennzeichnet sind die Fünf-Runden-GIR-Kachel und, bei einer einzelnen Teilrunde, die
+  Kacheln GIR und Fairways. **An den Putts steht bewusst nichts** — die entstehen je Loch aus der
+  Situation und sind auch aus drei Löchern belastbar; genau das ist der Punkt der Unterscheidung.
+  Die Korrelationsansicht filtert Teilrunden weiterhin ganz heraus und sagt es auch — dort werden
+  Summen wie Strafschläge verglichen, und die sind über verschieden lange Runden nicht vergleichbar.
+
+- **v4.96.0 · 2026-08-28** — **Score Differential aus drei Löchern: −47,5. Und was Teilrunden
+  trotzdem taugen.** Gemeldet mit Bildschirmfoto. Das Tor war `counted>0` — damit wurden **15
+  Schläge aus drei Löchern gegen eine CR von 71,8** gerechnet, also drei Löcher gegen die Vorgabe
+  für achtzehn. Die Zahl war nicht ungenau, sie war sinnlos. **WHS/DGV kennt den Fall seit April
+  2024:** Differential ab **14** gespielten Löchern (**7** bei einer Neun), fehlende werden mit
+  **Netto-Par** (Par + eigene Vorgabeschläge) ergänzt, darunter gibt es keins. `sdGrund` sagt jetzt
+  warum — ein leeres Feld ohne Erklärung sieht aus wie ein Fehler, hier ist es eine Regel. **Das
+  Auffüllen ist der eigentliche Gewinn:** Eine abgebrochene 16-Loch-Runde ergibt regelkonform ein
+  gültiges Differential, statt still zu verschwinden. Der **Course HCP** trägt bei Teilrunden jetzt
+  „für 18 Löcher" — er ist die Vorgabe, die man bekommen *hätte*.
+  **Der Einwand dazu war richtig und hat die Sache verbessert:** „Gibt es nicht Statistiken, für die
+  auch Einzellöcher sinnvoll sind — Puttlängen, Approach Shots?" Ja. **Die Trennlinie ist nicht
+  „Teilrunde ja/nein", sondern die Beobachtungseinheit: der Schlag oder die Runde.** Schlagbezogenes
+  ist ab **einem** Schlag gültig — Puttlängen, Approach je Distanzklasse, Strokes Gained,
+  Schlägerlängen aus GPS, Streuung, Up-and-down, Sand Save. Ein Schlag aus 140 m vom Fairway ist mit
+  jedem anderen aus 140 m vergleichbar, egal ob drumherum 2 oder 18 Löcher gespielt wurden; das ist
+  Broadies Argument hinter Strokes Gained. Rundenbezogenes braucht eine Runde: Differential, Brutto,
+  Stableford, Course HCP, Doppelbogeys, Birdie-Serien. Dazwischen mit Vorbehalt: GIR- und
+  Fairway-Quote — je Loch definiert, aber **die Auswahl der Löcher ist nicht zufällig**. Neu
+  `istRundenStat(e)` als gemeinsame Kennung.
+  **Und ein Fehler, der leicht untergeht:** Der Mittelwert aus „2,00 Putts/Loch über 3 Löcher" und
+  „1,80 über 18" ist **nicht** 1,90 — die Dreiloch-Runde bekäme sechsmal zu viel Gewicht. Neu
+  `poolQuote(liste, zähler, nenner)`; die Fünf-Runden-GIR-Quote wird damit gepoolt statt gemittelt,
+  und die Doppelbogeys mitteln nur noch volle Runden (sie sind eine Summe, keine Quote).
+  **Prüfstand 24ct2** stellt den gemeldeten Fall nach — 3, 13, 16 und 18 Löcher aus derselben Runde
+  gestutzt — und prüft beide Familien: Putts zählen auch aus drei Löchern, `toPar` bleibt leer, das
+  ergänzte Differential liegt nahe an der vollen Runde.
+
 - **v4.95.0 · 2026-08-28** — **Selbstprüfung in fünf Teilen — mit Trockenlauf einer ganzen Runde.**
   Vorgabe: „deutlich detaillierter … vielleicht auch mit einer Rundensimulation koppeln … richtig
   intensiv und umfassend." **Der Anlass ist ein Befund über die Prüfung selbst:** Bis v4.94 las sie

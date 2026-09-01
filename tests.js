@@ -353,7 +353,8 @@ try {
                  "elevGet",
                  "unwetterUrteil","istGewitterCode","unwetterBannerHtml","wakeAppAn",
                  "neueFassungAnzeigen","watchFassungPruefen","watchFassung",
-                 "renderComp","renderPlanung","$","rundeAlsTurnier","stampAltbestand","openTournamentEditor","tombAll",
+                 "renderComp","renderPlanung","$","rundeAlsTurnier","stampAltbestand","openTournamentEditor",
+                 "icsParse","kalHtml","kalLink","anmeldeFaellig","gpsAusreisser","gpsAlleHtml","tombAll",
                  "logInfo","_logZustand","ERRLOG",
                  "_restZumGruen","_spieltWieM",
                  "pruefeDaten","pruefeRechnung",
@@ -10201,6 +10202,386 @@ group("Löschen — jede Benutzer-Löschung setzt einen Grabstein");
   }
 }
 
+/* ============ 24fr. Gemessene Schläge pflegen ============ */
+group("Schlag-GPS — Ausreißer sehen und loswerden");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+  const roh = ktOhneKommentar(codeOhneDoku(src));
+  const A = G("gpsAusreisser"), H = G("gpsAlleHtml"), DB0 = live("DB");
+
+  /* ====================================================================
+     GEWÜNSCHT am 01.09.2026 (v5.45)
+     --------------------------------------------------------------------
+     „Je Schläger eine Tabelle mit Datum, Schlaglänge, Schlagart — und von
+     dort aus bearbeiten oder löschen. Ich möchte dadurch auch vermeiden, dass
+     unsinnige Schläge aufgeführt werden."
+     DAS FÜLLT EINE LÜCKE, DIE v5.33 OFFENGELASSEN HAT: Der Torwächter
+     `schlagPlausibel` verhindert NEUE Ausreißer, räumt aber bestehende nicht
+     weg. Und **ab 20 gemessenen Schlägen ersetzen die eigenen Werte die
+     Heuristik** — ein einziger Unsinn wird dann zur Grundlage jeder
+     Empfehlung, still und einseitig.
+     HIER STATT UNTER „SCHLÄGER": Die letzten Schläge stehen schon in dieser
+     Ansicht. Eine zweite Liste anderswo wäre eine zweite Wahrheit über
+     dieselben Daten — das Muster, das dieses Projekt in einer Woche viermal
+     gekostet hat. */
+  if (typeof A === "function") {
+    const l = [{ id: "a", dist: 150 }, { id: "b", dist: 152 }, { id: "c", dist: 148 },
+               { id: "d", dist: 151 }, { id: "e", dist: 149 }, { id: "x", dist: 420 }];
+    const f = A(l);
+    ok("ein Ausreißer wird markiert", f.x === true && Object.keys(f).length === 1,
+       Object.keys(f).join(","));
+    /* EIN MITTELWERT WÄRE HIER FALSCH — der Ausreißer zöge ihn zu sich, und
+       dann fiele er selbst nicht mehr auf. Deshalb Median und mittlerer
+       Abstand. */
+    ok("die Grenze baut auf dem Median auf",
+       /const med=median\(d\);/.test(roh) && /median\(d\.map\(x=>Math\.abs\(x-med\)\)\)/.test(roh));
+    /* UNTER FÜNF SCHLÄGEN WIRD NICHTS MARKIERT: „ungewöhnlich" braucht einen
+       Vergleich. */
+    ok("bei zu wenigen Schlägen schweigt es",
+       Object.keys(A([{ id: "a", dist: 150 }, { id: "b", dist: 400 }])).length === 0);
+    /* Und eine sehr gleichmäßige Reihe darf nicht ständig anschlagen —
+       deshalb die Mindestbreite. */
+    ok("gleichmäßige Reihen bleiben ruhig",
+       Object.keys(A([{ id: "a", dist: 150 }, { id: "b", dist: 151 }, { id: "c", dist: 150 },
+                      { id: "d", dist: 152 }, { id: "e", dist: 149 }, { id: "f", dist: 153 }])).length === 0);
+  }
+
+  /* ---- Die Liste ---- */
+  if (typeof H === "function" && DB0) {
+    const alt = DB0.gpsShots;
+    try {
+      DB0.gpsShots = [
+        { id: "s1", club: "7 Iron", dist: 140, swing: "voll", ts: "2026-08-01T10:00:00Z" },
+        { id: "s2", club: "7 Iron", dist: 142, swing: "voll", ts: "2026-08-03T10:00:00Z" },
+        { id: "s3", club: "Driver", dist: 210, swing: "voll", ts: "2026-08-02T10:00:00Z",
+          handEdit: "2026-08-05T10:00:00Z" }];
+      const h = H();
+      ok("je Schläger eine Gruppe", (h.match(/gs-club/g) || []).length === 2,
+         String((h.match(/gs-club/g) || []).length));
+      ok("mit Datum, Länge und Art",
+         /gs-d/.test(h) && /140 m/.test(h) && /voll/.test(h));
+      ok("Bearbeiten und Löschen je Zeile",
+         (h.match(/data-edit=/g) || []).length === 3 && (h.match(/data-del=/g) || []).length === 3);
+      /* WER MESSDATEN VON HAND ÄNDERT, MUSS DAS SPÄTER SEHEN KÖNNEN — sonst
+         steht in einem halben Jahr eine Zahl im Bestand, von der niemand mehr
+         weiß, ob sie gemessen oder geraten war. */
+      ok("von Hand geänderte Schläge sind gekennzeichnet", /class="gs-h"/.test(h));
+      ok("ohne Schläge eine ehrliche Auskunft",
+         (DB0.gpsShots = [], /Noch keine gemessenen Schläge/.test(H())));
+    } finally { DB0.gpsShots = alt; }
+  }
+
+  /* ---- Der Editor ---- */
+  ok("die Länge ist editierbar", /id="gs_dist"/.test(src));
+  ok("und die Schlagart", /id="gs_swing"/.test(src));
+  /* DER PLAUSIBILITÄTSTEST GILT AUCH HIER — sonst wäre die Handeingabe eine
+     Hintertür an dem Torwächter vorbei, den v5.33 gebaut hat. */
+  ok("auch von Hand gilt der Plausibilitätstest",
+     /schlagPlausibel\(neu,0,0\)/.test(roh));
+  ok("eine geänderte Länge wird markiert", /s\.handEdit=new Date\(\)\.toISOString\(\)/.test(roh));
+  ok("und protokolliert", /logInfo\("Schlag geändert"/.test(roh));
+  /* ES WIRD NICHTS AUTOMATISCH GELÖSCHT: Ob ein weiter Schlag ein Fehler oder
+     ein guter Tag war, weiß nur der Spieler. */
+  ok("nichts wird automatisch gelöscht",
+     /gelöscht wird nichts automatisch/i.test(src));
+}
+
+/* ============ 24fq. Die Selbstprüfung wächst mit ============ */
+group("Selbstprüfung — neue Bereiche prüfen sich mit");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+  const PD = G("pruefeDaten"), DB0 = live("DB");
+
+  /* ====================================================================
+     NACHGEFRAGT am 01.09.2026 (behoben in v5.44)
+     --------------------------------------------------------------------
+     „Hast du die Doku, Selbstprüfung und das Fehlerlog für alle neuen
+     Merkmale nachgezogen?"
+     DOKU JA, SELBSTPRÜFUNG NEIN. Wettkämpfe, geplante Turniere, der Kalender
+     und die Anmeldefrist standen seit v5.29 bis v5.43 im Bestand, ohne dass
+     die Selbstprüfung sie kannte. Sie meldete „6 in Ordnung" und sah dabei
+     über ganze Listen hinweg.
+     EINE SELBSTPRÜFUNG, DIE NEUE BEREICHE NICHT KENNT, WIRD MIT JEDER FASSUNG
+     WENIGER WERT — und zwar unauffällig: Sie bleibt grün, während der Anteil,
+     den sie überhaupt anschaut, schrumpft. Das ist gefährlicher als eine, die
+     rot wird.
+     DIESE PRÜFUNG IST DIE SPERRKLINKE DAGEGEN: Sie führt die Bereiche
+     namentlich, die `pruefeDaten` kennen muss. Wer eine Liste hinzufügt, muss
+     sie hier eintragen — und stolpert dabei über die Frage, was an ihr
+     schiefgehen kann. */
+  {
+    const i = src.indexOf("function pruefeDaten()");
+    const e = src.indexOf("\nfunction ", i + 20);
+    const blk = i >= 0 ? src.slice(i, e > i ? e : i + 20000) : "";
+    [["Runden", "rounds"], ["Wettkämpfe", "competitions"],
+     ["geplante Turniere", "tournaments"], ["Plätze", "courses"],
+     ["Schläger", "clubDistances"], ["Kalender", "kalAdresse"]
+    ].forEach(([was, marke]) => {
+      ok("die Datenprüfung kennt " + was, blk.indexOf(marke) >= 0);
+    });
+    /* UND SIE PRÜFT DAS, WAS WEHTUT — nicht, was sich leicht zählen lässt. */
+    ok("sie prüft den Abgleich-Schlüssel der Wettkämpfe",
+       /MERGE_KEY\.competitions/.test(blk));
+    ok("und die Zeitstempel der Turniere",
+       /ohne Zeitstempel — beim Abgleich entscheidet dann der Zufall/.test(blk));
+    /* Ein Status außerhalb der Auswahl färbt nicht und fällt aus der
+       Anmelde-Erinnerung — er sieht aus wie gepflegt und ist es nicht. */
+    ok("sie meldet unbekannte Turnier-Status",
+       /unbekanntem Status — keine Farbe, keine Anmelde-Erinnerung/.test(blk));
+    ok("und offene Anmeldungen", /offener Anmeldung — Frist unter 3 Wochen/.test(blk));
+  }
+
+  /* ---- Und sie muss laufen ---- */
+  if (typeof PD === "function" && DB0) {
+    const alt = { c: DB0.competitions, t: DB0.tournaments };
+    try {
+      DB0.competitions = [{ date: "2026-05-17", course: "X", tournament: "T" },
+                          { date: "2026-05-17", course: "X", tournament: "T" }];
+      DB0.tournaments = [{ id: "T1", name: "Ohne Stempel", date: "2099-01-01", status: "quatsch" }];
+      const r = PD();
+      const txt = r.map(x => x.title).join(" | ");
+      ok("doppelte Wettkampf-Schlüssel werden gemeldet",
+         /gleichem Abgleich-Schlüssel/.test(txt), txt.slice(0, 90));
+      ok("fehlende Zeitstempel ebenso", /ohne Zeitstempel/.test(txt));
+      ok("und ein unbekannter Status", /unbekanntem Status/.test(txt));
+    } finally { DB0.competitions = alt.c; DB0.tournaments = alt.t; }
+  }
+
+  /* ---- Das Fehlerprotokoll: Änderungen am Bestand hinterlassen eine Spur ----
+     Wer später sucht, warum eine Runde fehlt, soll die Antwort finden statt
+     einer Lücke. */
+  ok("die Umbuchung zum Turnier wird protokolliert",
+     /logInfo\("Turnier", "Runde "/.test(src));
+  ok("die Nachrüstung der Zeitstempel ebenso",
+     /Einträge ohne Zeitstempel nachgetragen/.test(src));
+  ok("und verworfene Schlagmessungen",
+     /logWarn\("Schlag verworfen"/.test(src));
+}
+
+/* ============ 24fp. Anmeldefrist — Erinnerung bis es erledigt ist ============ */
+group("Turnier — drei Wochen vorher erinnern, bis der Status steht");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+  const roh = ktOhneKommentar(codeOhneDoku(src));
+  const F = G("anmeldeFaellig");
+
+  /* ====================================================================
+     GEWÜNSCHT am 01.09.2026 (v5.43)
+     --------------------------------------------------------------------
+     „Turniere, die auf ‚geplant' stehen — dazu möchte ich drei Wochen vor dem
+     Termin eine Erinnerung, dass ich mich anmelden muss. Diese Erinnerung
+     soll bei JEDEM Start kommen, bis ich den Status auf ‚gemeldet' ändere."
+     **DER STATUS IST DIE ERLEDIGUNGSMARKE** — deshalb kommt die Erinnerung
+     ohne eigenen Speicher aus. Sie merkt sich NICHT, ob sie schon gezeigt
+     wurde; sie liest jedes Mal denselben Zustand. Damit kann sie nicht
+     vergessen, nicht hinterherhinken und auf zwei Geräten nicht
+     auseinanderlaufen. */
+  if (typeof F === "function") {
+    const t = [
+      { id: "a", name: "In 10 Tagen", date: "2026-09-11", status: "geplant" },
+      { id: "b", name: "In 30 Tagen", date: "2026-10-01", status: "geplant" },
+      { id: "c", name: "Gemeldet",    date: "2026-09-11", status: "gemeldet" },
+      { id: "d", name: "Offen",       date: "2026-09-11", status: "offen" },
+      { id: "e", name: "Vergangen",   date: "2026-08-01", status: "geplant" },
+      { id: "f", name: "Heute",       date: "2026-09-01", status: "geplant" }];
+    const r = F(t, "2026-09-01");
+    ok("nur was in drei Wochen ansteht", r.length === 2,
+       r.map(x => x.name).join(", "));
+    ok("in der richtigen Reihenfolge", r[0].name === "Heute" && r[1].name === "In 10 Tagen");
+    ok("die Tage stimmen", r[0].tage === 0 && r[1].tage === 10);
+    /* NUR „geplant" — „gemeldet" ist erledigt, „offen" heißt: noch keine
+       Entscheidung, da gibt es nichts anzumelden. */
+    ok("gemeldete Turniere schweigen", !r.some(x => x.name === "Gemeldet"));
+    ok("offene ebenso", !r.some(x => x.name === "Offen"));
+    /* VERGANGENE SCHWEIGEN: Danach ist die Anmeldung keine Handlung mehr,
+       sondern Geschichte. */
+    ok("vergangene schweigen", !r.some(x => x.name === "Vergangen"));
+    /* KEINE UNTERGRENZE: Auch am Turniertag wird erinnert, solange „geplant"
+       steht. Wer die Frist verpasst hat, will das wissen — nicht, dass die
+       App ab Tag X schweigt. */
+    ok("am Turniertag wird noch erinnert", r.some(x => x.tage === 0));
+    /* Genau 21 Tage: der Rand gehört dazu, einer mehr nicht. */
+    ok("21 Tage sind drin",
+       F([{ id: "x", name: "R", date: "2026-09-22", status: "geplant" }], "2026-09-01").length === 1);
+    ok("22 nicht mehr",
+       F([{ id: "x", name: "R", date: "2026-09-23", status: "geplant" }], "2026-09-01").length === 0);
+    ok("leere Liste stürzt nicht ab", F([], "2026-09-01").length === 0 && F(null, "2026-09-01").length === 0);
+  }
+
+  /* ---- Die Anzeige ---- */
+  ok("die Erinnerung hat keinen eigenen Speicher",
+     !/localStorage[^;]{0,40}anmelde/i.test(roh));
+  /* Wegklickbar, aber nur für die Sitzung — beim nächsten Start ist sie
+     wieder da. Genau so war es gewünscht. */
+  ok("wegklickbar nur für die Sitzung",
+     /let _anmeldeWeg=false;/.test(roh) && /_anmeldeWeg=true/.test(roh));
+  /* EIN HINWEIS OHNE WEG ZUR HANDLUNG ERZEUGT NUR DRUCK. */
+  ok("ein Tipp führt zum Turnier-Reiter", /go\("comp"\)/.test(roh));
+  ok("und sagt, wie man ihn loswird", /Status im Turnier auf <b>gemeldet<\/b> setzen/.test(src));
+  ok("sie läuft bei jedem Start", /setTimeout\(anmeldeErinnern, 1200\)/.test(roh));
+  ok("die Gestaltung ist da", /\.anmelde-hinweis\{position:fixed/.test(src));
+}
+
+/* ============ 24fo. Loch-Eingabe: zwei Spalten und eine Überschrift ============ */
+group("Turniereditor — was die App weiß, fragt sie nicht");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+  const CT = G("courseTee"), DB0 = live("DB");
+
+  /* ====================================================================
+     GEMELDET am 01.09.2026 (behoben in v5.42)
+     --------------------------------------------------------------------
+     „Ich verstehe die Spalten nicht. Sollte es nicht maximal zwei Spalten
+     geben — Gesamtscore und Anzahl Putts? Ich kann mit der aktuellen
+     Darstellung nichts anfangen."
+     BERECHTIGT, UND ZWEIMAL FALSCH GEBAUT:
+     1. KEINE ÜBERSCHRIFT. Drei gleich aussehende Felder je Zeile, und der
+        Platzhalter („Par", „Schläge", „Putts") verschwindet, sobald ein Wert
+        drinsteht. Beim BEARBEITEN — also immer dann, wenn schon Werte da sind
+        — war die Maske unlesbar. **EIN PLATZHALTER IST KEINE BESCHRIFTUNG:**
+        Er verschwindet genau dann, wenn man ihn braucht.
+     2. PAR ALS EINGABE. Das Par steht am Platz, es ist keine Leistung des
+        Spielers. Wer es abtippt, kann sich vertippen — und dann rechnet alles
+        Weitere falsch, ohne dass jemand es merkt. **WAS DIE APP WEISS, FRAGT
+        SIE NICHT.** */
+  ok("es gibt eine Überschriftszeile", /<div class="cs-row cs-kopf">/.test(src));
+  ok("mit allen drei Beschriftungen",
+     /Par<\/span>/.test(src) && /Schläge<\/span>/.test(src) && /Putts<\/span>/.test(src));
+  /* PAR ALS ZAHL, WENN DER PLATZ ES HERGIBT — und dann nur noch zwei
+     Eingabefelder je Zeile. */
+  ok("bei bekanntem Platz steht Par als Zahl",
+     /parBekannt[\s\S]{0,200}?<span class="cs-par">\$\{par!=null\?par:"–"\}<\/span>/.test(src));
+  ok("und wandert versteckt mit",
+     /<input type="hidden" id="cs_p\$\{i\}"/.test(src));
+  /* OHNE PLATZ BLEIBT DAS FELD — beim Nachtragen eines fremden Turniers der
+     Normalfall, und ohne Par gibt es kein Stableford und kein „gegen Par". */
+  ok("bei unbekanntem Platz bleibt Par eingebbar",
+     /: `<input class="cs-f" inputmode="numeric" id="cs_p\$\{i\}"/.test(src));
+  /* Das Auslesen muss das versteckte Feld genauso finden wie das sichtbare —
+     sonst geht das Par beim Speichern verloren. */
+  ok("das Auslesen liest beide Formen",
+     /const par=num\(\(\$\("#cs_p"\+i\)\|\|\{\}\)\.value\)/.test(src));
+  ok("die Gestaltung trennt Zahl und Feld",
+     /\.cs-row \.cs-par\{/.test(src) && /\.cs-row \.cs-f\{/.test(src)
+     && /\.cs-row\.cs-kopf\{/.test(src));
+
+  /* ---- Und die Par-Auflösung selbst ---- */
+  if (typeof CT === "function" && DB0) {
+    const k = (DB0.courses || []).find(c => c.tees && Object.keys(c.tees).length);
+    if (k) {
+      const tee = Object.keys(k.tees)[0];
+      const t = CT(k.name, tee);
+      const pars = {};
+      if (t && t.holes) t.holes.forEach(x => pars[x.hole] = x.par);
+      ok("der Platz liefert die Par-Werte", Object.keys(pars).length > 0,
+         Object.keys(pars).length + " Löcher");
+      ok("und ein unbekannter Platz liefert keine",
+         (() => { try { const u = CT("Gibt-es-nicht", "Gelb");
+           return !u || !u.holes || !u.holes.length; } catch (e) { return true; } })());
+    }
+  }
+}
+
+/* ============ 24fn. Google-Kalender lesen und befüllen ============ */
+group("Google-Kalender — Google ist führend für Termine");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+  const P = G("icsParse"), H = G("kalHtml"), L = G("kalLink");
+  const wPfad = path.join(__dirname, "worker.js");
+
+  /* ====================================================================
+     GEWÜNSCHT am 01.09.2026 (v5.41 / worker v2.12)
+     --------------------------------------------------------------------
+     Turniere und Trainings im Google-Kalender pflegen, in der App anzeigen,
+     aus der App heraus anlegen.
+     DIE ENTSCHEIDUNG DAHINTER: **Google ist führend für Termine** — dieselbe
+     Bauart wie „Handy ist führend" bei der Runde. Zwei Orte, die dasselbe
+     verwalten dürfen, laufen auseinander; dieses Projekt hat das in einer
+     Woche viermal bezahlt (Kette/Kopfzeile, Lochzeiger, Höhenraster,
+     Abgleich-Schlüssel).
+     UND DER GRUND FÜR DIE BAUFORM: **Ein abonnierter ICS-Kalender ist in
+     Google schreibgeschützt.** Wer dort ändern will, braucht einen EIGENEN
+     Kalender; dessen öffentliche Adresse liest die App. */
+  if (typeof P === "function") {
+    const ics = ["BEGIN:VCALENDAR", "BEGIN:VEVENT", "UID:a1",
+      "SUMMARY:Clubmeisterschaft", "DTSTART;VALUE=DATE:20260915",
+      "LOCATION:Timmendorf", "END:VEVENT",
+      "BEGIN:VEVENT", "UID:b2", "SUMMARY:Training", "DTSTART:20260910T160000Z", "END:VEVENT",
+      "BEGIN:VEVENT", "UID:c3", "SUMMARY:Weg", "DTSTART;VALUE=DATE:20260911",
+      "STATUS:CANCELLED", "END:VEVENT", "END:VCALENDAR"].join("\r\n");
+    const r = P(ics);
+    ok("Termine werden gelesen", r.length === 2, String(r.length));
+    /* ABGESAGTE FLIEGEN RAUS: Google behält sie in der Datei, damit
+       Abonnenten das Löschen mitbekommen. Wer sie anzeigt, zeigt Termine, die
+       es nicht mehr gibt. */
+    ok("abgesagte fliegen raus", !r.some(x => x.titel === "Weg"));
+    ok("nach Datum sortiert", r[0].datum === "2026-09-10" && r[1].datum === "2026-09-15");
+    ok("ganztägig wird erkannt", r[1].ganztags === true && r[1].zeit === "");
+    ok("und Uhrzeiten ebenso", r[0].ganztags === false && /^\d\d:\d\d$/.test(r[0].zeit));
+    ok("der Ort reist mit", r[1].ort === "Timmendorf");
+    /* DIE UMBRUCH-FALLE: ICS bricht lange Werte um, die Fortsetzung beginnt
+       mit einem Leerzeichen. Wer Zeile für Zeile liest, zerschneidet jeden
+       längeren Titel. */
+    const lang = ["BEGIN:VCALENDAR", "BEGIN:VEVENT", "UID:x",
+      "SUMMARY:Sehr langer Turniername der", "  über zwei Zeilen geht",
+      "DTSTART;VALUE=DATE:20260920", "END:VEVENT", "END:VCALENDAR"].join("\r\n");
+    ok("umgebrochene Zeilen werden zusammengesetzt",
+       P(lang)[0].titel === "Sehr langer Turniername der über zwei Zeilen geht",
+       P(lang)[0].titel);
+    /* WIEDERHOLUNGEN WERDEN NICHT AUFGELÖST — aber gekennzeichnet. Eine halb
+       richtige Auflösung (mit Ausnahmen, Zeitzonen, Sommerzeit) wäre
+       schlimmer als gar keine. */
+    const wdh = ["BEGIN:VCALENDAR", "BEGIN:VEVENT", "UID:y", "SUMMARY:Wöchentlich",
+      "DTSTART;VALUE=DATE:20260901", "RRULE:FREQ=WEEKLY", "END:VEVENT", "END:VCALENDAR"].join("\r\n");
+    ok("Serientermine werden gekennzeichnet", P(wdh)[0].wiederholt === true);
+    /* Müll darf nicht krachen — der Kalender kommt von außen. */
+    ok("leerer Text ergibt eine leere Liste", P("").length === 0 && P(null).length === 0);
+    ok("Unsinn ebenso", P("kein Kalender").length === 0);
+  }
+
+  /* ---- Die Anzeige ---- */
+  if (typeof H === "function") {
+    const rec = { at: Date.now() - 5 * 60000, termine: [
+      { datum: "2099-09-15", zeit: "", titel: "Clubmeisterschaft", ort: "T", wiederholt: false },
+      { datum: "2000-01-01", zeit: "", titel: "Uralt", ort: "", wiederholt: false }] };
+    const h = H(rec);
+    /* NUR WAS NOCH KOMMT: Ein Kalender, der Vergangenes zeigt, beantwortet
+       die Frage nicht, die man an ihn stellt. */
+    ok("nur anstehende Termine", /Clubmeisterschaft/.test(h) && !/Uralt/.test(h));
+    ok("mit dem Alter des Standes", /Stand vor 5 min/.test(h));
+    /* OFFLINE IST KEIN FEHLER — ohne Daten eine ehrliche Auskunft statt einer
+       leeren Liste. */
+    ok("ohne Daten eine ehrliche Auskunft", /nicht erreichbar/.test(H(null)));
+  }
+
+  /* ---- Der Anlege-Link ----
+     KEIN KONTOZUGRIFF, KEIN OAuth, KEINE TOKEN — es ist eine Adresse, die das
+     Formular von Google vorausgefüllt öffnet. */
+  if (typeof L === "function") {
+    const g = L("Clubmeisterschaft", "2026-09-15", "", 0, "Timmendorf", "Prio A");
+    ok("der Link öffnet Google Kalender",
+       /^https:\/\/calendar\.google\.com\/calendar\/render\?action=TEMPLATE/.test(g));
+    /* GANZTÄGIG: Google erwartet den FOLGETAG als Ende. */
+    ok("ganztägig endet am Folgetag", /dates=20260915%2F20260916/.test(g), g);
+    const t = L("Training", "2026-09-10", "16:00", 90, "Range", "");
+    ok("mit Uhrzeit und Dauer", /dates=20260910T160000%2F20260910T173000/.test(t), t);
+    ok("Titel und Ort reisen mit", /text=Clubmeisterschaft/.test(g) && /location=Timmendorf/.test(g));
+  }
+
+  /* ---- Der Worker: nur Google, sonst nichts ----
+     EIN WORKER, DER BELIEBIGE ADRESSEN ABRUFT, IST EIN OFFENER WEITERLEITER —
+     der wird gefunden und missbraucht. Die Beschränkung ist keine Vorsicht,
+     sondern Pflicht. */
+  if (fs.existsSync(wPfad)) {
+    const w = fs.readFileSync(wPfad, "utf8");
+    ok("der Worker reicht ICS durch", /url\.searchParams\.get\("ics"\)/.test(w));
+    ok("aber nur von Google",
+       /u\.hostname === "calendar\.google\.com"/.test(w) && /return resp\(403/.test(w));
+    ok("nur über https", /u\.protocol === "https:"/.test(w));
+    ok("und mit Größengrenze", /t\.length > 1000000/.test(w));
+  }
+}
+
 /* ============ 24fm. Turnier-Status als Auswahl, Farbe im Kalender ============ */
 group("Turnierkalender — Status steuert die Farbe");
 {
@@ -10271,9 +10652,14 @@ group("Turnierkalender — Status steuert die Farbe");
       ok("der Umfang steht in der Zeile", /9 Loch/.test(h) && /18 Loch/.test(h));
     } finally { DB0.tournaments = alt; }
   }
+  /* v5.43: DREI Zustände. Grün = gemeldet (erledigt), GELB = geplant (da ist
+     noch etwas zu tun), ROT = offen (keine Entscheidung, und das Datum läuft).
+     Die Reihenfolge Grün–Gelb–Rot trägt dieselbe Bedeutung wie überall sonst
+     in dieser App. */
   ok("die Gestaltung ist da",
      /\.row\.tn-gemeldet\{border-left:4px solid #2e7d32/.test(src)
-     && /\.row\.tn-offen\{border-left:4px solid #c9a227/.test(src));
+     && /\.row\.tn-geplant\{border-left:4px solid #c9a227/.test(src)
+     && /\.row\.tn-offen\{border-left:4px solid #b3261e/.test(src));
 }
 
 /* ============ 24fl. Gelöschtes bleibt gelöscht ============ */
@@ -11707,7 +12093,12 @@ group("Start — keine ungefragte Rechenarbeit");
   {
     const start = roh.slice(roh.lastIndexOf("swRegister()"));
     const rufe = [...start.matchAll(/setTimeout\(\s*([A-Za-z_$][\w$]*)\s*,/g)].map(m => m[1]);
-    const erlaubt = ["speicherPruefen", "fitErinnerungTick", "gpAutoRefresh"];
+    /* `anmeldeErinnern` (v5.43) liest eine Liste und zeichnet einen Kasten —
+       keine Rechnung, kein Netz. Die Sperrklinke hat sie trotzdem gemeldet,
+       und genau dafür ist sie da: Wer einen Zeitgeber in den Startpfad hängt,
+       muss diese Liste anfassen und dabei über die Frage stolpern, ob das
+       Ding dort hingehört. */
+    const erlaubt = ["speicherPruefen", "fitErinnerungTick", "gpAutoRefresh", "anmeldeErinnern"];
     const fremd = rufe.filter(r => erlaubt.indexOf(r) < 0);
     ok("im Startpfad stehen nur bekannte, leichte Zeitgeber",
        fremd.length === 0, fremd.join(", ") || rufe.join(", "));
