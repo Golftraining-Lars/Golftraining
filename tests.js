@@ -10432,6 +10432,66 @@ group("Schlag-GPS — Ausreißer sehen und loswerden");
   }
 }
 
+/* ============ 24fx. Die neue Kennung nach dem Schreiben ============ */
+group("Abgleich — jeder zweite Push lief in einen Konflikt");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+
+  /* ====================================================================
+     GEMELDET im Protokoll vom 02.09.2026 (behoben in v5.62)
+     --------------------------------------------------------------------
+     Fünfmal „draftPush HTTP 409" während einer Runde, in zwei Wellen.
+     DIE URSACHE STAND SEIT v2.10 IM WORKER — und ist dort wörtlich
+     beschrieben: „Ohne sie kannte der Client nach jedem erfolgreichen
+     Schreibvorgang nur noch die ALTE Kennung und lief beim nächsten Push in
+     einen 409 — jedes Mal."
+     **DAMALS WURDE NUR DIE UHR NACHGEZOGEN.** Das Handy las den Kopf
+     `X-Repo-Sha` bis heute nicht. Es funktionierte trotzdem — aber teuer:
+     Jeder zweite Push kostete einen zusätzlichen Abruf und bis zu 850 ms
+     Pause, auf der Bahn, im Funkloch, mit der Uhr am anderen Ende.
+     **EIN FEHLER, DEN MAN AN EINER STELLE BEHEBT UND AN DER ANDEREN NICHT,
+     IST NICHT BEHOBEN — er wartet nur woanders.** */
+  {
+    const i = src.indexOf("async function draftPush(");
+    const j = src.indexOf("\nlet _draftPushT", i);
+    const blk = i >= 0 ? src.slice(i, j > i ? j : i + 6000) : "";
+    ok("draftPush übernimmt die neue Kennung", /DRAFT_SHA=neu/.test(blk));
+    /* NUR BEI ERFOLG: Nach einem Fehlschlag ist die alte Kennung die
+       richtige — die neue gibt es dann gar nicht. */
+    /* OHNE GROSSES FENSTER (v5.14): Der Erfolgszweig wird als Block
+       geschnitten, nicht mit einem Zeichenabstand gesucht. */
+    {
+      const ok0 = blk.replace(/\/\*[\s\S]*?\*\//g, "");
+      const e0 = ok0.indexOf("DRAFT_FEHLER=0;");
+      const e1 = ok0.indexOf("return r.ok;", e0);
+      const erfolg = (e0 >= 0 && e1 > e0) ? ok0.slice(e0, e1) : "";
+      ok("und zwar nur bei Erfolg", /DRAFT_SHA=neu/.test(erfolg));
+    }
+    /* Der Worker liefert sie seit v2.10 — geprüft, dass beide Seiten
+       zusammenpassen. */
+    const w = fs.readFileSync(path.join(__dirname, "worker.js"), "utf8");
+    ok("der Worker liefert sie auch", /"X-Repo-Sha": neueSha/.test(w));
+    ok("und gibt den Kopf frei",
+       /Access-Control-Expose-Headers[^\n]*X-Repo-Sha/.test(w));
+  }
+
+  /* ---- Die zweite Stelle, mit derselben Lücke ----
+     EINE WIEDERHOLUNG OHNE OBERGRENZE IST KEINE WIEDERHOLUNG, SONDERN EINE
+     SCHLEIFE. `draftPushRaw` rief sich bei 409 ohne Zähler selbst auf — bei
+     zwei gleichzeitig schreibenden Geräten im schlimmsten Fall bis zum
+     Stapelüberlauf, und stumm, weil der `catch` nur `false` lieferte. */
+  {
+    const i = src.indexOf("async function draftPushRaw(");
+    const j = src.indexOf("\n/* ===", i);
+    const blk = i >= 0 ? src.slice(i, j > i ? j : i + 3000) : "";
+    ok("draftPushRaw übernimmt sie ebenfalls", /DRAFT_SHA=neu/.test(blk));
+    ok("und zählt seine Anläufe", /if\(\(tiefe\|\|0\)>=3\)/.test(blk));
+    ok("gibt danach ehrlich auf", /gibt nach 3 Anläufen auf \(409\)/.test(blk));
+    /* Und schweigt nicht mehr im Fehlerfall. */
+    ok("und protokolliert Fehler", /logErr\("draftPushRaw", e, true\)/.test(blk));
+  }
+}
+
 /* ============ 24fw. Einen besseren Grün-Punkt vorschlagen ============ */
 group("Platzkarte — die Scorekarte löst den Widerspruch auf");
 {
@@ -10548,6 +10608,44 @@ group("Platzkarte — die Scorekarte löst den Widerspruch auf");
          q.res + " gegen " + e.res);
     }
   }
+  /* ================================================================
+     ÜBER DEM LUFTBILD NICHT ZEICHNEN, WAS DAS LUFTBILD ZEIGT (v5.61)
+     ----------------------------------------------------------------
+     GEMELDET: „Ich sehe keine Veränderung" — das Luftbild bleibt milchig.
+     DIE QUELLE IST ES NICHT: Das Protokoll sagt nach der Prüfung
+     „✓ DOP20 Schleswig-Holstein: 129 kB · Zoom 18 · 0,17 m/Pixel". Der Dienst
+     liefert ein scharfes Bild — **es wird nur zugedeckt.**
+     GEZÄHLT: Auf Fehmarn liegen 132 `other` + 395 Gebäude über dem Bild, alle
+     mit 34 % Deckkraft; auf dem Nordplatz nur 188 Flächen insgesamt.
+     **Deshalb sieht Fehmarn milchig aus und der Nordplatz nicht** — nicht
+     wegen der Bildquelle, sondern wegen der Menge dessen, was darüberliegt.
+     **WAS MAN AUF DEM LUFTBILD SIEHT, MUSS MAN NICHT DARÜBERMALEN.** Ein
+     Gebäude ist auf einem 17-cm-Bild ein Gebäude; eine graue Fläche darauf
+     fügt nichts hinzu und nimmt Schärfe. */
+  {
+    const CS = G("courseSVG"), DB1 = live("DB");
+    ok("es gibt eine Liste, was über dem Bild entfällt",
+       /const SAT_UNSICHTBAR = \{other:1, building:1, parking:1, path:1\};/.test(src));
+    /* NUR ÜBER DEM LUFTBILD: Ohne Bild bleibt alles wie bisher — dort ist die
+       Fläche die einzige Information, die es gibt. */
+    ok("und nur mit Luftbild", /if\(sat && !opt\.edit && SAT_UNSICHTBAR\[k\]\) return;/.test(src));
+    /* IM EDITOR BLEIBT ALLES SICHTBAR — dort bearbeitet man genau diese
+       Objekte. */
+    ok("im Editor bleibt alles sichtbar", /!opt\.edit && SAT_UNSICHTBAR/.test(src));
+    if (typeof CS === "function" && DB1) {
+      const c = (DB1.courses || []).find(x => x && /Fehmarn/.test(x.name) && x.geo);
+      if (c) {
+        const p = s => (((s && s.svg) || s || "").match(/<path/g) || []).length;
+        const mit = p(CS(c.geo, { sat: true })), ohne = p(CS(c.geo, { sat: false }));
+        ok("mit Luftbild werden deutlich weniger Flächen gezeichnet",
+           mit < ohne * 0.7, mit + " gegen " + ohne);
+        /* Aber das Wesentliche bleibt: Grüns, Fairways, Bunker, Wasser. */
+        const svg = (CS(c.geo, { sat: true }) || {}).svg || "";
+        ok("Grüns und Fairways bleiben", /#a9dd8c/.test(svg) && /#d5ecc0/.test(svg));
+      }
+    }
+  }
+
   /* Die Prüfung misst jetzt, was ankommt, statt nur „kam etwas an". */
   ok("die Quellenprüfung misst die Schärfe",
      /Zoom "\+z\+" · "\+mpp\.toFixed\(2\)\+" m\/Pixel/.test(src));
@@ -16022,7 +16120,10 @@ group("Runde verwerfen — die Entscheidung reist mit");
      Runde wieder an, und weil der jünger war, kam sie zurück. Ein Fehlen lässt
      sich nicht übertragen, ein DATUM schon. */
   ok("Verwerfen schreibt eine Marke", /draftPushRaw\(\{discardedTs:ts\}\)/.test(src));
-  ok("eigener Schreibweg dafür", /async function draftPushRaw\(obj\)/.test(src));
+  /* v5.62: Der Weg hat jetzt einen Tiefenzähler — die Wiederholung bei 409
+     rief sich vorher OHNE Obergrenze selbst auf. Eine Wiederholung ohne
+     Obergrenze ist keine Wiederholung, sondern eine Schleife. */
+  ok("eigener Schreibweg dafür", /async function draftPushRaw\(obj, tiefe\)/.test(src));
   ok("Lesen erkennt sie", /if\(d && d\.discardedTs\)\{/.test(src));
   /* Nur wenn sie JÜNGER ist als der eigene Entwurf — sonst beendete eine alte
      Marke jede neue Runde sofort wieder. */

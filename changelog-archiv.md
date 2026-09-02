@@ -13,6 +13,53 @@
 
 ---
 
+- **v5.17.0 · 2026-08-30** — **Lunge Stretch und Backswing-Stretch kommen zurück — ans Ende.** v5.16
+  hatte beide entfernt, weil sie im Video nicht vorkommen. Die Recherche war richtig, die Folgerung
+  falsch: Sie stehen in der Wissensdatenbank (Punkt 18 der Quelle bzw. als eigener Abschnitt) und
+  sind sinnvoll. **Der ursprüngliche Befund war ja nicht, dass sie da sind, sondern dass sie
+  aussahen wie Teil des Video-Programms.**
+  Beide stehen jetzt **hinter** den fünfzehn Übungen des Videos und sind als `ergänzt` markiert — die
+  Anzeige schreibt „· ergänzt" dahinter, und der Originalwortlaut sagt ausdrücklich „nicht im Video".
+  Wer die Routine mit dem Video vergleicht, sieht sofort, was daraus stammt.
+  Der **Backswing-Stretch bleibt der letzte Punkt**, wie gewünscht: Er ist die Brücke vom Dehnen zum
+  ersten Schwung — er dehnt genau in der Stellung, die gleich gebraucht wird — und die einzige Übung,
+  die man auch **während** der Runde wiederholen kann.
+  **Prüfstand angepasst statt aufgeweicht:** Geprüft wird nicht mehr die Gesamtzahl, sondern der
+  **Videoteil** (fünfzehn Übungen, zusammenhängend am Anfang, in Malaskas Reihenfolge) — sonst müsste
+  die Zahl bei jeder Ergänzung angefasst werden, und eine Prüfung, die man ständig nachzieht, prüft
+  irgendwann nichts mehr. Dazu neu: Jede Ergänzung **muss** gekennzeichnet sein und sagen, dass sie
+  nicht im Video steht, und der Backswing-Stretch muss am Ende stehen. Die Skizzen wurden aus dem
+  Bestand vor v5.16 übernommen, nicht neu gezeichnet — 17 Übungen, 17 Skizzen.
+
+- **v5.16.0 · 2026-08-30** — **Die Dehnroutine gibt jetzt das Video wieder.** Gemeldet mit der
+  Videovorlage: „Die Anleitungen geben die Schritte falsch und unvollständig wieder." Ich habe das
+  Video Bild für Bild ausgewertet — es blendet zu jeder Übung eine Textkarte ein, daraus ließ sich
+  die Abfolge vollständig rekonstruieren.
+  **Der Kern war eine alte Entscheidung, nicht Schlamperei:** Das Programm war in 13 dynamische
+  Übungen (vor der Runde) und 6 statische (nach der Runde) geteilt, begründet damit, dass statisches
+  Dehnen vor dem Spiel die Kraftentfaltung senkt. Sportlich richtig — **aber im Video gibt es diese
+  Trennung nicht.** Malaska zeigt **eine** durchgehende Routine, und Triceps, Side, Hamstring,
+  Forward und Seated Rotation stehen darin an Position 7, 8, 11, 12 und 15, also **vor** der Runde.
+  Entschieden auf Nachfrage (Variante A): Die App bildet ab, was das Video zeigt.
+  **Was sonst falsch war:** Die **Reihenfolge** — Wrist/Forearm Strength standen an 7–8 statt 9–10,
+  Mid-Back und Rotation an 9–11 statt 13–14. **Fehlende Anweisungen**, die Malaska ausdrücklich
+  einblendet: „Shoulders Stay In Line", „Don't Hold Your Breath", „Lift Your Front Toe", „Go To Two
+  Clubs Choked Up", „Thumbs Extended", „Palms Up, Circle Backwards". Und **zwei Übungen, die im Video
+  nicht vorkommen** (Lunge Stretch, Backswing-Stretch) — sinnvoll, aber sie standen dort als
+  Malaska-Programm, und das waren sie nie.
+  **Die Grafiken sind indexgebunden** — Skizze *n* gehört zu Übung *n*. Nach der alten Aufteilung
+  stand ab Übung 7 das Bild der nächsten Übung neben dem Text. Fünf Skizzen (Triceps, Side,
+  Hamstring, Forward, Seated) waren in `POST_SVG` längst gezeichnet und wurden an ihren richtigen
+  Platz geholt, statt neu erfunden zu werden.
+  **Neu bei jeder Übung: der Originalwortlaut der eingeblendeten Karte**, gedämpft unter der
+  deutschen Anleitung. Wer die Übung im Video nachschlägt, erkennt die Stelle wieder.
+  **Ehrlich zur Quelle:** Ich habe die Bilder ausgewertet, **den Ton nicht gehört**. Grundlage sind
+  die eingeblendeten Textkarten und die Bewegungsbilder; Malaskas gesprochene Erklärungen liegen
+  nicht vor. Wo die Anleitung über den Wortlaut der Karte hinausgeht, ist sie aus dem Bewegungsbild
+  abgeleitet.
+  **Prüfstand 24ey** hält die Videotreue fest: fünfzehn Übungen, die Reihenfolge namentlich, jede
+  eingeblendete Anweisung einzeln, keine Übung ohne Skizze, keine, die das Video nicht zeigt.
+
 - **v5.15.0 · 2026-08-30** — **Der Start zeigt jetzt, dass er lebt.** Gemeldet: Beim Start aus der
   Verknüpfung bleibt der grüne Startbildschirm stehen, und man weiß nicht, ob die App lädt oder
   hängt.
