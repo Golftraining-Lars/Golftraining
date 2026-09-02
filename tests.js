@@ -9449,7 +9449,15 @@ group("Schlagfolge — der letzte Punkt IST das Grün");
       DB0.clubDistances = [{ club: "Driver", carry: 211, reach: 225 },
         { club: "5 Iron", carry: 168, reach: 174 }, { club: "PW", carry: 105, reach: 107 }];
       PB("T", "Gelb", 0); PLAY0.idx = 0; PLAY0.here = t2;
-      const n0 = LOG ? LOG.length : 0;
+        /* NUR DIE WACHE ZÄHLEN (v5.64): Hier stand `LOG.length` — also JEDE
+           Protokollzeile. Seit das Raster seine Lochnummer kennt, werden
+           Höhen-Hinweise je Loch einzeln gemeldet statt unter „Loch ?"
+           zusammengefasst — richtig, aber es sind zwei Zeilen mehr, und die
+           Prüfung hielt sie für die Wache.
+           EINE PRÜFUNG, DIE ALLES ZÄHLT, MISST NICHT, WAS SIE BEHAUPTET. */
+        const wache = () => (LOG || []).filter(x =>
+          x && /Caddy/.test(String(x.where || "")) && !/Höhendaten/.test(String(x.where || ""))).length;
+        const n0 = wache();
       const k = AC(true);
       ok("Kette gebaut", !!(k && k.pts && k.pts.length > 1), k ? String(k.pts.length) : "-");
         /* AUS GROSSER ENTFERNUNG (v3.42): „wie am Abschlag planen" heißt auch
@@ -9479,8 +9487,8 @@ group("Schlagfolge — der letzte Punkt IST das Grün");
         ok("erster Punkt ist der Abschlag", GD(t2, k.pts[0]) < 5);
         /* Und die Wache schweigt, wenn alles stimmt — eine Warnung, die immer
            erscheint, liest niemand. */
-        if (LOG) ok("Wache schweigt bei korrekter Kette", LOG.length === n0,
-          String(LOG.length - n0));
+        if (LOG) ok("Wache schweigt bei korrekter Kette", wache() === n0,
+          String(wache() - n0));
       }
     } finally {
       DB0.courses = sicher.c; DB0.clubDistances = sicher.cl; PLAY0.holes = sicher.holes;
@@ -10430,6 +10438,105 @@ group("Schlag-GPS — Ausreißer sehen und loswerden");
       ok("der Grund steht an der markierten Zeile", /m zum Median/.test(src));
     }
   }
+}
+
+/* ============ 24fz. Welche Höhe fehlt — und an welchem Loch ============ */
+group("Höhendaten — ein Satz für drei Zustände war zu wenig");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+  const S = G("STRAT"), DB0 = live("DB");
+
+  /* ====================================================================
+     GEMELDET im Protokoll vom 02.09.2026 (v5.64)
+     --------------------------------------------------------------------
+     Um 16:01:49 steht „Höhenraster Golf Club Fehmarn geladen", drei Sekunden
+     später viermal „Caddy ohne Höhendaten". Beides zugleich kann nicht
+     stimmen — und man kann es nicht auseinanderhalten, weil die Meldung nur
+     sagte „DGM/Höhe nicht verfügbar".
+     DREI ZUSTÄNDE HINTER EINEM SATZ: kein Raster · Raster mit Lücke an dieser
+     Stelle · Lücke UND keine Online-Höhen als Rückfall. **Die drei brauchen
+     verschiedene Antworten** — beim ersten fehlt der Abruf, beim zweiten ist
+     die Quelle lückenhaft (nichts zu machen), beim dritten genügt ein
+     Nachladen mit Netz.
+     **EIN SATZ, DER DREI ZUSTÄNDE ZUSAMMENFASST, KOSTET DIE FEHLERSUCHE MEHR
+     ZEIT ALS ER SPART** — das ist diese Woche zweimal passiert (die Endzeit im
+     Kalender, das milchige Luftbild). Beide Male war die Meldung nicht falsch,
+     nur zu unbestimmt. */
+  ok("die Meldung unterscheidet drei Zustände",
+     /kein Höhenraster geladen/.test(src)
+     && /Raster hat hier eine Lücke, Online-Höhen greifen nicht/.test(src)
+     && /Raster hat hier eine Lücke und es gibt keine Online-Höhen als Rückfall/.test(src));
+  if (S && typeof S.ohneHoehe === "function") {
+    const LOG = G("ERRLOG");
+    S._ohneHoeheGemeldet = {};
+    const v0 = (LOG || []).length;
+    S.ohneHoehe(7, "spielt-wie ohne Höhe");
+    const zeile = ((LOG || [])[LOG.length - 1] || {}).msg || "";
+    ok("und nennt einen davon", /kein Höhenraster|Lücke/.test(zeile), zeile.slice(0, 80));
+    /* DIE LOCHNUMMER STEHT DRIN — vorher „Loch ?", weil das Raster sie nicht
+       mitführte. Eine Meldung, die nicht sagt WO, zwingt zum Suchen. */
+    ok("mit Lochnummer statt Fragezeichen", /^Loch 7:/.test(zeile), zeile.slice(0, 40));
+    /* Und sie meldet sich nur EINMAL je Loch und Grund — ein Ereignis, das
+       bei jedem Aufruf eintritt, ist keine Nachricht. */
+    const v1 = (LOG || []).length;
+    S.ohneHoehe(7, "spielt-wie ohne Höhe");
+    ok("und wiederholt sich nicht", (LOG || []).length === v1);
+  }
+  /* Die Ursache der Fragezeichen: `grid()` führte die Lochnummer nicht mit,
+     obwohl sie als Parameter direkt daneben stand. */
+  ok("das Raster führt seine Lochnummer",
+     /greenCells:gz,\s*\n\s*holeNo\}/.test(src));
+  if (S && typeof S.grid === "function" && DB0) {
+    const c = (DB0.courses || []).find(x => x && x.geo && x.geo.holes);
+    if (c) {
+      const g = S.grid(c.geo, c.name, 7);
+      ok("und trägt sie im Ergebnis", g && g.holeNo === 7, g ? String(g.holeNo) : "kein Raster");
+    }
+  }
+}
+
+/* ============ 24fy. Melden ist nicht Aufholen ============ */
+group("Takt — eine erkannte Lücke muss auch geschlossen werden");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+  const i = src.indexOf("function taktPruefen");
+  const j = src.indexOf("\nfunction ", i + 10);
+  const blk = i >= 0 ? src.slice(i, j > i ? j : i + 6000) : "";
+
+  /* ====================================================================
+     GEMELDET im Protokoll vom 02.09.2026 (behoben in v5.63)
+     --------------------------------------------------------------------
+     „Takt gedrosselt · 198 s statt 2 s (1×) · im Browser-Tab · Bildschirm AN"
+     DIE DROSSELUNG SELBST IST NICHT ZU VERHINDERN — der Browser entscheidet
+     das. **Aber sie wurde nur GEMELDET.** Danach lief der Takt weiter, als
+     wäre nichts gewesen: Der nächste reguläre Durchlauf kam erst nach zwei
+     weiteren Sekunden, und bis dahin war der Stand dreieinhalb Minuten alt.
+     DAS AUFHOLEN GAB ES SCHON (`playAufholen`, v4.79) — aber es hängt an
+     `visibilitychange`, `pageshow` und `focus`. **Genau die lagen hier nicht
+     vor:** Bildschirm an, Fenster im Vordergrund. Der Browser hat trotzdem
+     gedrosselt, und kein einziges Ereignis hat das gemeldet.
+     **WER EINE LÜCKE ERKENNT, MUSS SIE AUCH SCHLIESSEN.** Eine Meldung ohne
+     Handlung ist eine Zeile im Protokoll, kein behobener Zustand — dieselbe
+     Sorte Fehler wie beim Sendetakt der Uhr (58), wo das Aufwachen nur ein
+     Kennzeichen setzte. */
+  ok("nach einer Drosselung wird aufgeholt", /playAufholen\("Drosselung /.test(blk));
+  /* DER STILLSTAND IST DER SCHLIMMERE FALL — gedrosselt kommt der nächste
+     Durchlauf wenigstens noch, angehalten gar nicht. Dass ausgerechnet
+     dieser Zweig nur meldete und zurückkehrte, war die größere Lücke. */
+  ok("und nach einem Stillstand ebenso", /playAufholen\("Stillstand /.test(blk));
+  ok("beide Zweige holen auf", (blk.match(/playAufholen\(/g) || []).length === 2,
+     String((blk.match(/playAufholen\(/g) || []).length));
+  /* Gemeldet wird weiterhin — die Zahl ist der einzige Beleg dafür, wie oft
+     der Browser drosselt. */
+  ok("gemeldet wird weiterhin", /logWarn\("Takt gedrosselt"/.test(blk)
+     && /logWarn\("Takt stand still"/.test(blk));
+  /* `playAufholen` HAT SEINE EIGENE BREMSE (1,5 s) — der Aufruf aus dem Takt
+     kann also keine Flut auslösen. */
+  ok("das Aufholen bremst sich selbst",
+     /if\(jetzt-_aufholLetzt < 1500\) return;/.test(src));
+  /* Und es startet den Zeitgeber mit — sonst holte es beim Stillstand zwar
+     den Stand, aber nicht den Takt zurück. */
+  ok("und startet den Takt mit", /playStartSync\(\);\s*\n\s*playSyncTick\(\);/.test(src));
 }
 
 /* ============ 24fx. Die neue Kennung nach dem Schreiben ============ */

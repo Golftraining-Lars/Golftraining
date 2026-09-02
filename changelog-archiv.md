@@ -13,6 +13,56 @@
 
 ---
 
+- **v5.19.0 · 2026-08-30 · Uhr (53)** — **Die Höhendaten waren da — die Rechnung war schon vorbei.**
+  Nachgereicht: „Ich habe die Runde simuliert und hatte die Höhendaten heruntergeladen. Eigentlich
+  hätte also alles vorliegen müssen." **Stimmt — und genau das war der Fehler.** `dgmFuerRunde()`
+  holt das Raster **asynchron** aus IndexedDB und wartet auf niemanden. Der Caddy rechnet unmittelbar
+  danach, findet `DGM === null`, rechnet ohne Gefälle — und legt dieses Ergebnis in `_aimCache`.
+  Dessen Schlüssel kennt Platz, Tee, Loch, Spielweise und Position, aber **nicht den Zustand der
+  Höhendaten**. Sekundenbruchteile später ist das Raster da, die Empfehlung steht aber schon fest.
+  **Dieselbe Fehlerklasse wie der Lochzeiger und die Kette:** ein Zwischenspeicher, dessen Schlüssel
+  eine Eingangsgröße nicht kennt. Zwei Riegel: Beim Laden werden `_aimCache`, das Lage-Raster und die
+  einmal-je-Loch-Meldung „ohne Höhe" geleert (mit Protokollzeile), und der Rasterzustand steht jetzt
+  **im Schlüssel selbst**.
+  **Uhr (53): Das Protokoll sagt jetzt, warum der Schlag nicht ging.** Zwei Lücken. Erstens kannten
+  die Schlag-Zeilen den GPS-Zustand nicht — „Start abgelehnt · GPS zu ungenau" nannte nicht, **wie**
+  ungenau. Jetzt trägt jede Zeile Genauigkeit, Alter des Fixes, das Urteil nach `FixQuality.usable`
+  samt **Grenzwert**, und ob die Ortung überhaupt läuft. Zweitens schwieg die Uhr zu ihren eigenen
+  GPS-Lücken: Im Handy-Protokoll derselben Runde steht zweimal „Uhr meldet seit über 90 s keine
+  Position" — das **Handy** bemerkt die Lücke, die **Uhr** sagt nichts dazu, obwohl nur sie weiß,
+  woran es lag. **Eine Lücke kann sich nicht melden, während sie läuft — es kommt ja nichts.** Sie
+  meldet sich jetzt, wenn sie **endet**: mit Dauer, Genauigkeit und ob der Fix vom Satelliten oder
+  nur vom Netzwerk kam. Ab 20 Sekunden, damit ein normales Sammelfenster nicht als Lücke erscheint.
+  **„Lässt sich nicht starten" und „GPS war weg" sehen auf der Uhr gleich aus** — ab Fassung 53 sind
+  es zwei verschiedene Zeilen.
+
+- **v5.18.0 · 2026-08-30** — **Drei Befunde aus einem Bildschirmfoto.**
+  **(1) Die App zeigte die Zahlen, nach denen sie nicht entschieden hat.** Im Bild: „6 Iron · 4,28
+  ES", darunter „Alternative: 2 Iron · 4,26 ES", beide 0 % Risiko. Weniger ist besser — **nach den
+  angezeigten Zahlen war die Alternative die bessere Wahl.** Die Empfehlung widersprach sich selbst,
+  und genau deshalb überzeugte sie nicht. Die Zahlen waren nicht falsch, es waren die **falschen**
+  Zahlen: `tee()` wählt nach `score2` — dem Erwartungswert über **zwei** Schläge —, angezeigt wurde
+  `es`, nur der erste. Das 6 Iron gewinnt, weil danach ein PW bleibt; die Zeile „→ danach PW" sagte
+  es sogar, nur ohne Zahl. **Regel daraus: Wer nach einer Zahl entscheidet, muss diese Zahl zeigen.**
+  Eine Begründung, die eine andere Größe nennt als die entscheidende, ist keine Begründung — sie ist
+  ein Widerspruch mit Nachkommastellen. Ist der erste Schlag der Alternative besser, steht das jetzt
+  ausdrücklich dabei.
+  **(2) „−119 m" verglich zwei verschiedene Punkte.** „Lage 278 m · Spielt wie 159 m · −119 m": 278 m
+  ist die Entfernung zur **Grünmitte**, 159 m die zum **Zwischenziel** der Kette. Die Zeile las sich,
+  als nähmen Wind und Höhe 119 m weg. Das ist mein eigener Fehler aus v4.99 — dort wurden Kopfzeile
+  und Kette auf dasselbe Ziel gebracht und diese Differenzzeile übersehen. Jetzt erscheint die
+  Differenz nur, wenn **beide Zahlen denselben Bezugspunkt haben**; sonst steht das Ziel dabei.
+  **Lieber keine Zahl als eine, die etwas anderes bedeutet, als sie aussieht.**
+  **(3) Der Downslope am Landepunkt wurde nicht berücksichtigt — obwohl er eingebaut ist.** Gefragt:
+  „Wird das nicht berücksichtigt?" Doch, seit v3.95 (`hangZ`). Aber er war wirkungslos, und das
+  Protokoll sagt es wörtlich: „Hang am Landepunkt — DGM/Höhe nicht verfügbar". `dgmNeigung` braucht
+  das **DGM-Raster**; fehlt es, gibt sie `null` und der Hangterm wird still 0. **Die Lücke:** Die
+  grobe Online-Quelle liefert Höhen — die „spielt wie"-Zahl stimmte ja —, nur hat daraus nie jemand
+  eine **Neigung** gebildet. Neu `neigungGrob()` als dritte Stufe: drei Höhen im **25-m-Abstand**
+  (feiner wäre Rauschen bei dieser Quelle), als `grob` gekennzeichnet, an beiden Stellen eingehängt
+  (Abschlag und Folgeschlag). Der Unterschied zwischen „es geht bergab" und „keine Aussage" ist genau
+  der, um den es hier ging.
+
 - **v5.17.0 · 2026-08-30** — **Lunge Stretch und Backswing-Stretch kommen zurück — ans Ende.** v5.16
   hatte beide entfernt, weil sie im Video nicht vorkommen. Die Recherche war richtig, die Folgerung
   falsch: Sie stehen in der Wissensdatenbank (Punkt 18 der Quelle bzw. als eigener Abschnitt) und
