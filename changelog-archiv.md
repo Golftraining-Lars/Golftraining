@@ -13,6 +13,77 @@
 
 ---
 
+- **v5.15.0 · 2026-08-30** — **Der Start zeigt jetzt, dass er lebt.** Gemeldet: Beim Start aus der
+  Verknüpfung bleibt der grüne Startbildschirm stehen, und man weiß nicht, ob die App lädt oder
+  hängt.
+  **Den Startbildschirm selbst kann man nicht animieren** — er kommt vom Browser (Symbol, Name und
+  Farbe aus dem Manifest) und steht, bis die Seite ihr **erstes Bild** zeichnet. Man kann ihn nur
+  früher ablösen.
+  **Und genau da lag das Problem:** Zwischen `<body>` und dem ersten sichtbaren Element standen
+  **499 kB Datenblöcke** (Grundpfeiler-Bibliothek, Doku, Wissensdaten). Der Parser muss sie lesen,
+  bevor er zum `<header>` kommt — bei 9 Sekunden Startzeit sieht man neun Sekunden lang einen
+  unbewegten Bildschirm.
+  Neu steht deshalb **ganz oben, vor allen Daten**, eine eigenständige Ladeanzeige: drehender Kreis,
+  Name, eine Zeile Text. Wenige hundert Byte, eigene Gestaltung, keine Funktion von weiter unten —
+  sonst würde sie auf genau das warten, was sie überbrücken soll.
+  **Keine Prozente, kein Fortschrittsbalken:** Wie weit das Laden ist, weiß niemand ehrlich zu sagen.
+  Ein Balken, der bei 80 % stehenbleibt, ist schlimmer als ein Kreisel, der weiterdreht. Stattdessen
+  nach 8 s „Die App ist groß — der erste Start dauert am längsten", nach 20 s ein Hinweis auf
+  schwachen Funk.
+  **Notausgang nach 45 s:** Bricht der Start ab (Syntaxfehler, halbe Datei aus dem Cache), räumt
+  niemand die Anzeige weg — dann wäre sie genau das, was sie verhindern soll. Sie sagt dann selbst,
+  dass etwas nicht stimmt, und lässt sich zum Neuladen antippen. 45 s ist bewusst lang: Der langsamste
+  gemessene Start lag bei 33 s.
+  **Weg erst nach dem ersten Bild** (hinter `renderAll()` und `setView()`, ein `requestAnimationFrame`
+  später) — verschwindet sie vorher, sieht man kurz eine leere Fläche, und genau der Eindruck war die
+  Meldung. Bei `prefers-reduced-motion` pulsiert sie statt zu drehen, aber sie bewegt sich: Ein
+  unbewegter Kreis ist genau das, was gemeldet wurde.
+
+- **v5.14.0 · 2026-08-29** — **Zeichenfenster im Prüfstand: `blockVon` und ein Deckel.** Umsetzung
+  von Punkt B-3 des Audits. **Viermal in einer Woche** ist eine Prüfung rot geworden, weil sie einen
+  Quelltext-Ausschnitt fester Länge las und der Code darunter gewachsen war: `grid()` (14.000
+  Zeichen), `draftPush` (400), der Fahnen-Rückbau, zuletzt der Uhr-Wächter (260). **Jedes Mal stimmte
+  der Code — und jedes Mal habe ich zuerst den Code verdächtigt.** Das ist die teuerste Sorte
+  Fehlalarm: Er sieht aus wie ein Befund, kostet Zeit, und wenn er sich häuft, gewöhnt man sich an
+  rote Zeilen. Genau so ist mir der Caddy-Wächter durchgerutscht, der die ganze Zeit recht hatte.
+  Neu `blockVon(src, anker)` — grenzt an der **nächsten Deklaration** ab statt an einer Zeichenzahl.
+  Das hält, egal wie lang eine Funktion wird. Bewusst kein Parser: ein zweites Werkzeug, das selbst
+  kaputtgehen kann, wäre der falsche Tausch.
+  **Nicht alle 53 auf einmal.** Eine mechanische Umstellung, die den Prüfstand grün lässt, kann ihn
+  aus dem **falschen** Grund grün lassen — `blockVon` gibt bei unbekanntem Anker `""` zurück, und
+  eine Abwesenheitsprüfung auf `""` ist immer wahr. Genau das passierte beim vierten Kandidaten
+  (`condZeile`) und fiel nur auf, weil der Prüfstand rot wurde. Umgestellt wurde deshalb **einzeln
+  mit Gegenprobe**: drei Fenster (900–3000 Zeichen) auf `blockVon`, eines ohne Fenster neu
+  formuliert. **Von 53 auf 48** (im Code gezählt, ohne die Kommentare).
+  `FENSTER_DECKEL = 48` hält den Rest an — nur senken, nie anheben. Wer ein großes Fenster braucht,
+  muss die Zahl anfassen und stolpert dabei über die Frage. Gegenprobe gemacht: Ein zusätzliches
+  Fenster macht die Prüfung rot.
+  **Und noch eine eigene Falle:** Die Zählung sollte per regulärem Ausdruck laufen — der müsste sich
+  dabei selbst beschreiben, vier Maskierungsebenen tief, und zählte stumm **0**. Eine Zählung, die 0
+  meldet, obwohl 49 dastehen, ist schlimmer als keine: Der Deckel wäre grün und nutzlos. Jetzt
+  Zeichenkettensuche.
+
+- **v5.13.0 · 2026-08-29 · Uhr (52)** — **Welche Uhr-Fassung wirklich läuft, steht jetzt im
+  Protokoll.** Befund aus dem Audit: `watchFassung()` gibt es seit v4.65, aber sie **zeigt** die
+  Kennung nur in einer Ansicht, die man aufrufen muss. Dort, wo man nach einem Fehler nachsieht — im
+  Protokoll —, stand sie nicht.
+  **Das hat in dieser Woche mehrfach Stunden gekostet:** Behebungen für die Uhr wurden auf dem Platz
+  geprüft, **bevor sie auf dem Handgelenk waren**, und beide Seiten hielten die Korrektur für
+  wirkungslos. Die PWA hat dasselbe Problem seit v5.02 gelöst (Startvermerk, Fassungswechsel-Zeile);
+  dies ist das Gegenstück für die Uhr.
+  Die Uhr trägt ihre Kennung ab **(52)** als `app` im Live-Zeiger, den sie ohnehin im Takt schickt —
+  kein zusätzlicher Abruf, rund 20 Byte. `watchFassungPruefen()` schreibt **zwei** Arten von
+  Einträgen: beim **ersten** Sehen und bei jedem **Wechsel** („(51) → (52)"). Eine Zeile bei jedem
+  Herzschlag wäre Rauschen — und Rauschen ist der Grund, warum man ein Protokoll irgendwann nicht
+  mehr liest. Der Stand liegt in `localStorage`, nicht in `DB`: Er gehört zum **Gerät**, sonst meldet
+  der PC einen Wechsel, weil das Handy eine andere Uhr gesehen hat.
+  **Zwei eigene Fallen beim Bauen** — beide gehören zur Lehre: Das `localStorage` des Prüfstands war
+  eine **Attrappe** (`getItem: () => null`). Für alles, was nur schreibt, genügt das; jede Regel, die
+  sich etwas **merkt**, ist damit nicht prüfbar — sie sieht immer einen leeren Speicher. Meine
+  Prüfung war rot, obwohl die Funktion stimmte, und ich habe zuerst die Funktion verdächtigt. **Eine
+  Attrappe, die immer dasselbe sagt, prüft nichts.** Und: eine bestehende Prüfung las wieder einen
+  Quelltext-Ausschnitt fester Länge (260 Zeichen) — der **vierte** Fall dieser Woche.
+
 - **v5.12.0 · 2026-08-29** — **Eine bereitliegende Fassung meldet sich jetzt.** Aus dem Protokoll vom
   29.08.: dreimal „Netz zu langsam oder nicht da — gespeicherte Fassung geliefert", und einmal ein
   **Rückschritt**: „Fassungswechsel 5.08.0 → 5.07.0". Behebungen kamen tagelang nicht an — und beide

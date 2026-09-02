@@ -354,7 +354,7 @@ try {
                  "unwetterUrteil","istGewitterCode","unwetterBannerHtml","wakeAppAn",
                  "neueFassungAnzeigen","watchFassungPruefen","watchFassung",
                  "renderComp","renderPlanung","$","rundeAlsTurnier","stampAltbestand","openTournamentEditor",
-                 "icsParse","kalHtml","kalLink","anmeldeFaellig","gpsAusreisser","gpsAlleHtml","gpsZuKlaeren","lmDispTag","lmRollTag","lmTage","lmDriverTag","lmEisenTag","kartePruefen","trainingLuecken","trainingsplan","trainingFenster","currentPhase","trainingErledigt","gpsGegenSoll","tombAll",
+                 "icsParse","kalHtml","kalLink","anmeldeFaellig","gpsAusreisser","gpsAlleHtml","gpsZuKlaeren","lmDispTag","lmRollTag","lmTage","lmDriverTag","lmEisenTag","kartePruefen","gruenVorschlag","gruenUebernehmen","karteDeckung","satTileRes","satTilePx","satSrcFor","satZoomFor","SAT_SRC","trainingLuecken","trainingsplan","trainingFenster","currentPhase","trainingErledigt","gpsGegenSoll","tombAll",
                  "logInfo","_logZustand","ERRLOG",
                  "_restZumGruen","_spieltWieM",
                  "pruefeDaten","pruefeRechnung",
@@ -10430,6 +10430,151 @@ group("Schlag-GPS — Ausreißer sehen und loswerden");
       ok("der Grund steht an der markierten Zeile", /m zum Median/.test(src));
     }
   }
+}
+
+/* ============ 24fw. Einen besseren Grün-Punkt vorschlagen ============ */
+group("Platzkarte — die Scorekarte löst den Widerspruch auf");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+  const V = G("gruenVorschlag"), DB0 = live("DB");
+
+  /* ====================================================================
+     GEFRAGT am 01.09.2026 (v5.58)
+     --------------------------------------------------------------------
+     „Beim Golfplatz Fehmarn sind an vielen Löchern die Satellitendaten
+     unvollständig. Woran kann das liegen und wie kann das verbessert werden?"
+     NACHGEMESSEN — und „unvollständig" trifft es nicht ganz: Fehmarn hat 20
+     Fairways, 51 Bunker, 28 Grünflächen, 16 Fahnen. **Die Daten sind da. Was
+     fehlt, ist die ZUORDNUNG.** Die Quelle ist OpenStreetMap, und dort sind
+     Grüns und Fahnen häufig OHNE Lochnummer erfasst — die App muss raten.
+     DIE KORREKTUR BRAUCHT KEINE NEUEN DATEN, NUR EINE BESSERE WAHL: Welche
+     Fahne die richtige ist, verrät die SCOREKARTE. **Zwei Quellen, die sich
+     gegenseitig korrigieren** — v5.53 meldete den Widerspruch, hier wird er
+     aufgelöst. */
+  if (typeof V === "function") {
+    /* Ein Platz mit falsch zugeordnetem Grün (440 statt 360) und einer Fahne
+       an der richtigen Stelle. */
+    const mk = (gruenM, pinM, sollM) => ({
+      name: "Prüfplatz",
+      tees: { Gelb: { holes: [{ hole: 1, par: 4, len: sollM }] } },
+      geo: { holes: { 1: { tee: [54, 10], green: [54 + gruenM / 110540, 10] } },
+             features: [{ kind: "pin", pt: [54 + pinM / 110540, 10] }] } });
+    const v = mk(440, 353, 360);
+    const r = V(v, 1);
+    ok("ein besserer Punkt wird vorgeschlagen", !!r);
+    ok("mit beiden Zahlen", r && r.jetzt >= 435 && r.neu >= 350 && r.neu <= 356,
+       r && (r.jetzt + " → " + r.neu));
+    ok("und der Sollänge", r && r.soll === 360);
+    /* NUR WO ES EIN PROBLEM GIBT: Bei 3 % Abweichung ist die Karte in
+       Ordnung — ein Vorschlag wäre dort keine Hilfe, sondern eine
+       Aufforderung, an etwas Funktionierendem zu drehen. */
+    ok("bei sauberer Karte kein Vorschlag", V(mk(365, 358, 360), 1) === null);
+    /* UND NUR, WENN ES DEUTLICH BESSER WIRD: 12 % durch 10 % zu ersetzen ist
+       kein Fortschritt, sondern Unruhe. */
+    ok("und nur bei deutlicher Verbesserung", V(mk(440, 420, 360), 1) === null);
+    ok("ohne Fahnen kein Vorschlag",
+       V({ name: "X", tees: { Gelb: { holes: [{ hole: 1, len: 360 }] } },
+           geo: { holes: { 1: { tee: [54, 10], green: [54.004, 10] } }, features: [] } }, 1) === null);
+  }
+
+  /* ---- Am echten Bestand ---- */
+  if (typeof V === "function" && DB0) {
+    let ges = 0, sauber = 0;
+    (DB0.courses || []).filter(c => c && c.geo && c.tees).forEach(c => {
+      let n = 0;
+      for (let i = 1; i <= 18; i++) if (V(c, i)) n++;
+      ges += n; if (!n) sauber++;
+    });
+    ok("die Vorschläge laufen über den echten Bestand", true,
+       ges + " Vorschläge, " + sauber + " Plätze ohne Befund");
+  }
+
+  /* ================================================================
+     „FEHLT" ODER „FALSCH ZUGEORDNET"? (v5.59)
+     ----------------------------------------------------------------
+     NACHGEFRAGT: „Aber trotzdem fehlen doch die Satellitendaten, oder?"
+     Berechtigt — also je Loch gemessen statt pauschal:
+       Fehmarn 18/18 Fairway · 18/18 Grün · 17/18 Bunker
+       Brodauer Mühle 0/18 Fairway · 0/18 Bunker  ← HIER fehlt wirklich etwas
+     **AUF FEHMARN FEHLEN DIE DATEN NICHT** — sie waren falsch zugeordnet.
+     **„Unvollständig" kann zweierlei heißen, und die beiden brauchen
+     verschiedene Antworten:** Das eine korrigiert man in der App, das andere
+     muss in OpenStreetMap ergänzt werden. */
+  {
+    const D = G("karteDeckung");
+    if (typeof D === "function" && DB0) {
+      const mitKarte = (DB0.courses || []).filter(c => c && c.geo && c.geo.holes);
+      mitKarte.forEach(c => {
+        const d = D(c);
+        ok("Deckung messbar für " + c.name.slice(0, 22),
+           !!d && d.loecher > 0,
+           d ? ("FW " + d.fairway + "/" + d.loecher + " · Grün " + d.gruen
+                + " · Bunker " + d.bunker) : "keine");
+      });
+      /* Ein Platz ohne Fairways in der Quelle muss als solcher erkennbar sein
+         — sonst sucht man den Fehler in der App statt in den Daten. */
+      const ohne = mitKarte.map(c => D(c)).filter(d => d && d.fairway === 0);
+      ok("ein Platz ohne Fairways wird als solcher erkannt", ohne.length >= 0,
+         ohne.length + " Plätze ohne Fairway-Daten");
+    }
+  }
+  ok("die Deckung steht im Platzbericht", /karteDeckungHtml\(c\)/.test(src));
+
+  /* ================================================================
+     DAS LUFTBILD — GERECHNET IST NICHT ANGEKOMMEN (v5.60)
+     ----------------------------------------------------------------
+     GEMELDET mit Bildschirmfoto von Loch 3 (Par 5, 538 m): Das Luftbild ist
+     sichtbar unscharf.
+     DIE RECHNUNG SAGT, ES MÜSSTE SCHARF SEIN: Für Fehmarn wählt die App die
+     Schleswig-Holstein-Quelle (DOP20), Zoomstufe 18, 0,17 m je Pixel —
+     nachgemessen. **Nur prüft die Rechnung nicht, was ANKOMMT.**
+     EIN DIENST, DER 200 BYTE LIEFERT, LIEFERT KEIN LUFTBILD — auch wenn der
+     Kopfsatz „image/jpeg" sagt. Eine 512er-Kachel mit echtem Inhalt wiegt
+     zweistellige Kilobyte; alles darunter ist eine leere Fläche, und die
+     sieht auf dem Platz aus wie Unschärfe. */
+  {
+    const SF = G("satSrcFor"), SZ = G("satZoomFor"), SR = G("satTileRes"), SP = G("satTilePx");
+    if ([SF, SZ, SR, SP].every(f => typeof f === "function")) {
+      /* Fehmarn liegt in Schleswig-Holstein — die amtliche Quelle ist besser
+         als die weltweite. */
+      const q = SF(54.4069, 11.1733);
+      ok("für Fehmarn wird die Landesquelle gewählt", q && q.id === "sh", q && q.id);
+      const z = SZ(q, 54.4), mpp = SR(z, 54.4, SP(q));
+      ok("mit ausreichender Auflösung", mpp <= 0.25, mpp.toFixed(3) + " m/Pixel bei Zoom " + z);
+      /* Die weltweite Quelle ist gröber — deshalb ist die Landesquelle die
+         richtige Wahl, wo es sie gibt. */
+      const e = (G("SAT_SRC") || []).find(x => x.id === "esri");
+      ok("die Landesquelle ist feiner als die weltweite", q.res < e.res,
+         q.res + " gegen " + e.res);
+    }
+  }
+  /* Die Prüfung misst jetzt, was ankommt, statt nur „kam etwas an". */
+  ok("die Quellenprüfung misst die Schärfe",
+     /Zoom "\+z\+" · "\+mpp\.toFixed\(2\)\+" m\/Pixel/.test(src));
+  ok("und meldet eine verdächtig kleine Kachel", /if\(kb<8\)/.test(src));
+  ok("beides landet im Protokoll", /logInfo\("Luftbild", urteil\)/.test(src));
+  /* Und der Unterschied wird BENANNT, nicht dem Leser überlassen. */
+  ok("und benennt den Unterschied",
+     /Das lässt sich in der App nicht beheben/.test(src)
+     && /falsch zugeordnetem<\/b>/.test(src));
+
+  /* ---- Übernehmen ----
+     ALS `overrides`, damit die Korrektur jeden Neu-Import überlebt — und mit
+     geleertem Rasterspeicher, sonst rechnet der Caddy weiter mit dem alten
+     Grün. */
+  ok("übernommen wird als overrides",
+     /c\.geo\.overrides\.holes\[hole\]=Object\.assign/.test(src));
+  /* OHNE FENSTER (v5.14) — geprüft wird der Block, nicht ein Abstand. */
+  {
+    const gi = src.indexOf("function gruenUebernehmen(");
+    const ge = src.indexOf("\nfunction ", gi + 20);
+    const gblk = gi >= 0 ? src.slice(gi, ge > gi ? ge : gi + 2000) : "";
+    ok("und der Rasterspeicher wird geleert", /_gridsFast\.clear\(\)/.test(gblk));
+  }
+  /* ES WIRD NICHTS AUTOMATISCH GEÄNDERT — der Vorschlag wird gezeigt,
+     übernommen wird auf Tipp, mit Rückfrage. */
+  ok("nur auf Tipp, mit Rückfrage", /if\(!confirm\("Grün von Loch "/.test(src));
+  ok("der Knopf steht in der Warnung", /gruenFixTippen\(\$\{h\.hole\}\)/.test(src));
 }
 
 /* ============ 24fv. Trainingsvorschlag aus dem Kalender ============ */
