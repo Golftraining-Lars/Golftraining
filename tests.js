@@ -354,7 +354,7 @@ try {
                  "unwetterUrteil","istGewitterCode","unwetterBannerHtml","wakeAppAn",
                  "neueFassungAnzeigen","watchFassungPruefen","watchFassung",
                  "renderComp","renderPlanung","$","rundeAlsTurnier","stampAltbestand","openTournamentEditor",
-                 "icsParse","kalHtml","kalLink","anmeldeFaellig","gpsAusreisser","gpsAlleHtml","gpsZuKlaeren","lmDispTag","lmRollTag","lmTage","lmDriverTag","lmEisenTag","kartePruefen","trainingLuecken","trainingsplan","trainingFenster","currentPhase","gpsGegenSoll","tombAll",
+                 "icsParse","kalHtml","kalLink","anmeldeFaellig","gpsAusreisser","gpsAlleHtml","gpsZuKlaeren","lmDispTag","lmRollTag","lmTage","lmDriverTag","lmEisenTag","kartePruefen","trainingLuecken","trainingsplan","trainingFenster","currentPhase","trainingErledigt","gpsGegenSoll","tombAll",
                  "logInfo","_logZustand","ERRLOG",
                  "_restZumGruen","_spieltWieM",
                  "pruefeDaten","pruefeRechnung",
@@ -10538,8 +10538,83 @@ group("Training — Kalender, Ziele und Tests zusammengeführt");
      (roh.match(/!==vorher && /g) || []).length >= 2,
      String((roh.match(/!==vorher && /g) || []).length));
 
+  /* ================================================================
+     DAS FENSTER WIRD VOLL GEPLANT (v5.56)
+     ----------------------------------------------------------------
+     GEMELDET am 01.09.: „Im Kalender sind mehr als 90 Minuten verfügbar."
+     Die Anzeige nahm pauschal 90 an — `icsParse` las nur `DTSTART`. Der
+     Kalender WEISS die Länge; sie wurde nur nie gelesen. **EINE ANGENOMMENE
+     ZAHL IST EINE ERFUNDENE ZAHL, wenn die echte danebenliegt.** */
+  {
+    const IP = G("icsParse");
+    if (typeof IP === "function") {
+      const ics = ["BEGIN:VCALENDAR", "BEGIN:VEVENT", "UID:a", "SUMMARY:Golftraining",
+        "DTSTART:20260906T090000Z", "DTEND:20260906T113000Z", "END:VEVENT",
+        "END:VCALENDAR"].join("\r\n");
+      ok("die Endzeit wird gelesen", IP(ics)[0].dauer === 150, String(IP(ics)[0].dauer));
+      /* Ganztägig hat keine sinnvolle Trainingsdauer — dann ehrlich `null`
+         statt einer erfundenen Zahl. */
+      const gt = ["BEGIN:VCALENDAR", "BEGIN:VEVENT", "UID:b", "SUMMARY:Golftraining",
+        "DTSTART;VALUE=DATE:20260907", "DTEND;VALUE=DATE:20260908", "END:VEVENT",
+        "END:VCALENDAR"].join("\r\n");
+      ok("ganztägig hat keine Dauer", IP(gt)[0].dauer === null);
+    }
+  }
+  if (typeof P === "function") {
+    /* DIE ZAHL DER SCHWERPUNKTE WÄCHST MIT DEM FENSTER — drei Blöcke auf 150
+       Minuten ergäben 43 min je Übung; das hält niemand durch. */
+    ok("lange Fenster bekommen mehr Schwerpunkte",
+       P(150).bloecke.length > P(90).bloecke.length,
+       P(90).bloecke.length + " → " + P(150).bloecke.length);
+    /* FÜNF IST DIE GRENZE: Wer sechs Dinge übt, übt keines. */
+    ok("aber höchstens sechs Blöcke", P(300).bloecke.length <= 6, String(P(300).bloecke.length));
+    /* GEWICHTET, ABER GEDECKELT: Rein nach Rückstand bekam der erste
+       Schwerpunkt bei 240 Minuten 95 und der letzte 3. */
+    ok("kein Block über 45 Minuten (außer dem Rest am Ende)",
+       P(240).bloecke.slice(1, -1).every(b => b.min <= 45),
+       P(240).bloecke.map(b => b.min).join("/"));
+    /* EIN TEST, EIN SCHWERPUNKT — mehrere Ziele zum selben Test standen
+       doppelt im Plan, mit identischen Zahlen. */
+    const keys = P(240).bloecke.map(b => b.testKey).filter(Boolean);
+    ok("kein Test doppelt im Plan", keys.length === new Set(keys).size, keys.join(", "));
+    /* DAS ZWEITE FENSTER GEHT WEITER, statt sich zu wiederholen. */
+    const erst = P(150), zweit = P(120, erst.bloecke.map(b => b.testKey).filter(Boolean));
+    const ueb = zweit.bloecke.map(b => b.testKey).filter(Boolean);
+    ok("das zweite Fenster überspringt das erste",
+       ueb.every(k => erst.bloecke.every(b => b.testKey !== k)), ueb.join(", "));
+  }
+
+  /* ---- Abhaken ----
+     DIE MARKE IST DER TESTEINTRAG, nichts Zusätzliches: Wer den Test macht,
+     trägt ihn ein — das ist der Beleg. Eine eigene Erledigt-Liste wäre ein
+     zweiter Bestand über dieselbe Sache. */
+  {
+    const E = G("trainingErledigt"), DB1 = live("DB");
+    if (typeof E === "function" && DB1) {
+      const alt = DB1.tests;
+      try {
+        DB1.tests = [{ defKey: "pelz", date: "2026-09-06", total: 88 },
+                     { defKey: "lag",  date: "2020-01-01", total: 12 }];
+        ok("ein Test seit dem Fenstertag hakt ab", !!E("pelz", "2026-09-06"));
+        ok("mit Datum und Ergebnis",
+           E("pelz", "2026-09-06").total === 88 && E("pelz", "2026-09-06").date === "2026-09-06");
+        /* AB DEM TAG DES FENSTERS, nicht „irgendwann": Ein Test von voriger
+           Woche hakt die heutige Einheit nicht ab. */
+        ok("ein älterer Test hakt nicht ab", E("lag", "2026-09-06") === null);
+        ok("und ein unbekannter Test auch nicht", E("gibtsnicht", "2026-09-06") === null);
+      } finally { DB1.tests = alt; }
+    }
+  }
+  /* VERLINKT: Ein Vorschlag, den man nicht anfassen kann, ist ein Zettel. */
+  ok("die Blöcke sind anklickbar", /data-test="\$\{esc\(b\.testKey\)\}"/.test(src)
+     && /openTest\(el\.dataset\.test\)/.test(roh));
+  ok("das Aufwärmen führt ins Dehnprogramm",
+     /data-warm="1"/.test(src) && /openStretchSheet\(\)/.test(roh));
+
+  /* v5.56: Die Überschrift trägt jetzt zusätzlich „Danach · " für das zweite
+     Fenster — geprüft wird, dass sie überhaupt aus `wann` gebaut wird. */
   ok("der Vorschlag steht auf Heute", /trainingFenster\(7\)/.test(roh)
-     && /Training \$\{esc\(wann\)\}/.test(src));
+     && /\$\{esc\(wann\)\}<\/div>/.test(src));
   ok("und nur bei anstehendem Fenster", /if\(fenster\.length\)\{/.test(roh));
   /* ES IST EIN VORSCHLAG, KEIN PLAN: Nichts wird gespeichert, nichts in den
      Kalender geschrieben. Google bleibt führend für Termine. */

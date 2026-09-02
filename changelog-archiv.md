@@ -13,6 +13,26 @@
 
 ---
 
+- **v5.11.0 · 2026-08-29** — **Der Caddy widersprach sich selbst — der Wachhund hatte die ganze Zeit
+  recht.** Aus dem Protokoll: fünfzehnmal „spielt-wie uneinig: Kopfzeile 217 m · Kette 209 m", dazu
+  „Schläger uneinig: Bewertung 3 Wood · Kette 6 Iron". **Zwei Teile derselben Ansicht empfahlen
+  verschiedene Schläger** — auf der Bahn der schlimmste Fall, weil man nicht weiß, welchem man
+  glauben soll.
+  **Die Ursache war nicht die Rechnung, sondern die Zahl der Aufrufe.** `playAimChain()` wurde in
+  `caddyFuerPunkt` **zweimal** gerufen: einmal für das **Ziel** (`_ch0`, gegen das `condFaktor`
+  rechnet) und wenige Zeilen später noch einmal für den **Schläger** (`L0`). Dazwischen liegt ein
+  Bildschirmaufbau, und die Ortung liefert im Sekundentakt neue Punkte. Fällt eine Neuberechnung
+  dazwischen, stammen die beiden Zahlen aus verschiedenen Ketten — genau die 5 bis 14 Meter
+  Unterschied aus dem Protokoll. Jetzt: **ein Aufruf, ein Ergebnis, beide Zahlen daraus.**
+  **Zwei Aufrufe derselben Rechnung sind zwei Wahrheiten** — dasselbe Muster wie beim Lochzeiger
+  (Zähler gegen Zeitstempel) und bei `MAX_ACC`/`GPS_MAX_ACC`. In dieser Woche zum dritten Mal.
+  **Und die unbequeme Lehre:** v4.63 hat den Wachhund gebaut, der genau das meldet. Ich habe seine
+  Meldung seither in jedem Protokoll gesehen und als „bekannt" abgehakt, statt ihr zu folgen. Eine
+  Warnung, die man gewohnheitsmäßig überliest, ist so gut wie keine. Der Wachhund bleibt bewusst
+  erhalten — abzuschalten, was unbequem meldet, wäre der falsche Schluss.
+  **Prüfstand 24ev** hält die Regel fest; Gegenprobe gemacht: Mit der alten Fassung sind zwei der
+  vier Prüfungen rot.
+
 - **v5.10.0 · 2026-08-29** — **Meine eigene Regression: Die Sperre von gestern hat das Schlagtracking
   abgeschaltet.** Gemeldet einen Tag nach v5.09: „Das Schlagtracken auf der Uhr geht nicht. Es lässt
   sich nicht starten, und wenn es gestartet wurde, überträgt es keine Daten."
