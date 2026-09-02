@@ -354,7 +354,7 @@ try {
                  "unwetterUrteil","istGewitterCode","unwetterBannerHtml","wakeAppAn",
                  "neueFassungAnzeigen","watchFassungPruefen","watchFassung",
                  "renderComp","renderPlanung","$","rundeAlsTurnier","stampAltbestand","openTournamentEditor",
-                 "icsParse","kalHtml","kalLink","anmeldeFaellig","gpsAusreisser","gpsAlleHtml","gpsZuKlaeren","lmDispTag","lmRollTag","lmTage","lmDriverTag","lmEisenTag","gpsGegenSoll","tombAll",
+                 "icsParse","kalHtml","kalLink","anmeldeFaellig","gpsAusreisser","gpsAlleHtml","gpsZuKlaeren","lmDispTag","lmRollTag","lmTage","lmDriverTag","lmEisenTag","kartePruefen","gpsGegenSoll","tombAll",
                  "logInfo","_logZustand","ERRLOG",
                  "_restZumGruen","_spieltWieM",
                  "pruefeDaten","pruefeRechnung",
@@ -10428,6 +10428,80 @@ group("Schlag-GPS — Ausreißer sehen und loswerden");
   }
 }
 
+/* ============ 24fu. Karte gegen Scorekarte ============ */
+group("Platzkarte — zwei Quellen, die sich prüfen können");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+  const K = G("kartePruefen"), DB0 = live("DB");
+
+  /* ====================================================================
+     GEMELDET am 01.09.2026 mit Bildschirmfoto (v5.53)
+     --------------------------------------------------------------------
+     „Die Empfehlung wirkt nicht korrekt." Loch 1, Par 4, Kopfzeile **360 m**
+     — und die App zeigte **439 m** zur Grünmitte und schlug Driver plus
+     3 Wood vor.
+     DER CADDY HAT RICHTIG GERECHNET. Falsch war das ZIEL: Der in der Karte
+     hinterlegte Grün-Punkt liegt 440 m vom Abschlag. **Die Empfehlung war die
+     korrekte Antwort auf eine falsche Frage** — und genau deshalb fällt so
+     etwas nicht auf: Die Rechnung stimmt, nur die Eingabe nicht.
+     NACHGEMESSEN ÜBER DEN GANZEN BESTAND: **drei von vier Plätzen mit Karte
+     sind betroffen** — Südplatz 18 von 18 Löchern, Brodauer Mühle 18 von 18,
+     Fehmarn 3. Nur der Nordplatz ist sauber.
+     UND DIE APP HÄTTE ES WISSEN KÖNNEN: Beide Zahlen liegen vor — die
+     Kartenlänge in `geo.holes[n]`, die Scorekartenlänge im Tee. Sie wurden nur
+     nie verglichen. **ZWEI QUELLEN, DIE DASSELBE BESCHREIBEN, SIND EINE
+     PRÜFUNG.** Wer sie nicht gegeneinander hält, verschenkt die einzige
+     Kontrolle, die es ohne Zusatzarbeit gibt. */
+  if (typeof K === "function") {
+    const mk = (kartenM, scoreM) => ({
+      name: "Prüfplatz",
+      tees: { Gelb: { holes: [{ hole: 1, par: 4, si: 1, len: scoreM }] } },
+      geo: { holes: { 1: { tee: [54, 10],
+        green: [54 + kartenM / 110540, 10], distM: kartenM } }, features: [] } });
+    /* Über der Schwelle: 440 gegen 360 sind 22 %. */
+    const treffer = K(mk(440, 360));
+    ok("ein falsch gesetztes Grün wird gemeldet", treffer.length === 1, String(treffer.length));
+    ok("mit beiden Zahlen", treffer[0] && treffer[0].karte >= 435 && treffer[0].karteSoll === 360,
+       treffer[0] && (treffer[0].karte + " / " + treffer[0].karteSoll));
+    ok("und der Abweichung in Prozent", treffer[0] && treffer[0].abw >= 20, treffer[0] && String(treffer[0].abw));
+    /* SCHWELLE 15 %: Darunter liegen Doglegs, Tee-Boxen und Fahnenpositionen
+       — die Kartenlinie ist nicht die Luftlinie, und beides DARF abweichen.
+       Eine Warnung bei jedem Loch wäre wertlos. */
+    ok("kleine Abweichungen bleiben ruhig", K(mk(370, 360)).length === 0);
+    ok("die Schwelle steht bei 15 %", /const KARTE_ABW = 0\.15;/.test(src));
+    /* Ohne Karte oder ohne Scorekarte gibt es nichts zu vergleichen — dann
+       schweigen statt raten. */
+    ok("ohne Karte kein Befund", K({ name: "X", tees: { Gelb: { holes: [{ hole: 1, len: 360 }] } } }).length === 0);
+  }
+
+  /* ---- Am echten Bestand ---- */
+  if (typeof K === "function" && DB0) {
+    const mitKarte = (DB0.courses || []).filter(c => c && c.geo && c.geo.holes && c.tees);
+    if (mitKarte.length) {
+      const betroffen = mitKarte.filter(c => K(c).length > 0);
+      ok("die Prüfung läuft über den echten Bestand", true,
+         betroffen.length + " von " + mitKarte.length + " Plätzen auffällig");
+    }
+  }
+
+  /* ---- Und sie wird auch gezeigt ----
+     WENN DIE KARTE NICHT ZUR SCOREKARTE PASST, IST JEDE ZAHL AUF DEM LOCH
+     FALSCH — und zwar unauffällig, weil die Rechnung stimmt. Die Warnung
+     gehört deshalb GANZ OBEN, über der Empfehlung: Wer sie darunter setzt,
+     lässt den Spieler erst einer falschen Zahl glauben. */
+  ok("im Spielmodus steht die Warnung ganz oben",
+     /<div class="play-caddy">\$\{kartenWarnung\}/.test(src));
+  ok("und nennt beide Zahlen",
+     /laut Karte, <b>\$\{kw\.karteSoll\} m<\/b> laut Scorekarte/.test(src));
+  ok("die Selbstprüfung meldet es ebenfalls",
+     /Karte und Scorekarte widersprechen sich/.test(src));
+  /* ES WIRD NICHTS AUTOMATISCH KORRIGIERT: Welcher Wert stimmt, weiß nur, wer
+     den Platz kennt — eine falsche Scorekarte gibt es genauso wie ein falsch
+     gesetztes Grün. */
+  ok("nichts wird automatisch korrigiert",
+     /ES WIRD NICHTS AUTOMATISCH KORRIGIERT/.test(src));
+}
+
 /* ============ 24ft. Der Sendetakt der Uhr ist weckbar ============ */
 group("Uhr — nach dem Aufwachen sofort senden, nicht ausschlafen");
 {
@@ -14501,7 +14575,10 @@ group("Caddy — vollständig sichtbar, Bedingungen, 2 Iron nur vom Tee");
      eine Warnung UNTER dem, wovor sie warnt, ist keine Warnung. */
   /* v5.20: Nach „spielt wie" kommen die DREI ZEILEN statt der Kopfzeile —
      oben steht die Antwort, nicht die Bewertung. */
-  ok("und zwar ganz oben", /<div class="play-caddy">\$\{aimUmwegHtml\(\)\}\$\{spieltWie\}[\s\S]{0,40}?\$\{caddyDreiZeilen/.test(src));
+  /* v5.53: Vor „spielt wie" kann die KARTENWARNUNG stehen — sie betrifft jede
+     Zahl auf dem Loch und gehört ganz nach oben. Geprüft wird weiterhin, dass
+     die drei Zeilen direkt danach kommen. */
+  ok("und zwar ganz oben", /<div class="play-caddy">\$\{(?:kartenWarnung\}\$\{)?aimUmwegHtml\(\)\}\$\{spieltWie\}[\s\S]{0,40}?\$\{caddyDreiZeilen/.test(src));
   /* Beide Zweige gleich aufgebaut — sonst sucht man die Zahl je nach Lage an
      zwei verschiedenen Stellen. */
   ok("im Regel-Zweig ebenso", /<div class="play-caddy">\$\{aimUmwegHtml\(\)\}\$\{weatherEffectHtml\(bearing,mid\)\}<div class="pc-head">/.test(src));
@@ -14550,7 +14627,12 @@ group("Caddy — vollständig sichtbar, Bedingungen, 2 Iron nur vom Tee");
        JEDER Zweig mit einer Bedingungszeile beginnt, nur eben nach dem
        optionalen Warnblock. Eine Prüfung, die an der exakten Reihenfolge
        klebt, bricht bei jeder Ergänzung und sagt nichts über die Sache. */
-    const mitZeile = (src.match(/<div class="play-caddy">\$\{(aimUmwegHtml\(\)\}\$\{)?(spieltWie|condZeile\(|weatherEffectHtml\()/g) || []).length;
+    /* v5.53: Davor kann jetzt auch die KARTENWARNUNG stehen — sie betrifft
+       jede Zahl auf dem Loch und gehört deshalb ganz nach oben. Das Muster
+       lässt beide optionalen Blöcke zu; eine Prüfung, die an der exakten
+       Reihenfolge klebt, bricht bei jeder Ergänzung und sagt nichts über die
+       Sache. */
+    const mitZeile = (src.match(/<div class="play-caddy">\$\{(?:kartenWarnung\}\$\{)?(?:aimUmwegHtml\(\)\}\$\{)?(?:spieltWie|condZeile|caddyDreiZeilen|weatherEffectHtml)/g) || []).length;
     ok("jeder beginnt mit der Bedingungszeile", mitZeile === zweige,
        mitZeile + " von " + zweige);
     ok("der Annäherungs-Zweig ruft condZeile",

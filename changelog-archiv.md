@@ -13,6 +13,26 @@
 
 ---
 
+- **v5.08.0 · 2026-08-29** — **Der Start rechnet nichts mehr, was niemand angefordert hat.** Nach
+  fünf behobenen Ursachen — Datei, Cache, Service Worker, Datenmenge, Rasterrechnung (Faktor 24
+  schneller) — fror die App weiterhin ein. **Der Fehler war nicht, wie lange die Rechnung dauert,
+  sondern dass sie überhaupt ungefragt läuft.**
+  `setTimeout(gpAutoRefresh, 4000)` stieß **vier Sekunden nach dem Start** die Neuberechnung von vier
+  Gameplans über je 18 Löcher an. Der Kommentar darüber sagte es selbst: „`planCourse` blockiert, und
+  die erste Sekunde gehört der Ansicht." **Vier Sekunden später blockiert es genauso** — nur fällt es
+  dann nicht mehr dem Start zur Last, sondern dem Benutzer, der gerade etwas tut. Das passt exakt zur
+  Meldung: lädt, und friert dann ein.
+  **Eine Rechnung, die niemand angefordert hat, darf den Benutzer nie blockieren.** Sie ist per
+  Definition weniger wichtig als das, was er gerade vorhat — sonst hätte er sie angefordert. Auf
+  einem Rechner fällt das nie auf; auf einem Handy ist es der Unterschied zwischen benutzbar und tot.
+  **Nötig war der Startlauf ohnehin nicht:** `stratPlanSheet` rechnet beim Öffnen der Ansicht selbst,
+  mit dem Hinweis „Rechne Gameplan …". Dort ist die Wartezeit erklärbar, weil sie einer Handlung
+  folgt. Der stündliche Lauf bleibt, aber nur bei **sichtbarer** Seite, nicht während einer Runde und
+  über `requestIdleCallback` — der Browser rechnet, wenn er ohnehin Luft hat.
+  **Prüfstand 24eu** riegelt die Fehlerklasse ab, nicht den Einzelfall: Es zählt die Zeitgeber im
+  Startpfad und führt die dort erlaubten Funktionen namentlich. Wer eine schwere hinzufügt, muss
+  diese Liste anfassen — und stolpert dabei über die Frage.
+
 - **v5.07.0 · 2026-08-29** — **Das Einfrieren nach 20 Sekunden: gemessen statt vermutet.** Ein
   CPU-Profil eines einzigen Rasteraufbaus hat es gezeigt — nach vier falschen Verdächtigen (Datei,
   Cache, Service Worker, Datenmenge):
