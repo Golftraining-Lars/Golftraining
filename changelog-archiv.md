@@ -13,6 +13,25 @@
 
 ---
 
+- **v5.09.0 · 2026-08-29** — **„Beenden & schließen" beendet die Runde auf der Uhr jetzt zuverlässig.**
+  Gemeldet. Ursache war ein Wettrennen: `playSaveDraft` stößt `draftPushSoon()` an — einen Zeitgeber
+  mit **zwei Sekunden** Verzögerung. `playFinish` schreibt den Grabstein **ohne `await`**, der
+  Zeitgeber zündet danach und schreibt den Entwurf zurück. Und ein Entwurf im Repo heißt für die Uhr:
+  Die Runde läuft.
+  **Dieses Wettrennen hatte die Rundensimulation längst gezeigt** — und ich habe damals die *Prüfung*
+  geduldiger gemacht („warte, bis der Grabstein da ist"), statt das Wettrennen zu beenden. Die
+  Beobachtung war richtig, die Folgerung falsch; der Fehler blieb im Produkt.
+  **Drei Riegel, weil einer nicht reicht:** `draftPushAus()` bestellt den Zeitgeber an allen drei
+  Enden einer Runde ab · `draftPush` und `playSaveDraft` schreiben nach dem Ende gar nichts mehr ·
+  und `draftPushRaw` hängt den Grabstein an **jede** Entwurfsdatei ohne eigene Runde. Der letzte ist
+  der verlässliche: Jeden einzelnen Schreiber zu suchen ist der falsche Weg — es gibt mehrere, und
+  beim nächsten käme derselbe Fehler zurück. **Die Regel gehört an die eine Stelle, durch die alle
+  müssen.**
+  **Die Rundensimulation löst das Wettrennen jetzt absichtlich aus** statt es abzuwarten. Dabei
+  gleich noch eine eigene Falle gefunden: Der Lochzeiger-Abschnitt am Dateiende schreibt selbst in
+  `draft.json` — die neue Prüfung hielt seinen Schreibvorgang für den Fehler. Sie misst jetzt den
+  eingefrorenen Stand ihres eigenen Abschnitts.
+
 - **v5.08.0 · 2026-08-29** — **Der Start rechnet nichts mehr, was niemand angefordert hat.** Nach
   fünf behobenen Ursachen — Datei, Cache, Service Worker, Datenmenge, Rasterrechnung (Faktor 24
   schneller) — fror die App weiterhin ein. **Der Fehler war nicht, wie lange die Rechnung dauert,

@@ -354,7 +354,7 @@ try {
                  "unwetterUrteil","istGewitterCode","unwetterBannerHtml","wakeAppAn",
                  "neueFassungAnzeigen","watchFassungPruefen","watchFassung",
                  "renderComp","renderPlanung","$","rundeAlsTurnier","stampAltbestand","openTournamentEditor",
-                 "icsParse","kalHtml","kalLink","anmeldeFaellig","gpsAusreisser","gpsAlleHtml","gpsZuKlaeren","lmDispTag","lmRollTag","lmTage","lmDriverTag","lmEisenTag","kartePruefen","gpsGegenSoll","tombAll",
+                 "icsParse","kalHtml","kalLink","anmeldeFaellig","gpsAusreisser","gpsAlleHtml","gpsZuKlaeren","lmDispTag","lmRollTag","lmTage","lmDriverTag","lmEisenTag","kartePruefen","trainingLuecken","trainingsplan","trainingFenster","currentPhase","gpsGegenSoll","tombAll",
                  "logInfo","_logZustand","ERRLOG",
                  "_restZumGruen","_spieltWieM",
                  "pruefeDaten","pruefeRechnung",
@@ -8493,8 +8493,12 @@ group("Dateiauswahl — kein MIME-Filter, dafür Inhaltsprüfung");
 group("Heute — Tagesablauf statt Sammelsurium");
 {
   const src=fs.readFileSync(FILE,"utf8");
-  const h=src.slice(src.indexOf("function renderHeute"),
-                    src.indexOf("function renderHeute")+7000);
+  /* BLOCKGRENZE STATT FENSTER (v5.54). Hier stand ein Ausschnitt von 7000
+     Zeichen — er riss, als der Trainingsvorschlag dazukam. Der sechste Fall
+     dieser Art; die Regel steht im Kopf dieser Datei. */
+  const _hi=src.indexOf("function renderHeute");
+  const _he=src.indexOf("\nfunction ", _hi+20);
+  const h=src.slice(_hi, _he>_hi?_he:_hi+30000);
   /* Das Wetter trägt die erste Entscheidung des Tages und der Caddy rechnet
      damit — es gehört vor die Handlungsknöpfe. */
   ok("Wetter steht vor den Knöpfen",
@@ -10425,6 +10429,94 @@ group("Schlag-GPS — Ausreißer sehen und loswerden");
       ok("und ist anklickbar", /data-runde="/.test(src) && /openAddRound\(r\)/.test(roh));
       ok("der Grund steht an der markierten Zeile", /m zum Median/.test(src));
     }
+  }
+}
+
+/* ============ 24fv. Trainingsvorschlag aus dem Kalender ============ */
+group("Training — Kalender, Ziele und Tests zusammengeführt");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+  const roh = ktOhneKommentar(codeOhneDoku(src));
+  const L = G("trainingLuecken"), P = G("trainingsplan"), F = G("trainingFenster");
+
+  /* ====================================================================
+     GEWÜNSCHT am 01.09.2026 (v5.54)
+     --------------------------------------------------------------------
+     „Man sieht ja, wo ich Zeit zur Verfügung habe für Training — und dann
+     ganz konkret in den Zeiten Trainingsabläufe planen."
+     DREI BESTÄNDE, DIE EINANDER NICHT KANNTEN: Der Kalender weiß WANN, die
+     Saisonziele wissen WAS, die Tests wissen WO ES HAKT. */
+  ok("Trainingsfenster heißen „Golftraining“", /const TRAIN_TITEL = \/golftraining\/i;/.test(roh));
+
+  if (typeof P === "function") {
+    const p = P(90);
+    ok("ein Plan entsteht", !!p && Array.isArray(p.bloecke) && p.bloecke.length > 0);
+    /* AUFWÄRMEN IST NICHT VERHANDELBAR — aber es wächst nicht mit: Bei drei
+       Stunden braucht man keine 45 Minuten Aufwärmen. */
+    ok("er beginnt mit Aufwärmen", p.bloecke[0].was === "Aufwärmen");
+    ok("das nicht mitwächst", P(240).bloecke[0].min <= 20, String(P(240).bloecke[0].min));
+    /* Die Summe muss stimmen — ein Plan, der 100 Minuten für ein 90-Minuten-
+       Fenster vorschlägt, ist keiner. */
+    const summe = p.bloecke.reduce((s, b) => s + b.min, 0);
+    ok("die Blöcke ergeben die Fensterlänge", summe === p.min, summe + " von " + p.min);
+    ok("das gilt auch für andere Längen",
+       [45, 120, 180].every(m => P(m).bloecke.reduce((s, b) => s + b.min, 0) === P(m).min));
+    /* MINDESTENS 15 MINUTEN JE BLOCK — kürzer wird es Aktionismus. */
+    ok("kein Block unter 15 Minuten (außer dem letzten Rest)",
+       p.bloecke.slice(1, -1).every(b => b.min >= 15),
+       p.bloecke.map(b => b.min).join("/"));
+  }
+
+  if (typeof L === "function") {
+    const l = L();
+    ok("die Lücken sind nach Rückstand sortiert",
+       l.every((x, i) => i === 0 || l[i - 1].rueckstand >= x.rueckstand));
+    /* ERREICHTE ZIELE SIND KEIN SCHWERPUNKT. */
+    ok("erreichte Ziele fallen raus", l.every(x => x.ist < x.ziel));
+    /* RELATIV, NICHT ABSOLUT: „5 Punkte fehlen" heißt bei einem Ziel von 15
+       etwas anderes als bei einem von 200. */
+    ok("der Rückstand ist relativ",
+       /rueckstand:Math\.round\(rest\/spanne\*100\)/.test(roh));
+    /* Nur die aktuelle Phase — ein Elite-Ziel aus Phase 4 gehört nicht in die
+       Trainingswoche von Phase 2. */
+    ok("nur Ziele der aktuellen Phase",
+       /if\(zn && zn!==nr\) return;/.test(roh));
+  }
+
+  /* ---- Das Fenster kommt aus dem Kalender ---- */
+  if (typeof F === "function") {
+    const LS = ctx.localStorage, heute = G("todayISO")();
+    const alt = LS.getItem("golf_kal_cache");
+    try {
+      LS.setItem("golf_kal_cache", JSON.stringify({ at: Date.now(), termine: [
+        { datum: heute, zeit: "17:00", titel: "Golftraining Range" },
+        { datum: heute, zeit: "09:00", titel: "Clubmeisterschaft" },
+        { datum: "2000-01-01", zeit: "", titel: "Golftraining alt" }] }));
+      const f = F(7);
+      ok("nur Trainingsfenster zählen", f.length === 1 && /Golftraining/.test(f[0].titel),
+         f.map(x => x.titel).join(", "));
+      /* Vergangenes schweigt — man kann es nicht mehr planen. */
+      ok("und nur was noch kommt", !f.some(x => x.datum < heute));
+    } finally { if (alt) LS.setItem("golf_kal_cache", alt); else LS.removeItem("golf_kal_cache"); }
+  }
+
+  /* ---- Auf „Heute", und nur wenn etwas ansteht ----
+     Ein Trainingsplan, den man aufrufen muss, sieht man am Trainingstag
+     nicht. Ein Vorschlag ohne Termin wäre eine Aufforderung — davon hat diese
+     Seite genug. */
+  ok("der Vorschlag steht auf Heute", /trainingFenster\(7\)/.test(roh)
+     && /Training \$\{esc\(wann\)\}/.test(src));
+  ok("und nur bei anstehendem Fenster", /if\(fenster\.length\)\{/.test(roh));
+  /* ES IST EIN VORSCHLAG, KEIN PLAN: Nichts wird gespeichert, nichts in den
+     Kalender geschrieben. Google bleibt führend für Termine. */
+  /* OHNE FENSTER — die eigene Regel gilt auch hier (v5.14). Geprüft wird der
+     Block bis zur nächsten Funktion. */
+  {
+    const ti = roh.indexOf("function trainingsplan(");
+    const te = roh.indexOf("\nfunction ", ti + 10);
+    const blk = ti >= 0 ? roh.slice(ti, te > ti ? te : ti + 3000) : "";
+    ok("nichts wird gespeichert",
+       blk.length > 0 && !/persist\(\)|DB\.\w+\.push/.test(blk));
   }
 }
 
