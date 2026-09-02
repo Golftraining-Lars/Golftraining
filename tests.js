@@ -10486,9 +10486,9 @@ group("Training — Kalender, Ziele und Tests zusammengeführt");
   /* ---- Das Fenster kommt aus dem Kalender ---- */
   if (typeof F === "function") {
     const LS = ctx.localStorage, heute = G("todayISO")();
-    const alt = LS.getItem("golf_kal_cache");
+    const alt = LS.getItem("golf_kal_cache_v2");
     try {
-      LS.setItem("golf_kal_cache", JSON.stringify({ at: Date.now(), termine: [
+      LS.setItem("golf_kal_cache_v2", JSON.stringify({ at: Date.now(), termine: [
         { datum: heute, zeit: "17:00", titel: "Golftraining Range" },
         { datum: heute, zeit: "09:00", titel: "Clubmeisterschaft" },
         { datum: "2000-01-01", zeit: "", titel: "Golftraining alt" }] }));
@@ -10497,7 +10497,7 @@ group("Training — Kalender, Ziele und Tests zusammengeführt");
          f.map(x => x.titel).join(", "));
       /* Vergangenes schweigt — man kann es nicht mehr planen. */
       ok("und nur was noch kommt", !f.some(x => x.datum < heute));
-    } finally { if (alt) LS.setItem("golf_kal_cache", alt); else LS.removeItem("golf_kal_cache"); }
+    } finally { if (alt) LS.setItem("golf_kal_cache_v2", alt); else LS.removeItem("golf_kal_cache_v2"); }
   }
 
   /* ---- Auf „Heute", und nur wenn etwas ansteht ----
@@ -10567,12 +10567,22 @@ group("Training — Kalender, Ziele und Tests zusammengeführt");
        P(150).bloecke.length > P(90).bloecke.length,
        P(90).bloecke.length + " → " + P(150).bloecke.length);
     /* FÜNF IST DIE GRENZE: Wer sechs Dinge übt, übt keines. */
-    ok("aber höchstens sechs Blöcke", P(300).bloecke.length <= 6, String(P(300).bloecke.length));
+    /* v5.57: Dazu kommt der Abschluss-Dehnblock — sieben Zeilen sind damit
+       fünf Schwerpunkte plus Aufwärmen plus Dehnen. Gezählt werden die
+       SCHWERPUNKTE, nicht die Zeilen: Sonst misst die Prüfung die Verpackung
+       statt der Sache. */
+    ok("aber höchstens fünf Schwerpunkte",
+       P(300).bloecke.filter(b => b.testKey).length <= 5,
+       String(P(300).bloecke.filter(b => b.testKey).length));
     /* GEWICHTET, ABER GEDECKELT: Rein nach Rückstand bekam der erste
        Schwerpunkt bei 240 Minuten 95 und der letzte 3. */
-    ok("kein Block über 45 Minuten (außer dem Rest am Ende)",
-       P(240).bloecke.slice(1, -1).every(b => b.min <= 45),
-       P(240).bloecke.map(b => b.min).join("/"));
+    /* Der Deckel gilt für SCHWERPUNKTE. Der letzte bekommt den Rest, damit
+       die Summe exakt stimmt — er darf darüber liegen. */
+    {
+      const sp = P(240).bloecke.filter(b => b.testKey);
+      ok("kein Schwerpunkt über 45 Minuten (außer dem Rest am Ende)",
+         sp.slice(0, -1).every(b => b.min <= 45), sp.map(b => b.min).join("/"));
+    }
     /* EIN TEST, EIN SCHWERPUNKT — mehrere Ziele zum selben Test standen
        doppelt im Plan, mit identischen Zahlen. */
     const keys = P(240).bloecke.map(b => b.testKey).filter(Boolean);
@@ -10605,6 +10615,68 @@ group("Training — Kalender, Ziele und Tests zusammengeführt");
       } finally { DB1.tests = alt; }
     }
   }
+  /* ================================================================
+     „KEINE ENDZEIT" — OBWOHL EINE DASTAND (v5.57)
+     ----------------------------------------------------------------
+     GEMELDET am 01.09. mit zwei Bildschirmfotos: Im Kalender „09:00 bis
+     12:00", in der App „Vorschlag für 90 Minuten (keine Endzeit im
+     Kalender)".
+     DER LESER WAR NICHT SCHULD — mit Googles echtem Format
+     (`DTEND;TZID=Europe/Berlin:…`) liefert `icsParse` sauber 180 Minuten.
+     SCHULD WAR DER ZWISCHENSPEICHER: Er enthielt Termine, die VOR v5.56
+     gelesen wurden — ohne das damals noch nicht existierende Feld `dauer`.
+     Der Schlüssel blieb gleich, der Inhalt hatte eine andere Form.
+     **EIN ZWISCHENSPEICHER, DESSEN INHALT SEINE FORM ÄNDERT, BRAUCHT EINEN
+     NEUEN SCHLÜSSEL** — sonst überlebt die alte Form jede Verbesserung.
+     Derselbe Fall wie beim Höhenraster (v5.19). Die Formnummer steht IM
+     Schlüssel, nicht als Feld daneben: Ein Feld müsste man prüfen und könnte
+     es vergessen; ein anderer Schlüssel findet den alten Stand gar nicht. */
+  {
+    const IP2 = G("icsParse");
+    if (typeof IP2 === "function") {
+      const g = ["BEGIN:VCALENDAR", "BEGIN:VEVENT", "UID:x",
+        "DTSTART;TZID=Europe/Berlin:20260906T090000",
+        "DTEND;TZID=Europe/Berlin:20260906T120000",
+        "SUMMARY:Golftraining", "END:VEVENT", "END:VCALENDAR"].join("\r\n");
+      ok("Googles TZID-Format wird verstanden", IP2(g)[0].dauer === 180,
+         String(IP2(g)[0].dauer));
+    }
+    ok("der Zwischenspeicher trägt seine Form im Schlüssel",
+       /KAL_CACHE="golf_kal_cache_v2"/.test(roh));
+  }
+
+  /* ================================================================
+     AM ENDE WIRD GEDEHNT (v5.57)
+     ----------------------------------------------------------------
+     GEWÜNSCHT: „Am Ende des Trainings fehlt mir auch nochmal eine
+     Stretcheinheit."
+     ES IST DAS POST-ROUND-PROGRAMM, nicht das Preround: Beide gibt es, und
+     sie sind für verschiedene Zeitpunkte gebaut — das eine macht warm, das
+     andere löst, was zwei Stunden Schlagen angespannt hat. */
+  if (typeof P === "function") {
+    [60, 90, 180].forEach(m => {
+      const b = P(m).bloecke;
+      ok("bei " + m + " min endet der Plan mit Dehnen",
+         b[b.length - 1].was === "Abschluss-Dehnen", b[b.length - 1].was);
+    });
+    /* DIE ZEIT KOMMT AUS DEN SCHWERPUNKTEN, NICHT OBENDRAUF: Wer die Einheit
+       anhängt, ohne Zeit abzuziehen, plant 160 Minuten in ein
+       150-Minuten-Fenster — und dann stimmt keine Zahl mehr. */
+    [60, 90, 150, 180, 240].forEach(m => {
+      const p = P(m);
+      ok("die Summe bleibt bei " + m + " min exakt",
+         p.bloecke.reduce((s, x) => s + x.min, 0) === m,
+         String(p.bloecke.reduce((s, x) => s + x.min, 0)));
+    });
+    /* ZEHN MINUTEN, HÖCHSTENS EIN ZEHNTEL — bei kurzen Fenstern kleiner,
+       statt den einzigen Schwerpunkt aufzufressen. */
+    ok("das Dehnen bleibt kurz",
+       P(240).bloecke[P(240).bloecke.length - 1].min <= 10,
+       String(P(240).bloecke[P(240).bloecke.length - 1].min));
+  }
+  ok("der Abschlussblock führt ins Post-Round-Programm",
+     /data-post="1"/.test(src) && /openPostStretchSheet\(\)/.test(roh));
+
   /* VERLINKT: Ein Vorschlag, den man nicht anfassen kann, ist ein Zettel. */
   ok("die Blöcke sind anklickbar", /data-test="\$\{esc\(b\.testKey\)\}"/.test(src)
      && /openTest\(el\.dataset\.test\)/.test(roh));

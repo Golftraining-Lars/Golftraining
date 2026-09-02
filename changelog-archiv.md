@@ -13,6 +13,27 @@
 
 ---
 
+- **v5.12.0 · 2026-08-29** — **Eine bereitliegende Fassung meldet sich jetzt.** Aus dem Protokoll vom
+  29.08.: dreimal „Netz zu langsam oder nicht da — gespeicherte Fassung geliefert", und einmal ein
+  **Rückschritt**: „Fassungswechsel 5.08.0 → 5.07.0". Behebungen kamen tagelang nicht an — und beide
+  Seiten suchten an der falschen Stelle, weil niemand sah, dass eine ältere Fassung lief.
+  **Der Wettlauf ist nicht zu gewinnen:** 2,7 MB kommen nie in 1,5 s an, und der Cache **muss**
+  gewinnen, sonst gibt es keine Startgarantie auf dem Platz. Also nicht schneller werden, sondern
+  Bescheid sagen. Der Hintergrundabruf erneuert den Cache ohnehin; trägt die geholte Datei eine
+  andere `APP_VERSION`, meldet `sw.js` das, und die App zeigt einen **antippbaren Hinweis** — ein
+  Neuladen genügt, die neue Hülle liegt schon im Speicher.
+  **Nie automatisch neu laden**, und während einer Runde erscheint der Hinweis gar nicht: Auf der
+  Bahn mitten im Spiel die Seite auszutauschen wäre das Schlimmste, was diese App tun kann.
+  Wegtippbar, und nur einmal je Sitzung.
+  **Der Kommentar in `sw.js` hat das Problem seit v2 selbst beschrieben** — „man testet stundenlang
+  eine Version zu alt und hält jede Korrektur für wirkungslos". Er hat es benannt, und niemand hat
+  gehandelt. Das ist nach dem Caddy-Wachhund die zweite Meldung in dieser Woche, die die ganze Zeit
+  recht hatte.
+  **Zum Startbedarf gemessen statt vermutet:** Die 9,3 s stecken nicht in der Logik (Auswerten der
+  Datei 289 ms, Aufbau der Ansicht 3 ms), sondern in Übertragung und Parsen des 2,0-MB-Skriptblocks.
+  Davon sind **31 % Kommentare** — die bleiben, sie sind die Substanz dieses Projekts. Ein echter
+  Hebel wäre nur eine Aufteilung der Datei, und die steht gegen die Ein-Datei-Regel.
+
 - **v5.11.0 · 2026-08-29** — **Der Caddy widersprach sich selbst — der Wachhund hatte die ganze Zeit
   recht.** Aus dem Protokoll: fünfzehnmal „spielt-wie uneinig: Kopfzeile 217 m · Kette 209 m", dazu
   „Schläger uneinig: Bewertung 3 Wood · Kette 6 Iron". **Zwei Teile derselben Ansicht empfahlen
