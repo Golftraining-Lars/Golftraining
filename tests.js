@@ -10504,6 +10504,40 @@ group("Training — Kalender, Ziele und Tests zusammengeführt");
      Ein Trainingsplan, den man aufrufen muss, sieht man am Trainingstag
      nicht. Ein Vorschlag ohne Termin wäre eine Aufforderung — davon hat diese
      Seite genug. */
+  /* ================================================================
+     DER KALENDER FRISCHT SICH SELBST AUF (v5.55)
+     ----------------------------------------------------------------
+     NACHGEFRAGT am 01.09.: „Ist auch eingerichtet, dass der Kalender sich
+     regelmäßig selbst aktualisiert?" — NEIN, und das war eine echte Lücke:
+     Alle drei `kalHolen`-Aufrufe lagen in der EINSTELLUNGSANSICHT. „Heute"
+     las nur den Zwischenspeicher; wer die Einstellungen nie öffnet, sieht nie
+     ein Trainingsfenster.
+     **EIN AUTOMATISMUS, DEN MAN VON HAND ANSTOSSEN MUSS, IST KEINER.** */
+  /* OHNE FENSTER — die eigene Regel aus v5.14 gilt auch hier. Geprüft wird
+     der Block, nicht ein Abstand. */
+  {
+    const hi = roh.indexOf("function renderHeute");
+    const he = roh.indexOf("\nfunction ", hi + 20);
+    const hblk = hi >= 0 ? roh.slice(hi, he > hi ? he : hi + 30000) : "";
+    ok("beim Zeichnen von Heute wird geholt", /kalHolen\(false\)/.test(hblk));
+    ok("ohne `force`, damit die 15-Minuten-Grenze greift", !/kalHolen\(true\)/.test(hblk));
+    const vi = roh.indexOf('document.addEventListener("visibilitychange"');
+    const vblk = vi >= 0 ? roh.slice(vi, vi + 900) : "";
+    ok("und beim Zurückkommen zur App",
+       (roh.match(/kalHolen\(false\)/g) || []).length >= 2,
+       String((roh.match(/kalHolen\(false\)/g) || []).length));
+  }
+  /* KEIN TAKT, SONDERN EINE GELEGENHEIT — die Regel „nichts Ungefragtes beim
+     Start" (v5.08) gilt weiter. Die 15-Minuten-Grenze in `kalHolen(false)`
+     ist die Bremse. */
+  ok("und nur mit eingerichteter Adresse",
+     (roh.match(/kalAdresse\(\)\) return;/g) || []).length >= 1);
+  /* NACHGEZEICHNET NUR BEI ECHTER ÄNDERUNG: Ein `renderHeute()` aus sich
+     selbst heraus wäre eine Schleife. */
+  ok("nachgezeichnet wird nur bei Änderung",
+     (roh.match(/!==vorher && /g) || []).length >= 2,
+     String((roh.match(/!==vorher && /g) || []).length));
+
   ok("der Vorschlag steht auf Heute", /trainingFenster\(7\)/.test(roh)
      && /Training \$\{esc\(wann\)\}/.test(src));
   ok("und nur bei anstehendem Fenster", /if\(fenster\.length\)\{/.test(roh));

@@ -13,6 +13,26 @@
 
 ---
 
+- **v5.10.0 · 2026-08-29** — **Meine eigene Regression: Die Sperre von gestern hat das Schlagtracking
+  abgeschaltet.** Gemeldet einen Tag nach v5.09: „Das Schlagtracken auf der Uhr geht nicht. Es lässt
+  sich nicht starten, und wenn es gestartet wurde, überträgt es keine Daten."
+  **v5.09 hatte in `draftPush` ein `return false` gesetzt**, sobald eine Runde beendet ist und keine
+  neue läuft — richtig gedacht gegen den Nachzügler, der die Runde wiederbelebte, aber **viel zu
+  breit**: Durch `draftPush` läuft auch der **Schlagkanal**. `DRAFT_ACK` quittiert der Uhr die
+  übernommenen Messungen, `DRAFT_SHOTS` gibt fremde Messungen unverändert zurück. Wer den ganzen
+  Vorgang sperrt, sperrt die Schlagmessung mit — und zwar **dauerhaft**, denn `playEndedKey` bleibt
+  nach jeder beendeten Runde stehen. Ohne Quittung sendet die Uhr endlos weiter und zeigt die Messung
+  als offen.
+  **Behoben:** Die Sperre ist so eng wie der Schaden. Nach dem Ende geht die **Runde** nicht mehr
+  hinaus (`delete d.round; delete d.live`), Quittungen und fremde Messungen gehen mit. Der Grabstein
+  hängt ohnehin an jeder Datei ohne Runde (v5.09), das Ende bleibt also bestehen. In `playSaveDraft`
+  bleibt die Sperre unverändert — dort ist sie richtig, denn diese Funktion baut den Entwurf **der
+  Runde**.
+  **Die Rundensimulation hält es jetzt fest** (neuer Abschnitt „Schlagkanal — quittiert auch nach dem
+  Rundenende", drei Prüfungen). Gegenprobe gemacht: Mit dem Stand von v5.09 sind zwei davon rot.
+  **Lehre: Eine Sperre, die mehr abschaltet als den Fehler, ist ein neuer Fehler** — und sie fällt
+  spät auf, weil sie „vorsichtig" aussieht.
+
 - **v5.09.0 · 2026-08-29** — **„Beenden & schließen" beendet die Runde auf der Uhr jetzt zuverlässig.**
   Gemeldet. Ursache war ein Wettrennen: `playSaveDraft` stößt `draftPushSoon()` an — einen Zeitgeber
   mit **zwei Sekunden** Verzögerung. `playFinish` schreibt den Grabstein **ohne `await`**, der
