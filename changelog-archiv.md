@@ -13,6 +13,27 @@
 
 ---
 
+- **v5.32.0 · 2026-08-31** — **Der Driver vom Boden — und die Streuung nachgemessen.**
+  **(1) Behoben.** Gemeldet: „Der Caddy hat mir einmal empfohlen, den Driver vom Boden zu spielen."
+  Die Leitplanke `teeOnly` gibt es seit v4.81.2, und `approach()` filtert den Driver sauber heraus.
+  **Aber `tee()` kann seit v2.94 ab jeder Position rechnen** (`von`) — und rief trotzdem unverändert
+  `caddyClubs(null, true)`, also „vom Abschlag, Driver erlaubt". Steht man auf der Bahn und der Caddy
+  rechnet über `tee()` (was er tut, solange das Loch lang genug ist), kam der Driver durch die
+  Hintertür zurück. **Eine Funktion, die „tee" heißt, aber auch woanders rechnet, muss ihre Annahme
+  prüfen statt sie zu führen.** Jetzt entscheidet die tatsächliche Lage, mit derselben 3-m-Schwelle
+  wie der Positions-Caddy. Ohne Position gilt weiterhin Abschlag — sonst verschwindet der Driver aus
+  der Zielkette, und genau das ist in v4.82.2 schon einmal passiert.
+  **(2) Die große Streuung ist nicht zu groß — sie ist zu klein.** Nachgerechnet: σL 19 m (Driver,
+  Niveau 20) sagt bei 30 m Fairwaybreite und dem gelernten Versatz **54 %** Treffer voraus. Gemessen
+  im eigenen Bestand: **38 %** (39 von 103 Abschlägen „Hit"). Zur gemessenen Quote passt σL um
+  **25–28 m**. Und weil enge Streuung den langen Schläger sicherer aussehen lässt, verschiebt das die
+  Empfehlung **nach aggressiv** — dieselbe Richtung wie die beiden Optimismen aus v4.24/v4.25.
+  **Nichts geändert, aber festgehalten:** Die Zahl ist an zwei veröffentlichten Ankern kalibriert;
+  sie gegen einen Spieler mit 103 selbst eingeschätzten Lagen nachzuziehen hieße, eine begründete
+  Kalibrierung durch eine Stichprobe zu ersetzen. Der richtige Weg ist der, den es schon gibt:
+  gelernte GPS-Schläge (`st.n>=20`) ersetzen die Heuristik ohnehin. **Was fehlt, sind Messungen —
+  nicht ein anderer Schätzwert.**
+
 - **v5.31.0 · 2026-08-31 · Uhr (57)** — **Im Turniermodus zählen auch die eigenen Putts mit.**
   Gewünscht: „Für meine persönliche Score-Eingabe möchte ich zusätzlich neben dem Score auch die
   Putts eingeben. Für den Mitspieler ist das egal — da bitte nur den Gesamtscore belassen."

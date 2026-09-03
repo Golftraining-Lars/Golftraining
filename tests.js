@@ -4600,8 +4600,12 @@ group("Zielkette — der Schläger folgt der gespielten Distanz");
   /* „PASST" MUSS IN BEIDE RICHTUNGEN GELTEN. Die Prüfung kannte nur ZU LANG;
      zu KURZ war nie ein Ausschluss — deshalb blieb der 3 Wood am 240-m-Punkt
      hängen, obwohl er ihn nicht erreicht. Das ist der Kern des Fehlers. */
-  ok("zu lang bleibt ausgeschlossen", /dSpielt >= reach\*0\.85/.test(ab));
-  ok("zu kurz jetzt ebenso", /dSpielt <= reach\*1\.05/.test(ab));
+    /* v5.77: Untere Grenze weiterhin am Carry — so weit muss er mindestens
+       fliegen. Obere jetzt am GESAMT mit Auslauf: Der Zielpunkt liegt dort,
+       und gegen den Carry geprüft verwarf die Beschriftung den eigenen
+       Vorschlag des Caddy. */
+    ok("zu kurz bleibt ausgeschlossen", /dSpielt >= carry\*0\.85/.test(ab));
+    ok("zu lang ebenso, aber mit Auslauf", /dSpielt <= Math\.max\(carry, total\)\*1\.05/.test(ab));
   ok("und nicht mehr gegen die geometrische Strecke",
      !/return !\(reach>0\) \|\| d >= reach\*0\.85;/.test(ab));
 
@@ -4709,8 +4713,12 @@ group("Die App darf nichts behaupten, was sie nicht geprüft hat");
      /db\.savedAt=new Date\(\)\.toISOString\(\);/.test(src));
   ok("die Bedingungszeile rechnet, was sie nennt",
      /const _plays=\(spieltVorgabe!=null&&isFinite\(spieltVorgabe\)\)/.test(src));
+  /* v5.77: Die obere Grenze liegt jetzt am GESAMT mit Auslauf, nicht am
+     Carry. Der Zielpunkt liegt bei Carry plus Auslauf — gegen den Carry
+     geprüft fiel der eigene Vorschlag des Caddy um einen Meter durch seine
+     eigene Prüfung (2 Iron: carry 187, total 200, Ziel 197). */
   ok("der eingezeichnete Schläger muss die gespielte Distanz tragen",
-     /dSpielt <= reach\*1\.05/.test(src));
+     /dSpielt <= Math\.max\(carry, total\)\*1\.05/.test(src));
   ok("„Höhe unbekannt“ unterscheidet fünf Fälle",
      /kein Höhenraster für diesen Platz/.test(src) && /außerhalb des geladenen Streifens/.test(src));
   ok("Kopfzeile und Karte lesen dieselbe Entscheidung",
@@ -10449,6 +10457,66 @@ group("Schlag-GPS — Ausreißer sehen und loswerden");
       ok("der Grund steht an der markierten Zeile", /m zum Median/.test(src));
     }
   }
+}
+
+/* ============ 24gj. Kette und Caddy müssen einig sein ============ */
+group("Zielkette — die Beschriftung darf nicht zweiter Entscheider sein");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+  const S = G("STRAT"), P = G("playAimChain"), DB0 = live("DB"), PL = live("PLAY");
+
+  /* ====================================================================
+     GEMELDET am 03.09.2026 (behoben in v5.77)
+     --------------------------------------------------------------------
+     „Sicher" empfahl weiterhin den Driver, obwohl `STRAT.tee(…,"safe")` das
+     2 Iron rechnet. Nachgestellt: **Die KETTE beschriftete Bein 1 anders als
+     der Caddy** — 3 Wood statt 2 Iron in `safe` und `bal`, nur in `aggr`
+     stimmten beide überein.
+     DIE URSACHE: Die Beschriftung prüft, ob der vom Caddy gewählte Schläger
+     die Distanz überhaupt trägt — richtig und nötig. Sie verglich aber gegen
+     den CARRY, während der Zielpunkt bei CARRY PLUS AUSLAUF liegt.
+     IN ZAHLEN: 2 Iron carry 187, total 200, Ziel bei 197 m. Fenster war
+     159–196 — **der eigene Schläger des Caddy fiel um EINEN METER durch seine
+     eigene Prüfung**, und die Beschriftung nahm den nächstlängeren.
+     AUF DEM PLATZ HIESS DAS: Der Caddy entscheidet sich für das Eisen, und die
+     Karte schreibt Driver darüber. **Nicht die Rechnung war falsch, sondern
+     das Etikett — und wer der Karte glaubt, spielt den falschen Schläger.**
+     **EINE PRÜFUNG, DIE DEN EIGENEN VORSCHLAG SYSTEMATISCH VERWIRFT, IST
+     KEINE PRÜFUNG, SONDERN EIN ZWEITER ENTSCHEIDER.** Und zwei Entscheider
+     für dieselbe Frage widersprechen sich. */
+  ok("das Fenster kennt den Auslauf",
+     /return dSpielt >= carry\*0\.85 && dSpielt <= Math\.max\(carry, total\)\*1\.05;/.test(src));
+
+  /* ---- Und der Nachweis am Ergebnis: beide müssen dasselbe sagen ---- */
+  if (S && typeof P === "function" && DB0 && PL) {
+    const c = (DB0.courses || []).find(x => x && /Nordplatz/.test(x.name) && x.geo);
+    if (c) {
+      const altP = JSON.parse(JSON.stringify({ a: PL.active, co: PL.course, t: PL.tee }));
+      const altM = DB0.profile && DB0.profile.caddyMode;
+      try {
+        ["safe", "bal", "aggr"].forEach(m => {
+          DB0.profile = DB0.profile || {}; DB0.profile.caddyMode = m;
+          Object.assign(PL, { active: true, course: c.name, tee: "Gelb", idx: 0,
+            holes: [{ hole: 2, par: 5, len: 499 }], here: null,
+            aimChain: null, aimChainKey: null });
+          const ch = P(true);
+          const l1 = ch && ch.legs && ch.legs[0];
+          const ev = S.tee(c.geo, c.name, 2, m, 20);
+          const kette = l1 ? l1.club : null;
+          const caddy = ev && ev.best ? ev.best.club.name : null;
+          ok("Kette und Caddy einig (" + m + ")", !!kette && kette === caddy,
+             kette + " gegen " + caddy);
+        });
+      } finally {
+        DB0.profile.caddyMode = altM;
+        PL.active = altP.a; PL.course = altP.co; PL.tee = altP.t;
+        PL.aimChain = null; PL.aimChainKey = null;
+      }
+    }
+  }
+  /* Der Riegel gegen die Wiederholung bleibt: Widersprüche zwischen den
+     beiden Rechnern gehen ins Protokoll, statt nebeneinander zu stehen. */
+  ok("Widersprüche werden weiterhin gemeldet", /Schläger uneinig: Bewertung /.test(src));
 }
 
 /* ============ 24gi. Gelernte Streuung kommt an ============ */
