@@ -7306,7 +7306,7 @@ group("Live-Zeiger — beide Geräte, dieselbe Regel");
        zusaetzlich, dass der Changelog einen Eintrag fuer GENAU diese Kennung
        hat — beides zusammen faengt „Code geaendert, Fassung vergessen" und
        „Fassung gezogen, Changelog vergessen". */
-    ok("und die Kennung ist aktuell", /WATCH_APP = "2026-09-01 \(58\)"/.test(kt));
+    ok("und die Kennung ist aktuell", /WATCH_APP = "2026-09-03 \(59\)"/.test(kt));
     ok("das Handy zeigt sie", /function watchFassung\(\)/.test(src));
 
     /* --- STARTBILDSCHIRM (2026-08-25 (20)) ---
@@ -12994,9 +12994,13 @@ group("Uhr — Turniermodus: zwei Zahlen, sonst nichts");
        UND DAS IST SACHLICH RICHTIG: Die eigenen Putts tragen die halbe
        Auswertung dieser App — Putt-Kurve, Strokes Gained, Scrambling. Die des
        Mitspielers wertet niemand aus; sie kosten auf der Bahn nur Tipps. */
+    /* (59): `ab` steht jetzt HINTEN und wird BENANNT übergeben. Ein neuer
+       Parameter mit Vorgabewert gehört ans Ende — in der Mitte verschiebt er
+       jede positionelle Übergabe dahinter, und genau daran sind zwei Aufrufe
+       im Übersetzer gescheitert. */
     ok("meine Zeilen: Schläge und Putts",
-       /TurnierZeile\("Ich · Schläge", entry\.score/.test(kt)
-       && /TurnierZeile\("Ich · Putts", entry\.putts, 0/.test(kt));
+       /TurnierZeile\("Ich · Schläge", entry\.score, onScore\)/.test(kt)
+       && /TurnierZeile\("Ich · Putts", entry\.putts, onPutts, ab = 0\)/.test(kt));
     ok("der Mitspieler nur Schläge",
        /TurnierZeile\(mitName \+ " · Schläge", entry\.msc1/.test(kt)
        && !/mitName[^)]*putts/.test(kt));
@@ -13034,7 +13038,20 @@ group("Uhr — Turniermodus: zwei Zahlen, sonst nichts");
     ok("die Zählung beginnt beim Startwert",
        /onSet\(if \(wert == null\) ab else wert \+ 1\)/.test(kt));
     ok("Schläge starten bei 1, Putts bei 0",
-       /ab: Int = 1,/.test(kt) && /entry\.putts, 0, onPutts/.test(kt));
+       /ab: Int = 1/.test(kt) && /entry\.putts, onPutts, ab = 0/.test(kt));
+    /* SPERRKLINKE (59): `ab` MUSS der letzte Parameter sein. Steht er davor,
+       landet ein Rückruf in einem Int — und das merkt erst der Übersetzer,
+       nicht dieser Prüfstand. */
+    {
+      /* OHNE FENSTER: Die Signatur wird ausgeschnitten und die Reihenfolge
+         der beiden Parameter darin verglichen — kein Zeichenabstand. */
+      const si = kt.indexOf("private fun TurnierZeile(");
+      const se = kt.indexOf(") {", si);
+      const sig = si >= 0 && se > si ? kt.slice(si, se) : "";
+      ok("`ab` steht als letzter Parameter",
+         sig.indexOf("ab: Int") > sig.indexOf("onSet:"),
+         sig.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\s+/g, " ").slice(0, 90));
+    }
     ok("und der Rückweg endet beim Startwert",
        /if \(\(wert \?: ab\) > ab\) onSet\(\(wert \?: ab\) - 1\)/.test(kt));
     /* Und `par` ist als Parameter entfallen — ein Wert, den niemand liest,

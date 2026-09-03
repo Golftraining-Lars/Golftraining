@@ -13,6 +13,25 @@
 
 ---
 
+- **v5.34.0 · 2026-08-31** — **Das Einfrieren beim Ansichtswechsel: 13 Sekunden → 87 ms.** Gemeldet:
+  „Wenn die App gestartet ist, friert sie zwischendurch für zehn Sekunden ein, wenn man Ansichten
+  wechselt." Gemessen: **`renderDash` brauchte 13.065 ms.** Zwei Ursachen, beide dieselbe Sorte.
+  **(1) Falsche Reihenfolge.** `sgHoleShots` baute das Lage-Raster, **bevor** es prüfte, ob das Loch
+  überhaupt aufgezeichnete Schläge hat. Im eigenen Bestand haben **28 von 342** Löchern welche — für
+  die anderen 314 wurde ein Raster über den halben Platz gerechnet und weggeworfen. 728 Aufrufe. **Die
+  teuerste Zeile gehört hinter die billigste Prüfung**, nicht davor. Das ist keine Optimierung,
+  sondern die richtige Reihenfolge: erst entscheiden, ob man etwas braucht, dann es holen.
+  **(2) Ein Schlüssel, teurer als der Treffer.** Danach blieben 208 Aufrufe für nur **8**
+  verschiedene Raster — der Zwischenspeicher traf also fast immer, und trotzdem kostete es 1,6 s: Der
+  Schlüssel entsteht aus der Vorauswahl aller Elemente im Umkreis (~11 ms je Aufruf), und die lief
+  auch bei einem Treffer. **Ein Zwischenspeicher, dessen Schlüssel man erst teuer ausrechnen muss,
+  spart nur die halbe Arbeit.** Neu zweistufig: billiger Schlüssel aus Platz, Loch und Elementanzahl;
+  erst bei einem Fehlschlag der genaue Fingerabdruck. Bedingung dafür: **Wer Geometrie ändert, leert
+  den Speicher** — `dgmSetzen` seit v5.19, `geoAbspecken` seit dieser Fassung.
+  Nebenbei: Der Rasterspeicher fasste **12** Einträge, gebraucht wurden **13** — bei jedem Durchlauf
+  flog genau eines heraus und wurde neu gebaut. **Ein Zwischenspeicher, der um eins zu klein ist, ist
+  schlimmer als keiner:** Er kostet die volle Rechnung *und* die Verwaltung. Jetzt 36.
+
 - **v5.33.0 · 2026-08-31** — **Die Längsstreuung von mehreren hundert Metern stammt aus den Daten,
   nicht aus der Rechnung.** Präzisiert: „Nicht die Breite ist mein Problem, sondern die
   Längsstreuung."

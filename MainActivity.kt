@@ -415,6 +415,21 @@ import kotlin.math.sqrt
  *     ich nicht uebersetzen kann — und die letzte unverifizierte
  *     Strukturaenderung hat den Build zerlegt. ERST MESSEN, DANN BAUEN.
  *
+ *  2026-09-03 (59) · UEBERSETZUNGSFEHLER AUS (57): `ab: Int = 1` stand als
+ *      DRITTER Parameter von `TurnierZeile` — vor dem Rueckruf. Zwei der drei
+ *      Aufrufe uebergeben ihren Rueckruf aber POSITIONELL an dritter Stelle
+ *      (`TurnierZeile("Ich · Schläge", entry.score, onScore)`), also landete
+ *      die Funktion in einem `Int`. Vier Fehler im Uebersetzer: zweimal
+ *      „Function1<Int, Unit> but Int was expected", zweimal „No value passed
+ *      for parameter onSet".
+ *      EIN NEUER PARAMETER MIT VORGABEWERT GEHOERT ANS ENDE — in der Mitte
+ *      verschiebt er jede positionelle Uebergabe dahinter. `ab` steht jetzt
+ *      hinten, und der Putts-Aufruf uebergibt ihn BENANNT: benannte Uebergabe
+ *      ueberlebt jede weitere Umstellung, positionelle nicht.
+ *      GRENZE DES PRUEFSTANDS: Er liest diese Datei als Zeichenkette und
+ *      prueft Muster; ein TYPFEHLER faellt erst dem Uebersetzer auf. Derselbe
+ *      Fall wie in (54) und (55). Neue Sperrklinke: `ab` muss der letzte
+ *      Parameter sein, geprueft ueber die POSITION in der Signatur.
  *  2026-09-01 (58) · NACH DEM AUFWACHEN SOFORT SENDEN, NICHT AUSSCHLAFEN.
  *     GEMELDET am 30.08. im Handy-Protokoll: „Bilanz: 20 Aktionen ·
  *     Verzoegerung 682–2096 s (Median 1438 s)" — zwanzig Eingaben kamen auf
@@ -3280,7 +3295,7 @@ import kotlin.math.sqrt
 /* Fassungskennung der Uhr-App — steht im Kopplungstest neben der der PWA.
    Bei JEDER Aenderung hier mitziehen; sonst vergleicht man zwei Staende und
    glaubt, sie seien gleich (2026-08-15 (13)). */
-private const val WATCH_APP = "2026-09-01 (58)"
+private const val WATCH_APP = "2026-09-03 (59)"
 /* ==========================================================================
    WAS HAT DIESE FASSUNG GEAENDERT? (2026-08-25 (22))
    --------------------------------------------------------------------------
@@ -11325,7 +11340,10 @@ private fun TurnierPage(
            will, laesst die Zeile leer. Ein Pflichtfeld waere genau die
            Reibung, wegen der man den Turniermodus dann doch nicht benutzt. */
         item { TurnierZeile("Ich · Schläge", entry.score, onScore) }
-        item { TurnierZeile("Ich · Putts", entry.putts, 0, onPutts) }
+        /* `ab = 0` BENANNT (59): Seit der Parameter hinten steht, waere „0" an
+           dritter Stelle der Rueckruf. Benannte Uebergabe ueberlebt jede
+           weitere Umstellung — positionelle nicht. */
+        item { TurnierZeile("Ich · Putts", entry.putts, onPutts, ab = 0) }
 
         /* DIE DES MITSPIELERS. Der Name kommt vom Handy (Regel aus (42)):
            Die `index.html` ist bei Mitspielern fuehrend, die Uhr fuehrt keine
@@ -11393,11 +11411,30 @@ private fun TurnierZeile(
        eingelochter Chip hat null Putts, und das ist kein Sonderfall, sondern
        genau das Ergebnis, das man festhalten will. Wer hier 1 erzwingt,
        verfaelscht die Putt-Statistik systematisch nach oben. */
-    ab: Int = 1,
+
     /* `par` ist mit (55) entfallen — es diente nur dem Startwert, und der ist
        jetzt 1. Ein Parameter, den niemand liest, ist eine Zusage, die niemand
        einloest: Beim naechsten Lesen fragt man sich, wo das Par einfliesst. */
-    onSet: (Int) -> Unit
+    onSet: (Int) -> Unit,
+    /* ==================================================================
+       `ab` STEHT HINTEN, NICHT IN DER MITTE (2026-09-03 (59))
+       --------------------------------------------------------------------
+       UEBERSETZUNGSFEHLER AUS (57): Der Parameter wurde als DRITTER
+       eingefuegt — vor den Rueckruf. Zwei der drei Aufrufe geben ihren
+       Rueckruf aber POSITIONELL an dritter Stelle:
+         TurnierZeile("Ich · Schläge", entry.score, onScore)
+       Damit landete die Funktion `onScore` in `ab: Int`, und Kotlin meldete
+       „Function1<Int, Unit> but Int was expected" — zweimal, plus zweimal
+       „No value passed for parameter onSet".
+       EIN NEUER PARAMETER MIT VORGABEWERT GEHOERT ANS ENDE. In der Mitte
+       verschiebt er jede positionelle Uebergabe dahinter — und genau die
+       hatten die beiden alten Aufrufe.
+       DER PRUEFSTAND KONNTE DAS NICHT FANGEN: Er liest den Kotlin-Text als
+       ZEICHENKETTE und prueft Muster; ein Typfehler faellt erst dem
+       Uebersetzer auf. Diese Grenze ist bekannt (Fassungen 54/55 hatten
+       denselben Fall) — die Sperrklinke dagegen ist die Gegenprobe am echten
+       Bau, nicht noch ein Muster. */
+    ab: Int = 1
 ) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
