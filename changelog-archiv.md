@@ -13,6 +13,25 @@
 
 ---
 
+- **v5.33.0 · 2026-08-31** — **Die Längsstreuung von mehreren hundert Metern stammt aus den Daten,
+  nicht aus der Rechnung.** Präzisiert: „Nicht die Breite ist mein Problem, sondern die
+  Längsstreuung."
+  **Nachgerechnet — die Rechnung kann das nicht erklären:** Driver auf Niveau 20 ergibt σD **18 m**,
+  mit steilster Hanglage **29 m**; das gezeichnete Oval misst **72 m** in der Länge. Mehrere hundert
+  Meter entstehen dort nicht.
+  **Also stammen sie aus den Messungen — und da gab es keine Prüfung.** Beide Aufnahmewege (Knopf auf
+  der Uhr, Messung von Hand) schrieben `dist` ungeprüft in den Bestand. Ein einziger schlechter Fix
+  genügt: Aufnahme am Abschlag gestartet und erst am Grün beendet = die Lochlänge als „Schlag"; ein
+  Netzwerk-Fix statt eines Satellitenfixes verlegt den Punkt um Hunderte Meter. **Und ab 20 solchen
+  Messungen ersetzen sie die Heuristik** — der Ausreißer wird zur Grundlage jeder Empfehlung.
+  Neu `schlagPlausibel()` an **beiden** Wegen: über **400 m** (der längste je gemessene Golfschlag
+  liegt darunter — alles darüber ist eine kaputte Messung, kein Rekord) und Ungenauigkeit über der
+  halben Schlagweite (ein Fix, dessen Fehler in der Größenordnung des Schlags liegt, misst das
+  Rauschen). **Verworfen wird nicht still:** Protokollzeile und Hinweis auf dem Bildschirm, mit
+  Entfernung und Genauigkeit.
+  **Ein Ausreißer in den Daten ist schlimmer als eine ungenaue Formel:** Die Formel ist begründet und
+  gilt für alle Schläge, der Ausreißer wirkt still und einseitig.
+
 - **v5.32.0 · 2026-08-31** — **Der Driver vom Boden — und die Streuung nachgemessen.**
   **(1) Behoben.** Gemeldet: „Der Caddy hat mir einmal empfohlen, den Driver vom Boden zu spielen."
   Die Leitplanke `teeOnly` gibt es seit v4.81.2, und `approach()` filtert den Driver sauber heraus.

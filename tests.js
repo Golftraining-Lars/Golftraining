@@ -10459,6 +10459,83 @@ group("Schlag-GPS — Ausreißer sehen und loswerden");
   }
 }
 
+/* ============ 24gk. Doku, Protokoll und Selbstprüfung nachgezogen ============ */
+group("Nachgezogen — die Prüfung muss den teuersten Befund kennen");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+  const PD = G("pruefeDaten"), DF = G("dispersionFor"), DB0 = live("DB");
+
+  /* ====================================================================
+     NACHGEFRAGT am 03.09.2026 (v5.78)
+     --------------------------------------------------------------------
+     „Sind Doku, Fehlerprotokoll und Selbstprüfung auf dem aktuellen Stand?"
+     NACHGESEHEN STATT BEHAUPTET: Doku vollständig (alle 18 neuen Funktionen
+     im Referenzabschnitt), Quelltext-Prüfung grün (15 Punkte, 0 Befunde) —
+     **aber die DATENprüfung kannte die gelernte Streuung überhaupt nicht.**
+     GENAU DER WERT, der monatelang unter „Driver Aerojet" lag, während die
+     Bag „Driver 10,5°" führt und die Rechnung mit der Heuristik weiterlief.
+     **Das war der teuerste Befund dieser Woche** — drei Tage Suche, vier
+     falsche Vermutungen. **Eine Prüfung, die ihn in einer Zeile gemeldet
+     hätte, gab es nicht.** */
+  {
+    const i = src.indexOf("function pruefeDaten()");
+    const e = src.indexOf("\nfunction ", i + 20);
+    const blk = i >= 0 ? src.slice(i, e > i ? e : i + 25000) : "";
+    ok("die Datenprüfung kennt die gelernte Streuung",
+       blk.indexOf("db.strat.dispersion") >= 0 || /const D=\(db\.strat&&db\.strat\.dispersion\)/.test(blk));
+    /* DREI FRAGEN: schiefer Name, verwaister Eintrag, gar keine Messung. */
+    ok("sie meldet einen abweichenden Namen",
+       /Gelernte Streuung unter anderem Namen als in der Bag/.test(blk));
+    ok("und einen verwaisten Eintrag",
+       /Schläger, die nicht mehr in der Bag sind/.test(blk));
+    ok("und fehlende Messungen überhaupt",
+       /Noch keine gelernte Streuung — der Caddy rechnet mit Schätzwerten/.test(blk));
+  }
+  {
+    /* `pruefeDaten` liest das LEBENDE `DB` aus dem Sandkasten, nicht die
+       Momentaufnahme aus `G("DB")` — dieselbe Falle wie beim Kalender (v5.36)
+       und bei `G("$")`. Deshalb hier über `ctx`. */
+    const LDB = ctx.DB;
+    if (typeof PD === "function" && LDB && LDB.strat) {
+      const alt = LDB.strat.dispersion;
+      try {
+        LDB.strat.dispersion = { "Driver Aerojet": { sigL: 27, nL: 60 } };
+        ok("am echten Fall meldet sie es",
+           /unter anderem Namen/.test(PD().map(x => x.title).join(" | ")));
+        /* Ein sauberer Bestand darf NICHT warnen — sonst gewöhnt man sich die
+           Meldung ab und übersieht dann die echte. */
+        LDB.strat.dispersion = {};
+        (LDB.clubDistances || []).slice(0, 1).forEach(c => {
+          LDB.strat.dispersion[c.club] = { sigL: 20, nL: 40 }; });
+        ok("bei sauberen Namen schweigt sie",
+           !/unter anderem Namen/.test(PD().map(x => x.title).join(" | ")));
+      } finally { LDB.strat.dispersion = alt; }
+    }
+  }
+
+  /* ---- Und das Protokoll bekommt die Zeile, die gefehlt hat ----
+     Die Zuordnung über den normierten Namen FUNKTIONIERT — aber sie ist ein
+     Rückfall, kein Normalzustand. Dass sie greift, heißt: In den Daten stehen
+     zwei Namen für denselben Schläger. **Genau das blieb Monate unsichtbar,
+     weil es nirgends stand.** */
+  ok("der Umweg wird protokolliert",
+     /gelernter Wert für „"\+name\+"“ liegt unter „"\+k\+"“ — über clubNorm zugeordnet/.test(src));
+  /* EINMAL JE SCHLÄGER, nicht bei jedem Aufruf: Die Funktion läuft in jeder
+     Schlägerbewertung. Ein Ereignis, das immer eintritt, ist keine Nachricht. */
+  ok("aber nur einmal je Schläger", /_dispUmwegGemeldet\[name\]=1;/.test(src));
+  if (typeof DF === "function" && DB0) {
+    const alt = DB0.strat && DB0.strat.dispersion;
+    const LOG = G("ERRLOG");
+    try {
+      DB0.strat.dispersion = { "Driver Aerojet": { sigL: 27, nL: 60 } };
+      const v0 = (LOG || []).filter(x => x && x.where === "Streuung").length;
+      DF("Driver 10,5°"); DF("Driver 10,5°"); DF("Driver 10,5°");
+      const v1 = (LOG || []).filter(x => x && x.where === "Streuung").length;
+      ok("drei Aufrufe, eine Zeile", v1 - v0 <= 1, String(v1 - v0));
+    } finally { if (DB0.strat) DB0.strat.dispersion = alt; }
+  }
+}
+
 /* ============ 24gj. Kette und Caddy müssen einig sein ============ */
 group("Zielkette — die Beschriftung darf nicht zweiter Entscheider sein");
 {
