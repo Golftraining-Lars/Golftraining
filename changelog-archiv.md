@@ -13,6 +13,33 @@
 
 ---
 
+- **v5.31.0 · 2026-08-31 · Uhr (57)** — **Im Turniermodus zählen auch die eigenen Putts mit.**
+  Gewünscht: „Für meine persönliche Score-Eingabe möchte ich zusätzlich neben dem Score auch die
+  Putts eingeben. Für den Mitspieler ist das egal — da bitte nur den Gesamtscore belassen."
+  **Die Asymmetrie ist gewollt und sachlich richtig:** Die eigenen Putts tragen die halbe Auswertung
+  dieser App — Putt-Kurve, Strokes Gained, Scrambling. Die des Mitspielers wertet niemand aus; sie
+  kosten auf der Bahn nur Tipps. „Nichts anderes" aus (54) gilt weiter: keine Lage, kein Schläger,
+  kein Strafschlag. **Die Grenze verläuft nicht bei „wenig", sondern bei „was ausgewertet wird".**
+  **Putts beginnen bei 0, Schläge bei 1.** Einen Schlag hat man immer gemacht, wenn man zählt — aber
+  ein eingelochter Chip hat **null** Putts, und das ist kein Sonderfall, sondern genau das Ergebnis,
+  das man festhalten will. Wer hier 1 erzwingt, verfälscht die Putt-Statistik systematisch nach oben.
+  Optional bleiben sie: Wer im Turnier keine Putts zählen will, lässt die Zeile leer.
+
+- **v5.30.0 · 2026-08-31** — **Die Selbstprüfung hat sechs leere `catch`-Blöcke gemeldet — und sie
+  hatte recht.** Im Bildschirmfoto unter „QUELLTEXT — 1 Hinweise". Das ist genau ihr Zweck: **Fehler,
+  die in einem leeren `catch` verschwinden, tauchen nirgends auf** — und man sucht sie dann an der
+  falschen Stelle.
+  **Jeder einzeln angesehen, nicht pauschal gefüllt.** Bei dreien war das Schweigen richtig: kein Tee
+  (das ist der Fall, den die Zeile darunter ohnehin meldet), unbekannter Platz beim Nachtragen (Par
+  bleibt leer), Ladeschirm schon entfernt. Dort steht jetzt ein Kommentar **im** leeren Block, der
+  sagt warum. Bei dreien war es falsch: Absturz der Neun-Loch-Auswertung im Trockenlauf, Aufräumen
+  des Prüfplatzes, fehlgeschlagene Vibration bei der Gewitterwarnung. Die melden sich jetzt.
+  **Ein leerer `catch` ohne Begründung ist eine Entscheidung, die niemand getroffen hat.** Mit
+  Begründung ist er eine.
+  Neue Sperrklinke: keine leeren `catch`-Blöcke mehr, und die Selbstprüfung muss im Quelltext-Teil
+  dasselbe sagen wie der Prüfstand — sonst prüfen die beiden verschiedene Dinge und eine von ihnen
+  ist wertlos.
+
 - **v5.29.0 · 2026-08-31** — **Turnier beim Start wählen — und Loch für Loch nachtragen.**
   **(1) Beim Start entscheiden, nicht am Ende.** Im Spielmodus-Start gibt es ein Feld „Turnier" mit
   optionalem Namen. Ist es gesetzt, landet die Runde beim Abschluss bei den **Turnieren** statt bei

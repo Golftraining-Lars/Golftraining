@@ -338,7 +338,7 @@ try {
   /* WICHTIG: bei vm.runInContext landen nur `var` und `function` am Kontext —
      `const STRAT = {...}` bleibt im Blockscope unsichtbar. Deshalb ein Epilog,
      der die benoetigten Namen aktiv herausreicht. */
-  const namen = ["_phoneLive","playHoleStamp","PLAY","repairListenFormen","bagBewertung","clubNorm","_mergeObj","_leerWert","mergeDB","MERGE_KEY","EQUIP_FELDER","EQUIP_GRUPPEN","EQUIP_ALT_KEYS","equipAltRaeumen","ensureSeedGoals","_zielSchluessel","goalCurrent","trainingsEmpfehlung","goalIst","goalPlan","goalFortschritt","goalErreicht","goalHochIstGut","_zielMed","zielFeldDef","ZIEL_QUELLEN","ZIEL_FELDER","testZaehltNicht","testDefsAusgewertet","lmShotKey","lmNurNeue","lmDubletten","LM_ALLE","lmSetClub","playKopfraum","playKopfAnteil","aimUmweg","sgAbdeckungsQuote","sgPuttSchieflage","sgWarnHtml","sgRound","sgEnrich","turnierNaehe","wakeAn","wakeAus","_wakeGruende","kraftVerlauf","standNeuer","wetterSetzen","mobBaseline","MOB_KEYS","_fitMedian","_fitVergleich","isoWoche","kraftNorm","est1RM","kraftVerlauf","_dgmAbstandZuStrecke","gpFingerprint","clubList","gpHoleFrisch","gpKey","activeHoles","_aimApproachEv","watchElevProfil","dgmSetzen",
+  const namen = ["_phoneLive","playHoleStamp","PLAY","repairListenFormen","bagBewertung","clubNorm","_mergeObj","_leerWert","mergeDB","MERGE_KEY","EQUIP_FELDER","EQUIP_GRUPPEN","EQUIP_ALT_KEYS","equipAltRaeumen","ensureSeedGoals","_zielSchluessel","goalCurrent","trainingsEmpfehlung","goalIst","goalPlan","goalFortschritt","goalErreicht","goalHochIstGut","_zielMed","zielFeldDef","ZIEL_QUELLEN","ZIEL_FELDER","testZaehltNicht","testDefsAusgewertet","lmShotKey","lmNurNeue","lmDubletten","LM_ALLE","lmSetClub","playKopfraum","playKopfAnteil","aimUmweg","sgAbdeckungsQuote","sgPuttSchieflage","sgWarnHtml","sgRound","sgEnrich","turnierNaehe","wakeAn","wakeAus","_wakeGruende","kraftVerlauf","standNeuer","wetterSetzen","mobBaseline","MOB_KEYS","_fitMedian","_fitVergleich","isoWoche","kraftNorm","est1RM","kraftVerlauf","_dgmAbstandZuStrecke","gpFingerprint","clubList","gpHoleFrisch","gpKey","activeHoles","dispersionFor","clubNorm","_aimApproachEv","watchElevProfil","dgmSetzen",
                  "schlagNeutral","neutralBasis","gpsShotsNachziehen","elevQuelle","elevQuelleText","dgmRahmen","dgmIdx","dgmZelleMitte","dgmZellen","dgmHoehe","dgmNeigung","dgmKey",
                  "STRAT","clubPick","playsLike","pinPoint","geoDist","playMapBox",
                  "liveStart","liveStop","liveStopAll","liveVerbraucher","LIVEPOS",
@@ -10448,6 +10448,87 @@ group("Schlag-GPS — Ausreißer sehen und loswerden");
       ok("und ist anklickbar", /data-runde="/.test(src) && /openAddRound\(r\)/.test(roh));
       ok("der Grund steht an der markierten Zeile", /m zum Median/.test(src));
     }
+  }
+}
+
+/* ============ 24gi. Gelernte Streuung kommt an ============ */
+group("Streuung — die App wusste es besser, unter einem anderen Namen");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+  const S = G("STRAT"), DB0 = live("DB");
+
+  /* ====================================================================
+     GEMELDET am 03.09.2026 (v5.75)
+     --------------------------------------------------------------------
+     „Sicher" empfahl weiterhin den Driver. **Vier vermutete Zwischenspeicher
+     später** war klar: Es liegt nicht am Speichern, sondern an den DATEN.
+     ZWEI BEFUNDE, BEIDE DERSELBEN ART — ein Wert liegt vor und kommt nicht an:
+     1. NAMENSFALLE: `DB.strat.dispersion` führt „Driver Aerojet" (σL 27 m,
+        aus echten Runden), die Bag führt „Driver 10,5°". Die Suche ging über
+        den EXAKTEN Namen und fand nichts. **Wer mit Namen schlüsselt, die
+        Menschen vergeben, muss sie normieren** — sonst hängt eine Rechnung
+        davon ab, ob jemand sein Schlägermodell mit eingetragen hat. `clubNorm`
+        gibt es seit Langem; er wurde hier nur nie benutzt.
+     2. FELDFALLE: Der Zweig für gelernte Werte verlangt `st.n>=20` — das ist
+        die Zahl der GPS-Schläge für die LÄNGSstreuung. Der Seiten-Lerner
+        schreibt aber `nL`. Ein Eintrag mit gelernter σL und ohne σD fiel damit
+        **komplett** durch.
+     **UND σL IST FÜR DIE ZIELWAHL DIE WICHTIGERE DER BEIDEN ZAHLEN** —
+     Hindernisse liegen seitlich. Sie wegzuwerfen, weil die Längsstreuung
+     fehlt, ist genau verkehrt herum.
+     DIE 27 m SIND DIE RICHTIGEN: Sie passen zur Messung vom 31.08. — 38 %
+     Fairwaytreffer gemessen gegen 54 % vorhergesagt. **Die App hatte den
+     richtigen Wert die ganze Zeit, nur unter einem Namen, unter dem niemand
+     nachsah.** */
+  /* v5.76: EINE Suche für alle Leser statt eines Rückgriffs je Lesestelle.
+     **Zwei Fallrückgriffe sind einer zu viel** — wer die gemeinsame Suche
+     umgeht, hat wieder zwei Wahrheiten. */
+  ok("es gibt EINE Suche für gelernte Werte", /function dispersionFor\(name\)\{/.test(src));
+  ok("die Rechnung nutzt sie", /const st=\(typeof dispersionFor==="function"\)\?dispersionFor\(club&&club\.name\):null;/.test(src));
+  /* UND DIE ANZEIGE AUCH: In der Bag stand beim Driver nichts von „gelernt" —
+     deshalb blieb der Wert monatelang unsichtbar. */
+  ok("und die Schläger-Ansicht ebenso",
+     /const d=\(typeof dispersionFor==="function"\)\?dispersionFor\(c\.club\):null;/.test(src));
+  /* EXAKTER TREFFER HAT VORRANG: Wer beide Namen führt, meint den genauen. */
+  ok("der exakte Treffer hat Vorrang", /if\(D\[name\]\) return D\[name\];/.test(src));
+  {
+    const DF = G("dispersionFor"), DB1 = live("DB");
+    if (typeof DF === "function" && DB1) {
+      const alt = DB1.strat && DB1.strat.dispersion;
+      try {
+        DB1.strat.dispersion = { "Driver Aerojet": { sigL: 27, nL: 60 },
+                                 "Driver 10,5°": { sigL: 19, nL: 40 } };
+        ok("bei beiden Namen gewinnt der genaue",
+           DF("Driver 10,5°").sigL === 19, String(DF("Driver 10,5°").sigL));
+        DB1.strat.dispersion = { "Driver Aerojet": { sigL: 27, nL: 60 } };
+        ok("sonst greift der normierte", DF("Driver 10,5°").sigL === 27);
+        ok("und ein fremder Schläger findet nichts", DF("Putter") === null);
+      } finally { if (DB1.strat) DB1.strat.dispersion = alt; }
+    }
+  }
+  ok("eine gelernte Seitenstreuung zählt allein",
+     /if\(st && st\.sigL>0 && \(st\.nL\|\|0\)>=25 && !\(st\.n>=20\)\) _gelerntL=/.test(src));
+  /* ZWEI QUELLEN IN EINEM ERGEBNIS SIND HIER RICHTIG — anders als bei den
+     Höhen (v5.28) geht es nicht um eine DIFFERENZ zweier Werte, sondern um
+     zwei unabhängige Achsen. Die Herkunft steht in `src`, damit man es sieht. */
+  ok("und die Herkunft steht dabei",
+     /σL gelernt \("\+st\.nL\+"\) · σD Heuristik/.test(src));
+
+  if (S && typeof S.sigmaFor === "function" && DB0) {
+    const alt = DB0.strat && DB0.strat.dispersion;
+    try {
+      DB0.strat.dispersion = { "Driver Aerojet": { sigL: 27, nL: 60, src: "rounds" } };
+      const r = S.sigmaFor({ name: "Driver 10,5°", carry: 225, dist: 240 });
+      ok("der gelernte Wert kommt an", r && Math.abs(r.sigL - 27) < 0.5,
+         r ? r.sigL.toFixed(1) : "keiner");
+      /* Die Längsstreuung bleibt geschätzt — sie wurde ja nicht gelernt. */
+      ok("die Längsstreuung bleibt geschätzt", r && r.sigD > 0 && /Heuristik/.test(r.src));
+      /* Ohne genug Belege bleibt es bei der Heuristik: 5 Löcher sind keine
+         Streuung. */
+      DB0.strat.dispersion = { "Driver Aerojet": { sigL: 27, nL: 5, src: "rounds" } };
+      const r2 = S.sigmaFor({ name: "Driver 10,5°", carry: 225, dist: 240 });
+      ok("zu wenige Belege zählen nicht", r2 && Math.abs(r2.sigL - 27) > 1);
+    } finally { if (DB0.strat) DB0.strat.dispersion = alt; }
   }
 }
 
