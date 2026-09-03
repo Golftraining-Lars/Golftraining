@@ -13,6 +13,35 @@
 
 ---
 
+- **v5.27.0 · 2026-08-30** — **Die Uhr-Fassung wurde übertragen und war trotzdem nie lesbar.**
+  Bestätigt: Auf der Uhr läuft (56) — im Protokoll stand **keine einzige** „Uhr-Fassung"-Zeile.
+  **Die Ursache:** `watchFassung()` liest `DB._draftRound.live`, also den Zeiger **nach** dem
+  Zusammenführen. Und dort gewinnt fast immer das Handy: Es schreibt seinen eigenen Zeiger bei jedem
+  Push (alle 2 s), die Uhr nur alle 10 s. `mergeDraft` behält den jüngeren, und `watchFassung()`
+  verlangt `src === "watch"` — findet also praktisch nie einen.
+  **Ein Wert im flüchtigsten Feld der Übertragung ist so gut wie nicht übertragen.** Das Feld reiste
+  korrekt und wurde Sekunden später vom eigenen Zeiger überschrieben.
+  Jetzt wird der **Eingang** gelesen — der Entwurf, wie er aus dem Repo kam, **bevor** er mit dem
+  eigenen vereinigt wird. Dort steht der Zeiger der Uhr unverändert. Fällt der Eingang aus, greift
+  wie bisher der vereinigte Stand: besser der seltene Treffer als gar keiner.
+
+- **v5.26.0 · 2026-08-30 · Uhr (57)** — **Sendestau messen, bevor man ihn behebt.** Aus dem Protokoll
+  der Runde: „Bilanz: 20 Aktionen · Verzögerung **682–2096 s** (Median 1438 s)". Zwanzig Eingaben
+  kamen auf einen Schlag an, die älteste **35 Minuten** alt. Unmittelbar danach sprang der Lochzeiger
+  zwischen 14, 16, 18 und 11 — beide Geräte reagierten auf veraltete Meldungen. **Der Stau ist die
+  Ursache, das Zeiger-Chaos die Folge.**
+  **Das Handy bemerkt den Stau, kann ihn aber nicht erklären:** Es sieht nur, wann etwas ankommt,
+  nicht warum es liegenblieb. Die Entprellung auf der Uhr beträgt 600 ms — der Verzug entsteht also
+  danach, und nur die Uhr weiß wo. Sie misst es jetzt selbst: Wie lange lag die älteste ungesendete
+  Eingabe, als der Abgleich startete? Ab einer Minute wird das gemeldet, mit Wartezeit, Zeit seit dem
+  letzten gelungenen Abgleich und der Fehlerbilanz. **Keine erfundene Netzprüfung** — die Uhr hat
+  keine, und eine zu erfinden beantwortet die Frage nicht.
+  **Warum nicht gleich die Ursache beheben:** Weil ich sie nicht kenne. Der naheliegende Verdacht ist,
+  dass Wear OS die App bei ausgeschaltetem Bildschirm einfriert; die Abhilfe wäre ein
+  Vordergrunddienst für die Dauer der Runde. Das ist ein Eingriff in Manifest und Lebenszyklus, den
+  ich hier nicht übersetzen kann — und die letzte unverifizierte Strukturänderung hat den Build
+  zerlegt. **Erst messen, dann bauen.**
+
 - **v5.25.0 · 2026-08-30** — **Ein Ursprung, nicht nur ein Ziel.** Aus dem Protokoll der Runde vom
   30.08.: „spielt-wie uneinig: Kopfzeile **72 m** · Kette **35 m**" auf Loch 18, dazu „Schläger
   uneinig: Bewertung SW 54° · Kette LW 58°" — und **35 Mal** auf Loch 12 „Bewertung 3 Wood · Kette

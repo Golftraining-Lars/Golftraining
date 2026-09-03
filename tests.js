@@ -3562,8 +3562,10 @@ group("STRAT.tee — vertauschte Tee/Grün-Punkte und Modus-Reaktion");
   /* Und über die POSITION (v2.94) — auf 10 m gerundet: ohne sie bliebe die
      erste Rechnung für immer im Speicher, mit voller Genauigkeit käme bei
      jedem GPS-Zucken eine neue Monte-Carlo-Rechnung. */
+  /* v5.71: zusätzlich über die FASSUNG — siehe unten, vierte Stelle
+     derselben Art. */
   ok("und über die gerundete Position",
-     /const k="T\|"\+PLAY\.course\+"\|"\+PLAY\.tee\+"\|"\+h\.hole\+"\|"\+caddyMode\(\)\+pk/.test(src));
+     /const k="T\|"\+APP_VERSION\+"\|"\+PLAY\.course\+"\|"\+PLAY\.tee\+"\|"\+h\.hole\+"\|"\+caddyMode\(\)\+pk/.test(src));
   ok("Kettenschlüssel ebenso",
      /_aimChainKey[\s\S]{0,300}caddyMode\(\)/.test(src));
 }
@@ -10445,6 +10447,97 @@ group("Schlag-GPS — Ausreißer sehen und loswerden");
       ok("der Grund steht an der markierten Zeile", /m zum Median/.test(src));
     }
   }
+}
+
+/* ============ 24gg. Ein freigegebener Sperrgriff holt sich zurück ============ */
+group("Wachhalten — ein Zustand, den man führt, muss man durchsetzen");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+
+  /* ====================================================================
+     GEMELDET im Protokoll vom 03.09.2026 (v5.72)
+     --------------------------------------------------------------------
+     „Takt gedrosselt · 1635 s statt 2 s · im Browser-Tab · Bildschirm AN",
+     dazu „Durchlauf hing 1635 s — Wächter hat freigegeben". **27 Minuten
+     Stillstand mitten in der Runde.**
+     DER BILDSCHIRM WAR AN — also hat kein Sichtbarkeitswechsel
+     stattgefunden, und genau daran hing bisher das Zurückholen des
+     Sperrgriffs. Das System gibt ihn aber auch OHNE Sichtbarkeitswechsel
+     frei: bei Akkusparen, bei Anrufen, beim Abdunkeln. Der Rückruf setzte
+     dann nur `_wake=null` — **und niemand fragte je wieder nach.**
+     `_wakeGruende` SAGT WEITER „RUNDE LÄUFT", ABER DER GRIFF IST WEG. **Ein
+     Zustand, den man führt, ohne ihn durchzusetzen, ist eine Behauptung.**
+     Ohne Sperrgriff drosselt der Browser den Takt — und das ist exakt die
+     Meldung, die im Protokoll steht. */
+  ok("der Rückruf holt den Sperrgriff zurück",
+     /if\(_wakeGruende\.size && !_wake\) wakeAcquire\(\)/.test(src));
+  /* EINMAL UND MIT ABSTAND, nicht in einer Schleife: Verweigert das System
+     dauerhaft (Akkusparen), wäre ein Dauerversuch schlimmer als der Verlust. */
+  ok("und zwar mit Abstand, nicht in einer Schleife",
+     /setTimeout\(\(\)=>\{ if\(_wakeGruende\.size && !_wake\) wakeAcquire\(\); \}, 2000\)/.test(src));
+  /* NUR SOLANGE EIN GRUND BESTEHT — nach dem Rundenende darf er weg sein. */
+  ok("nur solange ein Grund besteht", /if\(_wakeGruende\.size\)\{/.test(src));
+
+  /* ---- Und die Meldung sagt, welcher Zustand vorliegt ----
+     Bisher stand da „Bildschirm an" — und genau das hat die Suche in die
+     falsche Richtung geschickt: Der Bildschirm WAR an, also schien der
+     Sperrgriff zu wirken. **Zwei Zustände, die man nicht verwechseln darf:**
+     „Bildschirm an" beschreibt, was man sieht; „Sperrgriff" beschreibt, ob
+     der Browser uns weiterrechnen lässt. Der zweite erklärt die Drosselung,
+     der erste nicht. */
+  ok("die Drosselmeldung nennt den Sperrgriff",
+     /Sperrgriff hält/.test(src) && /SPERRGRIFF WEG — deshalb gedrosselt/.test(src));
+  ok("aber nur, wenn er überhaupt gebraucht wird",
+     /typeof _wakeGruende!=="undefined" && _wakeGruende\.size/.test(src));
+  /* Der Wächter, der einen hängenden Durchlauf freigibt, bleibt — er ist die
+     zweite Verteidigungslinie, wenn der Griff doch verlorengeht. */
+  ok("der Wächter bleibt erhalten",
+     /Durchlauf hing "\+Math\.round\(\(Date\.now\(\)-playSyncBusySeit\)\/1000\)/.test(src));
+}
+
+/* ============ 24gf. Jeder Zwischenspeicher kennt die Fassung ============ */
+group("Zwischenspeicher — viermal dieselbe Klasse ist ein Muster");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+
+  /* ====================================================================
+     VIERMAL DIESELBE FEHLERKLASSE (v5.71)
+     --------------------------------------------------------------------
+       v5.19  Höhenraster  — Schlüssel ohne DGM-Zustand
+       v5.57  Kalender     — Schlüssel ohne Datenform
+       v5.70  Lochplan     — Abdruck ohne Fassung
+       v5.71  Zielkette    — Schlüssel ohne Fassung
+     **EIN ZWISCHENSPEICHER MUSS ALLES KENNEN, WAS SEIN ERGEBNIS BESTIMMT —
+     UND DER CODE GEHÖRT DAZU.** Ändert sich die Rechnung, liefert er sonst
+     weiter das alte Ergebnis, solange die DATEN gleich bleiben. Genau das
+     passiert während einer Runde: Man steht auf demselben Abschlag, lädt die
+     neue Fassung, und bekommt die Antwort von vorher.
+     GEMELDET am 03.09.: „Lochplan sicher" zeigte Driver, obwohl
+     `STRAT.tee(…,"safe")` auf diesem Loch 2 Iron liefert — 55 % Fairway, 0 %
+     Strafrisiko statt 34 % und 5 %.
+     **VIERMAL IST KEIN ZUFALL, SONDERN EIN MUSTER** — deshalb prüft diese
+     Sperrklinke ALLE ergebnisabhängigen Schlüssel, nicht nur den zuletzt
+     gefundenen. Wer einen neuen anlegt, muss hier vorbeikommen. */
+  {
+    /* Die Schlüssel, deren Ergebnis von der RECHNUNG abhängt — nicht nur von
+       Daten. Ein reiner Datenspeicher (etwa der Rasterinhalt selbst) braucht
+       die Fassung nicht. */
+    const pflicht = [
+      ["Zielkette Tee",     /const k="T\|"\+APP_VERSION\+/],
+      ["Zielkette Approach",/const k="A\|"\+APP_VERSION\+/],
+      ["Gameplan-Abdruck",  /sum=\(sum\+v\.charCodeAt\(i\)\*7\)%1e9/]
+    ];
+    pflicht.forEach(([name, re]) => {
+      ok(name + " kennt die Fassung", re.test(src));
+    });
+  }
+  /* Und der Kalender trägt seine Datenform im Schlüssel (v5.57) — dieselbe
+     Regel, andere veränderliche Größe. */
+  ok("Kalenderspeicher kennt seine Datenform",
+     /KAL_CACHE="golf_kal_cache_v2"/.test(src));
+  /* Das Höhenraster leert die abhängigen Speicher beim Wechsel (v5.19). */
+  ok("Rasterwechsel leert die abhängigen Speicher",
+     /for\(const k in _aimCache\) delete _aimCache\[k\]/.test(src));
 }
 
 /* ============ 24ge. Der Lochplan altert still ============ */
