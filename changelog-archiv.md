@@ -13,6 +13,19 @@
 
 ---
 
+- **v5.25.0 · 2026-08-30** — **Ein Ursprung, nicht nur ein Ziel.** Aus dem Protokoll der Runde vom
+  30.08.: „spielt-wie uneinig: Kopfzeile **72 m** · Kette **35 m**" auf Loch 18, dazu „Schläger
+  uneinig: Bewertung SW 54° · Kette LW 58°" — und **35 Mal** auf Loch 12 „Bewertung 3 Wood · Kette
+  Driver".
+  **Dritter Anlauf an derselben Meldung.** v4.99 hat die beiden auf dasselbe **Ziel** gebracht, v5.18
+  die Bezugspunkte in der Anzeige geradegezogen — der **Ursprung** blieb ungleich: `condFaktor` maß
+  ab `pos`, dem Punkt, für den der Caddy gerade rechnet; die Kette dagegen ab ihrem eigenen
+  Startpunkt `legs[0].from`. Auf Loch 18 lagen dazwischen 36 Meter, und heraus kamen 72 gegen 35.
+  **Zwei Ursprünge sind dasselbe Problem wie zwei Ziele, nur eine Ebene tiefer.** Jedes Mal habe ich
+  eine Hälfte des Paares vereinheitlicht und die andere stehen lassen. Jetzt rechnet die Kopfzeile ab
+  dem Anfang der Kette — Ziel **und** Ursprung aus derselben Quelle, und sie kann gar nicht mehr
+  etwas anderes messen.
+
 - **v5.24.0 · 2026-08-30 · Uhr (56)** — **Der Turniermodus übersetzt jetzt.** Gemeldet mit
   Bildschirmfoto aus Android Studio: 16 Fehler, „Gradle build failed". Zwei Ursachen, beide meine.
   **`change()` in der falschen Ebene:** Die Turnierseite rief es direkt in `PlayPager` — dort gibt es

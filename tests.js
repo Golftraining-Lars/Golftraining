@@ -338,7 +338,7 @@ try {
   /* WICHTIG: bei vm.runInContext landen nur `var` und `function` am Kontext —
      `const STRAT = {...}` bleibt im Blockscope unsichtbar. Deshalb ein Epilog,
      der die benoetigten Namen aktiv herausreicht. */
-  const namen = ["_phoneLive","playHoleStamp","PLAY","repairListenFormen","bagBewertung","clubNorm","_mergeObj","_leerWert","mergeDB","MERGE_KEY","EQUIP_FELDER","EQUIP_GRUPPEN","EQUIP_ALT_KEYS","equipAltRaeumen","ensureSeedGoals","_zielSchluessel","goalCurrent","trainingsEmpfehlung","goalIst","goalPlan","goalFortschritt","goalErreicht","goalHochIstGut","_zielMed","zielFeldDef","ZIEL_QUELLEN","ZIEL_FELDER","testZaehltNicht","testDefsAusgewertet","lmShotKey","lmNurNeue","lmDubletten","LM_ALLE","lmSetClub","playKopfraum","playKopfAnteil","aimUmweg","sgAbdeckungsQuote","sgPuttSchieflage","sgWarnHtml","sgRound","sgEnrich","turnierNaehe","wakeAn","wakeAus","_wakeGruende","kraftVerlauf","standNeuer","wetterSetzen","mobBaseline","MOB_KEYS","_fitMedian","_fitVergleich","isoWoche","kraftNorm","est1RM","kraftVerlauf","_dgmAbstandZuStrecke","gpFingerprint","_aimApproachEv","watchElevProfil","dgmSetzen",
+  const namen = ["_phoneLive","playHoleStamp","PLAY","repairListenFormen","bagBewertung","clubNorm","_mergeObj","_leerWert","mergeDB","MERGE_KEY","EQUIP_FELDER","EQUIP_GRUPPEN","EQUIP_ALT_KEYS","equipAltRaeumen","ensureSeedGoals","_zielSchluessel","goalCurrent","trainingsEmpfehlung","goalIst","goalPlan","goalFortschritt","goalErreicht","goalHochIstGut","_zielMed","zielFeldDef","ZIEL_QUELLEN","ZIEL_FELDER","testZaehltNicht","testDefsAusgewertet","lmShotKey","lmNurNeue","lmDubletten","LM_ALLE","lmSetClub","playKopfraum","playKopfAnteil","aimUmweg","sgAbdeckungsQuote","sgPuttSchieflage","sgWarnHtml","sgRound","sgEnrich","turnierNaehe","wakeAn","wakeAus","_wakeGruende","kraftVerlauf","standNeuer","wetterSetzen","mobBaseline","MOB_KEYS","_fitMedian","_fitVergleich","isoWoche","kraftNorm","est1RM","kraftVerlauf","_dgmAbstandZuStrecke","gpFingerprint","clubList","_aimApproachEv","watchElevProfil","dgmSetzen",
                  "schlagNeutral","neutralBasis","gpsShotsNachziehen","elevQuelle","elevQuelleText","dgmRahmen","dgmIdx","dgmZelleMitte","dgmZellen","dgmHoehe","dgmNeigung","dgmKey",
                  "STRAT","clubPick","playsLike","pinPoint","geoDist","playMapBox",
                  "liveStart","liveStop","liveStopAll","liveVerbraucher","LIVEPOS",
@@ -10443,6 +10443,62 @@ group("Schlag-GPS — Ausreißer sehen und loswerden");
          /\(\(typeof roundShots==="function"\)\?roundShots\(\):\[\]\)/.test(roh));
       ok("und ist anklickbar", /data-runde="/.test(src) && /openAddRound\(r\)/.test(roh));
       ok("der Grund steht an der markierten Zeile", /m zum Median/.test(src));
+    }
+  }
+}
+
+/* ============ 24ge. Der Lochplan altert still ============ */
+group("Gameplan — ein Zwischenspeicher muss den Code kennen");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+  const FP = G("gpFingerprint"), DB0 = live("DB");
+
+  /* ====================================================================
+     GEMELDET am 02.09.2026 (behoben in v5.70)
+     --------------------------------------------------------------------
+     „Im Caddy scheint es zu funktionieren. Im Gameplan bin ich mir aber
+     unsicher — das wirkt nicht wie die sichere Spielweise."
+     UND ES STIMMTE: Der Lochplan legte den Driver in dieselbe Baumreihe, die
+     der Caddy seit v5.69 meidet.
+     DER PLAN IST ZWISCHENGESPEICHERT, und sein Abdruck kannte Platzdaten,
+     Schläger und Vorgabe — **aber nicht die Rechnung selbst**. Ändert sich
+     der Code, bleibt der alte Plan liegen: Er ist ja nach allen Kriterien,
+     die der Abdruck kennt, noch aktuell.
+     **EIN ZWISCHENSPEICHER MUSS ALLES KENNEN, WAS SEIN ERGEBNIS BESTIMMT** —
+     und dazu gehört der Code, nicht nur die Daten. Derselbe Fehler wie beim
+     Höhenraster (v5.19, Schlüssel ohne DGM-Zustand) und beim Kalender (v5.57,
+     Schlüssel ohne Datenform); diesmal fehlte die Fassung.
+     WARUM DAS BESONDERS TEUER IST: Der Gameplan ist die Ansicht, der man VOR
+     der Runde vertraut. Ein Caddy, der sich während der Runde korrigiert,
+     fällt auf. **Ein Plan, der still veraltet, nicht** — man merkt es erst,
+     wenn beide dasselbe Loch verschieden beantworten. */
+  ok("die Fassung geht in den Abdruck ein",
+     /const v=String\(APP_VERSION\|\|""\); for\(let i=0;i<v\.length;i\+\+\) sum=\(sum\+v\.charCodeAt\(i\)\*7\)%1e9;/.test(src));
+  if (typeof FP === "function" && DB0) {
+    const c = (DB0.courses || []).find(x => x && x.geo && x.geo.holes);
+    const CL = G("clubList");
+    if (c && typeof CL === "function") {
+      const a = FP(c.geo, CL(), 20, c.trouble);
+      /* STABIL BEI GLEICHEN EINGABEN — sonst würde der Plan bei jedem Lauf
+         neu gerechnet, und das kostet auf dem Handy Sekunden. */
+      ok("gleiche Eingaben, gleicher Abdruck", FP(c.geo, CL(), 20, c.trouble) === a);
+      /* Aber empfindlich gegen die Daten, wie bisher. */
+      ok("und andere Vorgabe, anderer Abdruck", FP(c.geo, CL(), 12, c.trouble) !== a);
+    }
+  }
+  /* Und die drei Spielweisen müssen dieselbe Baumreihe meiden wie der Caddy —
+     sonst widersprechen sich Plan und Empfehlung weiterhin. */
+  {
+    const S = G("STRAT");
+    if (S && typeof S.tee === "function" && DB0) {
+      const c = (DB0.courses || []).find(x => x && /Fehmarn/.test(x.name) && x.geo);
+      if (c) {
+        const wahl = ["sicher", "normal", "offensiv"].map(m => {
+          const ev = S.tee(c.geo, c.name, 2, m, 20);
+          return ev && ev.best ? ev.best.club.name : null;
+        }).filter(Boolean);
+        ok("alle Spielweisen liefern eine Wahl", wahl.length === 3, wahl.join(" · "));
+      }
     }
   }
 }
