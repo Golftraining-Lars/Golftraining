@@ -13,6 +13,22 @@
 
 ---
 
+- **v5.28.0 · 2026-08-30** — **„Caddy ohne Höhendaten" — obwohl das Raster geladen war.** Der Befund
+  stand nach v5.19 wieder im Protokoll, und die Cache-Behebung von damals war nicht schuld.
+  **Die Ursache saß in `elevDelta`:** Liegt **ein** Punkt im geladenen Raster und der andere nicht —
+  am Rand des Rasters der **Normalfall**, nicht die Ausnahme —, gab die Funktion `null` zurück. Damit
+  fiel die „spielt wie"-Höhe weg und mit ihr der Hangterm, obwohl beide Punkte in der groben Quelle
+  sauber vorlagen.
+  **Die Begründung dafür war richtig, die Folgerung zu hart.** Ein DGM-Wert minus einem
+  Open-Meteo-Wert ist tatsächlich keine Höhendifferenz, sondern der Abstand zweier Bezugsflächen plus
+  Zufall — deshalb dürfen Quellen nie gemischt werden. Aber wenn **beide** Punkte in der groben
+  Quelle liegen, ist ihre Differenz sauber: gleiche Bezugsfläche.
+  Neu `elevOnline(la,lo)` — die grobe Quelle ohne den DGM-Vorrang von `elevGet`. `elevDelta` schaltet
+  jetzt für **beide** Punkte darauf um, statt aufzugeben. **Es wird weiterhin nie gemischt — es wird
+  nur nicht mehr die schlechtere Quelle verworfen, bloß weil die bessere halb vorliegt.** Genauer als
+  das DGM ist das nicht; besser als „keine Aussage" allemal, und genau darum ging es bei der Meldung
+  zum Downslope.
+
 - **v5.27.0 · 2026-08-30** — **Die Uhr-Fassung wurde übertragen und war trotzdem nie lesbar.**
   Bestätigt: Auf der Uhr läuft (56) — im Protokoll stand **keine einzige** „Uhr-Fassung"-Zeile.
   **Die Ursache:** `watchFassung()` liest `DB._draftRound.live`, also den Zeiger **nach** dem

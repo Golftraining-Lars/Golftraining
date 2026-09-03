@@ -338,7 +338,7 @@ try {
   /* WICHTIG: bei vm.runInContext landen nur `var` und `function` am Kontext —
      `const STRAT = {...}` bleibt im Blockscope unsichtbar. Deshalb ein Epilog,
      der die benoetigten Namen aktiv herausreicht. */
-  const namen = ["_phoneLive","playHoleStamp","PLAY","repairListenFormen","bagBewertung","clubNorm","_mergeObj","_leerWert","mergeDB","MERGE_KEY","EQUIP_FELDER","EQUIP_GRUPPEN","EQUIP_ALT_KEYS","equipAltRaeumen","ensureSeedGoals","_zielSchluessel","goalCurrent","trainingsEmpfehlung","goalIst","goalPlan","goalFortschritt","goalErreicht","goalHochIstGut","_zielMed","zielFeldDef","ZIEL_QUELLEN","ZIEL_FELDER","testZaehltNicht","testDefsAusgewertet","lmShotKey","lmNurNeue","lmDubletten","LM_ALLE","lmSetClub","playKopfraum","playKopfAnteil","aimUmweg","sgAbdeckungsQuote","sgPuttSchieflage","sgWarnHtml","sgRound","sgEnrich","turnierNaehe","wakeAn","wakeAus","_wakeGruende","kraftVerlauf","standNeuer","wetterSetzen","mobBaseline","MOB_KEYS","_fitMedian","_fitVergleich","isoWoche","kraftNorm","est1RM","kraftVerlauf","_dgmAbstandZuStrecke","gpFingerprint","clubList","_aimApproachEv","watchElevProfil","dgmSetzen",
+  const namen = ["_phoneLive","playHoleStamp","PLAY","repairListenFormen","bagBewertung","clubNorm","_mergeObj","_leerWert","mergeDB","MERGE_KEY","EQUIP_FELDER","EQUIP_GRUPPEN","EQUIP_ALT_KEYS","equipAltRaeumen","ensureSeedGoals","_zielSchluessel","goalCurrent","trainingsEmpfehlung","goalIst","goalPlan","goalFortschritt","goalErreicht","goalHochIstGut","_zielMed","zielFeldDef","ZIEL_QUELLEN","ZIEL_FELDER","testZaehltNicht","testDefsAusgewertet","lmShotKey","lmNurNeue","lmDubletten","LM_ALLE","lmSetClub","playKopfraum","playKopfAnteil","aimUmweg","sgAbdeckungsQuote","sgPuttSchieflage","sgWarnHtml","sgRound","sgEnrich","turnierNaehe","wakeAn","wakeAus","_wakeGruende","kraftVerlauf","standNeuer","wetterSetzen","mobBaseline","MOB_KEYS","_fitMedian","_fitVergleich","isoWoche","kraftNorm","est1RM","kraftVerlauf","_dgmAbstandZuStrecke","gpFingerprint","clubList","gpHoleFrisch","gpKey","activeHoles","_aimApproachEv","watchElevProfil","dgmSetzen",
                  "schlagNeutral","neutralBasis","gpsShotsNachziehen","elevQuelle","elevQuelleText","dgmRahmen","dgmIdx","dgmZelleMitte","dgmZellen","dgmHoehe","dgmNeigung","dgmKey",
                  "STRAT","clubPick","playsLike","pinPoint","geoDist","playMapBox",
                  "liveStart","liveStop","liveStopAll","liveVerbraucher","LIVEPOS",
@@ -1616,11 +1616,13 @@ group("playTooFar — der Caddy schweigt außerhalb des Platzes");
       const roh=codeOhneDoku(src);
       const stellen=[...roh.matchAll(/greenFMB\(PLAY\.here/g)].map(m=>m.index);
       ok("es gibt genau drei F/M/B-Anzeigen", stellen.length===3, String(stellen.length));
-      /* Zwei liegen hinter einem frühen `return` des tooFar-Zweigs, die dritte
-         prüft direkt in der Zuweisung. Beides zählt — gesucht wird `playTooFar`
-         im umgebenden Block. */
+      /* BLOCKGRENZE STATT FENSTER (v5.73). Hier stand ein Ausschnitt von 1800
+         Zeichen vor der Fundstelle — er riss, als die Einzelloch-Auffrischung
+         davor kam. Achter Fall dieser Art. Gesucht wird `playTooFar` im
+         umgebenden FUNKTIONSBLOCK, nicht in einem Zeichenabstand. */
       const ungeschuetzt=stellen.filter(i=>{
-        const um=roh.slice(Math.max(0,i-1800), i+120);
+        const vor=roh.lastIndexOf("\nfunction ", i);
+        const um=roh.slice(vor>=0?vor:Math.max(0,i-4000), i+120);
         return !/playTooFar\(\)/.test(um);
       });
       ok("jede von ihnen ist an playTooFar gebunden", ungeschuetzt.length===0,
@@ -10449,6 +10451,60 @@ group("Schlag-GPS — Ausreißer sehen und loswerden");
   }
 }
 
+/* ============ 24gh. Der Lochplan rechnet sich nach ============ */
+group("Gameplan — Erkennen ist nicht Handeln");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+  const F = G("gpHoleFrisch"), DB0 = live("DB");
+
+  /* ====================================================================
+     GEMELDET am 03.09.2026 (v5.73)
+     --------------------------------------------------------------------
+     „Der Gameplan aktualisiert sich weiterhin nicht."
+     WARUM ER ES NIE TAT: `gpAutoRefresh` läuft STÜNDLICH, nur bei sichtbarer
+     Seite, in einer Leerlaufpause — und NIE während einer Runde. Die letzte
+     Sperre ist richtig (850 ms Rechnung auf der Bahn wären ein Einfrieren),
+     aber zusammen bedeuten sie: **Wer viel spielt und oft neu lädt, erlebt
+     den Erneuerer praktisch nie.**
+     Seit v5.70 ERKENNT der Abdruck den Fassungswechsel — **aber Erkennen ist
+     nicht Handeln.** Dieselbe Lücke wie bei der Drosselung (v5.63) und beim
+     Sendetakt der Uhr (58): **dreimal derselbe Gedankenfehler.**
+     GEMESSEN: ganzer Platz 850 ms kalt, EIN Loch 6 ms. Das ist der
+     Unterschied zwischen „geht auf der Bahn nicht" und „fällt nicht auf". */
+  ok("es gibt eine Einzelloch-Auffrischung", /function gpHoleFrisch\(course, tee, mode, hole\)/.test(src));
+  ok("sie hängt an der Kartenanzeige",
+     /gpHoleFrisch\(PLAY\.course, PLAY\.tee, caddyMode\(\), h0\.hole\)/.test(src));
+  /* KONZEPT C: Beim Fassungswechsel werden die Pläne verworfen — nicht neu
+     gerechnet. 850 ms je Platz gehören nicht in den Startpfad (v5.08). */
+  ok("ein Fassungswechsel markiert die Pläne",
+     /Object\.keys\(gps\)\.forEach\(k=>\{ if\(gps\[k\]\) gps\[k\]\.fp="__fassung__"; \}\)/.test(src));
+  ok("und meldet es", /Plan\/Pläne als veraltet markiert \(neue Fassung\)/.test(src));
+
+  if (typeof F === "function" && DB0) {
+    const k = "Timmendorfer Strand Nordplatz|Gelb|safe";
+    const p = (DB0.strat && DB0.strat.gameplans || {})[k];
+    if (p && Array.isArray(p.holes)) {
+      const alt = JSON.parse(JSON.stringify(p));
+      try {
+        const vorher = (p.holes.find(h => h.hole === 2) || {}).club;
+        const r = F("Timmendorfer Strand Nordplatz", "Gelb", "safe", 2);
+        ok("ein veraltetes Loch wird nachgerechnet", !!r, r ? r.club : "nichts");
+        ok("und im Plan ersetzt",
+           !!r && (p.holes.find(h => h.hole === 2) || {}).club === r.club,
+           vorher + " → " + (r ? r.club : "-"));
+        /* DIE MARKE BLEIBT ALT, bis alle Löcher nachgezogen sind — sonst
+           hielte sich der Plan für aktuell, während siebzehn Löcher es nicht
+           sind. */
+        ok("der Plan gilt weiterhin als alt", p.fp !== undefined && !!p.frischeLoecher);
+        /* Und ein zweiter Aufruf für dasselbe Loch rechnet nicht erneut, wenn
+           sich nichts geändert hat — er würde sonst bei jedem Bildaufbau
+           rechnen. */
+        ok("es merkt sich, was frisch ist", p.frischeLoecher && p.frischeLoecher[2]);
+      } finally { DB0.strat.gameplans[k] = alt; }
+    }
+  }
+}
+
 /* ============ 24gg. Ein freigegebener Sperrgriff holt sich zurück ============ */
 group("Wachhalten — ein Zustand, den man führt, muss man durchsetzen");
 {
@@ -19119,10 +19175,20 @@ group("Hinweise je Loch — aus Text wird Gelände");
   ok("Positions-Caddy ebenso", /troubleFeatures\(holeTrouble\(CADDYPOS\.courseName,n\)/.test(src));
   /* Und eine Änderung muss den gespeicherten Gameplan ungültig machen. */
   ok("Gameplan-Abdruck kennt die Hinweise", /_hash32\(tr\)/.test(src));
-  /* An BEIDEN Stellen — die stündliche Prüfung und die Handrechnung. Fehlt es
-     einer, hängt der Plan je nach Weg an einem anderen Abdruck. */
-  eq("beide Abdruck-Aufrufe kennen die Hinweise",
-    (src.match(/gpFingerprint\(c\.geo, clubList\(\)[\s\S]{0,140}?c\.trouble\)/g) || []).length, 2);
+  /* An ALLEN Stellen — stündliche Prüfung, Handrechnung und seit v5.73 die
+     Einzelloch-Auffrischung. Fehlt es einer, hängt der Plan je nach Weg an
+     einem anderen Abdruck. Gezählt wird nicht mehr auf eine feste Zahl: Die
+     Regel ist „jeder Aufruf vollständig", nicht „genau zwei Aufrufe". */
+  {
+    /* NUR DER CODE, NICHT DIE DOKU: `codeOhneDoku` entfernt den
+       Referenzabschnitt — dort steht `gpFingerprint(...)` beschreibend, und
+       eine Prüfung, die Prosa mitzählt, misst die falsche Sache. */
+    const nur=codeOhneDoku(src);
+    const alle=(nur.match(/gpFingerprint\(/g) || []).length;
+    const voll=(nur.match(/gpFingerprint\(c\.geo, clubList\(\)[\s\S]{0,140}?c\.trouble\)/g) || []).length;
+    /* Die Definition selbst zählt mit, deshalb `alle-1`. */
+    eq("alle Abdruck-Aufrufe kennen die Hinweise", voll, alle-1);
+  }
 
   /* Bevorzugte Seite ist eine Vorliebe, keine Fläche: klein genug, um eine
      sachlich bessere Linie nicht zu überstimmen. */
