@@ -13,6 +13,21 @@
 
 ---
 
+- **v5.24.0 · 2026-08-30 · Uhr (56)** — **Der Turniermodus übersetzt jetzt.** Gemeldet mit
+  Bildschirmfoto aus Android Studio: 16 Fehler, „Gradle build failed". Zwei Ursachen, beide meine.
+  **`change()` in der falschen Ebene:** Die Turnierseite rief es direkt in `PlayPager` — dort gibt es
+  das nicht, es lebt in `GolfWatchApp`. Der Übersetzer nannte es „Unresolved reference 'change'", und
+  er hat recht: **`PlayPager` ist die Ansicht, nicht der Ort, an dem Zustand geändert wird.** Die
+  Rückrufe werden jetzt dort gebaut, wo `change()` lebt, und nur weitergereicht.
+  **Ein Kommentar zwischen Annotation und Deklaration:** Mein Kommentarblock zur Turnierseite schob
+  sich zwischen ein bestehendes `@Composable` und `ScorePage` — doppelte Annotation an der einen
+  Stelle, gar keine an der anderen, und daraus zwölf Folgefehler. **Ein Kommentar zwischen Annotation
+  und Deklaration ist kein Kommentar mehr, sondern eine Trennung.**
+  **Warum der Prüfstand das nicht sah:** Er liest keinen Kotlin-Übersetzer, er prüft Struktur und
+  Text. Für den Teil, den er prüfen **kann**, gibt es jetzt eine Sperrklinke: Jede hier gebaute
+  Composable muss ihre Annotation direkt darüber tragen, und keine doppelt. Gegenprobe gemacht — ohne
+  die Annotation wird sie rot.
+
 - **v5.23.0 · 2026-08-30 · Uhr (55)** — **Der Turniermodus zählt mit, statt auszuwählen.**
   Korrigiert auf Nachfrage: „Ich möchte, dass er auf 1 startet, da ich die Uhr benutzen will, um
   **jeden Schlag mitzuzählen**. Ich will also im Laufe des Loches den Score immer weiter hochzählen,

@@ -10447,6 +10447,58 @@ group("Schlag-GPS — Ausreißer sehen und loswerden");
   }
 }
 
+/* ============ 24gd. Baumreihen zählen mit ============ */
+group("Karte — was man zeichnet, muss man auch rechnen");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+  const S = G("STRAT"), DB0 = live("DB");
+
+  /* ====================================================================
+     GEMELDET am 02.09.2026 zu Loch 2 Fehmarn (v5.69)
+     --------------------------------------------------------------------
+     „Hier scheint das mit der Sichtlinie nicht zu funktionieren." Der Caddy
+     legte das Ziel mitten in eine Baumreihe — auf dem Luftbild deutlich
+     sichtbar — und meldete weder schlechte Lage noch „Baum in der Linie".
+     DIE URSACHE: `treerow` und `hedge` wurden nur GEZEICHNET. In der
+     Lagerechnung tauchten sie nicht auf — `rcR` kennt `wood`, `building` und
+     `scrub`, Einzelbäume kommen aus `tree`/`pt`. Eine Baumreihe ist aber
+     weder Fläche noch Punkt, sondern eine LINIE, und Linien wurden nur für
+     OB und Wasser in Flächen verwandelt.
+     AUF FEHMARN SIND DAS 34 BAUMREIHEN — keine Randerscheinung, sondern die
+     häufigste Bepflanzungsform des Platzes.
+     **EIN OBJEKT, DAS MAN ZEICHNET, ABER NICHT RECHNET, IST EINE FALLE:** Der
+     Spieler SIEHT die Bäume auf der Karte und bekommt trotzdem ein Ziel
+     mittendrin — und traut danach der Empfehlung nicht mehr. */
+  ok("Baumreihen und Hecken werden zu Flächen",
+     /else if\(f\.kind==="treerow"\|\|f\.kind==="hedge"\)/.test(src)
+     && /_linien\.push\(\{kind:"wood", ring:bandRing\(f\.line, 4\)/.test(src));
+  /* BEIDES GEHÖRT ZUSAMMEN: Wer nicht durch eine Baumreihe spielen kann, kann
+     auch nicht über sie hinweg planen. */
+  ok("und blockieren auch die Sichtlinie",
+     /if\(f\.kind!=="wood" \|\| !f\.ring\) return;[\s\S]{0,120}?blockers\.push/.test(src));
+  /* DICHTER ABGETASTET: Ein Waldstück darf man an zwölf Punkten annähern,
+     weil es eine Fläche ist. Bei einer Linie sind die Lücken zwischen den
+     Tastpunkten genau das, was man fälschlich für eine Gasse hält. */
+  ok("und zwar an jedem Punkt", /f\.ring\.forEach\(q=>blockers\.push\(\{p:q, r:7, hard:true\}\)\)/.test(src));
+
+  /* ---- Am echten Bestand ---- */
+  if (S && typeof S.grid === "function" && DB0) {
+    const c = (DB0.courses || []).find(x => x && /Fehmarn/.test(x.name) && x.geo);
+    if (c) {
+      S._grids.clear(); if (S._gridsFast) S._gridsFast.clear();
+      const g = S.grid(c.geo, c.name, 2);
+      let rec = 0; if (g) for (const v of g.codes) if (v === S.LIE.recovery) rec++;
+      ok("Loch 2 hat jetzt Recovery-Zellen", rec > 200, rec + " Zellen");
+      ok("und Sichthindernisse", g && g.blockers.length > 300,
+         g ? String(g.blockers.length) : "kein Raster");
+      /* Aber nicht ALLES ist Recovery — sonst wäre der Filter zu grob und
+         jede Empfehlung wertlos. */
+      ok("aber nicht der halbe Platz", rec < g.codes.length * 0.25,
+         (rec / g.codes.length * 100).toFixed(1) + " %");
+    }
+  }
+}
+
 /* ============ 24gc. Der Caddy nennt die Hanglage ============ */
 group("Caddy — ein Grund, den man nicht liest, ist keiner");
 {
