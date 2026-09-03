@@ -13,6 +13,27 @@
 
 ---
 
+- **v5.29.0 · 2026-08-31** — **Turnier beim Start wählen — und Loch für Loch nachtragen.**
+  **(1) Beim Start entscheiden, nicht am Ende.** Im Spielmodus-Start gibt es ein Feld „Turnier" mit
+  optionalem Namen. Ist es gesetzt, landet die Runde beim Abschluss bei den **Turnieren** statt bei
+  den Runden. **Warum beim Start:** Am Ende einer Runde will man abhaken und weitergehen, nicht eine
+  Zuordnung treffen — und wer es beim Start sagt, kann die App die Runde anders behandeln, solange
+  sie läuft. Der Name darf leer bleiben; ein Pflichtfeld auf dem Parkplatz ist genau die Hürde,
+  wegen der man es dann doch nicht ankreuzt.
+  **Der Turniereintrag trägt die Löcher mit** (`holeScores`) — samt Par, Putts und den Scores der
+  Mitspieler. Ein Turnier ohne seine Löcher wäre ein Rückschritt: Alles, was diese App an Auswertung
+  kann — Streuung, Approach-Klassen, Strokes Gained, die Putt-Kurve —, hängt an den **einzelnen**
+  Löchern. `holes` bleibt die **Anzahl**, wie in allen bisherigen Einträgen; wer ein gewachsenes Feld
+  umdeutet, bricht jede Auswertung, die es schon liest.
+  **(2) Loch für Loch auch von Hand.** Der Turniereditor hat einen einklappbaren Block mit einer
+  Zeile je Loch — Par, Schläge, Putts. **Par wird aus dem Platz vorbelegt**, wenn er bekannt ist;
+  sonst trägt man achtzehnmal zwei Zahlen statt einer. Leere Felder bleiben leer, es muss nicht alles
+  ausgefüllt sein. Ein Knopf übernimmt **Summen aus den Löchern** in GBE, Par, Putts und Δ Par — das
+  spart das Addieren und schließt den häufigsten Fehler beim Nachtragen aus.
+  **Vom Prüfstand gefangen:** Mein Turniereintrag ging ohne `stamp()` in den Bestand. Der Zeitstempel
+  entscheidet beim Zusammenführen zweier Geräte, welcher Stand gilt — ein Eintrag ohne ihn verliert
+  jeden Merge stillschweigend.
+
 - **v5.28.0 · 2026-08-30** — **„Caddy ohne Höhendaten" — obwohl das Raster geladen war.** Der Befund
   stand nach v5.19 wieder im Protokoll, und die Cache-Behebung von damals war nicht schuld.
   **Die Ursache saß in `elevDelta`:** Liegt **ein** Punkt im geladenen Raster und der andere nicht —

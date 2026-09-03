@@ -10586,6 +10586,29 @@ group("Zwischenspeicher — viermal dieselbe Klasse ist ein Muster");
     pflicht.forEach(([name, re]) => {
       ok(name + " kennt die Fassung", re.test(src));
     });
+    /* ================================================================
+       UND ALLE ANDEREN AUCH (v5.74)
+       ----------------------------------------------------------------
+       In v5.71 habe ich die Zielketten-BEWERTUNG nachgezogen und das
+       ERGEBNIS übersehen: `PLAY.aimChain` mit `_aimChainKey` hielt die
+       fertige Kette — und `PLAY` überlebt den Neustart, weil es aus dem
+       Rundenentwurf wiederhergestellt wird. Die App lud die neue Rechnung
+       und zeigte weiter das alte Ergebnis.
+       **WER EINEN SCHLÜSSEL ERGÄNZT, MUSS ALLE SCHLÜSSEL DESSELBEN WEGES
+       ERGÄNZEN** — sonst behebt man die Hälfte und glaubt, es sei ganz.
+       Deshalb wird jetzt nicht mehr eine LISTE geprüft, sondern das MUSTER:
+       Jeder Schlüssel der Form `const k="X|"+…` muss mit `APP_VERSION`
+       beginnen. Eine Liste vergisst man; ein Muster nicht. */
+    {
+      const nur = codeOhneDoku(src);
+      const ohne = [...nur.matchAll(/const k="[A-Z]\|"\+(?!APP_VERSION)/g)]
+        .map(m => nur.slice(m.index, m.index + 40));
+      ok("kein Ergebnis-Schlüssel ohne Fassung", ohne.length === 0, ohne.join(" | "));
+      /* Und der Kettenschlüssel selbst — er hält das fertige Ergebnis, nicht
+         nur eine Zwischenrechnung, und ist deshalb der teuerste von allen. */
+      ok("der Kettenschlüssel trägt sie zuerst",
+         /return \[APP_VERSION, k, PLAY\.tee, caddyMode\(\)/.test(nur));
+    }
   }
   /* Und der Kalender trägt seine Datenform im Schlüssel (v5.57) — dieselbe
      Regel, andere veränderliche Größe. */
