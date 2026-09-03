@@ -13,6 +13,28 @@
 
 ---
 
+- **v5.20.0 · 2026-08-30** — **Der Caddy antwortet jetzt in drei Zeilen.** Gemeldet: „Die Empfehlung
+  überzeugt mich weiterhin nicht und ich finde es auch extrem unübersichtlich. Ich finde diese
+  Caddy-Seite muss grundsätzlich neu aufgebaut werden." Das Bild zeigte **fünf Ebenen übereinander**,
+  die alle dasselbe erklärten — und die Kernfrage, welchen Schläger man nimmt, stand in der Mitte.
+  **Konzept B, oben:**
+  > **6 Iron** 159 m → danach PW
+  > *weil* beste Rechnung über zwei Schläge
+  > *statt* 2 Iron · +0,14 — erster Schlag besser (4,26 gegen 4,28), zweiter kostet mehr
+
+  Immer dieselbe Reihenfolge: **was · weil · statt**. **Die dritte Zeile ist die wichtigste** — sie
+  beantwortet genau das, was die Meldung ausgelöst hat: warum die Zahl, die schlechter aussieht,
+  gewinnt. Ohne sie bleibt jede Empfehlung eine Behauptung. Das Risiko erscheint nur, wenn es eines
+  gibt: Ein „0 % Risiko" in jeder Zeile liest niemand nach dem dritten Loch. Gibt es keine
+  Alternative, fällt die dritte Zeile weg, statt „keine Alternative" zu behaupten.
+  **Konzept C, einen Tipp entfernt:** Unter „Rechnung im Detail" beginnt der Schlägervergleich jetzt
+  mit der **Gesamtrechnung**, fett — „Erster Schlag 4,28 gegen 4,26 · danach PW gegen 6 Iron ·
+  **Gesamt 4,31 gegen 4,45**". Man sieht in einem Blick, dass **beides** stimmt: Der erste Schlag ist
+  mit dem 2 Iron besser, und trotzdem ist das 6 Iron die richtige Wahl.
+  **Alles Übrige eine Ebene tiefer** — Entscheidungskette, Streubild-Prozente, Plan, Chips, Streuung.
+  Nicht gelöscht: Die Angaben sind richtig und gelegentlich gebraucht, nur nicht in dem Moment, in
+  dem man vor dem Ball steht. **Sie sind nicht weg, sie sind nicht mehr im Weg.**
+
 - **v5.19.0 · 2026-08-30 · Uhr (53)** — **Die Höhendaten waren da — die Rechnung war schon vorbei.**
   Nachgereicht: „Ich habe die Runde simuliert und hatte die Höhendaten heruntergeladen. Eigentlich
   hätte also alles vorliegen müssen." **Stimmt — und genau das war der Fehler.** `dgmFuerRunde()`

@@ -10440,6 +10440,64 @@ group("Schlag-GPS — Ausreißer sehen und loswerden");
   }
 }
 
+/* ============ 24ga. Ein Riesenobjekt sprengt den Kartenrahmen ============ */
+group("Karte — der Ausschnitt darf nicht an einem Fremdkörper hängen");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+  const CS = G("courseSVG"), DB0 = live("DB");
+
+  /* ====================================================================
+     GEMELDET am 02.09.2026 (behoben in v5.65)
+     --------------------------------------------------------------------
+     „Auf Loch 3 wird weiterhin nichts angezeigt. Auf allen anderen Bahnen
+     schon."
+     NACHGEMESSEN: Der Kartenrahmen für Loch 3 spannte **66 × 116 Kilometer**
+     statt rund 900 Meter. Der Zoom fiel um sieben Stufen, eine Kachel wurde
+     **39 km breit statt 306 m** — das Luftbild zeigte Ostholstein aus der
+     Vogelperspektive, also praktisch nichts.
+     DIE URSACHE WAR EIN EINZIGES ELEMENT: `other` mit 8249 Punkten, das
+     88 km weit reicht — die Küstenlinie Fehmarns aus OpenStreetMap. Sie
+     berührt den Korridor von Loch 3, und damit zählte sie als „gehört zur
+     Bahn". Ihre Bounding-Box ist die halbe Ostsee.
+     **DIE KORRIDORPRÜFUNG FRAGT „BERÜHRT ES DIE BAHN?", NICHT „PASST ES ZUR
+     BAHN?"** — und für den Rahmen ist die zweite Frage die richtige. */
+  ok("es gibt eine Ausdehnungsgrenze", /const _maxAusdehnung=_lochLen\*2;/.test(src));
+  /* `featPoints` STATT `f.ring`: Elemente tragen ihre Punkte in `ring` ODER in
+     `line` — und genau das 133-km-Objekt ist eine LINIE. **Wer nur die halbe
+     Datenform prüft, prüft nichts.** */
+  ok("sie liest beide Datenformen",
+     /const _ps=\(typeof featPoints==="function"\)\?featPoints\(f\):\(f\.ring\|\|\[\]\);/.test(src));
+  /* DIE PLATZGRENZE GEHÖRT NIE IN DEN RAHMEN EINES LOCHS: Sie umschließt den
+     ganzen Platz und berührt fast jeden Korridor. Gezeichnet wird sie
+     weiterhin — sie darf nur nicht bestimmen, wie weit man herauszoomt. */
+  ok("die Platzgrenze zählt nicht für den Rahmen",
+     /if\(f\.kind==="boundary"\) return true;/.test(src));
+
+  /* ---- Am echten Bestand: kein Loch darf mehr herauszoomen ---- */
+  if (typeof CS === "function" && DB0) {
+    const kachel = (geo, h) => {
+      const r = CS(geo, { sat: true, hole: h });
+      const svg = (r && r.svg) || r || "";
+      const bb = svg.match(/BBOX=([-\d.,]+)/);
+      if (!bb) return null;
+      const v = bb[1].split(",").map(Number);
+      return Math.round(v[2] - v[0]);
+    };
+    (DB0.courses || []).filter(c => c && c.geo && c.geo.holes).forEach(c => {
+      let schlimmste = 0, wo = 0;
+      for (let h = 1; h <= 18; h++) {
+        const k = kachel(c.geo, h);
+        if (k && k > schlimmste) { schlimmste = k; wo = h; }
+      }
+      /* 700 m je Kachel ist die Grenze des Brauchbaren — darüber sieht man
+         den Platz nicht mehr. Vor der Behebung waren es auf Fehmarn 39136. */
+      ok("kein Loch zoomt heraus: " + c.name.slice(0, 20),
+         schlimmste === 0 || schlimmste <= 700,
+         "schlimmste Kachel " + schlimmste + " m (Loch " + wo + ")");
+    });
+  }
+}
+
 /* ============ 24fz. Welche Höhe fehlt — und an welchem Loch ============ */
 group("Höhendaten — ein Satz für drei Zustände war zu wenig");
 {
