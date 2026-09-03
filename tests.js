@@ -3956,13 +3956,20 @@ group("Hanglage — im Plan, nicht nur im Spielmodus");
      wirkte im Spielmodus und im vorberechneten Plan NICHT, bei identischer
      Oberfläche. Geprüft wird deshalb die ganze Kette, nicht ein Term. */
 
+  /* v5.66: Der Term prüft jetzt zusätzlich die RICHTUNG — bergab wiegt
+     schwerer als bergauf. Geprüft wird deshalb der Block, nicht die alte
+     einzeilige Form. */
   ok("nextShot hat einen Hang-Term",
-     /nextShot[\s\S]{0,9000}?const hangZ=\(hangN && restNach>5\)/.test(src));
+     /nextShot[\s\S]{0,9000}?if\(hangN && restNach>5\)\{/.test(src));
   ok("und wiegt schwerer als am Abschlag",
      /1\.5\*\(SW\.hang\|\|0\)/.test(src));
   ok("nur wenn ein Schlag folgt", /restNach>5/.test(src));
+  /* OHNE RASTER KEIN ERSATZWERT: Beide Stellen setzen den Hangterm auf 0,
+     wenn keine Neigung vorliegt — geraten wird nicht. Seit v5.66 als
+     `if(hangN…)`-Block statt als Bedingungsausdruck. */
   ok("ohne Raster kein Ersatzwert",
-     (src.match(/hangN \? \(w\.hang\|\|0\)|hangN && restNach>5/g) || []).length >= 2);
+     (src.match(/let hangZ=0;/g) || []).length >= 2,
+     String((src.match(/let hangZ=0;/g) || []).length));
 
   /* Der Abdruck ist die einzige Stelle, an der „Eingaben geändert" entschieden
      wird. Eine neue Datenquelle IST eine geänderte Eingabe. */
@@ -10440,6 +10447,120 @@ group("Schlag-GPS — Ausreißer sehen und loswerden");
   }
 }
 
+/* ============ 24gc. Der Caddy nennt die Hanglage ============ */
+group("Caddy — ein Grund, den man nicht liest, ist keiner");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+  const D = G("caddyDreiZeilen");
+
+  /* ====================================================================
+     GEWÜNSCHT am 02.09.2026 (v5.67)
+     --------------------------------------------------------------------
+     „Wichtig ist mir, dass der Caddy auch sagt, dass er den Schläger wählt,
+     um Hanglage zu vermeiden."
+     SEIT v5.66 RECHNET ER DAMIT — bergab wiegt anderthalbfach, bergauf halb.
+     Aber in der Begründung stand weiter nur „beste Rechnung über zwei
+     Schläge". Der Spieler sah das Ergebnis, nicht den Grund.
+     **EINE RECHNUNG, DIE MAN NICHT NACHVOLLZIEHEN KANN, IST EINE
+     BEHAUPTUNG.** Genau dafür gibt es die drei Zeilen (v5.20) — und genau
+     deshalb muss ein Term, der die Wahl KIPPT, dort auftauchen. */
+  if (typeof D === "function") {
+    const mk = (n, la, es) => ({ club: { name: n }, next: "PW", es: es,
+      hang: la == null ? null : { laengs: la, quer: 0, betrag: Math.abs(la) } });
+    const txt = (b, a) => {
+      const h = D({ alt: a, fracs: { pen: 0, sand: 0, rough: 0 } }, b, 159,
+        (c) => (c === b ? 4.30 : 4.47), true);
+      return h.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+    };
+    /* DER FALL, NACH DEM GEFRAGT WURDE: Die Alternative läge am Hang, der
+       gewählte Schläger nicht. */
+    const t1 = txt(mk("6 Iron", 0, 4.30), mk("5 Iron", -0.06, 4.15));
+    ok("die Zeile sagt: vermeidet die Hanglage",
+       /vermeidet die bergab-Lage/.test(t1), t1.slice(0, 110));
+    /* Und in der „statt"-Zeile steht, warum die Alternative verliert — ohne
+       das steht dort nur eine Zahl, und Zahlen überzeugen niemanden auf der
+       Bahn. */
+    ok("und die Alternative wird begründet", /läge bergab/.test(t1));
+    /* DIE ANDERE AUSSAGE: Der gewählte Schläger landet SELBST am Hang — dann
+       „trotz", nicht „vermeidet". Die Unterscheidung ist der eigentliche
+       Wert. */
+    const t2 = txt(mk("6 Iron", -0.06, 4.30), null);
+    ok("und sonst: trotz Hanglage", /trotz bergab-Lage/.test(t2), t2.slice(0, 110));
+    /* SCHWELLE 3 %: Darunter ist es kein Hang, sondern Messrauschen. Was man
+       ERWÄHNT, sollte man auch spüren. */
+    const t3 = txt(mk("6 Iron", 0.01, 4.30), mk("5 Iron", -0.02, 4.15));
+    ok("kleine Neigungen bleiben unerwähnt", !/bergab|bergauf|Seitenhang/.test(t3), t3.slice(0, 110));
+    /* Ohne Hangdaten bleibt die Zeile wie bisher — kein erfundener Grund. */
+    const t4 = txt(mk("6 Iron", null, 4.30), mk("5 Iron", null, 4.15));
+    ok("ohne Hangdaten kein erfundener Grund", !/Lage|bergab/.test(t4), t4.slice(0, 110));
+    /* Bergauf wird ebenso benannt — es ist der günstigere Fall, aber ein
+       Grund bleibt es. */
+    const t5 = txt(mk("6 Iron", 0, 4.30), mk("5 Iron", 0.08, 4.15));
+    ok("bergauf ebenso", /bergauf/.test(t5), t5.slice(0, 110));
+  }
+  ok("die Schwelle steht im Quelltext", /if\(Math\.abs\(la\)<0\.03/.test(src));
+}
+
+/* ============ 24gb. Bergab liegt schlechter als bergauf ============ */
+group("Caddy — der Hang am Landepunkt hat eine Richtung");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+  const S = G("STRAT");
+
+  /* ====================================================================
+     GEMELDET am 02.09.2026 zu Loch 1 Nordplatz (v5.66)
+     --------------------------------------------------------------------
+     „Ich habe den Eindruck, dass ich mit dem 6 Iron auf einem Downslope
+     liegen würde und deshalb eher 5 Iron nehmen würde. Das wird hier aber
+     nicht abgebildet."
+     BERECHTIGT — UND DIE RECHNUNG SAH ES WIRKLICH NICHT. Der Hangterm
+     benutzte nur `betrag`, also den BETRAG der Neigung. Ein Landepunkt am
+     Abhang und einer am Anstieg bekamen denselben Abzug.
+     DAS IST GOLFERISCH FALSCH: Bergauf hilft (der Hang stellt den Schläger
+     auf, der Ball steigt leichter, der Stand ist stabil), bergab schadet (der
+     Schläger wird effektiv flacher, der Ball fliegt niedriger und weiter als
+     gedacht, dünne Treffer sind die häufigste Folge). Dieselbe Neigung ist in
+     der einen Richtung ein Vorteil und in der anderen ein Problem.
+     DIE INFORMATION LAG VOR: `neigungUmZiel` liefert `laengs` seit je, und
+     `sigmaHang` nutzt das Vorzeichen bereits für die Streuung. **Nur die
+     Schlägerwahl hat nicht hingesehen — sie warf die Richtung weg und behielt
+     den Betrag.**
+     **EINE ZAHL, DIE MAN AUF IHREN BETRAG REDUZIERT, VERLIERT GENAU DAS, WAS
+     SIE INTERESSANT MACHT.** */
+  ok("es gibt Richtungsfaktoren", /HANG_AB:1\.5, HANG_AUF:0\.5,/.test(src));
+  if (S) {
+    ok("bergab wiegt schwerer als bergauf", S.HANG_AB > S.HANG_AUF,
+       S.HANG_AB + " gegen " + S.HANG_AUF);
+    /* Und bergauf bleibt ein Abzug — nur ein kleinerer. Ein Hang ist auch
+       aufwärts kein ebener Stand. */
+    ok("bergauf bleibt aber ein Abzug", S.HANG_AUF > 0);
+  }
+  /* BEIDE STELLEN: Abschlag und Kettenschritt. Ein Term, den man an einer
+     Stelle richtigstellt und an der anderen nicht, ist nicht richtiggestellt
+     — genau das war der 409er von heute Morgen. */
+  ok("beide Stellen nutzen die Richtung",
+     (src.match(/const richt = la<-0\.01 \? this\.HANG_AB : \(la>0\.01 \? this\.HANG_AUF : 1\);/g) || []).length === 2,
+     String((src.match(/this\.HANG_AB/g) || []).length));
+  /* EBEN BLEIBT NEUTRAL: Unter einem Prozent Neigung ist es kein Hang,
+     sondern Messrauschen — dort darf kein Faktor greifen. */
+  ok("eben bleibt neutral", /la<-0\.01 \? this\.HANG_AB : \(la>0\.01/.test(src));
+  /* DER QUERHANG BLEIBT UNANGETASTET: Seitenhang ist in beide Richtungen
+     unangenehm, da gibt es keine gute Seite. */
+  ok("nur die Längsneigung bekommt eine Richtung",
+     !/quer<-0\.01|HANG_AB[\s\S]{0,80}?quer/.test(src));
+  /* Nachgerechnet: derselbe Betrag, dreifacher Unterschied im Abzug. */
+  if (S) {
+    const abzug = (la) => {
+      const b = Math.min(Math.abs(la), 0.15);
+      const r = la < -0.01 ? S.HANG_AB : (la > 0.01 ? S.HANG_AUF : 1);
+      return 0.8 * b * r;
+    };
+    ok("gleicher Betrag, verschiedener Abzug",
+       abzug(-0.06) > abzug(0.06) * 2.5,
+       abzug(-0.06).toFixed(3) + " gegen " + abzug(0.06).toFixed(3));
+  }
+}
+
 /* ============ 24ga. Ein Riesenobjekt sprengt den Kartenrahmen ============ */
 group("Karte — der Ausschnitt darf nicht an einem Fremdkörper hängen");
 {
@@ -12558,14 +12679,52 @@ group("Caddy — was · weil · statt");
        liest niemand nach dem dritten Loch. */
     const sauber = D({ fracs: { fw: 90, rough: 8, sand: 1, pen: 0 } }, b, 159, g, true);
     ok("ohne Risiko bleibt der Grund knapp", !/bei /.test(sauber.split("statt")[0]));
-    const riskant = D({ fracs: { fw: 40, rough: 30, sand: 5, pen: 14 },
-                        alt: { club: { name: "2 Iron" }, es: 4.5, score2: 4.6 } }, b, 159, g, true);
-    ok("mit Strafrisiko steht es dabei", /Strafrisiko 14 %/.test(riskant));
-    /* Strafrisiko hat Vorrang vor Bunker, Bunker vor Rough — dieselbe
-       Rangfolge wie in der Entscheidungskette. */
-    const sand = D({ fracs: { fw: 40, rough: 30, sand: 22, pen: 2 },
-                     alt: { club: { name: "2 Iron" }, es: 4.5, score2: 4.6 } }, b, 159, g, true);
-    ok("und Bunker, wenn kein Strafrisiko", /Bunker 22 %/.test(sand));
+    /* ================================================================
+       DER GRUND IST DER, DER AM MEISTEN AUSMACHT (v5.68)
+       ----------------------------------------------------------------
+       Vorher entschieden feste Schwellen: Strafrisiko ab 8 %, Bunker ab
+       15 %, Rough ab 45 %. **Das fragt nicht, WAS die Wahl gekippt hat,
+       sondern ob eine Zahl groß aussieht.** Ein Rough-Anteil von 46 % kann
+       folgenlos sein, während eine blockierte Linie mit 0,3 Schlägen die
+       Entscheidung allein trägt.
+       Jetzt zählt der BEITRAG zum Abzug — und nur ab 0,05 Schlägen. **Ein
+       Grund, der 0,02 Schläge ausmacht, ist keiner.** */
+    const mitBz = (bz, extra) => Object.assign(
+      { club: { name: "6 Iron" }, next: "PW", es: 4.3, bz }, extra || {});
+    const wz = (o, fr) => {
+      const h = D({ alt: null, fracs: fr || { pen: 0, sand: 0, rough: 46 } }, o, 159, g, true);
+      const m = /weil<\/span><span>([^<]*)/.exec(h);
+      return m ? m[1] : "";
+    };
+    ok("mit Strafrisiko steht es dabei",
+       /Strafrisiko 14 %/.test(wz(mitBz({ pen: 0.30, sand: 0, rough: 0.02 }),
+         { pen: 14, sand: 5, rough: 30 })));
+    ok("und Bunker, wenn der mehr ausmacht",
+       /Bunker 22 %/.test(wz(mitBz({ pen: 0.02, sand: 0.25, rough: 0.03 }),
+         { pen: 2, sand: 22, rough: 30 })));
+    /* DIE SICHTLINIE IST DER GRÖSSTE EINZELTERM (bis 0,55 Schläge) und war
+       vollständig unsichtbar: Stand ein Baum in der Linie und der Caddy nahm
+       deshalb ein Eisen, sah man nur das Ergebnis. */
+    ok("ein Baum in der Linie wird genannt",
+       /Baum in der Linie/.test(wz(mitBz({ pen: 0, sand: 0, rough: 0.02, blk: 0.30 }))));
+    /* RESTLÄNGE UND WEDGE-ZONE erklären die häufigste Rückfrage: warum der
+       Caddy kürzer spielt, als man selbst würde. */
+    ok("die Restlänge wird genannt",
+       /lässt 190 m übrig/.test(wz(mitBz({ pen: 0, sand: 0, rough: 0, advance: 0.18 },
+         { restNach: 190 }), { pen: 0, sand: 0, rough: 0 })));
+    ok("und die Wedge-Zone",
+       /volle Wedge/.test(wz(mitBz({ pen: 0, sand: 0, rough: 0, wedge: -0.12 }),
+         { pen: 0, sand: 0, rough: 0 })));
+    /* MIT EIGENEM BINDEWORT: „bei Rough 46 %" liest sich richtig, „bei lässt
+       190 m übrig" nicht. */
+    ok("Satzteile bekommen kein „bei“",
+       !/bei lässt/.test(wz(mitBz({ pen: 0, sand: 0, rough: 0, advance: 0.18 },
+         { restNach: 190 }), { pen: 0, sand: 0, rough: 0 })));
+    /* UND KEIN GRUND, WO KEINER IST — wenn dort immer etwas steht, liest man
+       es nicht mehr. */
+    ok("kleine Beiträge bleiben stumm",
+       !/bei |lässt /.test(wz(mitBz({ pen: 0, sand: 0, rough: 0.01 }),
+         { pen: 0, sand: 0, rough: 46 })));
 
     ok("ohne Schläger keine Zeilen", D(ev, null, 159, g, true) === "");
   }
@@ -19314,12 +19473,14 @@ group("Caddy — zweiter Zug und die Gewichte, die ihn tragen");
 
     /* --- (b) Zweiter Zug --- */
     ok("_ply2 existiert", typeof S._ply2 === "function");
-    /* Fenster vergroessert (v3.76): Dogleg-Knick und Wetter-Umrechnung stehen
-       vor der zweiten Ebene. */
-    /* Fenster vergrößert (v4.82.2): Flächen-Hang und Sicherheitswahl stehen
-       mit Begründung vor der zweiten Ebene — wie schon v3.76. */
-    const te = src.slice(src.indexOf("  tee(geo,courseName,holeNo,mode,hcp,von,nurClub)"),
-                         src.indexOf("  tee(geo,courseName,holeNo,mode,hcp,von,nurClub)") + 13500);
+    /* BLOCKGRENZE STATT FENSTER (v5.66). Hier stand ein Ausschnitt von 13.500
+       Zeichen — zweimal vergrößert, und beim dritten Mal gerissen, als der
+       Hangterm um die Richtungsprüfung wuchs. Der siebte Fall dieser Art;
+       die Regel steht im Kopf dieser Datei und gilt auch für den Prüfstand
+       selbst. */
+    const _ti = src.indexOf("  tee(geo,courseName,holeNo,mode,hcp,von,nurClub)");
+    const _te2 = src.indexOf("\n  nextShot(", _ti);
+    const te = src.slice(_ti, _te2 > _ti ? _te2 : _ti + 40000);
     ok("zweite Ebene nur für die Spitze", /Math\.min\(5,cands\.length\)/.test(te));
     ok("Korrektur gedämpft (Mittelpunkt statt Verteilung)", /0\.7\s*\*\s*c\.ply2/.test(te));
     ok("Korrektur ist Gelände minus Tabelle", /p2\.sc\s*-\s*generisch/.test(te));

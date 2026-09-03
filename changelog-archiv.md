@@ -13,6 +13,61 @@
 
 ---
 
+- **v5.23.0 · 2026-08-30 · Uhr (55)** — **Der Turniermodus zählt mit, statt auszuwählen.**
+  Korrigiert auf Nachfrage: „Ich möchte, dass er auf 1 startet, da ich die Uhr benutzen will, um
+  **jeden Schlag mitzuzählen**. Ich will also im Laufe des Loches den Score immer weiter hochzählen,
+  bis dann am Ende der Endscore feststeht."
+  In (54) setzte der erste Tipp **Par**. Das war für eine andere Benutzung gedacht — den Endscore
+  *nach* dem Loch eintragen, und dort ist Par tatsächlich der häufigste Wert. **Fürs Mitzählen ist es
+  genau falsch:** Wer beim ersten Schlag tippt und eine 4 sieht, muss dreimal zurück.
+  Jetzt beginnt die Zählung bei **1** — jeder Tipp ein Schlag, der erste Tipp der erste Schlag. Am
+  Ende des Lochs steht die Zahl, die man ohnehin im Kopf mitgeführt hat.
+  **Das ist der Unterschied zwischen einem Zähler und einer Auswahl**, und er entscheidet über die
+  ganze Bedienung: Ein Zähler wird **während** des Lochs benutzt, eine Auswahl danach. Meine Annahme
+  in (54) war die falsche — und sie stand sogar begründet im Quelltext, was sie nicht richtiger
+  gemacht hat. `par` ist als Parameter entfallen; „−" bleibt und ist hier wichtiger als vorher, denn
+  beim Mitzählen vertippt man sich mitten im Loch.
+
+- **v5.22.0 · 2026-08-30 · Uhr (54)** — **Turniermodus auf der Uhr.** Gewünscht: „Führe auf der Uhr
+  noch einen Turniermodus ein, den ich auf der Startseite auswählen kann. Da erfasse ich dann auf
+  einem Loch nur den Gesamtscore von mir und einem Mitspieler. Nichts anderes."
+  **Nichts anderes heißt nichts anderes.** Im Turnier zählt man unter Zeitdruck und oft mit
+  Handschuh; alles, was die normale Maske sonst kann — Putts, Lage, Schläger, Strafschläge —, ist
+  dort nicht nur überflüssig, sondern **im Weg**: Jede zusätzliche Zeile ist eine Gelegenheit, das
+  Falsche zu tippen. Die neue Seite zeigt Lochnummer und Par, den Stand der Runde, und zwei Zeilen
+  mit je Minus, Zahl, Plus. Sonst nichts.
+  **Umgeschaltet wird auf der Startseite** — er beantwortet die Frage „wie erfasse ich", nicht
+  „welche Runde"; die Runde kommt danach wie immer vom Handy. **Der Mitspieler kommt vom Handy**
+  (Regel aus Uhr-Fassung 42: Die `index.html` ist bei Mitspielern führend). Ohne angelegten
+  Mitspieler bleibt der Modus verschlossen, aber der Knopf **sagt, was zu tun ist** — ein gesperrter
+  Knopf ohne Grund erzeugt genau die Ratlosigkeit, die diese App vermeiden soll.
+  **Der erste Tipp setzt Par, nicht 1:** Im Turnier ist Par der häufigste Wert; wer eine 5 braucht,
+  tippt einmal weiter statt fünfmal von null.
+  **Nur die erste Seite wird getauscht, nicht der Pager** — Karte, Caddy und Wetter bleiben
+  erreichbar. Und **kein eigener Speicherweg**: Die Eingaben gehen durch dasselbe `change()` wie
+  sonst und landen im selben Entwurf; `msc1` reist seit Langem zum Handy. Es ist dieselbe Runde, nur
+  eine andere Ansicht. Ein zweiter Speicherweg wäre ein zweiter Ort für dieselben Fehler.
+
+- **v5.21.0 · 2026-08-30** — **Sprungmarken ins Video, Skizzen neu gezeichnet und groß.** Gemeldet:
+  „Ich habe das Gefühl, dass die Skizzen überhaupt nicht gut wiedergeben, wie die Übung ausgeführt
+  wird." **Nachgeprüft und bestätigt** — nebeneinander gerendert waren „Arm Circles vorwärts" und
+  „rückwärts" praktisch identisch (der goldene Kreis lag um den Rumpf — kreisen aber die Arme), „Side
+  Stretch" fast deckungsgleich mit „Triceps", und „Forward Stretch" zeigte Arme über Kopf statt eines
+  Vorbeugens.
+  **Das eigentliche Problem war aber das Format:** Bei 44 Pixeln in einer Listenzeile kann eine
+  Strichfigur einen Ausfallschritt nicht von einem Schritt unterscheiden. Deshalb zweigleisig:
+  **Neu gezeichnet** nach klarerem Muster — Bewegungspfeil dort, wo die Bewegung stattfindet, und die
+  unterscheidenden Merkmale ausdrücklich (Handflächen, Daumenrichtung, Fußstellung).
+  **Und groß darstellbar:** Jede Zeile lässt sich aufklappen und zeigt dieselbe Skizze in 150 Pixeln.
+  **Sprungmarken ins Video** — die Sekunden sind aus den Titelwechseln des Videos **gemessen**, nicht
+  geschätzt: Golfer's Grip 0:21 · Forearm 0:38 · Arm Circles 1:00 · Shoulder 1:23 · Triceps 1:50 ·
+  Side 2:06 · Wrist 2:50 · Forearm Strength 3:10 · Hamstring 4:03 · Forward 5:14 · Mid-Back 6:08 ·
+  Rotation 6:31 · Seated 7:19. Ein Tipp öffnet das Video an genau dieser Stelle. **Wer eine Übung
+  nicht kennt, sieht sie in fünf Sekunden richtig — das kann keine Zeichnung.** Die beiden
+  Ergänzungen tragen keine Marke und sagen das auch.
+  **`stopPropagation` beim Aufklappen:** Die Zeile selbst hakt die Übung ab; ohne ihn würde das
+  Aufklappen sie als erledigt markieren — genau das Gegenteil dessen, was der Tipp bedeutet.
+
 - **v5.20.0 · 2026-08-30** — **Der Caddy antwortet jetzt in drei Zeilen.** Gemeldet: „Die Empfehlung
   überzeugt mich weiterhin nicht und ich finde es auch extrem unübersichtlich. Ich finde diese
   Caddy-Seite muss grundsätzlich neu aufgebaut werden." Das Bild zeigte **fünf Ebenen übereinander**,
