@@ -13,6 +13,24 @@
 
 ---
 
+- **v5.38.0 · 2026-08-31** — **Der Abgleich verdoppelte Wettkämpfe.** Gemeldet: Probleme beim
+  Synchronisieren von geplanten Turnieren, Runden und durchgeführten Turnieren. Nachgestellt — und es
+  war genau **eine** der drei Listen.
+  **`competitions` hatte als Schlüssel `x.id || _J(x)`**, und Wettkämpfe haben keine `id`. Der
+  Schlüssel war also **das ganze Objekt als JSON**. Sobald sich ein Feld ändert — Handicap
+  nachgetragen, Putts ergänzt, seit v5.29 die `holeScores` —, ist es ein anderer Schlüssel: Der
+  Abgleich hält beide Stände für verschiedene Einträge und behält **beide**. Aus einem Turnier werden
+  zwei, aus zwei vier.
+  **Nachgestellt:** Derselbe Wettkampf, einmal mit und einmal ohne `hcpAfter`, ergab nach dem
+  Zusammenführen zwei Einträge.
+  **Ein Schlüssel, der sich mit dem Inhalt ändert, ist kein Schlüssel.** Er beantwortet „ist das
+  dasselbe Ding?" mit „nur wenn sich nichts geändert hat" — also nie dann, wenn es darauf ankommt.
+  Jetzt `roundId` (seit v5.29 an jedem aus einer Runde erzeugten Eintrag), sonst **Datum + Platz +
+  Turniername** — dieselbe Bauart wie bei `rounds` und `tournaments` daneben. Am echten Bestand
+  geprüft: **43 Wettkämpfe, 43 verschiedene Schlüssel**, keine Kollision.
+  **Die anderen beiden Listen waren in Ordnung** — nachgeprüft, nicht angenommen: 22 Runden und 14
+  geplante Turniere, alle mit eigener Kennung, Schlüssel aus Datum und Name statt aus dem Inhalt.
+
 - **v5.37.0 · 2026-08-31** — **Runden lassen sich nachträglich zum Turnier erklären.** Gewünscht:
   „Wenn ich Runden bearbeite, möchte ich diese auch nachträglich zu Turnierergebnissen umdeklarieren
   können — und sie sollen dann vom Reiter Runden in den Reiter Turnier verschoben werden."

@@ -10459,6 +10459,88 @@ group("Schlag-GPS — Ausreißer sehen und loswerden");
   }
 }
 
+/* ============ 24gn. Übergewichtige Platzdaten ============ */
+group("Platzdaten — ein Werkzeug, auf das nichts hinweist, wird nicht benutzt");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+  const PD = G("pruefeDaten"), GA = G("geoAbspecken");
+
+  /* ====================================================================
+     GEMESSEN am 03.09.2026 (v5.83)
+     --------------------------------------------------------------------
+     Die Platzdaten wiegen zusammen **3146 kB** — Brodauer Mühle allein
+     **2158 kB**. `geoAbspecken()` bringt sie auf **878 kB**, die Brodauer
+     Mühle auf **120 kB**. NACHGEMESSEN: Auf allen neun geprüften Löchern
+     bleibt die Empfehlung **identisch**.
+     WAS DA LIEGT: 99.453 der 102.005 Stützpunkte sind `other` — Objekte, die
+     weder in die Lage noch in die Sichtlinie noch in den Kartenrahmen
+     einfließen und seit v5.61 über dem Luftbild nicht einmal gezeichnet
+     werden. **Reiner Ballast: Speicher, Abgleichzeit, Übertragung.**
+     DIE FUNKTION GIBT ES SEIT v5.06 — sie wurde nur nie ausgeführt. **EIN
+     WERKZEUG, AUF DAS NICHTS HINWEIST, WIRD NICHT BENUTZT.** Derselbe Grund,
+     aus dem die 39 falschen Grüns seit v5.58 liegenblieben: nicht die
+     Korrektur fehlte, sondern der Hinweis darauf. */
+  ok("die Prüfung meldet große Platzdaten",
+     /Platzdaten sind ungewöhnlich groß/.test(src));
+  /* ES BLEIBT EIN HINWEIS, KEINE AUTOMATIK: Verschlanken ändert Kartendaten,
+     und das gehört dem Nutzer. */
+  {
+    /* OHNE FENSTER: Der Block von `pruefeDaten` wird geschnitten und darin
+       nach dem Aufruf gesucht. */
+    const pi = src.indexOf("function pruefeDaten()");
+    const pe = src.indexOf("\nfunction ", pi + 20);
+    /* OHNE KOMMENTARE: Die Begründung im Block NENNT `geoAbspecken()` — eine
+       Prüfung, die Prosa mitliest, misst die falsche Sache (wie schon bei den
+       Abdruck-Aufrufen, v5.73). */
+    const pblk = pi >= 0 ? src.slice(pi, pe > pi ? pe : pi + 30000)
+      .replace(/\/\*[\s\S]*?\*\//g, "") : "";
+    ok("aber löst nichts aus", !/geoAbspecken\(\)/.test(pblk));
+  }
+  ok("und nennt die Schwelle", /kb>400/.test(src));
+  if (typeof PD === "function") {
+    const LDB = ctx.DB;
+    if (LDB) {
+      const alt = LDB.courses;
+      try {
+        /* Ein kleiner Platz darf NICHT warnen — sonst gewöhnt man sich die
+           Meldung ab und übersieht dann die echte. */
+        LDB.courses = [{ name: "Klein", geo: { features: [], holes: {} } }];
+        ok("kleine Plätze lösen keine Warnung aus",
+           !/ungewöhnlich groß/.test(PD().map(x => x.title).join(" | ")));
+      } finally { LDB.courses = alt; }
+    }
+  }
+
+  /* ---- Wer die Geometrie ändert, leert ALLE abhängigen Speicher ----
+     v5.34 leert den Rasterspeicher — richtig und begründet. `_aimCache` blieb
+     stehen, obwohl er Bewertungen hält, die auf genau diesem Raster beruhen;
+     nach dem Verschlanken zeigte die Karte weiter die alte Zielkette.
+     **DIESELBE KLASSE WIE DIE FÜNF FASSUNGS-SCHLÜSSEL:** Wer eine Grundlage
+     ändert, muss alle Speicher leeren, die darauf beruhen — nicht nur den, an
+     den man gerade denkt. */
+  {
+    const i = src.indexOf("function geoAbspecken(){");
+    const e = src.indexOf("\nfunction ", i + 10);
+    const blk = i >= 0 ? src.slice(i, e > i ? e : i + 4000) : "";
+    ok("Verschlanken leert das Raster", /_grids\.clear\(\)/.test(blk));
+    ok("und den Zielspeicher", /delete _aimCache\[k\]/.test(blk));
+    /* UND DIE FERTIGE KETTE: Sie hält das ERGEBNIS und überlebt sonst als
+       einziges den Eingriff — genau der Fehler aus v5.74. */
+    ok("und die fertige Zielkette", /PLAY\.aimChain=null/.test(blk));
+  }
+  /* Und das Verschlanken tut wirklich etwas — am echten Bestand. */
+  if (typeof GA === "function") {
+    const LDB = ctx.DB;
+    const c = ((LDB && LDB.courses) || []).find(x => x && x.geo && x.geo.features);
+    if (c) {
+      const r = GA();
+      ok("es liefert eine Bilanz",
+         r && typeof r.gespart === "number" && r.elemente > 0,
+         r ? (r.elemente + " Elemente, " + r.gespart + " Zeichen gespart") : "nichts");
+    }
+  }
+}
+
 /* ============ 24gm. Abgleich, Grüns und Neutralwerte ============ */
 group("Nachgezogen — drei Befunde der Prüfung vom 03.09.");
 {
