@@ -13,6 +13,35 @@
 
 ---
 
+- **v5.36.0 · 2026-08-31** — **Die Turnierplanung steht jetzt beim Turnier.** Gewünscht: „Verschiebe
+  die Turnierplanung aus dem Reiter Planung in den Reiter Turnier, unterhalb der Grafik WHS-Index."
+  **Und das ist der richtige Ort.** „Planung" trägt Saisonziele, Makrozyklen und Mesoblöcke — Dinge,
+  die man einmal im Quartal anfasst. Der Turnierkalender gehört zu dem, was man **wöchentlich**
+  ansieht: neben die gespielten Wettkämpfe und den Index, den sie bewegen. Anstehende Turniere und
+  der Index, auf den sie einzahlen, stehen jetzt untereinander statt in zwei Reitern — genau diese
+  Nachbarschaft ist der Grund für den Umzug.
+  Mitgewandert ist der **ganze** Block: anstehende Turniere, der Knopf zum Hinzufügen und die
+  vergangenen. In „Planung" bleiben Saisonziele und Periodisierung unverändert — verschoben heißt
+  nicht gelöscht.
+
+- **v5.35.0 · 2026-08-31** — **Der 20-Sekunden-Start: die Hülle wurde viermal gelesen.** Gemessen
+  statt vermutet — und das Skript ist es **nicht**: Übersetzen kostet **25 ms**, die oberste Ebene
+  **10 ms**; selbst mit Faktor 20 für ein langsames Gerät bleibt es unter einer Sekunde. Auch der
+  Datenstand nicht: `JSON.parse` von 3,6 MB sind 45 ms, auf dem Handy ein Drittel bis eine halbe
+  Sekunde.
+  **Die Zeit ging im Service Worker drauf.** Vor jeder Auslieferung wurde die 2,7-MB-Hülle **zweimal
+  vollständig in Text verwandelt**: einmal von `istGanz` (ist sie vollständig?) und einmal von
+  `fassungAus` (welche Fassung liegt da?) — derselbe Puffer, beide Male **vor dem ersten Bild**. Im
+  Netz-Zweig noch einmal dasselbe. Vier volle Lesevorgänge je Seitenaufruf, und `response.text()`
+  über 2,7 MB ist auf einem Handy keine schnelle Sache.
+  **Zwei Prüfungen an derselben Datei sind ein Lesevorgang, nicht zwei.** Neu `huelleLesen()` +
+  `textIstGanz()`: Der Text wird **einmal** geholt und beiden Fragen gestellt. Von vier
+  `clone().text()` auf **einen**. `CACHE_VERSION` auf **v4**, sonst greift die Änderung nicht.
+  **Ehrlich zur Erwartung:** Das ist der Anteil, den ich messen und beheben konnte. Der Rest —
+  HTML-Parsen der 2,7-MB-Datei und das Holen aus dem Cache — bleibt und hängt am Dateiumfang. Die
+  Startzeiten schwankten am selben Tag auf derselben Fassung zwischen 8 und 21 Sekunden; das ist
+  Gerätezustand, kein Code.
+
 - **v5.34.0 · 2026-08-31** — **Das Einfrieren beim Ansichtswechsel: 13 Sekunden → 87 ms.** Gemeldet:
   „Wenn die App gestartet ist, friert sie zwischendurch für zehn Sekunden ein, wenn man Ansichten
   wechselt." Gemessen: **`renderDash` brauchte 13.065 ms.** Zwei Ursachen, beide dieselbe Sorte.

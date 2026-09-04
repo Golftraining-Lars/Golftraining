@@ -338,7 +338,7 @@ try {
   /* WICHTIG: bei vm.runInContext landen nur `var` und `function` am Kontext —
      `const STRAT = {...}` bleibt im Blockscope unsichtbar. Deshalb ein Epilog,
      der die benoetigten Namen aktiv herausreicht. */
-  const namen = ["_phoneLive","playHoleStamp","PLAY","repairListenFormen","bagBewertung","clubNorm","_mergeObj","_leerWert","mergeDB","MERGE_KEY","EQUIP_FELDER","EQUIP_GRUPPEN","EQUIP_ALT_KEYS","equipAltRaeumen","ensureSeedGoals","_zielSchluessel","goalCurrent","trainingsEmpfehlung","goalIst","goalPlan","goalFortschritt","goalErreicht","goalHochIstGut","_zielMed","zielFeldDef","ZIEL_QUELLEN","ZIEL_FELDER","testZaehltNicht","testDefsAusgewertet","lmShotKey","lmNurNeue","lmDubletten","LM_ALLE","lmSetClub","playKopfraum","playKopfAnteil","aimUmweg","sgAbdeckungsQuote","sgPuttSchieflage","sgWarnHtml","sgRound","sgEnrich","turnierNaehe","wakeAn","wakeAus","_wakeGruende","kraftVerlauf","standNeuer","wetterSetzen","mobBaseline","MOB_KEYS","_fitMedian","_fitVergleich","isoWoche","kraftNorm","est1RM","kraftVerlauf","_dgmAbstandZuStrecke","gpFingerprint","clubList","gpHoleFrisch","gpKey","activeHoles","dispersionFor","clubNorm","_aimApproachEv","watchElevProfil","dgmSetzen",
+  const namen = ["_phoneLive","playHoleStamp","PLAY","repairListenFormen","bagBewertung","clubNorm","_mergeObj","_leerWert","mergeDB","MERGE_KEY","EQUIP_FELDER","EQUIP_GRUPPEN","EQUIP_ALT_KEYS","equipAltRaeumen","ensureSeedGoals","_zielSchluessel","goalCurrent","trainingsEmpfehlung","goalIst","goalPlan","goalFortschritt","goalErreicht","goalHochIstGut","_zielMed","zielFeldDef","ZIEL_QUELLEN","ZIEL_FELDER","testZaehltNicht","testDefsAusgewertet","lmShotKey","lmNurNeue","lmDubletten","LM_ALLE","lmSetClub","playKopfraum","playKopfAnteil","aimUmweg","sgAbdeckungsQuote","sgPuttSchieflage","sgWarnHtml","sgRound","sgEnrich","turnierNaehe","wakeAn","wakeAus","_wakeGruende","kraftVerlauf","standNeuer","wetterSetzen","mobBaseline","MOB_KEYS","_fitMedian","_fitVergleich","isoWoche","kraftNorm","est1RM","kraftVerlauf","_dgmAbstandZuStrecke","gpFingerprint","clubList","gpHoleFrisch","gpKey","activeHoles","dispersionFor","clubNorm","lageAusGps","gruenListeHtml","STAMP_LISTEN","schlagNeutral","gpsShotsNachziehen","_aimApproachEv","watchElevProfil","dgmSetzen",
                  "schlagNeutral","neutralBasis","gpsShotsNachziehen","elevQuelle","elevQuelleText","dgmRahmen","dgmIdx","dgmZelleMitte","dgmZellen","dgmHoehe","dgmNeigung","dgmKey",
                  "STRAT","clubPick","playsLike","pinPoint","geoDist","playMapBox",
                  "liveStart","liveStop","liveStopAll","liveVerbraucher","LIVEPOS",
@@ -10456,6 +10456,173 @@ group("Schlag-GPS — Ausreißer sehen und loswerden");
       ok("und ist anklickbar", /data-runde="/.test(src) && /openAddRound\(r\)/.test(roh));
       ok("der Grund steht an der markierten Zeile", /m zum Median/.test(src));
     }
+  }
+}
+
+/* ============ 24gm. Abgleich, Grüns und Neutralwerte ============ */
+group("Nachgezogen — drei Befunde der Prüfung vom 03.09.");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+  const SL = G("STAMP_LISTEN"), GL = G("gruenListeHtml"), SN = G("schlagNeutral");
+
+  /* ====================================================================
+     (2) WER ABGEGLICHEN WIRD, MUSS GESTEMPELT WERDEN (v5.81)
+     --------------------------------------------------------------------
+     `testDefs` und `clubDistances` werden in `mergeDB` über `_mergeArr`
+     abgeglichen, standen aber nicht in `STAMP_LISTEN`. Ohne `updated` kann
+     `_mergeArr` nicht entscheiden, welche Seite jünger ist — **es entscheidet
+     dann der Zufall der Reihenfolge.**
+     DERSELBE FEHLER WIE IN v5.39, wo geplante Turniere ohne Zeitstempel nach
+     dem Löschen zurückkamen. Damals habe ich die betroffene Liste ergänzt;
+     dass zwei weitere dasselbe Problem hatten, ist mir entgangen — **weil ich
+     eine Liste gepflegt habe statt die Regel zu prüfen.**
+     DIE SCHLÄGERLISTE IST DER TEUERSTE FALL: Verliert man dort eine Änderung,
+     rechnet der Caddy mit alten Längen — und niemand merkt es, weil beide
+     Stände plausibel aussehen. */
+  {
+    const nur = codeOhneDoku(src);
+    const merged = [...new Set([...nur.matchAll(/out\.(\w+) = _mergeArr/g)].map(m => m[1]))];
+    const stamp = SL || [];
+    const fehlt = merged.filter(k => stamp.indexOf(k) < 0);
+    ok("jede abgeglichene Liste wird gestempelt", fehlt.length === 0, fehlt.join(", "));
+    ok("und es sind wirklich welche da", merged.length >= 10, String(merged.length));
+  }
+
+  /* ====================================================================
+     (1) 39 FALSCHE GRÜNS — SAMMELKORREKTUR (v5.81)
+     --------------------------------------------------------------------
+     Südplatz 18/18, Brodauer Mühle 18/18, Fehmarn 3. **Ein Knopf je Loch im
+     Spielmodus reichte dafür nicht** — 39-mal auf die Bahn gehen, um eine
+     Datenkorrektur zu bestätigen, macht niemand. Der Befund war seit v5.58
+     bekannt und bis heute nicht behoben, **nicht weil die Korrektur fehlte,
+     sondern weil der Weg dahin zu lang war.** */
+  ok("es gibt eine Sammelübernahme", /function gruenFixAlle\(courseName\)\{/.test(src));
+  /* MIT RÜCKFRAGE, DIE DIE ZAHL NENNT — eine stille Massenänderung fremder
+     Platzdaten wäre das Gegenteil von Vertrauen. */
+  ok("mit Rückfrage und Zahl", /v\.length\+" Grüns auf "\+courseName\+" korrigieren\?/.test(src));
+  ok("und im Platzbericht erreichbar", /openGruenListe\('\$\{esc\(courseName\)\}'\)/.test(src));
+  if (typeof GL === "function") {
+    const LDB = ctx.DB;
+    const c = ((LDB && LDB.courses) || []).find(x => x && x.geo && x.tees);
+    if (c) {
+      const h = GL(c.name);
+      ok("die Liste baut sich", typeof h === "string");
+      /* Löcher OHNE Vorschlag werden benannt statt verschwiegen — sonst hält
+         man die Korrektur für vollständig. */
+      ok("und benennt Löcher ohne Vorschlag",
+         /Ohne Vorschlag: /.test(src) && /von Hand gesetzt werden/.test(src));
+    }
+  }
+
+  /* ====================================================================
+     (3) WAS MAN AUFSCHREIBT, MUSS MAN AUCH LESEN (v5.81)
+     --------------------------------------------------------------------
+     Kein einziger der 25 gemessenen Schläge trug einen Neutralwert. Die
+     Ursache ist NICHT fehlendes Wetter — v4.88 schreibt Temperatur, Wind und
+     Richtung als `wx` an den Schlag. Aber das Nachziehen fragte nur das
+     AKTUELLE `WEATHER`, und das ist nach drei Stunden „nicht frisch".
+     **Der Kommentar in v4.88 sagt ausdrücklich „damit man dieselben Schläge
+     nachrechnen kann" — die Leseseite fehlte.** */
+  ok("schlagNeutral nimmt gespeichertes Wetter",
+     /function schlagNeutral\(latA,lngA,latB,lngB,dist,tsIso,wxAlt\)\{/.test(src));
+  ok("und das Nachziehen gibt es mit",
+     /schlagNeutral\(x\.latA,x\.lngA,x\.latB,x\.lngB,x\.dist,x\.ts,x\.wx\|\|null\)/.test(src));
+  if (typeof SN === "function") {
+    const a = { latA: 54.0031, lngA: 10.7513, latB: 54.0053, lngB: 10.7530,
+                dist: 244, ts: "2020-01-01T00:00:00.000Z" };
+    ok("ohne Wetter bleibt es ehrlich null",
+       SN(a.latA, a.lngA, a.latB, a.lngB, a.dist, a.ts) === null);
+    const r = SN(a.latA, a.lngA, a.latB, a.lngB, a.dist, a.ts, { t: 19, w: 3.5, d: 220 });
+    ok("mit gespeichertem Wetter rechnet es", !!r && r.distNeutral > 0,
+       r ? String(r.distNeutral) : "null");
+    /* DAS WETTER DES SCHLAGES SCHLÄGT DAS AKTUELLE — es ist die genauere
+       Auskunft, egal wie frisch das andere ist. */
+    ok("das Schlagwetter hat Vorrang", /const w=wxAlt \? \{temp:wxAlt\.t/.test(src));
+  }
+}
+
+/* ============ 24gl. Die Lage kommt aus dem Raster ============ */
+group("Erfassung — weniger fragen statt mehr eintippen");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+  const LG = G("lageAusGps"), S = G("STRAT"), DB0 = live("DB");
+
+  /* ====================================================================
+     BEFUND 1 DER PRÜFUNG VOM 03.09.2026 (v5.80)
+     --------------------------------------------------------------------
+     Von 342 gespielten Löchern tragen nur **111** eine Approach-Lage (32 %) —
+     das schlechteste aller Felder. Strokes Gained, Scrambling und die
+     gelernte Streuung rechnen damit auf einem Drittel der Löcher.
+     **DIE RICHTIGE ANTWORT IST NICHT „MEHR EINTIPPEN", SONDERN „WENIGER
+     FRAGEN":** Der zweite Punkt eines gemessenen Schlages IST der
+     Landepunkt, und `lieCode` sagt für jeden Punkt, was dort liegt. Die
+     Auskunft war da — sie war nur nie mit dem Eingabefeld verbunden. */
+  ok("es gibt eine Ableitung aus dem GPS",
+     /function lageAusGps\(courseName, hole\)\{/.test(src));
+  /* ES IST EIN VORSCHLAG, KEINE EINTRAGUNG. Eine automatisch gesetzte Lage,
+     die man nicht erkennt, wäre schlimmer als gar keine — sie sähe aus wie
+     eine Beobachtung. */
+  ok("er ist im Feld gekennzeichnet", /" · aus GPS"/.test(src));
+  ok("und nur bei leerem Feld", /if\(field==="lie" && cur==="" &&/.test(src));
+  /* NUR MIT BELEG: Lieber leer als geraten — das Feld ist Grundlage der
+     halben Auswertung. */
+  ok("unsicheres GPS liefert nichts", /if\(sh\.accB!=null && sh\.accB>15\) return null;/.test(src));
+  if (typeof LG === "function" && DB0) {
+    ok("ohne Schlag auf dem Loch kein Vorschlag",
+       LG("Timmendorfer Strand Nordplatz", 99) === null);
+    ok("ohne Platz auch nicht", LG("Gibtsnicht", 1) === null);
+    /* DEN FALL SELBST HERSTELLEN: Der Prüfstand startet ohne GPS-Schläge,
+       also hängt eine Prüfung „am echten Bestand" hier von einem Zufall ab.
+       Ein gesetzter Schlag auf einer bekannten Bahn prüft dieselbe Sache und
+       läuft immer. */
+    const LDB = ctx.DB;
+    if (LDB) {
+      const alt = LDB.gpsShots;
+      try {
+        const c = (LDB.courses || []).find(x => x && /Nordplatz/.test(x.name) && x.geo);
+        const HR = G("holeRef"), hr = c ? HR(c.geo, 1) : null;
+        if (hr && hr.tee && hr.green) {
+          /* Ein Schlag, der auf halber Bahn endet — dort liegt Fairway oder
+             Rough, beides gültige Lagewerte. */
+          const mid = [hr.tee[0] + (hr.green[0] - hr.tee[0]) * 0.5,
+                       hr.tee[1] + (hr.green[1] - hr.tee[1]) * 0.5];
+          LDB.gpsShots = [{ id: "T1", ts: "2026-09-03T10:00:00.000Z", hole: 1,
+            course: c.name, latA: hr.tee[0], lngA: hr.tee[1],
+            latB: mid[0], lngB: mid[1], accB: 5 }];
+          const r = LG(c.name, 1);
+          ok("ein gemessener Schlag ergibt eine Lage", !!r, r ? r.lage : "keine");
+          ok("und nur bekannte Lagewerte",
+             !r || (LDB.approachLies || []).indexOf(r.lage) >= 0, r ? r.lage : "-");
+          /* UNSICHERES GPS LIEFERT NICHTS — lieber leer als geraten. */
+          LDB.gpsShots[0].accB = 40;
+          ok("bei 40 m Ungenauigkeit schweigt er", LG(c.name, 1) === null);
+        }
+      } finally { LDB.gpsShots = alt; }
+    }
+  }
+
+  /* ---- `flugLuft`: ein Messwerkzeug, keine Regel ----
+     GEMELDET am 03.09.: „Überrascht — Eisen 5 über das lange Waldstück."
+     Ich hatte daraus eine abgestufte Strafe gebaut und wieder entfernt:
+     **Die Messung widerlegte meine Annahme.** Der Prüffall aus v3.74, den
+     dieser Prüfstand ausdrücklich als frei erklärt (Driver über einen
+     12-m-Baum bei 60 m), hat mit **3,8 m** WENIGER Luft als der beanstandete
+     Schlag mit **7,2 m**. Eine Abstufung hätte nicht den gemeldeten Fall
+     getroffen, sondern alles gleichmäßig teurer gemacht.
+     **WER EINE REGEL ÄNDERT, MUSS ZEIGEN, DASS SIE DEN FALL TRIFFT, DER IHN
+     STÖRT.** Das konnte ich nicht — also blieb die Regel. */
+  if (S && typeof S.flugLuft === "function") {
+    const l5 = S.flugLuft({ name: "5 Iron", carry: 167 }, 75, 15);
+    const dr = S.flugLuft({ name: "Driver", carry: 211 }, 60, 12);
+    ok("die Luft ist messbar", isFinite(l5) && isFinite(dr),
+       "5 Iron " + l5.toFixed(1) + " m · Driver " + dr.toFixed(1) + " m");
+    ok("der gemeldete Fall hat MEHR Luft als der gebilligte", l5 > dr,
+       l5.toFixed(1) + " gegen " + dr.toFixed(1));
+    /* Dieselbe Grenze wie `fliegtDrueber` — zwei Rechnungen für dieselbe
+       Frage laufen sonst auseinander. */
+    ok("sie stimmt mit fliegtDrueber überein",
+       (S.flugLuft({ name: "2 Iron", carry: 180 }, 60, 12) >= 0)
+       === S.fliegtDrueber({ name: "2 Iron", carry: 180 }, 60, 12));
   }
 }
 
