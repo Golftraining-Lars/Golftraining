@@ -13,6 +13,26 @@
 
 ---
 
+- **v5.37.0 · 2026-08-31** — **Runden lassen sich nachträglich zum Turnier erklären.** Gewünscht:
+  „Wenn ich Runden bearbeite, möchte ich diese auch nachträglich zu Turnierergebnissen umdeklarieren
+  können — und sie sollen dann vom Reiter Runden in den Reiter Turnier verschoben werden."
+  Im Runden-Editor gibt es jetzt **„Das war ein Turnier"** mit optionalem Namen. **Das ist der
+  häufigere Fall** als der Haken beim Start: Man spielt, merkt hinterher, dass es zählt — oder hat
+  den Haken schlicht vergessen. Nur beim **Bearbeiten**, nicht beim Neuanlegen: Wer eine Runde neu
+  erfasst und weiß, dass es ein Turnier war, trägt sie gleich dort ein.
+  **Verschoben heißt verschoben.** Die Runde wird aus `DB.rounds` **entfernt** und als Eintrag in
+  `DB.competitions` angelegt — mit allen Lochergebnissen. An beiden Orten geführt zählte jede
+  Auswertung sie doppelt, und der WHS-Index zählt Turnierrunden ausdrücklich getrennt. `roundId` ist
+  die Klammer: Wer dieselbe Runde zweimal umdeklariert, aktualisiert den Eintrag statt einen zweiten
+  anzulegen.
+  **Neu `rundeAlsTurnier()` — zwei Aufrufer, eine Umrechnung.** Die gab es seit v5.29, aber eingebaut
+  in `playFinish`. Sie herauszulösen ist keine Aufräumarbeit, sondern die **Bedingung** dafür, dass
+  beide Wege dasselbe Ergebnis liefern: Zwei Umrechnungen für dieselbe Sache laufen auseinander — das
+  hat dieses Projekt bei Scorekarte, Layup-Grenze und Caddy schon dreimal gekostet.
+  **Vom Prüfstand gefangen:** Mein Einschub hatte `stamp(r)` und `DB.rounds.push(r)`
+  auseinandergezogen. Statt die Sichtweite der Prüfung zu vergrößern wird jetzt **unmittelbar vor dem
+  Schreiben** gestempelt — die klarere Stelle.
+
 - **v5.36.0 · 2026-08-31** — **Die Turnierplanung steht jetzt beim Turnier.** Gewünscht: „Verschiebe
   die Turnierplanung aus dem Reiter Planung in den Reiter Turnier, unterhalb der Grafik WHS-Index."
   **Und das ist der richtige Ort.** „Planung" trägt Saisonziele, Makrozyklen und Mesoblöcke — Dinge,

@@ -11537,7 +11537,23 @@ group("Platzkarte — die Scorekarte löst den Widerspruch auf");
          ohne.length + " Plätze ohne Fairway-Daten");
     }
   }
-  ok("die Deckung steht im Platzbericht", /karteDeckungHtml\(c\)/.test(src));
+  /* ================================================================
+     UMGEZOGEN IN DEN EDITOR (v5.82)
+     ----------------------------------------------------------------
+     GEWÜNSCHT: „Entferne diese Korrektur und Hinweise aus dem Platzbericht
+     und integriere sie dort, wo die Plätze bearbeitet werden."
+     UND DAS IST DER RICHTIGE ORT. Der Platzbericht beantwortet eine
+     SPIELERFRAGE — welche Löcher kosten mich historisch am meisten? Man
+     liest ihn vor einer Runde. Kartendaten und ihre Korrektur sind eine
+     WARTUNGSFRAGE.
+     **EINE ANSICHT, DIE ZWEI FRAGEN BEANTWORTET, BEANTWORTET BEIDE
+     SCHLECHTER:** Wer sich vorbereitet, will nicht über Grün-Zuordnungen
+     nachdenken — und wer Kartendaten repariert, sucht sie nicht unter
+     „Platzbericht". */
+  ok("die Deckung steht in der Kartenansicht",
+     /karteDeckungHtml==="function"\)\?karteDeckungHtml\(c\.name\)/.test(src));
+  ok("und NICHT mehr im Platzbericht",
+     !/\$\{wahl\}\$\{karteDeckungHtml/.test(src));
 
   /* ================================================================
      DAS LUFTBILD — GERECHNET IST NICHT ANGEKOMMEN (v5.60)
