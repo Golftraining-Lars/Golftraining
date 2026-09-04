@@ -13,6 +13,25 @@
 
 ---
 
+- **v5.39.0 · 2026-08-31** — **Gelöschte Turniere kamen zurück — es fehlte der Grabstein.** Gemeldet:
+  „Wenn ich geplante Turniere lösche, tauchen sie immer wieder auf."
+  **Die Ursache:** Das Löschen entfernte den Eintrag aus `DB.tournaments`, legte aber **keinen
+  Grabstein** an. Der Abgleich vereinigt die Listen beider Geräte — ein Eintrag, der auf dem einen
+  fehlt und auf dem anderen steht, sieht für ihn aus wie ein **neuer** Eintrag vom anderen Gerät. Er
+  kommt also pflichtbewusst zurück, und zwar jedes Mal.
+  **Ein Löschen ohne Grabstein ist kein Löschen, sondern ein Verstecken bis zum nächsten Abgleich.**
+  Dieselbe Lücke gab es bei den **Saisonzielen**. Beide setzen jetzt `tombDel(bereich, obj)` — das
+  bildet den Schlüssel selbst aus `MERGE_KEY`; ein von Hand gebauter Schlüssel wäre eine zweite
+  Wahrheit neben der Tabelle, und die laufen auseinander.
+  **Runden und Wettkämpfe waren in Ordnung** — nachgeprüft, nicht angenommen. Ebenso geprüft: Zwei
+  weitere `filter`-Stellen ohne Grabstein sind Aufräumroutinen (alte Tests, Papierkorb) und brauchen
+  keinen.
+  **Nachgestellt und gegengeprüft:** Mit Grabstein ist das Turnier nach dem Zusammenführen weg, ohne
+  Grabstein steht es wieder da — genau das gemeldete Verhalten.
+  **Neue Sperrklinke gegen die Fehlerklasse**, nicht gegen die zwei Stellen: Jede Stelle, die eine
+  Liste per `filter` verkürzt, muss vorher einen Grabstein setzen — oder namentlich als Aufräumroutine
+  geführt sein. Wer eine neue Löschstelle baut, muss diese Liste anfassen.
+
 - **v5.38.0 · 2026-08-31** — **Der Abgleich verdoppelte Wettkämpfe.** Gemeldet: Probleme beim
   Synchronisieren von geplanten Turnieren, Runden und durchgeführten Turnieren. Nachgestellt — und es
   war genau **eine** der drei Listen.

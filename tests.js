@@ -10482,6 +10482,32 @@ group("Platzdaten — ein Werkzeug, auf das nichts hinweist, wird nicht benutzt"
      Korrektur fehlte, sondern der Hinweis darauf. */
   ok("die Prüfung meldet große Platzdaten",
      /Platzdaten sind ungewöhnlich groß/.test(src));
+
+  /* ================================================================
+     EINE DOKU, DIE EINEN KNOPF BESCHREIBT, IST KEIN KNOPF (v5.84)
+     ----------------------------------------------------------------
+     GEMELDET am 03.09.: „Ich finde Daten → Karten nicht."
+     ZU RECHT — **den Knopf gab es nie.** `geoAbspeckenLauf()` ist seit v5.06
+     fertig, die Doku beschreibt ihn wörtlich („🗜 Platzdaten verschlanken"),
+     und aufgerufen wurde er von nirgends. Ich habe den Ort in v5.83 aus der
+     Doku abgeschrieben, statt nachzusehen — und damit einen Weg empfohlen,
+     den es nicht gibt.
+     DER PRÜFSTAND KONNTE ES NICHT FANGEN: Er prüft, dass Funktionen
+     DOKUMENTIERT sind — nicht, dass dokumentierte BEDIENWEGE existieren.
+     Neue Sperrklinke: Jede Funktion, die die Doku als Knopf beschreibt, muss
+     im Code auch aufgerufen werden. */
+  {
+    const doku = src.slice(0, src.lastIndexOf("<script>"));
+    const nur = src.slice(src.lastIndexOf("<script>")).replace(/\/\*[\s\S]*?\*\//g, "");
+    const versprochen = [...new Set([...doku.matchAll(/\(`(\w+)`, der/g)].map(m => m[1]))];
+    const fehlen = versprochen.filter(f => !new RegExp('["\'(]' + f + '\\(').test(nur));
+    ok("jede als Knopf dokumentierte Funktion ist aufrufbar",
+       fehlen.length === 0, fehlen.join(", ") || versprochen.length + " geprüft");
+  }
+  /* Und der Knopf steht dort, wo die Zahl steht, die er verändert. */
+  ok("der Verschlanken-Knopf steht bei der Größe",
+     /onclick="geoAbspeckenLauf\(\)">🗜 Platzdaten verschlanken/.test(src));
+  ok("und nur bei großen Karten", /if\(kb<=400\) return "";/.test(src));
   /* ES BLEIBT EIN HINWEIS, KEINE AUTOMATIK: Verschlanken ändert Kartendaten,
      und das gehört dem Nutzer. */
   {
