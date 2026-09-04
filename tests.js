@@ -338,7 +338,7 @@ try {
   /* WICHTIG: bei vm.runInContext landen nur `var` und `function` am Kontext —
      `const STRAT = {...}` bleibt im Blockscope unsichtbar. Deshalb ein Epilog,
      der die benoetigten Namen aktiv herausreicht. */
-  const namen = ["_phoneLive","playHoleStamp","PLAY","repairListenFormen","bagBewertung","clubNorm","_mergeObj","_leerWert","mergeDB","MERGE_KEY","EQUIP_FELDER","EQUIP_GRUPPEN","EQUIP_ALT_KEYS","equipAltRaeumen","ensureSeedGoals","_zielSchluessel","goalCurrent","trainingsEmpfehlung","goalIst","goalPlan","goalFortschritt","goalErreicht","goalHochIstGut","_zielMed","zielFeldDef","ZIEL_QUELLEN","ZIEL_FELDER","testZaehltNicht","testDefsAusgewertet","lmShotKey","lmNurNeue","lmDubletten","LM_ALLE","lmSetClub","playKopfraum","playKopfAnteil","aimUmweg","sgAbdeckungsQuote","sgPuttSchieflage","sgWarnHtml","sgRound","sgEnrich","turnierNaehe","wakeAn","wakeAus","_wakeGruende","kraftVerlauf","standNeuer","wetterSetzen","mobBaseline","MOB_KEYS","_fitMedian","_fitVergleich","isoWoche","kraftNorm","est1RM","kraftVerlauf","_dgmAbstandZuStrecke","gpFingerprint","clubList","gpHoleFrisch","gpKey","activeHoles","dispersionFor","clubNorm","lageAusGps","windPfeil","gpsAlleHtml","gruenListeHtml","STAMP_LISTEN","schlagNeutral","gpsShotsNachziehen","_aimApproachEv","watchElevProfil","dgmSetzen",
+  const namen = ["_phoneLive","playHoleStamp","PLAY","repairListenFormen","bagBewertung","clubNorm","_mergeObj","_leerWert","mergeDB","MERGE_KEY","EQUIP_FELDER","EQUIP_GRUPPEN","EQUIP_ALT_KEYS","equipAltRaeumen","ensureSeedGoals","_zielSchluessel","goalCurrent","trainingsEmpfehlung","goalIst","goalPlan","goalFortschritt","goalErreicht","goalHochIstGut","_zielMed","zielFeldDef","ZIEL_QUELLEN","ZIEL_FELDER","testZaehltNicht","testDefsAusgewertet","lmShotKey","lmNurNeue","lmDubletten","LM_ALLE","lmSetClub","playKopfraum","playKopfAnteil","aimUmweg","sgAbdeckungsQuote","sgPuttSchieflage","sgWarnHtml","sgRound","sgEnrich","turnierNaehe","wakeAn","wakeAus","_wakeGruende","kraftVerlauf","standNeuer","wetterSetzen","mobBaseline","MOB_KEYS","_fitMedian","_fitVergleich","isoWoche","kraftNorm","est1RM","kraftVerlauf","_dgmAbstandZuStrecke","gpFingerprint","clubList","gpHoleFrisch","gpKey","activeHoles","dispersionFor","clubNorm","lageAusGps","windPfeil","gpsAlleHtml","lineChart","sgVerlaufHtml","sgVerlauf","datenBasisText","sortedRounds","renderDash","gruenListeHtml","STAMP_LISTEN","schlagNeutral","gpsShotsNachziehen","_aimApproachEv","watchElevProfil","dgmSetzen",
                  "schlagNeutral","neutralBasis","gpsShotsNachziehen","elevQuelle","elevQuelleText","dgmRahmen","dgmIdx","dgmZelleMitte","dgmZellen","dgmHoehe","dgmNeigung","dgmKey",
                  "STRAT","clubPick","playsLike","pinPoint","geoDist","playMapBox",
                  "liveStart","liveStop","liveStopAll","liveVerbraucher","LIVEPOS",
@@ -8002,13 +8002,21 @@ group("renderDash — drei Fragen, nicht dreizehn Blöcke");
      der vier Kurven zeigten im Kern dasselbe: Wird es besser? */
   const zusammen=d.slice(d.indexOf("h = hcpGapHtml()"));
   ok("Zusammensetzung gefunden", zusammen.length>0);
-  /* Die Reihenfolge IST die Aussage: wo stehe ich, was war zuletzt, woran
-     arbeiten. */
+  /* DIE REIHENFOLGE IST DIE AUSSAGE — und sie wurde in v5.92 gedreht.
+     VORHER: wo stehe ich → was war zuletzt → woran arbeiten. Damit stand der
+     einzige Block, der zu einer HANDLUNG führt, an vierter Stelle; die drei
+     davor BESCHREIBEN nur.
+     **DIE EINZIGE ANSICHT, DIE ZU EINER HANDLUNG FÜHRT, GEHÖRT NACH OBEN.**
+     „Wie stehe ich da?" fragt man einmal, „was übe ich heute?" vor jedem
+     Training.
+     „Weg zu HCP 0" bleibt ganz oben: kein Bericht, sondern die Überschrift
+     des Ganzen — zwei Zeilen, die sagen, worum es geht. */
   const pos=t=>zusammen.indexOf(t);
-  ok("Ziel und Tempo zuerst",
-     pos("hcpGapHtml()")>=0 && pos("hcpGapHtml()")<pos("hLetzte"));
-  ok("dann die letzte Runde", pos("hLetzte")<pos("trainingsplanHtml()"));
-  ok("dann EINE Empfehlung", pos("trainingsplanHtml()")>=0);
+  ok("Ziel zuerst — es ist die Überschrift",
+     pos("hcpGapHtml()")>=0 && pos("hcpGapHtml()")<pos("trainingsplanHtml()"));
+  ok("dann die Empfehlung, nicht der Bericht",
+     pos("trainingsplanHtml()")>=0 && pos("trainingsplanHtml()")<pos("hLetzte"));
+  ok("die letzte Runde kommt danach", pos("hLetzte")>=0);
   /* Die Kurven wandern in den Aufklappbereich — sie beantworten dieselbe
      Frage mehrfach und drängten das Wesentliche nach unten. */
   ok("Aufklappbereich vorhanden", /<details class="descbox">/.test(zusammen));
@@ -10492,6 +10500,175 @@ group("Schlag-GPS — Ausreißer sehen und loswerden");
   }
 }
 
+/* ============ 24gs. Verbesserung ist nicht Stärke ============ */
+group("Analyse — zwei Fragen, die man nicht verwechseln darf");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+  const SV = G("sgVerlaufHtml"), SS = G("sgSummary"), SR = G("sortedRounds");
+
+  /* ====================================================================
+     GEFRAGT am 03.09.2026 (v5.92)
+     --------------------------------------------------------------------
+     „Werden denn die richtigen Dinge analysiert? Sollte es nicht
+     komprimierter und mit mehr Fokus sein?"
+     NACHGEMESSEN — DER INHALT STIMMT: Über die letzten zehn Runden gewinnt
+     das lange Spiel **+2,48** und die Annäherung **+1,30**; verloren wird
+     beim Putten (**−1,99**), im kurzen Spiel (−1,07) und durch Strafschläge
+     (−0,80). Genau das sagt „Woran jetzt arbeiten?" auch.
+     ZWEI DINGE WAREN FALSCH GEWICHTET:
+     (1) Die Reihenfolge — behoben, siehe 24bx.
+     (2) Der Verlauf betonte die ENTWICKLUNG. Im Bildschirmfoto stand „Kurzes
+         Spiel +2,42" als größte Verbesserung — im aktuellen Stand steht dort
+         aber **−1,07**. **„Am meisten verbessert" ist nicht „am besten."**
+         Wer nur die Entwicklung liest, übt den falschen Bereich.
+     **EINE ZAHL, DIE MAN OHNE IHRE GEGENZAHL ZEIGT, WIRD ZUR FALSCHEN
+     HANDLUNG.**
+     UND EIN BEFUND VON MIR, DER FALSCH WAR: Ich hatte behauptet, zwei leere
+     Runden verwässerten den Schnitt. **Sie tun es nicht** — `sgSummary` zählt
+     je Bereich nur Runden mit Daten (`if(r.n[x]>0)`), gemessen 8 von 10 bei
+     lang/app/kurz/putt und 10 von 10 bei straf. Lieber gesagt als still
+     „behoben". */
+  ok("der aktuelle Stand steht neben der Entwicklung",
+     /jetzt \$\{jetzt>0\?"\+":""\}/.test(src));
+  ok("und ein Verlustbereich wird benannt", /— Verlustbereich/.test(src));
+  /* DIESELBE QUELLE wie „Woran jetzt arbeiten?" — sonst laufen die beiden
+     Ansichten auseinander und widersprechen sich, wie es diese Woche schon
+     sechsmal passiert ist. */
+  ok("aus derselben Quelle wie die Empfehlung",
+     /const sm=sgSummary\(sortedRounds\(\)\.slice\(-10\)\);/.test(src));
+  ok("die Erklärung nennt beide Seiten",
+     /<b>Rechts steht die Entwicklung<\/b>/.test(src)
+     && /<b>Links steht der aktuelle Stand<\/b>/.test(src));
+
+  /* ---- Und die Rechnung selbst: leere Runden zählen nicht mit ---- */
+  if (typeof SS === "function" && typeof SR === "function") {
+    ok("leere Runden verwässern den Schnitt nicht",
+       /if\(r\.n\[x\]>0\)\{ sum\[x\]\+=/.test(src));
+    const LDB = live("DB");
+    if (LDB && (LDB.rounds || []).length) {
+      const sm = SS(SR().slice(-10));
+      if (sm && sm.proRunde) {
+        const mit = sm.proRunde.filter(r => r.n && r.n.putt > 0).length;
+        ok("und es gibt wirklich Runden ohne Daten",
+           mit <= sm.proRunde.length,
+           mit + " von " + sm.proRunde.length + " mit Putt-Daten");
+      }
+    }
+  }
+  if (typeof SV === "function") ok("der Verlauf baut sich weiterhin", typeof SV() === "string");
+}
+
+/* ============ 24gr. Jede Kurve nennt ihre Grundlage ============ */
+group("Analyse — eine Zahl ohne ihre Grundlage ist eine Behauptung");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+  const DB2 = G("datenBasisText"), SV2 = G("sgVerlaufHtml");
+
+  /* ====================================================================
+     GEPRÜFT am 03.09.2026 (v5.91)
+     --------------------------------------------------------------------
+     GEMESSEN: 22 Runden erfasst, aber nur **acht** vollständig (18 Löcher mit
+     Score). Der Strokes-Gained-Verlauf zeigt 20 Punkte — gleitend über fünf
+     Runden, aus acht vollständigen. Die Zahlen sind ehrlich gerechnet, aber
+     **benachbarte Punkte teilen sich fast dieselben Runden.**
+     **NICHT VERSTECKEN, SONDERN DAZUSCHREIBEN:** Die Kurve auszublenden wäre
+     falsch — acht Runden sind besser als nichts, und die Richtung stimmt oft
+     auch dann. Aber sie muss ihre Unsicherheit mittragen.
+     ZWEI KORREKTUREN AN MEINEM EIGENEN BEFUND, beide gemessen:
+     · Die Verläufe sind BEREITS eingeklappt — mein Vorschlag, sie in einen
+       eigenen Reiter zu ziehen, hätte nichts verbessert.
+     · Sie kosten **8 ms**. Die 615 ms des Dashboards stecken in `hcpGapHtml`
+       (352 ms kalt, 4 ms warm) — dem Aufbau von acht Platzrastern, ganz oben
+       und immer sichtbar. **Wer die Kosten nicht misst, verlegt sie nur.** */
+  ok("es gibt einen Grundlagen-Text", /function datenBasisText\(\)\{/.test(src));
+  if (typeof DB2 === "function") {
+    /* DEN FALL SELBST HERSTELLEN: `datenBasisText` liest das LEBENDE `DB`;
+       der Prüfstand startet ohne Runden, und dann ist der Text zu Recht leer.
+       Ohne Runden keine Aussage über Runden. */
+    const LDB = live("DB");
+    const alt = LDB ? LDB.rounds : null;
+    try {
+      if (LDB) LDB.rounds = [1, 2, 3].map(n => ({ id: "R" + n, date: "2026-0" + n + "-01",
+        holes: Array.from({ length: 18 }, (_, k) => ({ hole: k + 1, par: 4, score: 5 })) }));
+      const t = DB2();
+      ok("er nennt eine Zahl", /\d/.test(t), t.replace(/<[^>]+>/g, "").slice(0, 80));
+    /* UNTER ZEHN AUSDRÜCKLICH WARNEN — die Grenze ist gesetzt, nicht
+       gemessen, und steht deshalb im Code zum Diskutieren. */
+    ok("und warnt bei dünner Grundlage", /für eine belastbare Entwicklung sind es noch wenige/.test(src));
+    ok("die Grenze steht im Quelltext", /voll<10/.test(src));
+      /* OHNE RUNDEN KEINE AUSSAGE ÜBER RUNDEN — lieber nichts als eine Null. */
+      if (LDB) LDB.rounds = [];
+      ok("ohne Runden bleibt es still", DB2() === "");
+    } finally { if (LDB) LDB.rounds = alt; }
+  }
+  /* AN JEDER KURVE, nicht nur an einer: Wer sie an drei Stellen sieht und an
+     der vierten nicht, hält die vierte für gesichert.
+     GEPRÜFT AM QUELLTEXT, nicht am gerenderten Dashboard: Der Prüfstand hat
+     keine Runden, und ein Dashboard ohne Daten zeigt zu Recht keine Kurven.
+     Gezählt wird deshalb, an wie vielen Stellen der Text EINGEBAUT ist. */
+  {
+    const nur = codeOhneDoku(src);
+    const n = (nur.match(/datenBasisText\(\)/g) || []).length;
+    /* Die Definition zählt mit, deshalb drei Einbaustellen = vier Treffer. */
+    ok("mehrere Kurven nennen ihre Grundlage", n >= 4, n + " Vorkommen");
+  }
+  ok("auch der SG-Verlauf steht dabei",
+     /Ausreißer verzerren die Kurve[\s\S]{0,120}?datenBasisText\(\)/.test(src));
+}
+
+/* ============ 24gq. Kein Punkt darf auf NaN landen ============ */
+group("Diagramme — die Punkte müssen dort liegen, wo die Zahlen sagen");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+  const LC = G("lineChart"), SV = G("sgVerlaufHtml");
+
+  /* ====================================================================
+     GEMELDET am 03.09.2026 mit Bildschirmfoto (v5.90)
+     --------------------------------------------------------------------
+     Im Strokes-Gained-Verlauf lagen ALLE Punkte auf einer senkrechten Linie
+     am linken Rand.
+     NACHGEMESSEN: `lineChart` las `p.i`, `sgVerlaufHtml` schrieb `p.x`.
+     `x(undefined)` ergibt **NaN**, und ein `<circle cx="NaN">` zeichnet der
+     Browser an den Ursprung. **Die Kurve war nie da** — sie sah nur so aus,
+     als wären alle Werte gleich.
+     **ZWEI NAMEN FÜR DIESELBE SACHE SIND EIN FEHLER, DER AUF ANZEIGE
+     WARTET.** Die Y-Werte stimmten, die Beschriftung stimmte, die Zahlen
+     darunter stimmten — nur die Punkte lagen falsch.
+     WARUM DER PRÜFSTAND ES NICHT HATTE: Er prüfte, DASS ein Diagramm
+     entsteht, nicht WO die Punkte liegen. Diese Sperrklinke schließt genau
+     diese Lücke. */
+  if (typeof LC === "function") {
+    const bau = (proto) => [0, 1, 2].map(k =>
+      Object.assign({}, proto === "i" ? { i: k } : (proto === "x" ? { x: k * 7 } : {}), { y: k + 1 }));
+    ["i", "x", "keins"].forEach(form => {
+      const h = LC([{ name: "A", color: "#000", pts: bau(form) }], { h: 160 });
+      const cx = [...h.matchAll(/cx="([^"]+)"/g)].map(m => m[1]);
+      ok("kein NaN bei Form „" + form + "“",
+         cx.length > 0 && cx.every(v => isFinite(+v)), cx.join(", "));
+      /* UND INNERHALB DER ZEICHENFLÄCHE: Ein Punkt bei 631 auf 560 Breite
+         wäre nur anders falsch — genau das war mein erster Anlauf. */
+      ok("und alles im Bild bei Form „" + form + "“",
+         cx.every(v => +v >= 0 && +v <= 560), cx.join(", "));
+    });
+    /* `p.x` IST KEIN INDEX: `sgVerlaufHtml` schreibt dort die RUNDENNUMMER.
+       Eine fremde Zahl als Position zu deuten, weil sie zufällig numerisch
+       ist, wäre derselbe Fehler noch einmal. */
+    ok("die Position kommt aus `i` oder der Reihenfolge",
+       /const v=\(p&&p\.i!=null&&isFinite\(p\.i\)\)\?p\.i:k;/.test(src));
+  }
+  /* ---- Und am echten Verlauf ---- */
+  if (typeof SV === "function") {
+    const h = SV();
+    const cx = [...h.matchAll(/cx="([\d.]+)"/g)].map(m => +m[1]);
+    if (cx.length) {
+      ok("der SG-Verlauf verteilt seine Punkte",
+         Math.max(...cx) - Math.min(...cx) > 300,
+         Math.min(...cx).toFixed(0) + " bis " + Math.max(...cx).toFixed(0));
+      ok("und keiner liegt auf NaN", !/cx="NaN"/.test(h));
+    }
+  }
+}
+
 /* ============ 24gp. Gemessen und neutral nebeneinander ============ */
 group("Schlag-GPS — eine Zahl, die man für beides hält");
 {
@@ -10695,7 +10872,7 @@ group("Platzdaten — ein Werkzeug, auf das nichts hinweist, wird nicht benutzt"
   }
   ok("und nennt die Schwelle", /kb>400/.test(src));
   if (typeof PD === "function") {
-    const LDB = ctx.DB;
+    const LDB = live("DB");
     if (LDB) {
       const alt = LDB.courses;
       try {
@@ -10727,7 +10904,7 @@ group("Platzdaten — ein Werkzeug, auf das nichts hinweist, wird nicht benutzt"
   }
   /* Und das Verschlanken tut wirklich etwas — am echten Bestand. */
   if (typeof GA === "function") {
-    const LDB = ctx.DB;
+    const LDB = live("DB");
     const c = ((LDB && LDB.courses) || []).find(x => x && x.geo && x.geo.features);
     if (c) {
       const r = GA();
@@ -10781,7 +10958,7 @@ group("Nachgezogen — drei Befunde der Prüfung vom 03.09.");
   ok("mit Rückfrage und Zahl", /v\.length\+" Grüns auf "\+courseName\+" korrigieren\?/.test(src));
   ok("und im Platzbericht erreichbar", /openGruenListe\('\$\{esc\(courseName\)\}'\)/.test(src));
   if (typeof GL === "function") {
-    const LDB = ctx.DB;
+    const LDB = live("DB");
     const c = ((LDB && LDB.courses) || []).find(x => x && x.geo && x.tees);
     if (c) {
       const h = GL(c.name);
@@ -10854,7 +11031,7 @@ group("Erfassung — weniger fragen statt mehr eintippen");
        also hängt eine Prüfung „am echten Bestand" hier von einem Zufall ab.
        Ein gesetzter Schlag auf einer bekannten Bahn prüft dieselbe Sache und
        läuft immer. */
-    const LDB = ctx.DB;
+    const LDB = live("DB");
     if (LDB) {
       const alt = LDB.gpsShots;
       try {

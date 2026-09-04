@@ -13,6 +13,71 @@
 
 ---
 
+- **v5.47.0 · 2026-09-01** — **Von lang nach kurz sortiert — und eine zweite Prüfung, die auch bei
+  zwei Schlägen greift.**
+  **Sortierung:** Vorher stand die **Häufigkeit** vorne, also der Schläger mit den meisten Messungen.
+  Das ist eine Auskunft über die **Datenlage**, nicht über die Bag. **Die Reihenfolge einer Liste ist
+  eine Aussage darüber, wonach man sucht** — und gesucht wird hier ein Schläger, keine
+  Stichprobengröße. Jetzt nach **Median absteigend**: Driver 241 m oben, 2 Iron 71 m unten. Der
+  Median ordnet und nicht die hinterlegte Gesamtlänge, damit die Zahlen daneben monoton fallen —
+  sonst sieht die Liste nach Fehler aus, auch wenn sie keiner ist.
+  **Und dabei ist etwas aufgefallen:** `gpsAusreisser` vergleicht Schläge **untereinander** und
+  braucht mindestens fünf. Im Bestand haben **elf von zwölf** Schlägern weniger — die Prüfung ist
+  also blind für genau die Fälle, die am offensichtlichsten falsch sind: **3 Wood mit 6 m** (hinterlegt
+  204 m) und **Lob Wedge mit 165 m** (hinterlegt 64 m).
+  **Ein Lob Wedge fliegt keine 165 Meter.** Dafür braucht man keine Statistik, sondern den Sollwert.
+  Neu `gpsGegenSoll()` als zweite, unabhängige Prüfung gegen die hinterlegte Schlägerlänge — sie
+  greift auch bei **einem einzigen** Schlag. **Zwei unabhängige Prüfungen sind besser als eine
+  strengere:** Die eine findet, was aus der eigenen Reihe fällt, die andere, was zum Schläger nicht
+  passt. Grenze großzügig (45 %, mindestens 25 m): Gemeldet werden soll, was nicht mehr derselbe
+  Schläger sein kann — nicht ein guter Tag.
+  Die Zeile sagt jetzt auch hier den Grund: „passt nicht zum Schläger (64 m hinterlegt)".
+
+- **v5.46.0 · 2026-09-01** — **Die Ausreißer-Markierung war zu eng, und der Befund führte nirgendwo
+  hin.** Zwei berechtigte Meldungen zu v5.45.
+  **(1) „Warum sind diese zwei Schläge gelb?"** Driver, Median 241 m, markiert waren **218 m** und
+  **260 m**. Nachgerechnet: Die übrigen Werte lagen bei 239–245 m, der mittlere Abstand war **3 m**,
+  und meine feste Mindestbreite von 8 m griff. **Wer beim Driver ab 9 Metern Abweichung warnt, warnt
+  bei jedem zweiten Schlag** — 218 bis 260 m ist für einen Driver keine Auffälligkeit, sondern
+  Dienstag. Eine feste Schwelle passt nicht auf Schläger, deren Längen um den Faktor vier
+  auseinanderliegen: 8 m sind beim Lob Wedge ein Viertel der Schlagweite und beim Driver ein
+  Dreißigstel. Jetzt wächst sie mit — **mindestens 12 % des Medians, nie unter 10 m**. Nachgeprüft:
+  Deine Driver-Reihe ist ruhig, eine 420-m-Fehlmessung fällt weiterhin auf, und beim Wedge greift sie
+  enger. **Lieber eine Warnung zu wenig als eine zu viel:** Eine Markierung, die man ständig sieht,
+  liest man nach einer Woche nicht mehr — und übersieht dann auch die richtige.
+  **Und der Grund steht jetzt an der Zeile** („−23 m zum Median"). „⚠" allein beantwortet nicht die
+  Frage, die man danach stellt.
+  **(2) „Zu klären" — eine Liste statt eines Satzes.** Der Hinweis „1 getrackter Schlag hat keinen
+  Schläger" stand als Satz da, mit einer Anleitung zum Selbersuchen. **Ein Befund ohne Weg zur Stelle
+  ist eine Hausaufgabe, keine Hilfe.** Jetzt steht über der Datenliste ein Bereich mit genau diesen
+  Schlägen — ein Tipp öffnet die Runde bzw. den Schlag.
+  **Dieselbe Quelle wie der Hinweis** (`roundShots()`, der Putts und Abbrüche bereits herausfiltert).
+  Mein erster Anlauf las die Runden roh und kam auf **29 statt 1** — **wer neben einer bestehenden
+  Zählung eine zweite baut, baut einen Widerspruch.**
+
+- **v5.45.0 · 2026-09-01** — **Gemessene Schläge pflegen — je Schläger, mit Bearbeiten und Löschen.**
+  Gewünscht: eine Tabelle je Schläger mit Datum, Länge und Schlagart, „um zu vermeiden, dass
+  unsinnige Schläge aufgeführt werden".
+  **Das füllt eine Lücke, die ich selbst offengelassen habe:** Der Torwächter `schlagPlausibel`
+  (v5.33) verhindert **neue** Ausreißer, räumt aber bestehende nicht weg — und **ab 20 gemessenen
+  Schlägen ersetzen die eigenen Werte die Heuristik**. Ein einziger Unsinn wird dann zur Grundlage
+  jeder Empfehlung, still und einseitig.
+  **Der Ort ist Training → Schlag-GPS, nicht „Schläger".** Ich hatte ihn zuerst falsch benannt —
+  berechtigt korrigiert. Und dort stehen die Messungen ohnehin schon: Eine zweite Liste anderswo wäre
+  eine zweite Wahrheit über dieselben Daten, das Muster, das dieses Projekt in einer Woche viermal
+  gekostet hat.
+  **⚠ markiert auffällige Werte** — Median ± das 1,5-Fache des mittleren Abstands. Ein **Mittelwert
+  wäre hier falsch**: Der Ausreißer zöge ihn zu sich und fiele dann selbst nicht mehr auf. Unter fünf
+  Schlägen wird nichts markiert; „ungewöhnlich" braucht einen Vergleich.
+  **Die Länge ist editierbar — aber nicht still.** Ich hatte davon abgeraten: Eine gemessene Länge
+  ist eine Messung, und wer sie ändert, macht daraus eine Schätzung. Auf ausdrücklichen Wunsch geht
+  es, aber der Schlag trägt danach `handEdit`, erscheint in der Liste mit ✎ und wird protokolliert.
+  **Wer Daten von Hand ändert, muss das später sehen können** — sonst steht in einem halben Jahr eine
+  Zahl im Bestand, von der niemand mehr weiß, ob sie gemessen oder geraten war. Der
+  Plausibilitätstest gilt auch hier, sonst wäre die Handeingabe eine Hintertür am Torwächter vorbei.
+  **Es wird nichts automatisch gelöscht.** Ob ein weiter Schlag ein Fehler oder ein guter Tag war,
+  weiß nur der Spieler. Die App zeigt hin, sie entscheidet nicht.
+
 - **v5.44.0 · 2026-09-01** — **Nachgefragt: „Hast du Doku, Selbstprüfung und Fehlerlog nachgezogen?"
   — Doku ja, Selbstprüfung nein.** Nachgesehen statt behauptet: Alle fünfzehn neuen Funktionen seit
   v5.29 stehen im Referenzabschnitt und im Prüfstand. **Aber die Selbstprüfung kannte keinen der
