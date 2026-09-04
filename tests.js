@@ -10507,7 +10507,32 @@ group("Platzdaten — ein Werkzeug, auf das nichts hinweist, wird nicht benutzt"
   /* Und der Knopf steht dort, wo die Zahl steht, die er verändert. */
   ok("der Verschlanken-Knopf steht bei der Größe",
      /onclick="geoAbspeckenLauf\(\)">🗜 Platzdaten verschlanken/.test(src));
-  ok("und nur bei großen Karten", /if\(kb<=400\) return "";/.test(src));
+  ok("und nur bei großen Karten", /if\(sizeKB<=400\) return "";/.test(src));
+  /* ================================================================
+     EIN KNOPF, DEN MAN SUCHEN MUSS, IST KEIN KNOPF (v5.85)
+     ----------------------------------------------------------------
+     GEMELDET zum zweiten Mal: „Ich finde es nicht."
+     NACHGEMESSEN statt wieder behauptet: Der Knopf WAR da — bei **96 % der
+     Blattlänge**, hinter der kompletten Karte, allen Loch-Knöpfen und
+     sämtlichen Zeichenwerkzeugen. Auf dem Handy mehrere Bildschirmlängen
+     Scrollen.
+     Ich hatte ihn in v5.84 in die Kartentafel gesetzt, weil „ein Knopf gehört
+     dorthin, wo die Zahl steht" — **und übersehen, dass die Tafel selbst ganz
+     unten steht.** Die Größe steht seit je in der KOPFZEILE; dort gehört er
+     hin.
+     **ZWEI KNÖPFE FÜR DIESELBE HANDLUNG SIND EINER ZU VIEL** — man fragt sich
+     beim zweiten, ob er etwas anderes tut. */
+  {
+    const i = src.indexOf("function renderCourseMap(idx){");
+    const e = src.indexOf("\nfunction ", i + 10);
+    const blk = i >= 0 ? src.slice(i, e > i ? e : i + 12000) : "";
+    const n = (blk.match(/geoAbspeckenLauf\(\)/g) || []).length;
+    ok("genau ein Verschlanken-Knopf in der Kartenansicht", n === 1, String(n));
+    /* Und er steht VOR der Karte, nicht dahinter. */
+    ok("und er steht vor dem SVG",
+       blk.indexOf("geoAbspeckenLauf") < blk.indexOf("${sv.svg}"),
+       blk.indexOf("geoAbspeckenLauf") + " vor " + blk.indexOf("${sv.svg}"));
+  }
   /* ES BLEIBT EIN HINWEIS, KEINE AUTOMATIK: Verschlanken ändert Kartendaten,
      und das gehört dem Nutzer. */
   {

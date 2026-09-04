@@ -13,6 +13,24 @@
 
 ---
 
+- **v5.40.0 · 2026-09-01** — **Turnier-Status als Auswahl, Umfang als Feld, Farbe im Kalender.**
+  Gewünscht: Dropdown für den Status, Eingabe für 9 oder 18 Loch, und im Turnierkalender **grün** bei
+  „gemeldet", **gelb** bei „offen".
+  **Warum eine Auswahl besser ist als der bisherige Freitext:** Der Status steuert jetzt eine Farbe.
+  Ein Freitext kann das nicht — „Gemeldet", „gemeldet " und „angemeldet" wären drei Zustände, und die
+  Farbe bliebe aus, ohne dass jemand weiß warum. **Wer eine Eingabe auswertet, muss ihre Werte
+  kennen.**
+  **Die vorhandenen Werte bleiben:** Im Bestand stehen „offen" (7), „geplant" (4), „gemeldet" (1),
+  „optional" (1) — alle vier sind in der Liste, dazu „abgesagt". Ein **unbekannter** Altwert wird
+  zusätzlich aufgenommen, statt beim Öffnen still auf den ersten zu springen: Das bloße Öffnen des
+  Editors darf den Status nicht ändern.
+  **Die Farbe als Balken links, nicht als Fläche** — ein flächig gefärbter Streifen übertönt den
+  Namen des Turniers. **Grün heißt erledigt, gelb heißt offen**, dieselbe Bedeutung wie überall sonst
+  in dieser App. „geplant", „optional" und Leeres bleiben ungefärbt: **Wenn jede Zeile eine Farbe
+  trägt, trägt keine mehr eine Aussage** — und die Frage vor einem Turnier ist genau diese eine: Bin
+  ich gemeldet oder nicht?
+  Der Umfang steht auch in der Kalenderzeile („· 9 Loch").
+
 - **v5.39.0 · 2026-08-31** — **Gelöschte Turniere kamen zurück — es fehlte der Grabstein.** Gemeldet:
   „Wenn ich geplante Turniere lösche, tauchen sie immer wieder auf."
   **Die Ursache:** Das Löschen entfernte den Eintrag aus `DB.tournaments`, legte aber **keinen
