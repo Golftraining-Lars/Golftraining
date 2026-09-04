@@ -13,6 +13,85 @@
 
 ---
 
+- **v5.44.0 · 2026-09-01** — **Nachgefragt: „Hast du Doku, Selbstprüfung und Fehlerlog nachgezogen?"
+  — Doku ja, Selbstprüfung nein.** Nachgesehen statt behauptet: Alle fünfzehn neuen Funktionen seit
+  v5.29 stehen im Referenzabschnitt und im Prüfstand. **Aber die Selbstprüfung kannte keinen der
+  neuen Bereiche.** Wettkämpfe, geplante Turniere, Kalender und Anmeldefrist standen im Bestand, ohne
+  dass sie sie anschaute — sie meldete „6 in Ordnung" und sah dabei über ganze Listen hinweg.
+  **Eine Selbstprüfung, die neue Bereiche nicht kennt, wird mit jeder Fassung weniger wert — und
+  zwar unauffällig:** Sie bleibt grün, während der Anteil, den sie überhaupt anschaut, schrumpft. Das
+  ist gefährlicher als eine, die rot wird.
+  Neu in `pruefeDaten`: doppelte **Abgleich-Schlüssel** bei Wettkämpfen (der Fehler aus v5.38 wäre so
+  sichtbar gewesen), Wettkämpfe **ohne Datum**, Anteil **mit Lochergebnissen**, geplante Turniere
+  **ohne Zeitstempel** (der Fehler aus v5.39), **unbekannte Status** (die färben nicht und fallen aus
+  der Anmelde-Erinnerung — sie sehen aus wie gepflegt und sind es nicht), **offene Anmeldungen**, und
+  der Zustand des **Kalenders** samt Alter des letzten Standes.
+  **Fehlerprotokoll:** Die Umbuchung Runde → Turnier hinterließ keine Spur. Eine Runde verschwindet
+  aus einer Liste und taucht in einer anderen auf — wer später sucht, warum sie fehlt, soll die
+  Antwort finden statt einer Lücke.
+  **Prüfstand 24fq ist die Sperrklinke dagegen:** Er führt die Bereiche namentlich, die `pruefeDaten`
+  kennen muss. Wer eine Liste hinzufügt, muss sie dort eintragen — und stolpert dabei über die Frage,
+  was an ihr schiefgehen kann.
+
+- **v5.43.0 · 2026-09-01** — **Turnierfarben neu, und eine Erinnerung an die Anmeldung.**
+  **Drei Zustände statt zwei:** grün = **gemeldet** (erledigt), gelb = **geplant** (da ist noch etwas
+  zu tun), rot = **offen** (keine Entscheidung, und das Datum läuft). Die Reihenfolge Grün–Gelb–Rot
+  trägt dieselbe Bedeutung wie überall sonst in dieser App.
+  **Erinnerung drei Wochen vorher:** Steht ein Turnier auf „geplant" und ist es höchstens 21 Tage
+  entfernt, erscheint beim Start ein Hinweis — **bei jedem Start, bis der Status auf „gemeldet"
+  steht**.
+  **Der Status ist die Erledigungsmarke** — deshalb kommt die Erinnerung **ohne eigenen Speicher**
+  aus. Sie merkt sich nicht, ob sie schon gezeigt wurde; sie liest jedes Mal denselben Zustand. Damit
+  kann sie nicht vergessen, nicht hinterherhinken und auf zwei Geräten nicht auseinanderlaufen.
+  **Eine Erinnerung, die man wegklicken kann, ist keine — eine, die man nicht wegklicken kann, ist
+  eine Zumutung.** Der Ausgleich: Sie verschwindet für die Sitzung und kommt beim nächsten Start
+  wieder. Ein Tipp führt in den Turnier-Reiter, wo man es erledigt — **ein Hinweis ohne Weg zur
+  Handlung erzeugt nur Druck.**
+  **Keine Untergrenze:** Auch am Turniertag wird noch erinnert, solange „geplant" steht. Wer die
+  Frist verpasst hat, will das wissen — nicht, dass die App ab Tag X schweigt. Vergangene Turniere
+  schweigen: Danach ist die Anmeldung keine Handlung mehr, sondern Geschichte.
+  **Von der Sperrklinke gefangen:** Der neue Zeitgeber im Startpfad wurde von Prüfstand 24eu sofort
+  gemeldet — genau dafür gibt es sie. Er steht jetzt namentlich in der erlaubten Liste.
+
+- **v5.42.0 · 2026-09-01** — **Die Loch-Eingabe im Turniereditor war unlesbar.** Gemeldet: „Ich
+  verstehe die Spalten nicht. Sollte es nicht maximal zwei Spalten geben — Gesamtscore und Anzahl
+  Putts? Ich kann mit der aktuellen Darstellung nichts anfangen." **Berechtigt, und zweimal falsch
+  gebaut.**
+  **(1) Keine Überschrift.** Drei gleich aussehende Felder je Zeile, und der Platzhalter („Par",
+  „Schläge", „Putts") verschwindet, sobald ein Wert drinsteht. Beim **Bearbeiten** — also immer dann,
+  wenn schon Werte da sind — war die Maske damit unlesbar. **Ein Platzhalter ist keine Beschriftung:
+  Er verschwindet genau dann, wenn man ihn braucht.**
+  **(2) Par als Eingabe.** Das Par steht am Platz, es ist keine Leistung des Spielers. Wer es
+  abtippt, kann sich vertippen — und dann rechnet alles Weitere falsch, ohne dass jemand es merkt.
+  **Was die App weiß, fragt sie nicht.**
+  Jetzt: eine **Überschriftszeile**, Par als **Zahl** neben der Lochnummer, und Eingabe nur noch für
+  **Schläge und Putts** — die zwei Spalten, nach denen gefragt war. Ist der Platz unbekannt (beim
+  Nachtragen eines fremden Turniers der Normalfall), erscheint das Par-Feld wieder: Ohne Par gibt es
+  kein Stableford und kein „gegen Par".
+
+- **v5.41.0 · 2026-09-01 · worker v2.12** — **Google-Kalender: anzeigen, ändern, eintragen.**
+  **Zuerst die Einschränkung, die den Weg bestimmt hat:** Ein *abonnierter* ICS-Kalender ist in
+  Google **schreibgeschützt** — man kann darin nichts anlegen, verschieben oder löschen, und es gibt
+  keinen Rückkanal. Deshalb liefert **nicht** das Repo den Kalender, sondern **Google selbst ist die
+  Quelle**: ein eigener Kalender „Golf", öffentlich freigegeben.
+  Damit geht alles Gewünschte — **ändern in Google** (es ist dein Kalender), **anzeigen in der App**
+  (unter „Mehr", über den Worker geholt), **anlegen aus der App** (ein Tipp öffnet Googles Formular
+  vorausgefüllt). **Kein OAuth, keine Token, kein Google-Cloud-Projekt** — und das Repo bleibt aus
+  dem Spiel, also auch die Frage nach der öffentlichen Lesbarkeit.
+  **Die Entscheidung dahinter: Google ist führend für Termine.** Dieselbe Bauart wie „Handy ist
+  führend" bei der Runde. Zwei Orte, die dasselbe verwalten dürfen, laufen auseinander — dieses
+  Projekt hat das in einer Woche viermal bezahlt. Die App **zeigt** und **hilft beim Anlegen**, sie
+  verwaltet nicht. Der Turnierkalender in der App bleibt, was er ist: Planung mit Priorität und
+  Vorbereitungsfenster, Dinge, die in keinen Kalender gehören.
+  **`worker v2.12`** reicht ICS durch — **ausschließlich von Google, nur über https, mit
+  Größengrenze**. Ein Worker, der beliebige Adressen abruft, ist ein offener Weiterleiter; der wird
+  gefunden und missbraucht. Die Beschränkung ist keine Vorsicht, sondern Pflicht.
+  **Ehrlich zur Lücke:** Serientermine werden **nicht aufgelöst** — ein wöchentliches Training
+  erscheint nur mit seinem nächsten Termin, gekennzeichnet mit ↻. Wiederholungsregeln korrekt
+  aufzulösen (Ausnahmen, Zeitzonen, Sommerzeit) ist ein eigenes Stück Arbeit, und eine halb richtige
+  Auflösung wäre schlimmer als gar keine. **Offline ist kein Fehler:** Es wird der letzte Stand mit
+  seinem Alter gezeigt.
+
 - **v5.40.0 · 2026-09-01** — **Turnier-Status als Auswahl, Umfang als Feld, Farbe im Kalender.**
   Gewünscht: Dropdown für den Status, Eingabe für 9 oder 18 Loch, und im Turnierkalender **grün** bei
   „gemeldet", **gelb** bei „offen".

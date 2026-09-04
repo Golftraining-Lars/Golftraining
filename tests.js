@@ -338,7 +338,7 @@ try {
   /* WICHTIG: bei vm.runInContext landen nur `var` und `function` am Kontext —
      `const STRAT = {...}` bleibt im Blockscope unsichtbar. Deshalb ein Epilog,
      der die benoetigten Namen aktiv herausreicht. */
-  const namen = ["_phoneLive","playHoleStamp","PLAY","repairListenFormen","bagBewertung","clubNorm","_mergeObj","_leerWert","mergeDB","MERGE_KEY","EQUIP_FELDER","EQUIP_GRUPPEN","EQUIP_ALT_KEYS","equipAltRaeumen","ensureSeedGoals","_zielSchluessel","goalCurrent","trainingsEmpfehlung","goalIst","goalPlan","goalFortschritt","goalErreicht","goalHochIstGut","_zielMed","zielFeldDef","ZIEL_QUELLEN","ZIEL_FELDER","testZaehltNicht","testDefsAusgewertet","lmShotKey","lmNurNeue","lmDubletten","LM_ALLE","lmSetClub","playKopfraum","playKopfAnteil","aimUmweg","sgAbdeckungsQuote","sgPuttSchieflage","sgWarnHtml","sgRound","sgEnrich","turnierNaehe","wakeAn","wakeAus","_wakeGruende","kraftVerlauf","standNeuer","wetterSetzen","mobBaseline","MOB_KEYS","_fitMedian","_fitVergleich","isoWoche","kraftNorm","est1RM","kraftVerlauf","_dgmAbstandZuStrecke","gpFingerprint","clubList","gpHoleFrisch","gpKey","activeHoles","dispersionFor","clubNorm","lageAusGps","gruenListeHtml","STAMP_LISTEN","schlagNeutral","gpsShotsNachziehen","_aimApproachEv","watchElevProfil","dgmSetzen",
+  const namen = ["_phoneLive","playHoleStamp","PLAY","repairListenFormen","bagBewertung","clubNorm","_mergeObj","_leerWert","mergeDB","MERGE_KEY","EQUIP_FELDER","EQUIP_GRUPPEN","EQUIP_ALT_KEYS","equipAltRaeumen","ensureSeedGoals","_zielSchluessel","goalCurrent","trainingsEmpfehlung","goalIst","goalPlan","goalFortschritt","goalErreicht","goalHochIstGut","_zielMed","zielFeldDef","ZIEL_QUELLEN","ZIEL_FELDER","testZaehltNicht","testDefsAusgewertet","lmShotKey","lmNurNeue","lmDubletten","LM_ALLE","lmSetClub","playKopfraum","playKopfAnteil","aimUmweg","sgAbdeckungsQuote","sgPuttSchieflage","sgWarnHtml","sgRound","sgEnrich","turnierNaehe","wakeAn","wakeAus","_wakeGruende","kraftVerlauf","standNeuer","wetterSetzen","mobBaseline","MOB_KEYS","_fitMedian","_fitVergleich","isoWoche","kraftNorm","est1RM","kraftVerlauf","_dgmAbstandZuStrecke","gpFingerprint","clubList","gpHoleFrisch","gpKey","activeHoles","dispersionFor","clubNorm","lageAusGps","windPfeil","gpsAlleHtml","gruenListeHtml","STAMP_LISTEN","schlagNeutral","gpsShotsNachziehen","_aimApproachEv","watchElevProfil","dgmSetzen",
                  "schlagNeutral","neutralBasis","gpsShotsNachziehen","elevQuelle","elevQuelleText","dgmRahmen","dgmIdx","dgmZelleMitte","dgmZellen","dgmHoehe","dgmNeigung","dgmKey",
                  "STRAT","clubPick","playsLike","pinPoint","geoDist","playMapBox",
                  "liveStart","liveStop","liveStopAll","liveVerbraucher","LIVEPOS",
@@ -1615,7 +1615,26 @@ group("playTooFar — der Caddy schweigt außerhalb des Platzes");
       const src=fs.readFileSync(FILE,"utf8");
       const roh=codeOhneDoku(src);
       const stellen=[...roh.matchAll(/greenFMB\(PLAY\.here/g)].map(m=>m.index);
-      ok("es gibt genau drei F/M/B-Anzeigen", stellen.length===3, String(stellen.length));
+      /* v5.87: VIER Stellen — die vierte ist der Auffrischer im GPS-Takt.
+         GEMELDET: Oben stand „F 102 · M 111 · B 120", in der Karte darunter
+         „99 · 108 · 117" — gleichzeitig sichtbar, drei Meter auseinander. Der
+         Streifen wurde in `pfRender()` gerechnet, die Karte in
+         `playLiveRefresh`, und bei jedem GPS-Takt lief nur der zweite Weg.
+         **Eine Optimierung, die mehr ausspart als nötig, erzeugt
+         Widersprüche:** Gespart war die teure Monte-Carlo-Rechnung,
+         mitgespart die billige — und die stand sichtbar daneben.
+         Die Regel unten gilt für alle vier gleichermaßen. */
+      ok("es gibt genau vier F/M/B-Anzeigen", stellen.length===4, String(stellen.length));
+      /* UND DER STREIFEN WIRD IM TAKT MITGEZOGEN — sonst steht er wieder
+         still, während die Karte weiterläuft. */
+      ok("der Kopfstreifen hat eine Kennung", /class="pf-fmb" id="pfFmb"/.test(src));
+      ok("und wird im GPS-Takt aufgefrischt",
+         /getElementById\("pfFmb"\)/.test(roh)
+         && /playLiveRefresh[\s\S]{0,60}?\{/.test(roh));
+      /* NUR DIE ZAHLEN, NICHT DIE ZEILE: Ein `innerHTML` auf den ganzen Kopf
+         würde bei jedem Takt Score und Lochangabe neu bauen. */
+      ok("nur die drei Zahlen werden gesetzt",
+         /sp\[0\]\.innerHTML="<i>F<\/i>"/.test(roh) && /sp\[2\]\.innerHTML="<i>B<\/i>"/.test(roh));
       /* BLOCKGRENZE STATT FENSTER (v5.73). Hier stand ein Ausschnitt von 1800
          Zeichen vor der Fundstelle — er riss, als die Einzelloch-Auffrischung
          davor kam. Achter Fall dieser Art. Gesucht wird `playTooFar` im
@@ -4582,7 +4601,12 @@ group("Beweglichkeit — fünf Tests, Maßstab ist die eigene Erstmessung");
 group("Zielkette — der Schläger folgt der gespielten Distanz");
 {
   const src = fs.readFileSync(FILE, "utf8");
-  const ab = src.slice(src.indexOf("function _aimBuild"), src.indexOf("function _aimBuild") + 16000);
+  /* BLOCKGRENZE STATT FENSTER (v5.86). Hier stand ein Ausschnitt von 16.000
+     Zeichen — er riss, als die Begründung zum Kategorienfehler dazukam. Der
+     neunte Fall dieser Art; die Regel steht im Kopf dieser Datei. */
+  const _abi = src.indexOf("function _aimBuild");
+  const _abe = src.indexOf("\nfunction _aimChainKey", _abi);
+  const ab = src.slice(_abi, _abe > _abi ? _abe : _abi + 40000);
 
   /* DER FEHLER (v4.15): `d` ist die GEOMETRISCHE Strecke zwischen zwei
      Kettenpunkten — und genau damit wurde der Schläger gewählt. Wind,
@@ -4604,8 +4628,13 @@ group("Zielkette — der Schläger folgt der gespielten Distanz");
        fliegen. Obere jetzt am GESAMT mit Auslauf: Der Zielpunkt liegt dort,
        und gegen den Carry geprüft verwarf die Beschriftung den eigenen
        Vorschlag des Caddy. */
-    ok("zu kurz bleibt ausgeschlossen", /dSpielt >= carry\*0\.85/.test(ab));
-    ok("zu lang ebenso, aber mit Auslauf", /dSpielt <= Math\.max\(carry, total\)\*1\.05/.test(ab));
+    /* v5.86: gegen `d`, die GEOMETRISCHE Strecke — nicht gegen `dSpielt`.
+       **Spielt-wie gegen Reichweite ist ein Kategorienfehler:** In `dSpielt`
+       stecken Wind und Höhe bereits, in `carry`/`dist` nicht. Die beiden zu
+       vergleichen heißt, den Gegenwind zweimal zu bezahlen — einmal in der
+       Zahl und einmal beim Schläger. */
+    ok("zu kurz bleibt ausgeschlossen", /d >= carry\*0\.85/.test(ab));
+    ok("zu lang ebenso, aber mit Auslauf", /d <= Math\.max\(carry, total\)\*1\.05/.test(ab));
   ok("und nicht mehr gegen die geometrische Strecke",
      !/return !\(reach>0\) \|\| d >= reach\*0\.85;/.test(ab));
 
@@ -4717,8 +4746,12 @@ group("Die App darf nichts behaupten, was sie nicht geprüft hat");
      Carry. Der Zielpunkt liegt bei Carry plus Auslauf — gegen den Carry
      geprüft fiel der eigene Vorschlag des Caddy um einen Meter durch seine
      eigene Prüfung (2 Iron: carry 187, total 200, Ziel 197). */
-  ok("der eingezeichnete Schläger muss die gespielte Distanz tragen",
-     /dSpielt <= Math\.max\(carry, total\)\*1\.05/.test(src));
+  /* v5.86: „die gespielte Distanz" war die falsche Größe — geprüft wird die
+     STRECKE. Der Caddy hat Wind und Höhe schon eingerechnet, als er den
+     Schläger wählte; die Beschriftung muss nur noch prüfen, ob dieser
+     Schläger die Strecke überhaupt schafft. */
+  ok("der eingezeichnete Schläger muss die Strecke tragen",
+     /d <= Math\.max\(carry, total\)\*1\.05/.test(src));
   ok("„Höhe unbekannt“ unterscheidet fünf Fälle",
      /kein Höhenraster für diesen Platz/.test(src) && /außerhalb des geladenen Streifens/.test(src));
   ok("Kopfzeile und Karte lesen dieselbe Entscheidung",
@@ -10459,6 +10492,119 @@ group("Schlag-GPS — Ausreißer sehen und loswerden");
   }
 }
 
+/* ============ 24gp. Gemessen und neutral nebeneinander ============ */
+group("Schlag-GPS — eine Zahl, die man für beides hält");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+  const WP = G("windPfeil"), GA = G("gpsAlleHtml");
+
+  /* ====================================================================
+     GEWÜNSCHT am 03.09.2026 (v5.89)
+     --------------------------------------------------------------------
+     „Ich möchte, dass auf der Seite Schlag-GPS auch angezeigt wird, wie die
+     Länge der Schläge vor und nach der Umrechnung war und was die
+     Umgebungsparameter waren."
+     DIE ZAHLEN LAGEN SCHON DA: `dist` ist die gemessene Strecke,
+     `distNeutral` dieselbe auf Standardbedingungen zurückgerechnet, `wx`
+     trägt Temperatur, Wind und Richtung (seit v4.88). **Angezeigt wurde nur
+     die erste.**
+     WARUM BEIDE ZÄHLEN: Die gemessene Zahl sagt, was an DIESEM Tag passiert
+     ist — die neutrale, was der Schläger KANN. Für die Bag ist die zweite
+     richtig, für die Erinnerung an die Runde die erste. **Wer nur eine sieht,
+     hält sie für beides.** */
+  ok("die neutrale Länge steht daneben",
+     /→ \$\{Math\.round\(x\.distNeutral\)\} m neutral/.test(src));
+  /* NUR WENN SIE SICH UNTERSCHEIDEN: Bei Windstille sind sie gleich, und dann
+     wäre die zweite Zahl bloßes Rauschen. */
+  ok("aber nur bei echtem Unterschied",
+     /Math\.abs\(x\.distNeutral-x\.dist\)>=1/.test(src));
+  /* DIE BEDINGUNGEN DAZU — sie sind der Grund für den Unterschied. Ohne sie
+     steht dort eine Korrektur, die man nicht nachvollziehen kann, und das ist
+     schlimmer als keine. */
+  ok("die Bedingungen stehen dabei", /class="gs-wx">/.test(src));
+
+  /* ---- Windrichtung: vier Stufen, nicht Gradzahlen ----
+     Zwei Gradzahlen nebeneinander sagen niemandem etwas; der UNTERSCHIED ist
+     die Auskunft. **Feiner wäre Genauigkeit vorgetäuscht** — die Richtung
+     stammt aus einer Vorhersage fürs Gebiet, nicht aus einer Messung auf der
+     Bahn. */
+  if (typeof WP === "function") {
+    ok("Wind von hinten heißt Rücken", /Rücken/.test(WP(180, 0)), WP(180, 0));
+    ok("Wind von vorn heißt Gegen", /Gegen/.test(WP(0, 0)), WP(0, 0));
+    ok("und die Seiten stimmen",
+       WP(90, 0) !== WP(270, 0) && !!WP(90, 0) && !!WP(270, 0),
+       WP(90, 0) + " / " + WP(270, 0));
+    /* Ohne Angabe keine erfundene Richtung. */
+    ok("ohne Daten keine Richtung", WP(null, 0) === "" && WP(180, null) === "");
+    /* Und die Drehung ist rundum stabil — 360° darf nicht kippen. */
+    ok("rundum stabil", WP(180, 0) === WP(540, 360), WP(540, 360));
+  }
+  if (typeof GA === "function") {
+    const h = GA();
+    ok("die Liste baut sich weiterhin", typeof h === "string" && h.length > 0);
+  }
+}
+
+/* ============ 24go. Der Annäherungs-Zweig bekommt dieselbe Form ============ */
+group("Caddy — drei Zweige, eine Form");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+  const S = G("STRAT"), DB0 = live("DB");
+
+  /* ====================================================================
+     GEFRAGT am 03.09.2026 (v5.88)
+     --------------------------------------------------------------------
+     „Warum unterscheidet sich diese Caddy-Anzeige so stark im Aufbau von der
+     üblichen?"
+     **WEIL DIESER ZWEIG DIE UMSTELLUNG VON v5.20 NIE MITGEMACHT HAT.** Dort
+     kam die Drei-Zeilen-Form — *was* / *weil* / *statt* — mit der Begründung:
+     „Die dritte Zeile ist die wichtigste; sie beantwortet, warum die Zahl,
+     die schlechter aussieht, gewinnt." Abschlag und Kette bekamen sie, der
+     ANNÄHERUNGS-Zweig nicht. Dort stand bis heute die alte Form, die v5.20
+     als „nicht gelöscht — nicht mehr im Weg" beschrieb. **Sie war doch noch
+     im Weg, an einer Stelle.**
+     ZUM ZWEITEN MAL AN DERSELBEN STELLE: v4.2 hält wörtlich fest „Es gibt
+     DREI Zweige, nicht zwei — der Annäherungs-Zweig wurde übersehen." */
+  ok("der Annäherungs-Zweig hat eine weil-Zeile",
+     /cd-k">weil<\/span><span>bester Erwartungswert/.test(src));
+  ok("und eine statt-Zeile", /const _apStatt=\(\(\)=>\{/.test(src));
+  /* DAS STREUBILD BLEIBT — es ist die Begründung dieses Zweigs, so wie
+     „Fairway 55 %" die des Abschlags. */
+  ok("das Streubild bleibt erhalten", /Streubild: Grün \$\{ap\.fracs\.green\}/.test(src));
+
+  /* ---- Für die statt-Zeile brauchte es erst eine Alternative ----
+     `approach` merkte sich nur den Besten. **Ein Vergleich ohne
+     Vergleichspartner ist keiner.**
+     UND ES MUSS EIN ANDERER SCHLÄGER SEIN: Die Schleife läuft über Schläger
+     UND Zielpunkte, der Zweitbeste war deshalb fast immer DERSELBE Schläger
+     ein paar Meter daneben — als „statt"-Zeile wertlos, weil sie keine Wahl
+     beschreibt. */
+  ok("approach gibt eine Alternative heraus", /return \{best, alt:zweit,/.test(src));
+  ok("und sie ist ein ANDERER Schläger",
+     /if\(!best\|\|!best\.club\|\|n===best\.club\.name\) return;/.test(src));
+  if (S && typeof S.approach === "function" && DB0) {
+    const c = (DB0.courses || []).find(x => x && /Nordplatz/.test(x.name) && x.geo);
+    const HR = G("holeRef"), GD = G("geoDist");
+    if (c && HR && GD) {
+      const hr = HR(c.geo, 14);
+      if (hr && hr.tee && hr.green) {
+        const von = [hr.green[0] + (hr.tee[0] - hr.green[0]) * 0.33,
+                     hr.green[1] + (hr.tee[1] - hr.green[1]) * 0.33];
+        const ap = S.approach(c.geo, c.name, 14, von, Math.round(GD(von, hr.green)), "bal", 20);
+        ok("am echten Loch gibt es eine Alternative", !!(ap && ap.alt),
+           ap && ap.alt ? ap.alt.club.name : "keine");
+        ok("und sie ist nicht derselbe Schläger",
+           !ap || !ap.alt || ap.alt.club.name !== ap.best.club.name,
+           ap && ap.alt ? (ap.best.club.name + " gegen " + ap.alt.club.name) : "-");
+        /* Und sie ist wirklich schlechter — sonst wäre die Wahl falsch. */
+        ok("die Alternative ist schlechter",
+           !ap || !ap.alt || ap.alt.ev.es >= ap.best.ev.es,
+           ap && ap.alt ? (ap.best.ev.es.toFixed(2) + " gegen " + ap.alt.ev.es.toFixed(2)) : "-");
+      }
+    }
+  }
+}
+
 /* ============ 24gn. Übergewichtige Platzdaten ============ */
 group("Platzdaten — ein Werkzeug, auf das nichts hinweist, wird nicht benutzt");
 {
@@ -10861,8 +11007,39 @@ group("Zielkette — die Beschriftung darf nicht zweiter Entscheider sein");
      **EINE PRÜFUNG, DIE DEN EIGENEN VORSCHLAG SYSTEMATISCH VERWIRFT, IST
      KEINE PRÜFUNG, SONDERN EIN ZWEITER ENTSCHEIDER.** Und zwei Entscheider
      für dieselbe Frage widersprechen sich. */
+  /* v5.86: gegen `d` statt `dSpielt` — siehe oben. */
+  /* ================================================================
+     BEI GEGENWIND MUSS ES ERST RECHT STIMMEN (v5.86)
+     ----------------------------------------------------------------
+     GEMELDET zu Loch 10 Nordplatz: Kopfzeile „Driver", ausgeklappt „3 Wood".
+     NACHGEMESSEN: Ziel 197 m entfernt, bei 5 m/s Gegenwind und 2,2 m bergauf
+     spielt es wie 217 m. `_aimClub(197)` gibt **3 Wood**, `_aimClub(217)`
+     gibt **Driver** — und die Prüfung fragte mit 217.
+     **Bei Windstille fällt es nicht auf, weil beide Zahlen dann gleich sind.**
+     Genau deshalb hat der Fehler so lange gehalten, und genau deshalb prüft
+     das hier MIT Wind. */
+  {
+    const AC = G("_aimClub"), CC = G("caddyClubs");
+    if (typeof AC === "function" && typeof CC === "function") {
+      const clubs = CC() || [];
+      if (clubs.length) {
+        const kurz = AC(clubs, 197, true), lang = AC(clubs, 217, true);
+        ok("Strecke und spielt-wie führen zu verschiedenen Schlägern",
+           kurz && lang && kurz.name !== lang.name,
+           (kurz ? kurz.name : "-") + " gegen " + (lang ? lang.name : "-"));
+        /* Und die Prüfung nimmt die STRECKE — sonst verwirft sie den
+           Schläger des Caddy, sobald Wind weht. */
+        /* OHNE FENSTER: Der `evPasst`-Block wird geschnitten. */
+        const ei = ab.indexOf("const evPasst = evClub &&");
+        const ee = ab.indexOf("})();", ei);
+        const eblk = ei >= 0 && ee > ei ? ab.slice(ei, ee) : "";
+        ok("die Prüfung nimmt die Strecke", /return d >= carry/.test(eblk));
+      }
+    }
+  }
+
   ok("das Fenster kennt den Auslauf",
-     /return dSpielt >= carry\*0\.85 && dSpielt <= Math\.max\(carry, total\)\*1\.05;/.test(src));
+     /return d >= carry\*0\.85 && d <= Math\.max\(carry, total\)\*1\.05;/.test(src));
 
   /* ---- Und der Nachweis am Ergebnis: beide müssen dasselbe sagen ---- */
   if (S && typeof P === "function" && DB0 && PL) {
