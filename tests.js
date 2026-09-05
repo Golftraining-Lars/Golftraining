@@ -11103,6 +11103,37 @@ group("Caddy — drei Zweige, eine Form");
   }
 
   /* ================================================================
+     DER DRITTE ZWEIG — TRANSPORTSCHLÄGE (v5.99)
+     ----------------------------------------------------------------
+     GEMELDET am 05.09.: „Bei Approach und Tee ist es angepasst. Bei
+     Transportschlägen anscheinend nicht."
+     DIESER ZWEIG IST ANDERS GEBAUT UND ZU RECHT: Er zeigt einen PLAN über
+     drei Schläge — Abschlag, Layup, Grün —, keine Einzelentscheidung. Ihn
+     stumpf in drei Zeilen zu pressen würde den Plan zerstören.
+     **ABER DIE ERSTE ZEILE IST SEHR WOHL EINE ENTSCHEIDUNG:** Welchen
+     Schläger nehme ich JETZT? Genau dafür gibt es die Form, und genau dort
+     fehlte sie. Der erste Schlag bekommt *weil* und *statt*, die folgenden
+     bleiben Fortsetzung des Plans.
+     **DRITTER ZWEIG, DRITTES MAL DIESELBE LEHRE:** v5.88 zog den
+     Annäherungs-Zweig nach, v5.97 seinen Inhalt — und diesen hier habe ich
+     beide Male übersehen. **Es gibt drei Zweige; das steht seit v4.2 in der
+     Doku, und ich habe es zum dritten Mal vergessen.** */
+  {
+    ok("der erste Transportschlag bekommt die drei Zeilen",
+       /shots=p\.shots\.map\(\(s,i\)=>\{/.test(src) && /if\(i===0\)\{/.test(src));
+    ok("mit weil-Zeile", /cd-k">weil<\/span><span>\$\{s\.why\}/.test(src));
+    /* DIE ALTERNATIVE LAG SCHON VOR (`p.alt`) und stand als Kasten weit
+       unten. Sie gehört an die Entscheidung, die sie betrifft. */
+    ok("und die Alternative als statt-Zeile",
+       /cd-k">statt<\/span><span>\$\{\s*esc\(p\.alt\.txt/.test(src));
+    ok("der Kasten unten ist leer", /const alt="";/.test(src));
+    /* DIE FOLGESCHLÄGE BLEIBEN EINE LISTE — sie sind der Plan, keine
+       Entscheidung. Drei Zeilen für jeden wären Formalismus. */
+    ok("die Folgeschläge bleiben als Plan",
+       (src.match(/cad-why">\$\{s\.why\}/g) || []).length >= 1);
+  }
+
+  /* ================================================================
      DIE FORM ANGEGLICHEN, DEN INHALT VERGESSEN (v5.97)
      ----------------------------------------------------------------
      GEMELDET am 05.09.: „Bei der Annäherung wird weiterhin nicht die

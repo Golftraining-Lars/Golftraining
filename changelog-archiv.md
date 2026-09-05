@@ -13,6 +13,26 @@
 
 ---
 
+- **v5.54.0 · 2026-09-01** — **Der Kalender weiß wann, die Ziele wissen was — jetzt reden sie
+  miteinander.** Gewünscht: „Man sieht ja, wo ich Zeit zur Verfügung habe für Training — und dann
+  ganz konkret in den Zeiten Trainingsabläufe planen." Auf **Heute**, wie gewünscht: Ein
+  Trainingsplan, den man aufrufen muss, sieht man am Trainingstag nicht.
+  **Drei Bestände, die einander nicht kannten:** Der Kalender weiß **wann** (Termine mit
+  „Golftraining" im Titel), die Saisonziele wissen **was** (243 Stück, 32 mit Testbezug und
+  Zielwert), die Tests wissen **wo es hakt**. Zusammengesetzt wurden sie nie.
+  Der Vorschlag für ein 90-Minuten-Fenster sieht dann so aus: *20 min Aufwärmen · 35 min Pelz Score
+  (zuletzt 76, Ziel 140) · 18 min Lag Putting · 17 min Scrambling Zone* — nach **Rückstand**
+  gewichtet, mindestens 15 Minuten je Block, weil es kürzer Aktionismus wird.
+  **Der Rückstand ist relativ, nicht absolut:** „5 Punkte fehlen" heißt bei einem Ziel von 15 etwas
+  anderes als bei einem von 200. Erreichte Ziele fallen raus, und ein Elite-Ziel aus Phase 4 gehört
+  nicht in die Trainingswoche von Phase 2. Aufwärmen ist gesetzt, wächst aber nicht mit — bei drei
+  Stunden braucht man keine 45 Minuten.
+  **Die Minuten sind gesetzt, nicht gemessen.** Es gibt keine Daten darüber, wie lange eine Übung
+  braucht; sie stehen im Code, damit man sie diskutieren kann statt sie zu suchen.
+  **Es ist ein Vorschlag, kein Plan:** Nichts wird gespeichert, nichts in den Kalender geschrieben.
+  **Google bleibt führend für Termine** — ein zweiter Schreiber wäre das Muster, das dieses Projekt
+  in einer Woche fünfmal gekostet hat.
+
 - **v5.53.0 · 2026-09-01** — **„Die Empfehlung wirkt nicht korrekt" — der Caddy hatte recht, die
   Karte nicht.** Loch 1 auf Fehmarn: Kopfzeile **360 m**, App **439 m**, Vorschlag Driver plus
   3 Wood.
