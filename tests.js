@@ -11075,6 +11075,38 @@ group("Caddy — drei Zweige, eine Form");
      „Fairway 55 %" die des Abschlags. */
   ok("das Streubild bleibt erhalten", /Streubild: Grün \$\{ap\.fracs\.green\}/.test(src));
 
+  /* ================================================================
+     DIE FORM ANGEGLICHEN, DEN INHALT VERGESSEN (v5.97)
+     ----------------------------------------------------------------
+     GEMELDET am 05.09.: „Bei der Annäherung wird weiterhin nicht die
+     gewünschte Caddy-Ansicht gezeigt."
+     ZU RECHT — v5.88 zog NUR die drei Zeilen nach und übersah drei Elemente,
+     die den Abschlag ausmachen: `modiZeile` (was die anderen Spielweisen
+     empfehlen), `warumNichtHtml` (die Auswahl „Warum nicht …?") und
+     `caddyVergleichHtml` (die Gegenrechnung).
+     **ICH HABE DIE FORM ANGEGLICHEN UND DEN INHALT VERGESSEN** — genau der
+     Fehler, den dieses Projekt diese Woche fünfmal in Zwischenspeichern
+     hatte: eine Umstellung an einer Stelle gemacht, die zweite Hälfte
+     übersehen.
+     DESHALB PRÜFT DAS HIER JETZT DAS MUSTER, NICHT DIE LISTE: Jedes Element,
+     das der Abschlag zeigt, muss auch der Annäherungs-Zweig zeigen. Wer eins
+     ergänzt, muss hier vorbeikommen. */
+  {
+    const ai = src.indexOf("const ap=STRAT.approach(geo,PLAY.course,h.hole,PLAY.here,mid");
+    const ae = src.indexOf("const shots=p.shots", ai);
+    const ap = ai >= 0 && ae > ai ? src.slice(ai, ae) : "";
+    ["modiZeile", "warumNichtHtml", "caddyVergleichHtml"].forEach(f => {
+      ok("der Annäherungs-Zweig zeigt " + f, ap.indexOf(f) >= 0);
+    });
+    /* Und der Abschlag hat sie weiterhin — sonst hätte ich die falsche Seite
+       angeglichen. */
+    const ti = src.indexOf("${caddyDreiZeilen(ev, b, _spieltWieM(_now), gesamt, zweiSchlaege)}");
+    const tee = ti >= 0 ? src.slice(ti, ti + 1200) : "";
+    ["modi", "warumNichtHtml", "caddyVergleichHtml"].forEach(f => {
+      ok("der Abschlag zeigt " + f + " weiterhin", tee.indexOf(f) >= 0);
+    });
+  }
+
   /* ---- Für die statt-Zeile brauchte es erst eine Alternative ----
      `approach` merkte sich nur den Besten. **Ein Vergleich ohne
      Vergleichspartner ist keiner.**
@@ -17010,8 +17042,20 @@ group("Caddy — vollständig sichtbar, Bedingungen, 2 Iron nur vom Tee");
     const mitZeile = (src.match(/<div class="play-caddy">\$\{(?:kartenWarnung\}\$\{)?(?:aimUmwegHtml\(\)\}\$\{)?(?:_pinZeile\}\$\{)?(?:spieltWie|condZeile|caddyDreiZeilen|weatherEffectHtml)/g) || []).length;
     ok("jeder beginnt mit der Bedingungszeile", mitZeile === zweige,
        mitZeile + " von " + zweige);
+    /* v5.97: Die eigene Kopfzeile `pc-head` ist entfallen — der
+       Annäherungs-Zweig beginnt jetzt wie die anderen mit `cd-was`.
+       **Die erste Zeile ist die, die man liest:** Sieht sie anders aus, sieht
+       die ganze Ansicht anders aus, auch wenn darunter dieselben drei Zeilen
+       stehen. v5.88 hatte die Begründung angeglichen und die Überschrift
+       übersehen. */
     ok("der Annäherungs-Zweig ruft condZeile",
-       /<div class="play-caddy">\$\{aimUmwegHtml\(\)\}\$\{_pinZeile\}\$\{condZeile\(PLAY\.here, \(b&&b\.tgt\)\|\|_hrC\.green,[\s\S]{0,70}?\}<div class="pc-head">/.test(src));
+       /<div class="play-caddy">\$\{aimUmwegHtml\(\)\}\$\{_pinZeile\}\$\{condZeile\(PLAY\.here, \(b&&b\.tgt\)\|\|_hrC\.green,/.test(src));
+    ok("und beginnt mit derselben was-Zeile wie die anderen",
+       /<div class="cd-drei">\s*\n\s*<div class="cd-was"><b>\$\{esc\(_short\(b\.club\.name\)\)\}<\/b>/.test(src));
+    /* Die eigene Kopfzeile darf nicht zurückkommen — sonst stehen zwei
+       Überschriften übereinander. */
+    ok("keine eigene pc-head-Zeile mehr im Annäherungs-Zweig",
+       !/pc-head">\$\{badge\}🎯/.test(src));
   }
 
   /* --- Ein von Hand gezogener Wegpunkt überstimmt die Rechnung (v4.20) ---

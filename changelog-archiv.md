@@ -13,6 +13,21 @@
 
 ---
 
+- **v5.52.0 · 2026-09-01 · worker v2.12** — **Nachgefragt: „Hast du den neuen Worker auch in der Doku
+  hinterlegt?" — nein.** Der ICS-Zweig stand in `worker.js`, aber **nicht im Wortlaut-Abzug** von
+  Kapitel 28, und die Überschrift dort führte noch v2.11. Auch die Datei selbst nannte sich im Kopf
+  noch v2.11, während sie unten schon v2.12 zurückgab.
+  **Und die Prüfung war trotzdem grün.** Sie vergleicht seit v4.87 die Fassungsnummer zwischen Datei
+  und Abzug sowie die Whitelist — beides stimmte, weil die Nummer aus der Datei gelesen wird und der
+  neue Zweig keine neuen Pfade braucht. **Eine Prüfung, die nur die Überschrift vergleicht, bemerkt
+  keinen neuen Inhalt.** Der Abzug soll den Code zeigen, nicht seine Nummer.
+  Neu wird deshalb **jeder Einstiegspunkt** verglichen: Jeder `searchParams.get("…")`-Zweig in
+  `worker.js` muss im Abzug auftauchen. Wer einen Zweig hinzufügt, muss den Abzug anfassen.
+  Gegenprobe gemacht — entfernt man den ICS-Zweig aus dem Abzug, meldet die Prüfung ihn namentlich.
+  Das Kapitel warnt seit dem Audit vom 27.08. selbst vor genau diesem Fall: **„Drei Kopien ohne
+  Abgleich sind schlimmer als eine unsichtbare — man glaubt zu wissen, was läuft."** Diesmal waren es
+  wieder drei, und die Warnung stand direkt daneben.
+
 - **v5.51.0 · 2026-09-01 · Uhr (58)** — **Der Sendestau der Uhr: die Ursache stand im Code, nicht im
   Netz.** Aus dem Protokoll vom 30.08.: „Bilanz: 20 Aktionen · Verzögerung 682–2096 s (Median
   1438 s)" — zwanzig Eingaben kamen auf einen Schlag an, die älteste **35 Minuten** alt. Danach
