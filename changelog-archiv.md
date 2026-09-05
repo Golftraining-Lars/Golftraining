@@ -13,6 +13,28 @@
 
 ---
 
+- **v5.51.0 · 2026-09-01 · Uhr (58)** — **Der Sendestau der Uhr: die Ursache stand im Code, nicht im
+  Netz.** Aus dem Protokoll vom 30.08.: „Bilanz: 20 Aktionen · Verzögerung 682–2096 s (Median
+  1438 s)" — zwanzig Eingaben kamen auf einen Schlag an, die älteste **35 Minuten** alt. Danach
+  sprang der Lochzeiger wild (L14 → L16 → L18 → L17), weil beide Geräte auf veraltete Meldungen
+  reagierten.
+  Wear OS friert die Coroutine ein, sobald der Bildschirm aus ist — das misst die Uhr seit Fassung
+  (47) **selbst** („Schleife stand … s"). **Aber beim Aufwachen passierte nichts:**
+  `onExitAmbient()` setzte nur ein Kennzeichen, und der Sendetakt schlief seinen `delay(60_000)` zu
+  Ende, bevor er es überhaupt bemerkte.
+  **Zwei Wartezeiten addieren sich:** erst die Einfrierdauer, dann der Rest des Schlafs. Wer nach
+  zwanzig Minuten aufs Handgelenk sieht und ein Loch weiterschaltet, wartet noch einmal bis zu eine
+  Minute — und genau in dieser Minute schaltet er am Handy weiter. Dann widersprechen sich die
+  Zeiger, und das Handy verwirft den der Uhr als veraltet. **Das erklärt den Lochzeiger-Sprung
+  vollständig.**
+  Behoben mit einem Wecksignal: Der Takt schläft in **Halbsekunden-Scheiben** statt am Stück und
+  bricht ab, sobald jemand ihn weckt. Geweckt wird beim Verlassen des Ambient-Modus **und bei jeder
+  Eingabe** — im Turniermodus tippt man mehrmals je Loch.
+  **Ein Zustand, der sich ändert, muss den wecken, der auf ihn wartet.** Ein Kennzeichen zu setzen
+  und zu hoffen, dass es jemand bemerkt, ist kein Wecken — es ist Warten mit Extraschritt.
+  Die Einfrier-Messung bleibt: Sie ist der Beleg für die Ursache und die einzige Zahl, an der man
+  sieht, ob es besser wird. Neu daneben: „Takt geweckt nach N s".
+
 - **v5.50.0 · 2026-09-01** — **Driver Consistency und Eisen Richtungstest leiten sich jetzt auch ab.**
   Damit kommen **sechs** Tests automatisch aus dem Launch Monitor.
   **Ich hatte vorgeschlagen, „FW-Hits /10" leer zu lassen — das wäre falsch gewesen.** Die Wertung

@@ -10519,6 +10519,69 @@ group("Schlag-GPS — Ausreißer sehen und loswerden");
   }
 }
 
+/* ============ 24gw. Die Grafik erklärt sich selbst ============ */
+group("Diagramme — vier Farben ohne Zuordnung sind ein Rätsel");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+  const LC = G("lineChart"), SV = G("sgVerlaufHtml");
+
+  /* ====================================================================
+     GEMELDET am 05.09.2026 (v5.96)
+     --------------------------------------------------------------------
+     „Diese Grafik ist für mich kaum nachvollziehbar. Mir ist zum Beispiel
+     nicht klar, welche Linienfarbe Putten ist."
+     GEMESSEN: vier Linien, vier Achsenzahlen (8/3/−3/−9) — mehr stand nicht
+     da. Keine Legende, keine Nulllinie, keine Zeitspanne.
+     **`name` WURDE SEIT JE ÜBERGEBEN UND SCHLICHT IGNORIERT.** Ein Name, den
+     man übergibt und nicht zeigt, ist ein Versprechen, das niemand einlöst. */
+  ok("es gibt eine Legende", /class="ch-leg"/.test(src));
+  ok("und sie benutzt den übergebenen Namen",
+     /series\.filter\(s=>s\.name\)\.map/.test(src));
+  /* NUR BEI MEHREREN LINIEN: Bei einer einzelnen wäre die Legende Doppelung
+     der Überschrift. */
+  ok("aber nur bei mehreren Linien", /const leg=\(series\.length>1\)/.test(src));
+
+  /* BEI STROKES GAINED IST NULL DIE GRENZE — darüber gewinnt man Schläge,
+     darunter verliert man sie. Sie fehlte im Bild, während drei beliebige
+     Gitterlinien da waren. */
+  ok("die Nulllinie wird gezeichnet", /if\(mn<0 && mx>0\)\{/.test(src));
+  ok("und beschriftet", /fill="var\(--ink-soft\)" opacity="0\.8">0<\/text>/.test(src));
+
+  /* DER WERT AM LINIENENDE ersetzt das Suchen in der Legende. */
+  ok("der aktuelle Wert steht am Linienende",
+     /font-weight="700" fill="\$\{s\.color\}"/.test(src));
+
+  /* DIE ZEITSPANNE: Man sah Auf und Ab, aber nicht, über welchen Zeitraum.
+     ERFUNDEN WIRD NICHTS — fehlen die Daten, bleibt die Zeile weg. */
+  ok("die Zeitspanne kann mitgegeben werden", /const spanne=\(opts\.von\|\|opts\.bis\)/.test(src));
+  ok("und der SG-Verlauf gibt sie mit", /von:_sgVon, bis:_sgBis/.test(src));
+
+  if (typeof LC === "function") {
+    /* Eine einzelne Linie bekommt KEINE Legende — sonst steht dort ein
+       Eintrag, der nichts unterscheidet. */
+    const eins = LC([{ name: "A", color: "#123456",
+      pts: [0, 1, 2].map(k => ({ i: k, y: k })) }], { h: 160 });
+    ok("eine Linie: keine Legende", !/ch-leg/.test(eins));
+    const zwei = LC([{ name: "A", color: "#123456", pts: [0, 1, 2].map(k => ({ i: k, y: k - 1 })) },
+                     { name: "B", color: "#654321", pts: [0, 1, 2].map(k => ({ i: k, y: 1 - k })) }],
+                    { h: 160 });
+    ok("zwei Linien: Legende mit beiden Namen",
+       /ch-leg/.test(zwei) && zwei.indexOf(">A<") >= 0 && zwei.indexOf(">B<") >= 0);
+    /* Die Nulllinie nur, wenn Null im Bild liegt — sonst wäre sie Strichwerk
+       am Rand. */
+    const nurPlus = LC([{ name: "A", color: "#123", pts: [0, 1, 2].map(k => ({ i: k, y: k + 5 })) },
+                        { name: "B", color: "#456", pts: [0, 1, 2].map(k => ({ i: k, y: k + 7 })) }],
+                       { h: 160 });
+    ok("ohne Nulldurchgang keine Nulllinie", !/stroke-dasharray="4 3"/.test(nurPlus));
+    ok("mit Nulldurchgang schon", /stroke-dasharray="4 3"/.test(zwei));
+  }
+  /* AM QUELLTEXT GEPRÜFT: Der Prüfstand hat keine Runden, und ohne Runden
+     gibt es zu Recht keine Kurve. Die Namen stehen aber fest im Code. */
+  ok("der SG-Verlauf benennt alle vier Bereiche",
+     /\["lang","Langes Spiel","#2f6f4e"\]/.test(src)
+     && ["Annäherung", "Kurzes Spiel", "Putten"].every(n => src.indexOf('"' + n + '"') >= 0));
+}
+
 /* ============ 24gv. Drei-Putts und Fahnenposition ============ */
 group("Golfsicht — die teuerste Puttzahl und die Fahne");
 {
