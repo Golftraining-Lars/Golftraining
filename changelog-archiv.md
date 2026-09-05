@@ -13,6 +13,61 @@
 
 ---
 
+- **v5.50.0 · 2026-09-01** — **Driver Consistency und Eisen Richtungstest leiten sich jetzt auch ab.**
+  Damit kommen **sechs** Tests automatisch aus dem Launch Monitor.
+  **Ich hatte vorgeschlagen, „FW-Hits /10" leer zu lassen — das wäre falsch gewesen.** Die Wertung
+  des Driver-Tests ist `sum`: Ein fehlendes Feld senkt die Summe, und der Eintrag sähe im Verlauf wie
+  ein **Einbruch** aus, obwohl nur eine Zahl fehlt. **Ein teilweise gefüllter Testeintrag ist
+  schlimmer als keiner** — er misst etwas anderes als die Einträge daneben.
+  Es geht aber ganz: Die Punktregel steht in der Testbeschreibung selbst („Fairway/Ziel = 1 Pkt ·
+  < 20 m daneben = 0,5 · > 20 m = 0") und ist mit der seitlichen Abweichung ausrechenbar. **Die
+  10-m-Grenze für „Fairway/Ziel" ist gesetzt, nicht gemessen** — ein Fairway ist rund 25–30 m breit,
+  10 m je Seite ist die vorsichtigere Annahme.
+  **Der Eisen-Richtungstest** nimmt die **letzten zehn** 7-Eisen-Schläge des Tages. „Die besten zehn"
+  wäre geschummelt, „die ersten zehn" wäre das Einschlagen. **Genau zehn oder gar nichts:** Ein Test,
+  der „10 Bälle" heißt, mit sieben Werten gerechnet, ergibt eine kleinere Spannweite und damit ein
+  besseres Ergebnis — das wäre kein unvollständiger Eintrag, sondern ein falscher.
+  Am eigenen Bestand: **neun abgeleitete Einträge** insgesamt. Der Driver-Test feuert noch nicht —
+  es gibt nur drei Driver-Schläge im Launch Monitor, die Mindestzahl ist fünf.
+
+- **v5.49.0 · 2026-09-01** — **R10 Dispersion und Rollverhältnis leiten sich jetzt auch automatisch
+  ab.** Gewünscht: „Ich möchte, dass automatisch Testeinträge erzeugt werden, ohne dass ich separat
+  mit einem Knopf bestätige." Smash Factor und Swing Speed liefen bereits; neu sind **R10
+  Dispersion** und **Rollverhältnis**. Am eigenen Bestand: **sieben neue Einträge** aus vier
+  Launch-Monitor-Tagen, zweiter Lauf erzeugt nichts.
+  **Eingehängt in `lmTestsSync`, nicht daneben.** Mein erster Anlauf hat eine zweite Ableitung neben
+  die bestehende gebaut — **genau die Fehlerklasse, die dieses Projekt in einer Woche viermal
+  gekostet hat**, und diesmal im eigenen Code. Zwei Erzeuger für dieselbe Liste heißt: doppelte
+  Einträge, zwei Aufräumregeln, zwei Vorrangregeln für Handeinträge. Jetzt läuft alles durch
+  denselben Durchlauf, mit derselben Wiedererkennung und demselben Vorrang für Handeinträge.
+  **`lmDispTag`** nimmt den Schläger mit den meisten Schlägen des Tages — den, den man geübt hat; ein
+  Mittel über alle Schläger wäre sinnlos, weil ein Wedge naturgemäß weniger streut als ein Holz.
+  **„Score /30" ist im Test eine subjektive Zahl und wird hier hergeleitet:** relative Streuung =
+  seitliche Standardabweichung / Ø Carry, 3 % → 30 Punkte, 12 % → 0. **Die Anker sind gesetzt, nicht
+  gemessen** — deshalb trägt der Eintrag `auto` und ist als abgeleitet erkennbar.
+  **`lmRollTag`** ist die direkteste Ableitung von allen: Der Test fragt Carry **und** Gesamt für PW,
+  9er und 7er ab — genau die zwei Felder, die in jedem LM-Schlag stehen. Nichts wird geschätzt, nur
+  gemittelt.
+  **Mindestens fünf Schläge je Schläger.** Ein Testwert aus dreien ist keine Messung, sondern eine
+  Anekdote — und er sähe in der Verlaufskurve wie ein echter Einbruch aus.
+
+- **v5.48.0 · 2026-09-01** — **Die Schlägerliste folgt jetzt der Bag, nicht dem Median.** Auf
+  Nachfrage gedreht: „Eine feste Reihenfolge ist mir lieber — sortiere nach **Länge des Schlägers**
+  (Driver ist der längste im Bag, dann 3 Wood usw.)."
+  **Und die Nachfrage hat recht.** Mein Argument von v5.47 — die angezeigten Zahlen sollten monoton
+  fallen — war nicht falsch, aber zweitrangig: **Eine nicht ganz monotone Zahlenreihe liest man in
+  zwei Sekunden. Einen Schläger, der jedes Mal woanders steht, sucht man jedes Mal neu.**
+  Beim Median rutscht ein Schläger mit zwei schlechten Messungen quer durch die Liste: Das 3 Wood
+  liegt im Bestand bei **105 m** Median und stünde damit zwischen den Wedges — obwohl es der
+  **zweitlängste** Schläger ist. **Wer eine Liste zum Suchen benutzt, braucht sie vorhersagbar, nicht
+  schön.**
+  **Keine zweite Rangfolge daneben:** `DB.clubDistances` steht bereits vom längsten zum kürzesten
+  Schläger — es genügt, ihre **Position** zu nehmen. Eine eigene Reihenfolge danebenzustellen wäre
+  eine zweite Wahrheit, die auseinanderlaufen kann. Was nicht in der Bag steht, kommt ans Ende, dort
+  nach gemessener Länge.
+  Nachgewiesen am Ergebnis, nicht nur am Quelltext: Ein Testfall, in dem Median und Bag-Reihenfolge
+  **auseinandergehen**, ordnet nach der Bag.
+
 - **v5.47.0 · 2026-09-01** — **Von lang nach kurz sortiert — und eine zweite Prüfung, die auch bei
   zwei Schlägen greift.**
   **Sortierung:** Vorher stand die **Häufigkeit** vorne, also der Schläger mit den meisten Messungen.

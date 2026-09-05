@@ -338,7 +338,7 @@ try {
   /* WICHTIG: bei vm.runInContext landen nur `var` und `function` am Kontext —
      `const STRAT = {...}` bleibt im Blockscope unsichtbar. Deshalb ein Epilog,
      der die benoetigten Namen aktiv herausreicht. */
-  const namen = ["_phoneLive","playHoleStamp","PLAY","repairListenFormen","bagBewertung","clubNorm","_mergeObj","_leerWert","mergeDB","MERGE_KEY","EQUIP_FELDER","EQUIP_GRUPPEN","EQUIP_ALT_KEYS","equipAltRaeumen","ensureSeedGoals","_zielSchluessel","goalCurrent","trainingsEmpfehlung","goalIst","goalPlan","goalFortschritt","goalErreicht","goalHochIstGut","_zielMed","zielFeldDef","ZIEL_QUELLEN","ZIEL_FELDER","testZaehltNicht","testDefsAusgewertet","lmShotKey","lmNurNeue","lmDubletten","LM_ALLE","lmSetClub","playKopfraum","playKopfAnteil","aimUmweg","sgAbdeckungsQuote","sgPuttSchieflage","sgWarnHtml","sgRound","sgEnrich","turnierNaehe","wakeAn","wakeAus","_wakeGruende","kraftVerlauf","standNeuer","wetterSetzen","mobBaseline","MOB_KEYS","_fitMedian","_fitVergleich","isoWoche","kraftNorm","est1RM","kraftVerlauf","_dgmAbstandZuStrecke","gpFingerprint","clubList","gpHoleFrisch","gpKey","activeHoles","dispersionFor","clubNorm","lageAusGps","windPfeil","gpsAlleHtml","lineChart","sgVerlaufHtml","sgVerlauf","datenBasisText","sortedRounds","renderDash","gruenListeHtml","STAMP_LISTEN","schlagNeutral","gpsShotsNachziehen","_aimApproachEv","watchElevProfil","dgmSetzen",
+  const namen = ["_phoneLive","playHoleStamp","PLAY","repairListenFormen","bagBewertung","clubNorm","_mergeObj","_leerWert","mergeDB","MERGE_KEY","EQUIP_FELDER","EQUIP_GRUPPEN","EQUIP_ALT_KEYS","equipAltRaeumen","ensureSeedGoals","_zielSchluessel","goalCurrent","trainingsEmpfehlung","goalIst","goalPlan","goalFortschritt","goalErreicht","goalHochIstGut","_zielMed","zielFeldDef","ZIEL_QUELLEN","ZIEL_FELDER","testZaehltNicht","testDefsAusgewertet","lmShotKey","lmNurNeue","lmDubletten","LM_ALLE","lmSetClub","playKopfraum","playKopfAnteil","aimUmweg","sgAbdeckungsQuote","sgPuttSchieflage","sgWarnHtml","sgRound","sgEnrich","turnierNaehe","wakeAn","wakeAus","_wakeGruende","kraftVerlauf","standNeuer","wetterSetzen","mobBaseline","MOB_KEYS","_fitMedian","_fitVergleich","isoWoche","kraftNorm","est1RM","kraftVerlauf","_dgmAbstandZuStrecke","gpFingerprint","clubList","gpHoleFrisch","gpKey","activeHoles","dispersionFor","clubNorm","lageAusGps","windPfeil","gpsAlleHtml","lineChart","sgVerlaufHtml","sgVerlauf","datenBasisText","sortedRounds","renderDash","sgWarnHtml","trainingsEmpfehlung","sgDashHtml","sgRound","dreiPuttHtml","pinFuer","pinPunkt","greenDims","gruenListeHtml","STAMP_LISTEN","schlagNeutral","gpsShotsNachziehen","_aimApproachEv","watchElevProfil","dgmSetzen",
                  "schlagNeutral","neutralBasis","gpsShotsNachziehen","elevQuelle","elevQuelleText","dgmRahmen","dgmIdx","dgmZelleMitte","dgmZellen","dgmHoehe","dgmNeigung","dgmKey",
                  "STRAT","clubPick","playsLike","pinPoint","geoDist","playMapBox",
                  "liveStart","liveStop","liveStopAll","liveVerbraucher","LIVEPOS",
@@ -1820,7 +1820,26 @@ group("Keine Doppelungen zwischen Karten- und Eingabemodus");
    "playPinSlide","playPinCommit","playClearPin","greenAxisEdges"].forEach(f=>{
      ok("entfernt: "+f, ohneKomm.indexOf(f)<0);
   });
-  ok("Grünmitte als Ziel (F=null)", /const F\s*=\s*null/.test(ohneKomm));
+  /* ================================================================
+     ZURUECK — ABER MIT MITTE ALS VORGABE (v5.95)
+     ----------------------------------------------------------------
+     v4.98 hat die Fahnenposition auf Wunsch vollstaendig entfernt, mit der
+     Begruendung: „eine Handeingabe pro Loch, die im Alltag nicht gepflegt
+     wurde — und ohne gepflegte Werte verschlechtert sie die Rechnung."
+     **DIE BEGRUENDUNG WAR RICHTIG UND IST ES NOCH.** Sie trifft aber nur eine
+     Umsetzung, in der man die Fahne setzen MUSS. Mit „Mitte" als Vorgabe
+     rechnet der Caddy unveraendert weiter, solange man nichts einstellt.
+     **EINE EINSTELLUNG, DIE MAN TREFFEN MUSS, IST EINE LAST; EINE RICHTIG
+     VOREINGESTELLTE IST EINE MOEGLICHKEIT.** */
+  ok("die Fahne kommt aus pinPunkt", /const F = pinPunkt\(geo, h\.hole\)/.test(ohneKomm));
+  ok("Vorgabe ist Mitte", /return PLAY\.pins\[hole\]\|\|"mid";/.test(ohneKomm));
+  /* MITTE HEISST KEIN VERSATZ — nicht „ein Versatz von null", sondern gar
+     keiner. Sonst rechnet die Engine mit einem Punkt statt mit ihrem
+     Standardbezug. */
+  ok("Mitte liefert keinen Punkt", /if\(pos==="mid"\) return null;/.test(ohneKomm));
+  /* OHNE GRUENFLAECHE KEIN VERSATZ: Fehlt das Polygon, kennt niemand die
+     Tiefe — dann bleibt es bei der Mitte statt zu raten. */
+  ok("ohne Grünmaße kein Versatz", /if\(!gd\|\|!\(gd\.depth>0\)\) return null;/.test(ohneKomm));
   /* Altbestand wird AKTIV geleert, nicht gelöscht — mergeDB kann Löschungen
      nicht ausdrücken (Object.assign). */
   ok("DB.pins wird geleert statt gelöscht",
@@ -10500,6 +10519,250 @@ group("Schlag-GPS — Ausreißer sehen und loswerden");
   }
 }
 
+/* ============ 24gv. Drei-Putts und Fahnenposition ============ */
+group("Golfsicht — die teuerste Puttzahl und die Fahne");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+  const DP = G("dreiPuttHtml"), PF = G("pinFuer"), PP = G("pinPunkt"), DB0 = live("DB");
+
+  /* ====================================================================
+     (3) DREI-PUTTS SIND DIE EIGENTLICHE ZAHL (v5.95)
+     --------------------------------------------------------------------
+     GEMESSEN: 35,8 Putts je Runde bei **12 %** Drei-Putts. Für HCP 20 normal
+     (34–36) — **der Weg nach Scratch führt aber über 29–31**, und der
+     Unterschied liegt fast vollständig bei den Drei-Putts: 12 % ist etwa das
+     Dreifache eines Scratch-Spielers.
+     **DIE PUTT-ZAHL ALLEIN SAGT NICHT, WO ES HAKT.** 36 Putts können aus
+     vielen verpassten Ein-Putts kommen oder aus wenigen Drei-Putts — zwei
+     völlig verschiedene Trainingsaufgaben. Die erste kostet Chancen, die
+     zweite kostet Schläge.
+     UND SIE ENTSTEHEN AM ERSTEN PUTT, nicht am zweiten. Deshalb steht der
+     Wert mit seiner Ursache da, nicht als nackte Prozentzahl. */
+  ok("die Drei-Putt-Quote steht da", /Drei-Putts · die teuerste Puttzahl/.test(src));
+  ok("mit dem Scratch-Vergleich", /Scratch liegt bei <b>29–31 Putts<\/b>/.test(src));
+  /* DER ABSTAND IN SCHLÄGEN — Prozente vergleicht man, Schläge spielt man. */
+  ok("und dem Abstand in Schlägen", /Schläge je Runde<\/b>\s*\n?\s*vom Scratch-Niveau/.test(src));
+  ok("die Ursache steht dabei",
+     /entstehen fast nie am zweiten Putt/.test(src) && /Distanzkontrolle über 10 m/.test(src));
+  if (typeof DP === "function") {
+    const LDB = live("DB");
+    if (LDB && (LDB.rounds || []).length) {
+      const h = DP();
+      ok("am echten Bestand erscheint sie", /Drei-Putts/.test(h) || h === "",
+         h ? "vorhanden" : "leer");
+    }
+    /* UNTER 18 LÖCHERN KEINE QUOTE: Aus zehn Löchern eine Prozentzahl zu
+       bilden wäre Rauschen mit dem Aussehen von Erkenntnis. */
+    ok("die Mindestmenge steht im Quelltext", /if\(l<18\) return "";/.test(src));
+  }
+
+  /* ====================================================================
+     (4) DIE FAHNE — MIT MITTE ALS VORGABE
+     --------------------------------------------------------------------
+     v4.98 hatte sie auf Wunsch entfernt: „eine Handeingabe pro Loch, die im
+     Alltag nicht gepflegt wurde." **Der Einwand bleibt gültig, trifft aber
+     nur eine Pflicht-Eingabe.** Mit „Mitte" als Vorgabe ist der Normalfall
+     exakt das Verhalten von v4.98.
+     **EINE EINSTELLUNG, DIE MAN TREFFEN MUSS, IST EINE LAST; EINE RICHTIG
+     VOREINGESTELLTE IST EINE MÖGLICHKEIT.** */
+  if (typeof PF === "function") {
+    const PL = live("PLAY");
+    if (PL) {
+      const alt = PL.pins;
+      try {
+        PL.pins = {};
+        ok("ohne Einstellung ist die Fahne Mitte", PF(7) === "mid");
+        PL.pins = { 7: "back" };
+        ok("und eine Auswahl greift", PF(7) === "back");
+      } finally { PL.pins = alt; }
+    }
+  }
+  if (typeof PP === "function" && DB0) {
+    const c = (DB0.courses || []).find(x => x && /Nordplatz/.test(x.name) && x.geo);
+    const PL = live("PLAY"), GD = G("geoDist"), HR = G("holeRef");
+    if (c && PL && GD && HR) {
+      const alt = PL.pins;
+      try {
+        PL.pins = {};
+        ok("Mitte liefert keinen Versatz", PP(c.geo, 14) === null);
+        const hr = HR(c.geo, 14);
+        PL.pins = { 14: "back" };
+        const b = PP(c.geo, 14);
+        PL.pins = { 14: "front" };
+        const f = PP(c.geo, 14);
+        if (b && f && hr && hr.green) {
+          const db = GD(hr.green, b), df = GD(hr.green, f);
+          ok("vorn und hinten liegen symmetrisch",
+             Math.abs(db - df) < 1.5, db.toFixed(1) + " / " + df.toFixed(1) + " m");
+          /* UND SIE LIEGEN AUF VERSCHIEDENEN SEITEN — sonst wäre der Versatz
+             sinnlos. */
+          ok("und auf verschiedenen Seiten", GD(b, f) > db, GD(b, f).toFixed(1) + " m auseinander");
+        }
+      } finally { PL.pins = alt; }
+    }
+  }
+  /* DIE ZIELKETTE MUSS NEU: Wer die Fahne ändert, ändert die Grundlage — und
+     alles, was darauf beruht, muss verworfen werden (Lehre aus v5.74). */
+  {
+    /* OHNE FENSTER: der `pinSetz`-Block wird geschnitten. */
+    const pi = src.indexOf("function pinSetz(hole, pos){");
+    const pe = src.indexOf("\n/* Der versetzte Zielpunkt", pi);
+    const pblk = pi >= 0 ? src.slice(pi, pe > pi ? pe : pi + 1500) : "";
+    ok("Umschalten verwirft die Zielkette",
+       /PLAY\.aimChain=null; PLAY\.aimChainKey=null;/.test(pblk));
+    ok("und den Bewertungsspeicher", /delete _aimCache\[k\]/.test(pblk));
+  }
+}
+
+/* ============ 24gu. Kurz kann man spielen, weit nicht ============ */
+group("Caddy — ein Schläger muss sein eigenes Ziel erreichen");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+  const S = G("STRAT"), DB0 = live("DB");
+
+  /* ====================================================================
+     BEFUND AUS DEM PROTOKOLL vom 04.09.2026 (v5.94)
+     --------------------------------------------------------------------
+     „Schläger uneinig: Bewertung SW 54° · Kette GW 50° — 84 m gemessen, 82 m
+     gespielt", viermal in zwanzig Sekunden.
+     NACHGEMESSEN: Bei 84 m zur Fahne wählte der Caddy das SW (Carry 78) und
+     zielte auf **92 m** — vierzehn Meter weiter, als der Schläger trägt.
+     DIE TOLERANZ WAR SYMMETRISCH (`Math.abs(d-carry) > σD*1.2+10`), also
+     ±20 m in beide Richtungen. Ein LW mit 60 m Carry durfte damit auf **80 m**
+     zielen — ein Drittel weiter.
+     **DAS IST GOLFERISCH FALSCH HERUM.** Einen Schläger kürzer zu spielen ist
+     Handwerk: kürzer greifen, weniger Ausholen. Ihn weiter zu spielen als
+     seinen Carry geht nicht — man nimmt den nächsten Schläger.
+     **DIE WARNUNG „SCHLÄGER UNEINIG" WAR KEINE MELDUNG ÜBER DIE ANZEIGE,
+     SONDERN ÜBER DIE RECHNUNG.** Sie hat die ganze Zeit auf einen echten
+     Fehler gezeigt — und ich habe sie zweimal (v5.77, v5.86) auf der
+     Anzeigeseite gesucht. */
+  ok("nach unten die volle Toleranz",
+     /if\(d < carry - \(sg\.sigD\*1\.2\+10\)\) continue;/.test(src));
+  ok("nach oben nur bis zur Gesamtlänge",
+     /if\(d > _total \+ 3\) continue;/.test(src));
+  /* Und die alte symmetrische Form ist wirklich weg. */
+  ok("keine symmetrische Toleranz mehr",
+     !/Math\.abs\(d-carry\)>sg\.sigD\*1\.2\+10/.test(src));
+
+  /* ---- Am echten Platz: jeder Schläger erreicht sein Ziel ---- */
+  if (S && typeof S.approach === "function" && DB0) {
+    const c = (DB0.courses || []).find(x => x && /Nordplatz/.test(x.name) && x.geo);
+    const HR = G("holeRef"), GD = G("geoDist"), CC = G("caddyClubs");
+    if (c && HR && GD && typeof CC === "function") {
+      const hr = HR(c.geo, 14);
+      if (hr && hr.tee && hr.green) {
+        const ges = GD(hr.tee, hr.green);
+        let geprueft = 0, schlecht = null;
+        [109, 84, 72, 69].forEach(rest => {
+          const f = rest / ges;
+          const von = [hr.green[0] + (hr.tee[0] - hr.green[0]) * f,
+                       hr.green[1] + (hr.tee[1] - hr.green[1]) * f];
+          const d = Math.round(GD(von, hr.green));
+          const ap = S.approach(c.geo, c.name, 14, von, d, "bal", 20);
+          if (!ap || !ap.best || !ap.best.tgt) return;
+          geprueft++;
+          const ziel = GD(von, ap.best.tgt);
+          const cl = (CC() || []).find(x => x.name === ap.best.club.name);
+          const reich = cl ? (cl.dist != null ? cl.dist : cl.carry) : null;
+          if (reich != null && ziel > reich + 4)
+            schlecht = ap.best.club.name + " zielt " + Math.round(ziel) + " m, trägt " + reich;
+        });
+        ok("jeder gewählte Schläger erreicht sein Ziel",
+           geprueft > 0 && schlecht === null, schlecht || geprueft + " Distanzen geprüft");
+      }
+    }
+  }
+}
+
+/* ============ 24gt. Golf- und Logikprüfung des Analysebereichs ============ */
+group("Analyse — vier Befunde aus Golf- und Logiksicht");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+  const SW = G("sgWarnHtml"), TE = G("trainingsEmpfehlung"), SD = G("sgDashHtml");
+
+  /* ====================================================================
+     (2) DIE WARNUNG UND DIE EMPFEHLUNG REDETEN NICHT MITEINANDER (v5.93)
+     --------------------------------------------------------------------
+     `sgWarnHtml` schreibt: „Von 62 erfassten ersten Puttdistanzen liegen nur
+     13 unter 3 m (21 %) — dann sieht das Putten schlechter aus, als es ist."
+     Zwei Abschnitte weiter stand: „Putten kostet dich 1,99 Schläge je Runde —
+     mehr als jeder andere Bereich." **Ohne ein Wort zur Unsicherheit.**
+     **DER TEUERSTE WIDERSPRUCH IM GANZEN BEREICH:** Die wichtigste
+     Handlungsanweisung der App steht auf einer Zahl, die die App SELBST als
+     verzerrt kennzeichnet — und schickt einen damit ins falsche Training.
+     NICHT DIE EMPFEHLUNG ÄNDERN, SONDERN SIE EHRLICH MACHEN: Putten KANN
+     weiterhin der größte Verlust sein; man weiß es nur nicht sicher. */
+  ok("die Empfehlung nennt die Putt-Schieflage",
+     /Kurze Putts sind unterrepräsentiert/.test(src));
+  ok("und sonst die Abdeckung", /Grundlage: "\+ab\.kat\+" von "\+ab\.loecher/.test(src));
+  if (typeof TE === "function") {
+    const e = TE();
+    if (e && e.length && e[0].bereich === "Putten") {
+      ok("am echten Fall steht die Warnung dabei",
+         /unterrepräsentiert/.test(e[0].warum), e[0].warum.slice(0, 90));
+    }
+  }
+
+  /* ====================================================================
+     (1) STROKES GAINED IST DEFINITIONSGEMÄSS ADDITIV
+     --------------------------------------------------------------------
+     Die Bereiche ergaben zusammen −0,08, ausgewiesen wurde −2,68. Je Runde
+     ging das bis **7,48 Schläge** auseinander.
+     DIE URSACHE IST NACHVOLLZIEHBAR, ABER WAR NICHT SICHTBAR: Das Gesamt
+     rechnet über JEDES Loch mit Score, die Bereiche nur über Löcher mit
+     Schlagdetails. Bei vollständig erfassten Runden ist die Abweichung exakt
+     0 — das bestätigt die Ursache.
+     **DIE DIFFERENZ IST KEIN RAUSCHEN, SONDERN EIN NAME.** „unerklärt" sagt,
+     dass dort Schläge verlorengehen, die man keinem Bereich zuordnen kann.
+     Weggelassen wäre schlimmer: Dann sucht man den Fehler in der Rechnung
+     statt in den Daten. */
+  ok("der unerklärte Rest wird berechnet", /const _rest=\(\(\)=>\{/.test(src));
+  ok("und benannt", /<span>unerklärt<span class="r-s"/.test(src));
+  /* NUR AB EINER RELEVANTEN GRÖSSE — 0,1 Schläge sind Rundungsrauschen. */
+  ok("aber nur ab 0,2 Schlägen", /Math\.abs\(d\)>=0\.2/.test(src));
+  if (typeof SD === "function") {
+    const h = SD(10);
+    ok("die Tafel baut sich weiterhin", typeof h === "string" && h.length > 0);
+  }
+
+  /* ====================================================================
+     (3) STRAFSCHLÄGE FEHLEN FAST GANZ — GOLFSICHT
+     --------------------------------------------------------------------
+     An 9 von 342 Löchern steht ein Eintrag (3 %). Bei einer 20er-Vorgabe sind
+     ein bis drei je Runde normal — erfasst ist ein Zehntel davon.
+     **WAS NICHT ERFASST IST, SIEHT AUS WIE NICHT VORHANDEN.** Die
+     ausgewiesenen −0,80 sind stark untertrieben, und Strafschläge sind der am
+     leichtesten vermeidbare Verlust überhaupt — sie könnten die Rangfolge der
+     Empfehlung umdrehen. */
+  ok("fehlende Strafschläge werden gemeldet",
+     /Strafschläge sind nur an <b>\$\{mit\} von \$\{loecher\} Löchern<\/b>/.test(src));
+  ok("mit Einordnung statt nur einer Zahl",
+     /ein bis drei je Runde normal/.test(src) && /am leichtesten\s*\n?\s*vermeidbare Verlust/.test(src));
+  if (typeof SW === "function") {
+    const SR2 = G("sortedRounds");
+    if (typeof SR2 === "function") {
+      const h = SW(SR2().slice(-10));
+      ok("die Warnung erscheint am echten Bestand",
+         typeof h === "string" && (h === "" || /Straf|Putt|Kategorien/.test(h)));
+    }
+  }
+
+  /* ====================================================================
+     (4) NEUN UND ACHTZEHN LÖCHER SIND NICHT DASSELBE — GOLFSICHT
+     --------------------------------------------------------------------
+     12 der 20 Runden sind Neun-Loch-Runden, auf 18 hochgerechnet. Neun
+     hochgerechnete Löcher schwanken doppelt so stark wie achtzehn gespielte —
+     ein Ausreißer wiegt dort doppelt.
+     **NICHT TRENNEN, ABER BENENNEN:** Dafür sind es zu wenige Runden; wer
+     aber weiß, dass die Hälfte hochgerechnet ist, liest die Ausschläge
+     anders. */
+  ok("Neun-Loch-Runden werden benannt",
+     /Neun-Loch-Runden, auf 18 hochgerechnet/.test(src));
+  ok("mit der Begründung, warum das zählt",
+     /ihre Ausschläge wiegen doppelt/.test(src));
+}
+
 /* ============ 24gs. Verbesserung ist nicht Stärke ============ */
 group("Analyse — zwei Fragen, die man nicht verwechseln darf");
 {
@@ -15137,9 +15400,25 @@ group("Caddy — Ziel ist wieder die Grünmitte");
      DIESE PRÜFUNGEN SIND GEDREHT, nicht gelöscht — sie verlangten genau das
      Gegenteil, und eine gedrehte Prüfung hält fest, dass die Umkehr gewollt
      war. Wer die Fahne wiederbeleben will, liest zuerst diesen Absatz. */
-  ok("keine Fahnen-Funktionen mehr",
-     !/\b(pinFuer|pinSetz|pinPunkt|pinZeile|PIN_RAND)\b/.test(roh));
-  ok("und kein Zustand dafür", !/PLAY\.pins/.test(roh));
+  /* ================================================================
+     WIEDERBELEBT AM 05.09. (v5.95) — und dieser Absatz wurde gelesen.
+     ----------------------------------------------------------------
+     Die Warnung oben sagt: „Wer die Fahne wiederbeleben will, liest zuerst
+     diesen Absatz." Der Einwand von v4.98 war, dass eine Handeingabe je Loch
+     im Alltag nicht gepflegt wird — **und ohne gepflegte Werte verschlechtert
+     sie die Rechnung.**
+     DER EINWAND BLEIBT GÜLTIG, TRIFFT ABER NUR EINE PFLICHT-EINGABE. Mit
+     „Mitte" als Vorgabe ist der Normalfall exakt das Verhalten von v4.98; ein
+     Wert wird nur dort geführt, wo man ihn bewusst setzt.
+     DESHALB PRÜFT DAS HIER JETZT DAS UMGEKEHRTE: dass die Funktionen
+     existieren UND dass die Vorgabe Mitte ist. Ohne den zweiten Teil wäre es
+     ein Rückfall in genau das, was v4.98 abgeschafft hat. */
+  ["pinFuer","pinSetz","pinPunkt","PIN_RAND"].forEach(f=>{
+    ok("wieder da: "+f, roh.indexOf(f)>=0);
+  });
+  ok("aber die Vorgabe ist Mitte", /\|\|"mid";/.test(roh));
+  ok("und ohne Auswahl bleibt der Zustand leer",
+     /if\(pos==="mid"\) delete PLAY\.pins\[hole\];/.test(roh));
   ok("die Schalterzeile ist aus beiden Caddy-Ansichten raus",
      !/Fahnenposition auf dem Grün/.test(roh));
   /* Der Cache-Schlüssel trug die Fahne, damit die Kette nach dem Umschalten
@@ -16665,11 +16944,11 @@ group("Caddy — vollständig sichtbar, Bedingungen, 2 Iron nur vom Tee");
        lässt beide optionalen Blöcke zu; eine Prüfung, die an der exakten
        Reihenfolge klebt, bricht bei jeder Ergänzung und sagt nichts über die
        Sache. */
-    const mitZeile = (src.match(/<div class="play-caddy">\$\{(?:kartenWarnung\}\$\{)?(?:aimUmwegHtml\(\)\}\$\{)?(?:spieltWie|condZeile|caddyDreiZeilen|weatherEffectHtml)/g) || []).length;
+    const mitZeile = (src.match(/<div class="play-caddy">\$\{(?:kartenWarnung\}\$\{)?(?:aimUmwegHtml\(\)\}\$\{)?(?:_pinZeile\}\$\{)?(?:spieltWie|condZeile|caddyDreiZeilen|weatherEffectHtml)/g) || []).length;
     ok("jeder beginnt mit der Bedingungszeile", mitZeile === zweige,
        mitZeile + " von " + zweige);
     ok("der Annäherungs-Zweig ruft condZeile",
-       /<div class="play-caddy">\$\{aimUmwegHtml\(\)\}\$\{condZeile\(PLAY\.here, \(b&&b\.tgt\)\|\|_hrC\.green,[\s\S]{0,70}?\}<div class="pc-head">/.test(src));
+       /<div class="play-caddy">\$\{aimUmwegHtml\(\)\}\$\{_pinZeile\}\$\{condZeile\(PLAY\.here, \(b&&b\.tgt\)\|\|_hrC\.green,[\s\S]{0,70}?\}<div class="pc-head">/.test(src));
   }
 
   /* --- Ein von Hand gezogener Wegpunkt überstimmt die Rechnung (v4.20) ---
@@ -20668,8 +20947,12 @@ group("Caddy — zweiter Zug und die Gewichte, die ihn tragen");
        Abschlag. Vorher stand dort eine zweite Formel, in der Sand gar nicht
        vorkam — „sicher" ließ den Bunker am Grün also unbeeindruckt. --- */
     const src = fs.readFileSync(FILE, "utf8");
-    const ap = src.slice(src.indexOf("  approach(geo,courseName,holeNo"),
-                         src.indexOf("  approach(geo,courseName,holeNo") + 2600);
+    /* BLOCKGRENZE STATT FENSTER (v5.94). Hier stand ein Ausschnitt von 2600
+       Zeichen — er riss, als die Begründung zur asymmetrischen Toleranz
+       dazukam. Der zehnte Fall dieser Art. */
+    const _api = src.indexOf("  approach(geo,courseName,holeNo");
+    const _ape = src.indexOf("\n  planCourse", _api);
+    const ap = src.slice(_api, _ape > _api ? _ape : _api + 12000);
     ok("Approach nimmt die Spielweise-Tabelle", /spielweise\(mode\)\.lie/.test(ap));
     ok("Sand geht in die Approach-Wertung ein", /w\.sand\s*\*\s*ev\.sand/.test(ap));
     ok("keine zweite Modus-Formel mehr", !/mode===\"safe\"\?\s*ev\.es\+1\.5/.test(ap));
