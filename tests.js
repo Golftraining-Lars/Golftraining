@@ -338,7 +338,7 @@ try {
   /* WICHTIG: bei vm.runInContext landen nur `var` und `function` am Kontext —
      `const STRAT = {...}` bleibt im Blockscope unsichtbar. Deshalb ein Epilog,
      der die benoetigten Namen aktiv herausreicht. */
-  const namen = ["_phoneLive","playHoleStamp","PLAY","repairListenFormen","bagBewertung","clubNorm","_mergeObj","_leerWert","mergeDB","MERGE_KEY","EQUIP_FELDER","EQUIP_GRUPPEN","EQUIP_ALT_KEYS","equipAltRaeumen","ensureSeedGoals","_zielSchluessel","goalCurrent","trainingsEmpfehlung","goalIst","goalPlan","goalFortschritt","goalErreicht","goalHochIstGut","_zielMed","zielFeldDef","ZIEL_QUELLEN","ZIEL_FELDER","testZaehltNicht","testDefsAusgewertet","lmShotKey","lmNurNeue","lmDubletten","LM_ALLE","lmSetClub","playKopfraum","playKopfAnteil","aimUmweg","sgAbdeckungsQuote","sgPuttSchieflage","sgWarnHtml","sgRound","sgEnrich","turnierNaehe","wakeAn","wakeAus","_wakeGruende","kraftVerlauf","standNeuer","wetterSetzen","mobBaseline","MOB_KEYS","_fitMedian","_fitVergleich","isoWoche","kraftNorm","est1RM","kraftVerlauf","_dgmAbstandZuStrecke","gpFingerprint","clubList","gpHoleFrisch","gpKey","activeHoles","dispersionFor","clubNorm","lageAusGps","windPfeil","gpsAlleHtml","lineChart","sgVerlaufHtml","sgVerlauf","datenBasisText","sortedRounds","renderDash","sgWarnHtml","trainingsEmpfehlung","sgDashHtml","sgRound","dreiPuttHtml","pinFuer","pinPunkt","greenDims","parNachtragen","trefferHtml","parTypHtml","computeRound","gruenListeHtml","STAMP_LISTEN","schlagNeutral","gpsShotsNachziehen","_aimApproachEv","watchElevProfil","dgmSetzen",
+  const namen = ["_phoneLive","playHoleStamp","PLAY","repairListenFormen","bagBewertung","clubNorm","_mergeObj","_leerWert","mergeDB","MERGE_KEY","EQUIP_FELDER","EQUIP_GRUPPEN","EQUIP_ALT_KEYS","equipAltRaeumen","ensureSeedGoals","_zielSchluessel","goalCurrent","trainingsEmpfehlung","goalIst","goalPlan","goalFortschritt","goalErreicht","goalHochIstGut","_zielMed","zielFeldDef","ZIEL_QUELLEN","ZIEL_FELDER","testZaehltNicht","testDefsAusgewertet","lmShotKey","lmNurNeue","lmDubletten","LM_ALLE","lmSetClub","playKopfraum","playKopfAnteil","aimUmweg","sgAbdeckungsQuote","sgPuttSchieflage","sgWarnHtml","sgRound","sgEnrich","turnierNaehe","wakeAn","wakeAus","_wakeGruende","kraftVerlauf","standNeuer","wetterSetzen","mobBaseline","MOB_KEYS","_fitMedian","_fitVergleich","isoWoche","kraftNorm","est1RM","kraftVerlauf","_dgmAbstandZuStrecke","gpFingerprint","clubList","gpHoleFrisch","gpKey","activeHoles","dispersionFor","clubNorm","lageAusGps","windPfeil","gpsAlleHtml","lineChart","sgVerlaufHtml","sgVerlauf","datenBasisText","sortedRounds","renderDash","sgWarnHtml","trainingsEmpfehlung","sgDashHtml","sgRound","dreiPuttHtml","pinFuer","pinPunkt","greenDims","parNachtragen","trefferHtml","parTypHtml","computeRound","wxHalbstunden","wxStunden","gruenListeHtml","STAMP_LISTEN","schlagNeutral","gpsShotsNachziehen","_aimApproachEv","watchElevProfil","dgmSetzen",
                  "schlagNeutral","neutralBasis","gpsShotsNachziehen","elevQuelle","elevQuelleText","dgmRahmen","dgmIdx","dgmZelleMitte","dgmZellen","dgmHoehe","dgmNeigung","dgmKey",
                  "STRAT","clubPick","playsLike","pinPoint","geoDist","playMapBox",
                  "liveStart","liveStop","liveStopAll","liveVerbraucher","LIVEPOS",
@@ -10517,6 +10517,104 @@ group("Schlag-GPS — Ausreißer sehen und loswerden");
       ok("der Grund steht an der markierten Zeile", /m zum Median/.test(src));
     }
   }
+}
+
+/* ============ 24gz. Wetter aus dem Spielmodus ============ */
+group("Spielmodus — die Zeile, die das Wetter zeigt, öffnet es auch");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+
+  /* ====================================================================
+     GEWÜNSCHT am 05.09.2026 (v6.02)
+     --------------------------------------------------------------------
+     „Kannst du bitte die Möglichkeit bieten, dass ich das Wetter auch aus dem
+     Spielmodus heraus aufrufen kann?"
+     AUF DER BAHN STAND NUR DER MOMENTANWERT — „24 km/h aus SW". Was in einer
+     halben Stunde kommt, sah man nur unter „Heute", und dorthin wechselt
+     niemand mitten in der Runde.
+     **DIE ZEILE, DIE DAS WETTER ZEIGT, IST DER RICHTIGE KNOPF DAFÜR.** Ein
+     eigenes Symbol in der ohnehin vollen Werkzeugleiste wäre eine zusätzliche
+     Stelle zum Suchen; die Bedingungszeile steht in jedem Caddy-Zweig. */
+  ok("es gibt ein Wetterblatt", /function openWetterBlatt\(\)\{/.test(src));
+  /* IN JEDEM ZWEIG: Wer es an einer Stelle findet und an der anderen nicht,
+     hält es für einen Zufall. */
+  ok("die Bedingungszeile ist antippbar",
+     (src.match(/pc-wx-tap" onclick="openWetterBlatt\(\)"/g) || []).length >= 2,
+     String((src.match(/pc-wx-tap" onclick="openWetterBlatt\(\)"/g) || []).length));
+  /* **ZWEI WETTERANSICHTEN MIT VERSCHIEDENEM INHALT WÄREN GENAU DER
+     WIDERSPRUCH**, den dieses Projekt diese Woche siebenmal gekostet hat. */
+  {
+    const oi = src.indexOf("function openWetterBlatt(){");
+    const oe = src.indexOf("\nfunction condZeile(", oi);
+    const blk = oi >= 0 ? src.slice(oi, oe > oi ? oe : oi + 1200) : "";
+    ok("es zeigt dieselbe Übersicht wie „Heute“", /weatherCardHtml\(\)/.test(blk));
+    /* OHNE WETTER WIRD ES GEHOLT, nicht nur gemeldet — eine Meldung ohne
+       Handlung ist eine Zeile im Protokoll (Lehre aus v5.63). */
+    ok("fehlendes Wetter wird nachgeholt", /ensureWeather\(PLAY\.here\[0\], PLAY\.here\[1\]\)/.test(blk));
+    ok("und der Abruf hat ein Auffangnetz", /\.catch\(e=>logErr\("openWetterBlatt:holen"/.test(blk));
+  }
+}
+
+/* ============ 24gy. Wetter auf die halbe Stunde ============ */
+group("Wetter — dreißig Minuten sind fein genug und ehrlich genug");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+  const WH = G("wxHalbstunden");
+
+  /* ====================================================================
+     GEWÜNSCHT am 05.09.2026 (v6.01)
+     --------------------------------------------------------------------
+     „Kann man die Wetterübersicht auch auf 30 Minuten genau machen?"
+     DIE DATEN WAREN SCHON IM HAUS: `unwetterHolen` fragt für die
+     Gewitterwarnung seit je `minutely_15` ab. Die Wetterkarte benutzte davon
+     nichts und zeigte volle Stunden.
+     WARUM 30 UND NICHT 15 MINUTEN: Auf sechs Spalten passen so drei Stunden
+     statt anderthalb — und eine Viertelstunde täuscht eine Genauigkeit vor,
+     die ein Wettermodell auf diesen Zeitraum nicht hat. **Der Regen kommt
+     nicht um 14:15, sondern „gegen halb drei."** */
+  ok("die Abfrage holt Viertelstunden", /forecast_minutely_15=24/.test(src));
+  ok("und WEATHER trägt sie", /halbe: wxHalbstunden\(j\)/.test(src));
+  /* DAS RASTER LIEGT FEST AUF :00 UND :30 — nicht „jede zweite ab jetzt",
+     sonst hängt es am Abrufzeitpunkt und verschiebt sich bei jedem Laden. */
+  ok("das Raster liegt auf :00 und :30", /if\(d\.getMinutes\(\)%30!==0\) continue;/.test(src));
+  if (typeof WH === "function") {
+    /* AUSGERICHTETE VIERTELSTUNDEN — so liefert die Quelle sie auch
+       (:00/:15/:30/:45). Mit krummen Zeiten greift der Rückfall unten. */
+    const t0 = Math.ceil(Date.now() / 900000) * 900000;
+    const zeiten = Array.from({ length: 24 }, (_, i) => new Date(t0 + i * 900000).toISOString());
+    const j = { minutely_15: { time: zeiten,
+      temperature_2m: zeiten.map(() => 16), wind_speed_10m: zeiten.map(() => 5),
+      wind_direction_10m: zeiten.map(() => 200), wind_gusts_10m: zeiten.map(() => 9),
+      weather_code: zeiten.map(() => 3), precipitation: zeiten.map(() => 0) } };
+    const r = WH(j);
+    ok("es entstehen Halbstunden", !!r && r.length >= 6, r ? String(r.length) : "keine");
+    ok("und alle liegen auf :00 oder :30",
+       !r || r.every(x => new Date(x.t).getMinutes() % 30 === 0));
+    /* DIE QUELLE LIEFERT HIER KEINE REGENWAHRSCHEINLICHKEIT — lieber leer
+       als geraten. */
+    ok("keine erfundene Regenwahrscheinlichkeit", !r || r.every(x => x.pop === null));
+    /* OHNE VIERTELSTUNDEN BLEIBT ALLES WIE VORHER — der bisherige Zustand,
+       kein Fehler. */
+    ok("ohne Daten kein Ergebnis", WH({}) === null && WH({ minutely_15: {} }) === null);
+    /* RÜCKFALL bei verschobenem Raster: lieber eine Reihe mit krummen Zeiten
+       als gar keine. */
+    const schief = Array.from({ length: 24 }, (_, i) => new Date(t0 + 300000 + i * 900000).toISOString());
+    const r2 = WH({ minutely_15: { time: schief, temperature_2m: schief.map(() => 16),
+      wind_speed_10m: schief.map(() => 5), wind_direction_10m: schief.map(() => 200),
+      wind_gusts_10m: schief.map(() => 9), weather_code: schief.map(() => 3),
+      precipitation: schief.map(() => 0) } });
+    ok("verschobenes Raster liefert trotzdem eine Reihe", !!r2 && r2.length >= 2,
+       r2 ? String(r2.length) : "keine");
+  }
+  /* IN DER ANZEIGE: Vorrang für die feinere Auflösung, Rückfall auf Stunden. */
+  ok("Halbstunden haben Vorrang",
+     /const st=\(halb && halb\.length>=2\) \? halb :/.test(src));
+  ok("mit Rückfall auf die Stundenvorhersage",
+     /WEATHER && WEATHER\.stunden\) \|\| null\);/.test(src));
+  /* DIE UHRZEIT BRAUCHT DANN MINUTEN: Zwei Spalten mit derselben Zahl wären
+     schlimmer als keine Beschriftung. */
+  ok("und die Uhrzeit zeigt Minuten",
+     /istHalb\?\(":"\+String\(d\.getMinutes\(\)\)/.test(src));
 }
 
 /* ============ 24gx. Par, Trefferquoten und Lochtypen ============ */
