@@ -13,6 +13,29 @@
 
 ---
 
+- **v5.53.0 · 2026-09-01** — **„Die Empfehlung wirkt nicht korrekt" — der Caddy hatte recht, die
+  Karte nicht.** Loch 1 auf Fehmarn: Kopfzeile **360 m**, App **439 m**, Vorschlag Driver plus
+  3 Wood.
+  **Der Caddy hat richtig gerechnet. Falsch war das Ziel.** Der in der Karte hinterlegte Grün-Punkt
+  liegt 440 m vom Abschlag; die Scorekarte sagt 360 m. **Die Empfehlung war die korrekte Antwort auf
+  eine falsche Frage** — und genau deshalb fällt so etwas nicht auf: Die Rechnung stimmt, nur die
+  Eingabe nicht.
+  **Nachgemessen über den ganzen Bestand — drei von vier Plätzen mit Karte sind betroffen:**
+  Südplatz **18 von 18** Löchern, Brodauer Mühle **18 von 18**, Fehmarn 3. Nur der Nordplatz ist
+  sauber. Das ist kein Einzelfall, sondern ein Zustand, den bisher niemand gesehen hat — auf drei
+  Plätzen war jede Entfernung und jede Empfehlung unzuverlässig.
+  **Und die App hätte es wissen können:** Die Kartenlänge steckt in `geo.holes[n]`, die
+  Scorekartenlänge im Tee. Beide lagen vor, sie wurden nur nie verglichen. **Zwei Quellen, die
+  dasselbe beschreiben, sind eine Prüfung** — wer sie nicht gegeneinander hält, verschenkt die
+  einzige Kontrolle, die es ohne Zusatzarbeit gibt.
+  Neu `kartePruefen()`: meldet Löcher mit über **15 %** Abweichung — im Spielmodus **ganz oben über
+  der Empfehlung** (wer die Warnung darunter setzt, lässt den Spieler erst einer falschen Zahl
+  glauben) und in der Selbstprüfung mit Platz und Loch. Unter 15 % bleibt es ruhig: Doglegs,
+  Tee-Boxen und Fahnenpositionen dürfen abweichen, die Kartenlinie ist nicht die Luftlinie.
+  **Es wird nichts automatisch korrigiert.** Welcher Wert stimmt, weiß nur, wer den Platz kennt — eine
+  falsche Scorekarte gibt es genauso wie ein falsch gesetztes Grün. Die App zeigt den Widerspruch,
+  die Entscheidung bleibt beim Spieler.
+
 - **v5.52.0 · 2026-09-01 · worker v2.12** — **Nachgefragt: „Hast du den neuen Worker auch in der Doku
   hinterlegt?" — nein.** Der ICS-Zweig stand in `worker.js`, aber **nicht im Wortlaut-Abzug** von
   Kapitel 28, und die Überschrift dort führte noch v2.11. Auch die Datei selbst nannte sich im Kopf

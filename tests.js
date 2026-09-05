@@ -11076,6 +11076,33 @@ group("Caddy — drei Zweige, eine Form");
   ok("das Streubild bleibt erhalten", /Streubild: Grün \$\{ap\.fracs\.green\}/.test(src));
 
   /* ================================================================
+     PLAN-ZEILE UND STREUUNGSCHIPS ENTFERNT (v5.98)
+     ----------------------------------------------------------------
+     GEWÜNSCHT am 05.09. — und golferisch richtig:
+     · Die Plan-Zeile nennt den Schläger aus dem LOCHPLAN, also den Plan für
+       den ABSCHLAG. Bei der Annäherung steht man längst woanders; der Plan
+       ist dort Geschichte, nicht Empfehlung.
+     · Die Chips „Heuristik · Niveau 20" und „σ 5/8 m" beschreiben die
+       HERKUNFT der Streuung — eine Frage an die Rechnung, keine an die Bahn.
+       Wer sie stellt, findet sie unter „Rechnung im Detail".
+     **WAS MAN BEIM SPIELEN NICHT BRAUCHT, GEHÖRT NICHT AUF DIE SPIELANSICHT
+     — auch wenn es richtig ist.** Auf der Bahn zählt: welcher Schläger,
+     welches Ziel, warum. */
+  {
+    const ai = src.indexOf("const ap=STRAT.approach(geo,PLAY.course,h.hole,PLAY.here,mid");
+    const ae = src.indexOf("const shots=p.shots", ai);
+    const ap = ai >= 0 && ae > ai ? src.slice(ai, ae).replace(/\/\*[\s\S]*?\*\//g, "") : "";
+    ok("keine Plan-Zeile in der Annäherung", ap.indexOf("planLine") < 0);
+    ok("keine Streuungschips", ap.indexOf("dispChipHtml") < 0 && ap.indexOf("pc-tags") < 0);
+    /* `manualTipHtml` BLEIBT: kein Zustandsbericht, sondern ein Hinweis auf
+       eine eigene Notiz zu genau diesem Loch. */
+    ok("der eigene Loch-Hinweis bleibt", ap.indexOf("manualTipHtml") >= 0);
+    /* Und im REGEL-Zweig ohne Geodaten bleibt die Plan-Zeile richtig — dort
+       ist sie die einzige Auskunft über den Plan. */
+    ok("der Regel-Zweig behält sie", /\$\{planLine\}/.test(src));
+  }
+
+  /* ================================================================
      DIE FORM ANGEGLICHEN, DEN INHALT VERGESSEN (v5.97)
      ----------------------------------------------------------------
      GEMELDET am 05.09.: „Bei der Annäherung wird weiterhin nicht die
