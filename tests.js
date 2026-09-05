@@ -338,7 +338,7 @@ try {
   /* WICHTIG: bei vm.runInContext landen nur `var` und `function` am Kontext —
      `const STRAT = {...}` bleibt im Blockscope unsichtbar. Deshalb ein Epilog,
      der die benoetigten Namen aktiv herausreicht. */
-  const namen = ["_phoneLive","playHoleStamp","PLAY","repairListenFormen","bagBewertung","clubNorm","_mergeObj","_leerWert","mergeDB","MERGE_KEY","EQUIP_FELDER","EQUIP_GRUPPEN","EQUIP_ALT_KEYS","equipAltRaeumen","ensureSeedGoals","_zielSchluessel","goalCurrent","trainingsEmpfehlung","goalIst","goalPlan","goalFortschritt","goalErreicht","goalHochIstGut","_zielMed","zielFeldDef","ZIEL_QUELLEN","ZIEL_FELDER","testZaehltNicht","testDefsAusgewertet","lmShotKey","lmNurNeue","lmDubletten","LM_ALLE","lmSetClub","playKopfraum","playKopfAnteil","aimUmweg","sgAbdeckungsQuote","sgPuttSchieflage","sgWarnHtml","sgRound","sgEnrich","turnierNaehe","wakeAn","wakeAus","_wakeGruende","kraftVerlauf","standNeuer","wetterSetzen","mobBaseline","MOB_KEYS","_fitMedian","_fitVergleich","isoWoche","kraftNorm","est1RM","kraftVerlauf","_dgmAbstandZuStrecke","gpFingerprint","clubList","gpHoleFrisch","gpKey","activeHoles","dispersionFor","clubNorm","lageAusGps","windPfeil","gpsAlleHtml","lineChart","sgVerlaufHtml","sgVerlauf","datenBasisText","sortedRounds","renderDash","sgWarnHtml","trainingsEmpfehlung","sgDashHtml","sgRound","dreiPuttHtml","pinFuer","pinPunkt","greenDims","parNachtragen","trefferHtml","parTypHtml","computeRound","wxHalbstunden","wxStunden","gruenListeHtml","STAMP_LISTEN","schlagNeutral","gpsShotsNachziehen","_aimApproachEv","watchElevProfil","dgmSetzen",
+  const namen = ["_phoneLive","playHoleStamp","PLAY","repairListenFormen","bagBewertung","clubNorm","_mergeObj","_leerWert","mergeDB","MERGE_KEY","EQUIP_FELDER","EQUIP_GRUPPEN","EQUIP_ALT_KEYS","equipAltRaeumen","ensureSeedGoals","_zielSchluessel","goalCurrent","trainingsEmpfehlung","goalIst","goalPlan","goalFortschritt","goalErreicht","goalHochIstGut","_zielMed","zielFeldDef","ZIEL_QUELLEN","ZIEL_FELDER","testZaehltNicht","testDefsAusgewertet","lmShotKey","lmNurNeue","lmDubletten","LM_ALLE","lmSetClub","playKopfraum","playKopfAnteil","aimUmweg","sgAbdeckungsQuote","sgPuttSchieflage","sgWarnHtml","sgRound","sgEnrich","turnierNaehe","wakeAn","wakeAus","_wakeGruende","kraftVerlauf","standNeuer","wetterSetzen","mobBaseline","MOB_KEYS","_fitMedian","_fitVergleich","isoWoche","kraftNorm","est1RM","kraftVerlauf","_dgmAbstandZuStrecke","gpFingerprint","clubList","gpHoleFrisch","gpKey","activeHoles","dispersionFor","clubNorm","lageAusGps","windPfeil","gpsAlleHtml","lineChart","sgVerlaufHtml","sgVerlauf","datenBasisText","sortedRounds","renderDash","sgWarnHtml","trainingsEmpfehlung","sgDashHtml","sgRound","dreiPuttHtml","pinFuer","pinPunkt","greenDims","parNachtragen","trefferHtml","parTypHtml","computeRound","wxHalbstunden","wxStunden","playBegin","activeHoles","gruenListeHtml","STAMP_LISTEN","schlagNeutral","gpsShotsNachziehen","_aimApproachEv","watchElevProfil","dgmSetzen",
                  "schlagNeutral","neutralBasis","gpsShotsNachziehen","elevQuelle","elevQuelleText","dgmRahmen","dgmIdx","dgmZelleMitte","dgmZellen","dgmHoehe","dgmNeigung","dgmKey",
                  "STRAT","clubPick","playsLike","pinPoint","geoDist","playMapBox",
                  "liveStart","liveStop","liveStopAll","liveVerbraucher","LIVEPOS",
@@ -10515,6 +10515,57 @@ group("Schlag-GPS — Ausreißer sehen und loswerden");
          /\(\(typeof roundShots==="function"\)\?roundShots\(\):\[\]\)/.test(roh));
       ok("und ist anklickbar", /data-runde="/.test(src) && /openAddRound\(r\)/.test(roh));
       ok("der Grund steht an der markierten Zeile", /m zum Median/.test(src));
+    }
+  }
+}
+
+/* ============ 24ha. Start an Tee 1 oder Tee 10 ============ */
+group("Spielmodus — dieselben achtzehn Löcher, andere Reihenfolge");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+  const PB = G("playBegin"), PL = live("PLAY"), DB0 = live("DB");
+
+  /* ====================================================================
+     GEWÜNSCHT am 05.09.2026 (v6.03)
+     --------------------------------------------------------------------
+     „Mir fehlt die Möglichkeit anzugeben, ob ich bei Tee 1 oder Tee 10
+     starte. Der Spielmodus sollte dann auch auf dem jeweiligen Tee starten."
+     BEI NEUN LOCH GAB ES DAS SCHON — „Front 9" und „Back 9" wählen die Seite.
+     Bei ACHTZEHN Loch fehlte es: Die Runde begann immer an Loch 1, obwohl
+     Kanonenstart und geteilte Startzeiten der Normalfall auf vollen Plätzen
+     sind.
+     **DIE REIHENFOLGE ÄNDERT SICH, NICHT DER UMFANG:** Wer an Tee 10 startet,
+     spielt 10–18 und dann 1–9 — dieselben achtzehn Löcher. Deshalb wird die
+     Liste gedreht und nicht gekürzt: Score, Handicap und jede Auswertung
+     sehen eine vollständige Runde, **weil es eine ist**. */
+  ok("es gibt eine Startwahl", /<select id="pl_start">/.test(src));
+  ok("und sie wird übergeben", /start: \+\(\(\$\("#pl_start"\)&&\$\("#pl_start"\)\.value\)\|\|1\)/.test(src));
+  /* NUR BEI 18 LOCH: Bei neun Loch wählt die Rundenart die Seite schon aus,
+     und zwei Felder für dieselbe Entscheidung sind eines zu viel. */
+  ok("das Feld erscheint nur bei 18 Loch",
+     /sw\.style\.display=\(\+kw\.value===0\)\?"":"none"/.test(src));
+  ok("und die Drehung gilt nur dort", /if\(startLoch>1 && side==="18 Loch"\)/.test(src));
+
+  if (typeof PB === "function" && PL && DB0) {
+    const c = (DB0.courses || []).find(x => x && x.tees && Object.keys(x.tees).length);
+    if (c) {
+      const tee = Object.keys(c.tees)[0];
+      const altP = PL.active;
+      try {
+        PB(c.name, tee, 0, { start: 10 });
+        const zehn = (PL.holes || []).map(h => h.hole);
+        PB(c.name, tee, 0, { start: 1 });
+        const eins = (PL.holes || []).map(h => h.hole);
+        if (eins.length >= 18) {
+          ok("Start an Tee 10 beginnt bei 10", zehn[0] === 10, String(zehn[0]));
+          ok("und endet bei 9", zehn[zehn.length - 1] === 9, String(zehn[zehn.length - 1]));
+          /* **DIESELBEN LÖCHER, NUR ANDERS SORTIERT** — nicht weniger. */
+          ok("es sind dieselben Löcher", zehn.length === eins.length
+             && eins.every(h => zehn.indexOf(h) >= 0),
+             zehn.length + " gegen " + eins.length);
+          ok("Start an Tee 1 bleibt unverändert", eins[0] === 1);
+        }
+      } finally { PL.active = altP; }
     }
   }
 }

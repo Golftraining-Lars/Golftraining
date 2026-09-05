@@ -13,6 +13,70 @@
 
 ---
 
+- **v5.58.0 · 2026-09-01** — **„Die Satellitendaten sind unvollständig" — nachgemessen: Sie sind da,
+  die Zuordnung fehlt.** Fehmarn hat **20 Fairways, 51 Bunker, 28 Grünflächen, 16 Fahnen**. Was fehlt,
+  ist die Antwort auf die Frage, **welche Fläche zu welchem Loch gehört**.
+  **Die Ursache liegt in der Quelle:** Die Karten kommen aus OpenStreetMap, und dort trägt jeder Platz
+  so viel ein, wie sein Kartierer eingetragen hat. Grüns und Fahnen sind häufig **ohne Lochnummer**
+  erfasst — die App muss raten, welches Grün zu Loch 1 gehört, und auf Fehmarn hat sie sich um **80 m**
+  vertan (440 statt 360).
+  **Die Korrektur braucht keine neuen Daten, nur eine bessere Wahl.** Kandidaten sind die
+  eingetragenen Fahnen; welche die richtige ist, verrät die **Scorekarte** — die Fahne, deren Abstand
+  zum Abschlag der Solllänge am nächsten kommt. **Zwei Quellen, die sich gegenseitig korrigieren:**
+  v5.53 meldete den Widerspruch, hier wird er aufgelöst.
+  Am eigenen Bestand: **24 Vorschläge** — Fehmarn 2, Südplatz 9, Brodauer Mühle 13, Nordplatz **0**.
+  Beispiele: Fehmarn Loch 1 von 440 auf **353 m** (Soll 360), Brodauer Mühle Loch 1 von 76 auf
+  **320 m** (Soll 340).
+  **Vorgeschlagen wird nur, wo es ein Problem gibt** (ab 15 % Abweichung) **und wo es deutlich besser
+  wird** (mindestens ein Drittel) — sonst wäre es keine Hilfe, sondern eine Aufforderung, an etwas
+  Funktionierendem zu drehen. Der saubere Nordplatz bleibt unangetastet.
+  Übernommen wird **auf Tipp, mit Rückfrage**, als `overrides` — dort überlebt die Korrektur jeden
+  Neu-Import. Der Rasterspeicher wird dabei geleert, sonst rechnete der Caddy weiter mit dem alten
+  Grün.
+
+- **v5.57.0 · 2026-09-01** — **„Keine Endzeit im Kalender" — obwohl dort 09:00 bis 12:00 stand.**
+  Gemeldet mit zwei Bildschirmfotos, und die Aussagen passten wirklich nicht zusammen.
+  **Der Leser war nicht schuld:** Nachgemessen mit Googles echtem Format
+  (`DTEND;TZID=Europe/Berlin:…`) liefert `icsParse` sauber **180 Minuten**.
+  **Schuld war der Zwischenspeicher.** Er enthielt Termine, die **vor v5.56** gelesen wurden — ohne
+  das damals noch nicht existierende Feld `dauer`. Der Schlüssel blieb gleich, der Inhalt hatte eine
+  andere Form, und der Speicher lieferte weiter den alten Stand — inklusive der Notlösung „90
+  Minuten".
+  **Ein Zwischenspeicher, dessen Inhalt seine Form ändert, braucht einen neuen Schlüssel** — sonst
+  überlebt die alte Form jede Verbesserung. Derselbe Fall wie beim Höhenraster in v5.19, wo der
+  Schlüssel den DGM-Zustand nicht kannte. Die Formnummer steht jetzt **im** Schlüssel, nicht als Feld
+  daneben: Ein Feld müsste man prüfen und könnte es vergessen; ein anderer Schlüssel findet den alten
+  Stand gar nicht erst.
+  **Und am Ende wird gedehnt.** Jeder Plan schließt mit dem **Post-Round-Programm** — nicht mit dem
+  Preround: Beide gibt es, und sie sind für verschiedene Zeitpunkte gebaut. Das eine macht warm, das
+  andere löst, was zwei Stunden Schlagen angespannt hat. **Die Zeit kommt aus den Schwerpunkten,
+  nicht obendrauf:** Wer die Einheit anhängt, ohne Zeit abzuziehen, plant 160 Minuten in ein
+  150-Minuten-Fenster — und dann stimmt keine Zahl mehr.
+
+- **v5.56.0 · 2026-09-01** — **Der Trainingsvorschlag wird anklickbar, füllt das Fenster und hakt
+  sich ab.** Vier Wünsche, dazu ein Fehler aus dem Bildschirmfoto.
+  **Der Fehler zuerst:** „Pelz Score ≥ 140" stand **zweimal** im Plan, mit identischen Zahlen. Zu
+  einem Test können mehrere Ziele gehören — ein Zwischen- und ein Endziel derselben Phase. Beide
+  haben denselben Rückstand und landen unter den ersten dreien. **Zweimal dasselbe ist kein Plan,
+  sondern ein Fehler** — und er kostet einen Schwerpunkt, weil der dritte Platz verlorengeht.
+  **(1) Das Fenster wird voll geplant.** `icsParse` las nur `DTSTART`; die Anzeige nahm pauschal
+  90 Minuten an — eine Zahl, die nirgendwo herkam. **Eine angenommene Zahl ist eine erfundene Zahl,
+  wenn die echte danebenliegt.** Jetzt kommt die Dauer aus `DTEND`. Aus 90 werden bei dir **150
+  Minuten**. Ohne Endzeit bleiben 90 — und das steht dann dabei.
+  **(2) Mehr Schwerpunkte bei langen Fenstern:** einer je 30 Minuten, **höchstens fünf** — wer sechs
+  Dinge übt, übt keines. Blöcke sind auf **12–45 Minuten** begrenzt: Rein nach Rückstand gewichtet
+  bekam der erste Schwerpunkt bei 240 Minuten **95** und der letzte **3**. Das ist kein Plan, sondern
+  eine Rechnung.
+  **(3) Das zweite Fenster wird mitgeplant** und überspringt die Schwerpunkte des ersten — es geht
+  **weiter**, statt sich zu wiederholen. Zwei Pläne, nicht fünf: Wer fünf untereinander sieht, liest
+  keinen.
+  **(4) Jeder Block ist anklickbar** und führt in seinen Test bzw. ins Dehnprogramm. **Ein Vorschlag,
+  den man nicht anfassen kann, ist ein Zettel.**
+  **(5) Erledigtes hakt sich ab** — durchgestrichen, mit Datum und Ergebnis. **Die Marke ist der
+  Testeintrag**, nichts Zusätzliches: Wer den Test macht, trägt ihn ein, das ist der Beleg. Eine
+  eigene Erledigt-Liste wäre ein zweiter Bestand über dieselbe Sache. **Ab dem Tag des Fensters**,
+  nicht „irgendwann" — ein Test von voriger Woche hakt die heutige Einheit nicht ab.
+
 - **v5.55.0 · 2026-09-01** — **Nachgefragt: „Aktualisiert sich der Kalender selbst?" — nein.**
   Alle drei `kalHolen`-Aufrufe lagen in der **Einstellungsansicht**. „Heute" las nur den
   Zwischenspeicher — wer die Einstellungen nie öffnet, sieht nie ein Trainingsfenster, und der
