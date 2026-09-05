@@ -13,6 +13,21 @@
 
 ---
 
+- **v5.55.0 · 2026-09-01** — **Nachgefragt: „Aktualisiert sich der Kalender selbst?" — nein.**
+  Alle drei `kalHolen`-Aufrufe lagen in der **Einstellungsansicht**. „Heute" las nur den
+  Zwischenspeicher — wer die Einstellungen nie öffnet, sieht nie ein Trainingsfenster, und der
+  Vorschlag aus v5.54 bliebe dauerhaft leer. **Ein Automatismus, den man von Hand anstoßen muss, ist
+  keiner.**
+  Jetzt zwei Gelegenheiten: beim **Zeichnen von „Heute"** und beim **Zurückkommen zur App**
+  (`visibilitychange`). **Kein Takt, sondern eine Gelegenheit** — die Regel „nichts Ungefragtes beim
+  Start" (v5.08) gilt weiter, und ein Zeitgeber, der stündlich das Netz anfasst, kostet auf dem Platz
+  Akku ohne Gegenwert.
+  Die **15-Minuten-Grenze** in `kalHolen(false)` ist die Bremse: Wer die App fünfmal in einer Minute
+  hervorholt, löst keine fünf Abrufe aus. Und **nachgezeichnet wird nur bei echter Änderung** — ein
+  `renderHeute()` aus sich selbst heraus wäre sonst eine Schleife.
+  Der Knopf „⟳ Jetzt holen" bleibt: Er umgeht die Grenze (`force`) und ist der Weg, wenn man gerade
+  etwas im Kalender geändert hat und es sofort sehen will.
+
 - **v5.54.0 · 2026-09-01** — **Der Kalender weiß wann, die Ziele wissen was — jetzt reden sie
   miteinander.** Gewünscht: „Man sieht ja, wo ich Zeit zur Verfügung habe für Training — und dann
   ganz konkret in den Zeiten Trainingsabläufe planen." Auf **Heute**, wie gewünscht: Ein

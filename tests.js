@@ -338,7 +338,7 @@ try {
   /* WICHTIG: bei vm.runInContext landen nur `var` und `function` am Kontext —
      `const STRAT = {...}` bleibt im Blockscope unsichtbar. Deshalb ein Epilog,
      der die benoetigten Namen aktiv herausreicht. */
-  const namen = ["_phoneLive","playHoleStamp","PLAY","repairListenFormen","bagBewertung","clubNorm","_mergeObj","_leerWert","mergeDB","MERGE_KEY","EQUIP_FELDER","EQUIP_GRUPPEN","EQUIP_ALT_KEYS","equipAltRaeumen","ensureSeedGoals","_zielSchluessel","goalCurrent","trainingsEmpfehlung","goalIst","goalPlan","goalFortschritt","goalErreicht","goalHochIstGut","_zielMed","zielFeldDef","ZIEL_QUELLEN","ZIEL_FELDER","testZaehltNicht","testDefsAusgewertet","lmShotKey","lmNurNeue","lmDubletten","LM_ALLE","lmSetClub","playKopfraum","playKopfAnteil","aimUmweg","sgAbdeckungsQuote","sgPuttSchieflage","sgWarnHtml","sgRound","sgEnrich","turnierNaehe","wakeAn","wakeAus","_wakeGruende","kraftVerlauf","standNeuer","wetterSetzen","mobBaseline","MOB_KEYS","_fitMedian","_fitVergleich","isoWoche","kraftNorm","est1RM","kraftVerlauf","_dgmAbstandZuStrecke","gpFingerprint","clubList","gpHoleFrisch","gpKey","activeHoles","dispersionFor","clubNorm","lageAusGps","windPfeil","gpsAlleHtml","lineChart","sgVerlaufHtml","sgVerlauf","datenBasisText","sortedRounds","renderDash","sgWarnHtml","trainingsEmpfehlung","sgDashHtml","sgRound","dreiPuttHtml","pinFuer","pinPunkt","greenDims","gruenListeHtml","STAMP_LISTEN","schlagNeutral","gpsShotsNachziehen","_aimApproachEv","watchElevProfil","dgmSetzen",
+  const namen = ["_phoneLive","playHoleStamp","PLAY","repairListenFormen","bagBewertung","clubNorm","_mergeObj","_leerWert","mergeDB","MERGE_KEY","EQUIP_FELDER","EQUIP_GRUPPEN","EQUIP_ALT_KEYS","equipAltRaeumen","ensureSeedGoals","_zielSchluessel","goalCurrent","trainingsEmpfehlung","goalIst","goalPlan","goalFortschritt","goalErreicht","goalHochIstGut","_zielMed","zielFeldDef","ZIEL_QUELLEN","ZIEL_FELDER","testZaehltNicht","testDefsAusgewertet","lmShotKey","lmNurNeue","lmDubletten","LM_ALLE","lmSetClub","playKopfraum","playKopfAnteil","aimUmweg","sgAbdeckungsQuote","sgPuttSchieflage","sgWarnHtml","sgRound","sgEnrich","turnierNaehe","wakeAn","wakeAus","_wakeGruende","kraftVerlauf","standNeuer","wetterSetzen","mobBaseline","MOB_KEYS","_fitMedian","_fitVergleich","isoWoche","kraftNorm","est1RM","kraftVerlauf","_dgmAbstandZuStrecke","gpFingerprint","clubList","gpHoleFrisch","gpKey","activeHoles","dispersionFor","clubNorm","lageAusGps","windPfeil","gpsAlleHtml","lineChart","sgVerlaufHtml","sgVerlauf","datenBasisText","sortedRounds","renderDash","sgWarnHtml","trainingsEmpfehlung","sgDashHtml","sgRound","dreiPuttHtml","pinFuer","pinPunkt","greenDims","parNachtragen","trefferHtml","parTypHtml","computeRound","gruenListeHtml","STAMP_LISTEN","schlagNeutral","gpsShotsNachziehen","_aimApproachEv","watchElevProfil","dgmSetzen",
                  "schlagNeutral","neutralBasis","gpsShotsNachziehen","elevQuelle","elevQuelleText","dgmRahmen","dgmIdx","dgmZelleMitte","dgmZellen","dgmHoehe","dgmNeigung","dgmKey",
                  "STRAT","clubPick","playsLike","pinPoint","geoDist","playMapBox",
                  "liveStart","liveStop","liveStopAll","liveVerbraucher","LIVEPOS",
@@ -10517,6 +10517,74 @@ group("Schlag-GPS — Ausreißer sehen und loswerden");
       ok("der Grund steht an der markierten Zeile", /m zum Median/.test(src));
     }
   }
+}
+
+/* ============ 24gx. Par, Trefferquoten und Lochtypen ============ */
+group("Golfsicht — was die Zahlen über das Spiel sagen");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+  const PN = G("parNachtragen"), TH = G("trefferHtml"), PT = G("parTypHtml");
+
+  /* ====================================================================
+     PAR GEHÖRT AN DAS LOCH (v6.00)
+     --------------------------------------------------------------------
+     GEMESSEN am 05.09.: Von 342 gespielten Löchern trugen nur **36** ein Par,
+     und nur **18** hatten Score UND Par. Score und Handicap stimmten trotzdem
+     — dort wird über die ganze Runde gerechnet.
+     **ABER JEDE AUSWERTUNG NACH LOCHTYP BRACH DARAUF ZUSAMMEN.** „Wo verliere
+     ich mehr — auf Par 3 oder Par 5?" ist eine der nützlichsten
+     Trainingsfragen überhaupt und war mit 18 Löchern nicht beantwortbar.
+     DIE ANGABE LAG VOR, sie wurde nur nicht mitgeschrieben: Jedes Tee führt
+     Par je Loch. Am eigenen Bestand ergänzt die Nachrüstung **306 Löcher**. */
+  ok("es gibt eine Par-Nachrüstung", /function parNachtragen\(db\)\{/.test(src));
+  /* EINE HANDEINGABE GEWINNT IMMER: Wer ein abweichendes Par gespielt hat,
+     hat recht — die Karte nicht. */
+  ok("vorhandenes Par bleibt unangetastet", /if\(!h \|\| h\.par!=null \|\| h\.hole==null\) return;/.test(src));
+  ok("und sie läuft beim Start", /const n=parNachtragen\(DB\);/.test(src));
+  if (typeof PN === "function") {
+    const LDB = live("DB");
+    if (LDB) {
+      const alt = LDB.rounds, altC = LDB.courses;
+      try {
+        LDB.courses = [{ name: "P", tees: { Gelb: { holes: [{ hole: 1, par: 3 }, { hole: 2, par: 5 }] } } }];
+        LDB.rounds = [{ id: "R", course: "P", tee: "Gelb",
+          holes: [{ hole: 1, score: 4 }, { hole: 2, score: 6, par: 4 }] }];
+        const n = PN(LDB);
+        ok("ein fehlendes Par wird ergänzt", n === 1, String(n));
+        ok("aus der Platzkarte", LDB.rounds[0].holes[0].par === 3);
+        /* Und das von Hand gesetzte bleibt, auch wenn es abweicht. */
+        ok("das eigene bleibt stehen", LDB.rounds[0].holes[1].par === 4);
+      } finally { LDB.rounds = alt; LDB.courses = altC; }
+    }
+  }
+
+  /* ====================================================================
+     TREFFERQUOTEN GEGEN DIE EIGENE KLASSE
+     --------------------------------------------------------------------
+     GEMESSEN: GIR **4,6 je 18** (25 %) am OBEREN Rand von HCP 20 (3–5),
+     Fairways **39 %** DARUNTER (40–50 %).
+     GOLFERISCH: genug Grüns für einen Zwanziger, aber zu viele Annäherungen
+     aus dem Rough — **eine Frage der Zielwahl, nicht des Schwungs**, und sie
+     passt exakt zur gemessenen Driver-Streuung von 27 m.
+     **DIE FAIRWAYQUOTE STAND NIRGENDS IM DASHBOARD**, obwohl sie die
+     schwächste Zahl im Vergleich ist. **Eine Kennzahl, die man nicht sieht,
+     steuert nichts.** */
+  ok("GIR und Fairway stehen mit Vergleichswerten da",
+     /HCP 20: 3–5 · Scratch: 11–12/.test(src) && /HCP 20: 40–50 % · Scratch: 60–65 %/.test(src));
+  ok("und der Widerspruch wird benannt",
+     /Grünquote liegt am\s*\n?\s*<b>oberen<\/b> Rand/.test(src));
+  if (typeof TH === "function") ok("die Tafel baut sich", typeof TH() === "string");
+
+  /* ====================================================================
+     LOCHTYPEN — ERST JETZT MÖGLICH
+     --------------------------------------------------------------------
+     Statt 18 jetzt 261 auswertbare Löcher. **Und wenn die Typen dicht
+     beieinanderliegen, sagt es das ausdrücklich** — statt aus 0,15 Schlägen
+     Unterschied eine Empfehlung zu bauen. */
+  ok("Lochtypen erst ab 10 Löchern je Typ", /P\[p\]\.n>=10/.test(src));
+  ok("und kein erfundener Unterschied",
+     /Die drei Lochtypen liegen dicht beieinander/.test(src));
+  if (typeof PT === "function") ok("die Lochtyp-Tafel baut sich", typeof PT() === "string");
 }
 
 /* ============ 24gw. Die Grafik erklärt sich selbst ============ */
