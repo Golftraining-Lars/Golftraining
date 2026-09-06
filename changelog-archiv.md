@@ -13,6 +13,94 @@
 
 ---
 
+- **v5.63.0 · 2026-09-02** — **„Takt gedrosselt · 198 s statt 2 s" — erkannt, gemeldet, und dann
+  nichts.** Aus dem Protokoll vom 02.09., und zwar bei **Bildschirm an**.
+  **Die Drosselung selbst ist nicht zu verhindern** — der Browser entscheidet das, gerade beim
+  Akkusparen. Aber sie wurde **nur gemeldet**. Danach lief der Takt weiter, als wäre nichts gewesen:
+  Der nächste reguläre Durchlauf kam erst nach weiteren zwei Sekunden, und bis dahin war der Stand
+  dreieinhalb Minuten alt.
+  **Das Aufholen gab es schon** (`playAufholen`, v4.79) — aber es hängt an `visibilitychange`,
+  `pageshow` und `focus`. **Genau die lagen hier nicht vor:** Bildschirm an, Fenster im Vordergrund.
+  Der Browser hat trotzdem gedrosselt, und kein einziges Ereignis hat das gemeldet.
+  **Wer eine Lücke erkennt, muss sie auch schließen.** Eine Meldung ohne Handlung ist eine Zeile im
+  Protokoll, kein behobener Zustand — dieselbe Sorte Fehler wie beim Sendetakt der Uhr in Fassung 58,
+  wo das Aufwachen nur ein Kennzeichen setzte.
+  **Auch der zweite Zweig holt jetzt auf:** „Takt stand still" — ein angehaltener Zeitgeber ist der
+  **schlimmere** Fall, weil der nächste Durchlauf gar nicht mehr kommt. Dass ausgerechnet dieser nur
+  meldete und zurückkehrte, war die größere Lücke von beiden. `playAufholen` startet den Zeitgeber
+  mit, holt also nicht nur den Stand, sondern auch den Takt zurück.
+  Gemeldet wird weiterhin — die Zahl ist der einzige Beleg dafür, wie oft der Browser drosselt.
+
+- **v5.62.0 · 2026-09-02** — **Jeder zweite Push lief in einen Konflikt — seit v2.10.** Aus dem
+  Protokoll: fünfmal „draftPush HTTP 409" während einer Runde.
+  **Die Ursache stand seit anderthalb Wochen im Worker — wörtlich:** „Ohne sie kannte der Client nach
+  jedem erfolgreichen Schreibvorgang nur noch die ALTE Kennung und lief beim nächsten Push in einen
+  409 — jedes Mal." Der Worker liefert die neue Kennung seitdem im Kopf `X-Repo-Sha`.
+  **Damals wurde nur die Uhr nachgezogen. Das Handy las den Kopf nie.** Nach jedem erfolgreichen
+  Schreiben behielt es die Kennung von *vor* dem Schreiben; der nächste Push kollidierte
+  zwangsläufig, und erst die Wiederholungsschleife holte sich per `draftPull` die frische.
+  **Es funktionierte, aber teuer:** Jeder zweite Push kostete einen zusätzlichen Abruf und bis zu
+  850 ms Pause — auf der Bahn, im Funkloch, mit der Uhr am anderen Ende. Und wenn beide Geräte
+  gleichzeitig schrieben, reichten die vier Anläufe nicht.
+  **Ein Fehler, den man an einer Stelle behebt und an der anderen nicht, ist nicht behoben — er
+  wartet nur woanders.**
+  **Dieselbe Lücke an der zweiten Schreibstelle:** `draftPushRaw` übernahm die Kennung ebenfalls
+  nicht — **und wiederholte sich bei 409 ohne Obergrenze**, durch Selbstaufruf. Bei zwei gleichzeitig
+  schreibenden Geräten im schlimmsten Fall bis zum Stapelüberlauf, und stumm, weil der `catch` nur
+  `false` lieferte. **Eine Wiederholung ohne Obergrenze ist keine Wiederholung, sondern eine
+  Schleife.** Jetzt drei Anläufe, danach ehrlich `false` mit Protokollzeile.
+
+- **v5.61.0 · 2026-09-02** — **Das Luftbild war nie unscharf — es wurde zugedeckt.** Deine Messung
+  hat es entschieden: *„✓ DOP20 Schleswig-Holstein: 129 kB · Zoom 18 · 0,17 m/Pixel."* Der Dienst
+  liefert ein scharfes Bild.
+  **Gezählt, was darüberliegt:** Die Vektorflächen werden mit 34 % Deckkraft über das Bild gemalt. Auf
+  Fehmarn sind das **132 `other` + 395 Gebäude**; auf dem Nordplatz nur 188 Flächen insgesamt.
+  **Deshalb sieht Fehmarn milchig aus und der Nordplatz nicht** — nicht wegen der Bildquelle, sondern
+  wegen der Menge dessen, was darüberliegt.
+  **Was man auf dem Luftbild sieht, muss man nicht darübermalen.** Ein Gebäude ist auf einem
+  17-cm-Bild ein Gebäude; eine graue Fläche darauf fügt nichts hinzu und nimmt Schärfe. `other` ist
+  ohnehin nur „irgendein Objekt aus der Quelle" — dafür zwei Megabyte zu zeichnen war schon in v5.06
+  der Befund.
+  Über dem Luftbild entfallen jetzt `other`, Gebäude, Parkplätze und Wege. Auf der Übersichtskarte
+  von Fehmarn sinken die gezeichneten Flächen von **1006 auf 472**. **Grüns, Fairways, Bunker und
+  Wasser bleiben** — die trägt das Bild nicht so eindeutig.
+  **Nur über dem Luftbild:** Ohne Bild bleibt alles wie bisher, dort ist die Fläche die einzige
+  Information. Und im Editor bleibt alles sichtbar — dort bearbeitet man genau diese Objekte.
+
+- **v5.60.0 · 2026-09-01** — **Jetzt sehe ich, was du meinst — und ich habe vorher das Falsche
+  gemessen.** Das Bildschirmfoto von Loch 3 zeigt ein sichtbar unscharfes **Luftbild**. Meine Messung
+  in v5.59 galt den OSM-Vektordaten (Fairways, Bunker, Grüns) — die sind auf Fehmarn vollständig. Die
+  **Satellitenbilder** sind eine ganz andere Quelle, und danach hattest du gefragt.
+  **Nachgerechnet — es müsste scharf sein:** Für Fehmarn wählt die App die amtliche
+  Schleswig-Holstein-Quelle (DOP20), Zoomstufe **18**, **0,17 m je Pixel**. Die weltweite Esri-Quelle
+  wäre mit 0,30 m gröber; die Wahl stimmt also.
+  **Nur prüft die Rechnung nicht, was ankommt.** Ein Dienst, der 200 Byte liefert, liefert kein
+  Luftbild — auch wenn der Kopfsatz „image/jpeg" sagt. Eine 512er-Kachel mit echtem Inhalt wiegt
+  zweistellige Kilobyte; alles darunter ist eine leere Fläche, **und die sieht auf dem Platz aus wie
+  Unschärfe**.
+  Die Quellenprüfung unter „Plätze" meldet deshalb jetzt **Kachelgröße, Zoomstufe und
+  Bodenauflösung** statt nur „kam etwas an" — und warnt ausdrücklich, wenn die Kachel verdächtig
+  klein ist. Alles landet im Fehlerprotokoll.
+  **Ehrlich zur Grenze:** Ob der Dienst auf deinem Gerät wirklich liefert, kann ich hier nicht
+  prüfen — mein Sandkasten darf `dienste.gdi-sh.de` nicht abrufen. Die Prüfung in der App beantwortet
+  genau diese Frage.
+
+- **v5.59.0 · 2026-09-01** — **„Aber trotzdem fehlen doch die Satellitendaten, oder?" — bei einem
+  Platz ja, bei Fehmarn nein.** Berechtigt nachgehakt, also habe ich je Loch gemessen statt pauschal:
+  | Platz | Fairway | Grünfläche | Bunker |
+  |---|---|---|---|
+  | Fehmarn | 18/18 | 18/18 | 17/18 |
+  | Nordplatz | 18/18 | 18/18 | 18/18 |
+  | Südplatz | 18/18 | 17/18 | 18/18 |
+  | **Brodauer Mühle** | **0/18** | 18/18 | **0/18** |
+  **Auf Fehmarn fehlen die Daten nicht** — sie waren falsch zugeordnet, und genau das behebt v5.58.
+  **Bei der Brodauer Mühle fehlen sie wirklich:** kein einziges Fairway, kein einziger Bunker in der
+  Quelle. Dort hilft keine Korrektur; das müsste in OpenStreetMap ergänzt werden.
+  **„Unvollständig" kann zweierlei heißen — nichts da, oder falsch zugeordnet — und die beiden
+  brauchen verschiedene Antworten.** Der Platzbericht zeigt jetzt beides getrennt: eine Tafel mit der
+  Deckung je Element, die Liste der Löcher ohne Daten, und darunter die Zahl der Löcher mit falsch
+  zugeordnetem Grün samt Hinweis, wo man sie behebt.
+
 - **v5.58.0 · 2026-09-01** — **„Die Satellitendaten sind unvollständig" — nachgemessen: Sie sind da,
   die Zuordnung fehlt.** Fehmarn hat **20 Fairways, 51 Bunker, 28 Grünflächen, 16 Fahnen**. Was fehlt,
   ist die Antwort auf die Frage, **welche Fläche zu welchem Loch gehört**.

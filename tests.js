@@ -338,7 +338,7 @@ try {
   /* WICHTIG: bei vm.runInContext landen nur `var` und `function` am Kontext —
      `const STRAT = {...}` bleibt im Blockscope unsichtbar. Deshalb ein Epilog,
      der die benoetigten Namen aktiv herausreicht. */
-  const namen = ["_phoneLive","playHoleStamp","PLAY","repairListenFormen","bagBewertung","clubNorm","_mergeObj","_leerWert","mergeDB","MERGE_KEY","EQUIP_FELDER","EQUIP_GRUPPEN","EQUIP_ALT_KEYS","equipAltRaeumen","ensureSeedGoals","_zielSchluessel","goalCurrent","trainingsEmpfehlung","goalIst","goalPlan","goalFortschritt","goalErreicht","goalHochIstGut","_zielMed","zielFeldDef","ZIEL_QUELLEN","ZIEL_FELDER","testZaehltNicht","testDefsAusgewertet","lmShotKey","lmNurNeue","lmDubletten","LM_ALLE","lmSetClub","playKopfraum","playKopfAnteil","aimUmweg","sgAbdeckungsQuote","sgPuttSchieflage","sgWarnHtml","sgRound","sgEnrich","turnierNaehe","wakeAn","wakeAus","_wakeGruende","kraftVerlauf","standNeuer","wetterSetzen","mobBaseline","MOB_KEYS","_fitMedian","_fitVergleich","isoWoche","kraftNorm","est1RM","kraftVerlauf","_dgmAbstandZuStrecke","gpFingerprint","clubList","gpHoleFrisch","gpKey","activeHoles","dispersionFor","clubNorm","lageAusGps","windPfeil","gpsAlleHtml","lineChart","sgVerlaufHtml","sgVerlauf","datenBasisText","sortedRounds","renderDash","sgWarnHtml","trainingsEmpfehlung","sgDashHtml","sgRound","dreiPuttHtml","pinFuer","pinPunkt","greenDims","parNachtragen","trefferHtml","parTypHtml","computeRound","wxHalbstunden","wxStunden","playBegin","activeHoles","gruenListeHtml","STAMP_LISTEN","schlagNeutral","gpsShotsNachziehen","_aimApproachEv","watchElevProfil","dgmSetzen",
+  const namen = ["_phoneLive","playHoleStamp","PLAY","repairListenFormen","bagBewertung","clubNorm","_mergeObj","_leerWert","mergeDB","MERGE_KEY","EQUIP_FELDER","EQUIP_GRUPPEN","EQUIP_ALT_KEYS","equipAltRaeumen","ensureSeedGoals","_zielSchluessel","goalCurrent","trainingsEmpfehlung","goalIst","goalPlan","goalFortschritt","goalErreicht","goalHochIstGut","_zielMed","zielFeldDef","ZIEL_QUELLEN","ZIEL_FELDER","testZaehltNicht","testDefsAusgewertet","lmShotKey","lmNurNeue","lmDubletten","LM_ALLE","lmSetClub","playKopfraum","playKopfAnteil","aimUmweg","sgAbdeckungsQuote","sgPuttSchieflage","sgWarnHtml","sgRound","sgEnrich","turnierNaehe","wakeAn","wakeAus","_wakeGruende","kraftVerlauf","standNeuer","wetterSetzen","mobBaseline","MOB_KEYS","_fitMedian","_fitVergleich","isoWoche","kraftNorm","est1RM","kraftVerlauf","_dgmAbstandZuStrecke","gpFingerprint","clubList","gpHoleFrisch","gpKey","activeHoles","dispersionFor","clubNorm","lageAusGps","windPfeil","gpsAlleHtml","lineChart","sgVerlaufHtml","sgVerlauf","datenBasisText","sortedRounds","renderDash","sgWarnHtml","trainingsEmpfehlung","sgDashHtml","sgRound","dreiPuttHtml","pinFuer","pinPunkt","greenDims","parNachtragen","trefferHtml","parTypHtml","computeRound","geoBeschneidenZaehlen","geoBeschneiden","_bahnPunkte","CROP_SCHUTZ","wxHalbstunden","wxStunden","playBegin","activeHoles","gruenListeHtml","STAMP_LISTEN","schlagNeutral","gpsShotsNachziehen","_aimApproachEv","watchElevProfil","dgmSetzen",
                  "schlagNeutral","neutralBasis","gpsShotsNachziehen","elevQuelle","elevQuelleText","dgmRahmen","dgmIdx","dgmZelleMitte","dgmZellen","dgmHoehe","dgmNeigung","dgmKey",
                  "STRAT","clubPick","playsLike","pinPoint","geoDist","playMapBox",
                  "liveStart","liveStop","liveStopAll","liveVerbraucher","LIVEPOS",
@@ -3506,6 +3506,39 @@ group("SPIELWEISE — Caddy und Ziellinie können nicht mehr auseinanderlaufen")
     ["safe","bal","aggr"].forEach(m=>
       ok(m+": Bonus überwindet die Tabellenverzerrung", SW[m].wedgeES>0.075,
          String(SW[m].wedgeES)));
+
+    /* ================================================================
+       ABER NICHT VIEL DARÜBER (v6.05)
+       ----------------------------------------------------------------
+       GEFRAGT am 05.09.: „Sind denn die aktuellen Zonen aus
+       Strokes-Gained-Sicht gut gewählt?"
+       **NEIN — und die App beantwortet das selbst.** Ihre eigenen
+       Erwartungswerte steigen zwischen 60 und 120 m STRENG MONOTON:
+       80 m = 3,071 · 100 m = 3,159 · 120 m = 3,247. Jeder Meter näher spart
+       gleich viel. **Es gibt kein Optimum bei 100 m** — näher ist immer
+       besser, genau wie Broadie aus Millionen Schlägen zeigt.
+       DER BONUS BELOHNTE ALSO EINEN REST, DEN DIESELBE APP ZWEI ZEILEN WEITER
+       ALS SCHLECHTER EINSTUFT — derselbe Widerspruch wie beim Putten (v5.93).
+       AM EIGENEN BESTAND GEMESSEN, Grüntrefferquote je Band: 86 % (50–80),
+       64 % (80–110), 55 % (110–140), 36 % (140–170). **Monoton fallend** —
+       auch das stützt keinen Zonenbonus, nur „näher ist besser".
+       WAS ER JETZT NOCH BEDEUTET: nicht „100 m sind besser als 85 m", sondern
+       „ein voller Schwung ist kontrollierbarer als ein Teilschwung" — eine
+       Aussage über die STREUUNG, nicht über die Entfernung.
+       **UND ER BLEIBT ÜBER 0,075:** Ein erster Anlauf setzte 0,05 und 0,04.
+       Das hätte den Bonus zu totem Gewicht gemacht, das aussieht, als täte es
+       etwas. **EIN PARAMETER, DER NICHTS BEWIRKT, IST SCHLIMMER ALS KEINER —
+       man rechnet mit ihm.** */
+    ["safe","bal"].forEach(m=>
+      ok(m+": aber der Bonus bleibt klein", SW[m].wedgeES<=0.10,
+         String(SW[m].wedgeES)));
+    ok("und der Regel-Bonus ebenso", SW.safe.caddy.wedgeBonus<=6 && SW.bal.caddy.wedgeBonus<=3,
+       SW.safe.caddy.wedgeBonus+" / "+SW.bal.caddy.wedgeBonus);
+    /* DIE ZONENGRENZEN BLEIBEN — sie treffen an diesem Bestand die
+       Schlägerübergänge bei 80 und 110 m. Falsch war die Höhe, nicht die
+       Lage. */
+    ok("die Zone selbst bleibt 85–125 m",
+       /left>=85&&left<=125/.test(fs.readFileSync(FILE,"utf8")));
   }
   if (typeof inWZ === "function" && WZ) {
     ok("volle Wedge-Zone erkannt", inWZ(100)===true && inWZ(85)===true && inWZ(125)===true);
@@ -4637,7 +4670,17 @@ group("Zielkette — der Schläger folgt der gespielten Distanz");
      /bearingDeg\(pts\[i\], pts\[i\+1\]\)/.test(ab));
   ok("und mit der Höhe dieser Teilstrecke",
      /elevDelta\(pts\[i\], pts\[i\+1\]\)/.test(ab));
-  ok("die Schlägerwahl nutzt sie", /_aimClub\(clubs,dSpielt,i===0\)/.test(ab));
+  /* v6.04: Der Rückfall nimmt weiterhin `dSpielt` (Behebung aus v4.15 —
+     ohne Caddy-Schläger muss der Ersatz die GESPIELTE Distanz tragen), aber
+     „vom Abschlag" heißt jetzt `amTee` statt `i===0`.
+     **ZWEI BEGRIFFE, DIE MEISTENS DASSELBE BEDEUTEN, SIND DER GEFÄHRLICHSTE
+     FALL:** Am Abschlag stimmen sie überein — und genau dort schaut man hin.
+     Steht man mitten auf der Bahn, ist das erste Bein der ZWEITE Schlag, und
+     der Driver war wieder erlaubt, obwohl die Regel ihn seit v5.32 vom Boden
+     ausschließt. */
+  ok("die Schlägerwahl nutzt sie", /_aimClub\(clubs,dSpielt,\(i===0 && amTee\)\)/.test(ab));
+  ok("und der Driver bleibt vom Boden ausgeschlossen",
+     !/_aimClub\(clubs,dSpielt,i===0\)/.test(ab));
   ok("die gemessene Strecke bleibt daneben stehen", /dist:d, spielt:Math\.round\(dSpielt\)/.test(ab));
 
   /* „PASST" MUSS IN BEIDE RICHTUNGEN GELTEN. Die Prüfung kannte nur ZU LANG;
@@ -10519,6 +10562,141 @@ group("Schlag-GPS — Ausreißer sehen und loswerden");
   }
 }
 
+/* ============ 24hd. Dasselbe Feld heißt überall gleich ============ */
+group("Eingabe — ein Feld, eine Beschriftung");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+
+  /* ====================================================================
+     GEWÜNSCHT am 05.09.2026 (v6.07)
+     --------------------------------------------------------------------
+     „Bitte benenne ‚Rest zur Fahne‘ um in ‚Rest zur Fahne nach Approach‘ im
+     Bereich Runde bearbeiten."
+     IM SPIELMODUS HIESS ES SCHON SO, im Rundeneditor nicht. **Dasselbe Feld
+     unter zwei Namen ist eine Einladung zum falschen Eintrag:** „Rest zur
+     Fahne" allein liest sich wie „von wo ich gerade stehe" — gemeint ist
+     aber der Rest NACH dem Annäherungsschlag, also die Länge des ersten
+     Putts oder Chips.
+     Die Doku warnt an dieser Stelle ausdrücklich vor Verwechslung mit der
+     Distanz VOR dem Schlag — genau davor schützt der längere Name. */
+  ok("der Rundeneditor nennt den Zeitpunkt",
+     />Rest zur Fahne nach Approach \(m\)</.test(src));
+  /* UND DER VORLESETEXT MIT: Wer die Maske hört statt sieht, braucht
+     dieselbe Auskunft. */
+  ok("auch im aria-label", /aria-label="Rest zur Fahne nach Approach \(m\)"/.test(src));
+  /* KEINE ALTE FASSUNG MEHR — sonst stehen beide Namen nebeneinander. */
+  ok("die kurze Form ist weg", !/>Rest zur Fahne \(m\)</.test(src));
+  /* BEIDE MASKEN GLEICH: Spielmodus und Rundeneditor erfassen dasselbe Feld;
+     wer sie verschieden beschriftet, bekommt verschiedene Daten. */
+  ok("Spielmodus und Editor stimmen überein",
+     (src.match(/Rest zur Fahne nach Approach \(m\)/g) || []).length >= 3,
+     String((src.match(/Rest zur Fahne nach Approach \(m\)/g) || []).length));
+}
+
+/* ============ 24hc. Kartenausschnitt beschneiden ============ */
+group("Platzkarte — 98 Prozent zeigen Gegend, die man nie spielt");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+  const GZ = G("geoBeschneidenZaehlen"), BP = G("_bahnPunkte"), DB0 = live("DB");
+
+  /* ====================================================================
+     GEWÜNSCHT am 05.09.2026 (v6.06)
+     --------------------------------------------------------------------
+     „Ich möchte die Kartenausschnitte insgesamt bearbeiten und beschneiden
+     bzw. verkleinern können."
+     GEMESSEN an der Brodauer Mühle: **455 der 707 Elemente** liegen
+     vollständig weiter als 150 m von jeder Bahn — und tragen **101.031 der
+     102.836 Stützpunkte**. Nach dem Schnitt **2158 → 53 kB**, und auf allen
+     neun geprüften Löchern bleibt die Empfehlung **identisch**.
+     `geoAbspecken` DÜNNT AUS, DIES SCHNEIDET — die beiden ergänzen sich. */
+  ok("es gibt eine Beschneidung", /function geoBeschneiden\(courseName, meter\)\{/.test(src));
+  /* DIE ZAHL STEHT VOR DER HANDLUNG: **Wer Daten entfernt, muss vorher sagen,
+     wie viele.** */
+  ok("mit Vorschau", /function geoBeschneidenZaehlen\(courseName, meter\)\{/.test(src));
+  ok("und Rückfrage mit Zahl",
+     /z\.weg\+" von "\+\(z\.weg\+z\.bleibt\)\+" Elementen entfernen\?/.test(src));
+  /* PLATZGRENZE UND BAHNEN BLEIBEN IMMER — sie definieren den Platz. */
+  ok("geschützte Arten sind benannt", /const CROP_SCHUTZ = \["boundary","fairway","green","tee","bunker","water"\]/.test(src));
+  /* NUR ELEMENTE, DIE GANZ DRAUSSEN LIEGEN: Ein halb beschnittener Ring wäre
+     schlimmer als ein zu großer — er ergäbe eine Fläche, die es nicht gibt. */
+  ok("ein Treffer genügt zum Behalten", /if\(geoDist\(p,b\)<=r\) return true;/.test(src));
+  /* WER GEOMETRIE ÄNDERT, LEERT ALLE SPEICHER (v5.19/v5.74/v5.83). */
+  {
+    /* OHNE FENSTER: der Block wird geschnitten. */
+    const bi = src.indexOf("function geoBeschneiden(courseName, meter){");
+    const be = src.indexOf("\nfunction geoAbspecken", bi);
+    const blk = bi >= 0 ? src.slice(bi, be > bi ? be : bi + 3000) : "";
+    ok("und alle Speicher werden geleert",
+       /delete _aimCache\[k\]/.test(blk) && /PLAY\.aimChain=null/.test(blk)
+       && /_grids\.clear\(\)/.test(blk));
+  }
+
+  if (typeof BP === "function" && typeof GZ === "function" && DB0) {
+    const c = (DB0.courses || []).find(x => x && x.geo && x.geo.features && x.geo.features.length);
+    if (c) {
+      /* DER ABSTAND WIRD ZU JEDER BAHN GEMESSEN, nicht zum Mittelpunkt: Ein
+         Platz ist länglich, oft über zwei Kilometer. */
+      const bp = BP(c.geo);
+      ok("es gibt mehrere Bahn-Bezugspunkte", bp.length >= 4, String(bp.length));
+      const eng = GZ(c.name, 100), weit = GZ(c.name, 400);
+      if (eng && weit) {
+        /* Ein größerer Radius darf nie MEHR wegwerfen — sonst stimmt die
+           Richtung nicht. */
+        ok("größerer Radius wirft weniger weg", weit.weg <= eng.weg,
+           eng.weg + " bei 100 m gegen " + weit.weg + " bei 400 m");
+        ok("und die Summe bleibt gleich",
+           eng.weg + eng.bleibt === weit.weg + weit.bleibt);
+      }
+    }
+  }
+}
+
+/* ============ 24hb. Driver nur vom Abschlag — auch in der Beschriftung ============ */
+group("Caddy — zwei Begriffe, die meistens dasselbe bedeuten");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+  const AC = G("_aimClub"), CC = G("caddyClubs");
+
+  /* ====================================================================
+     GEMELDET am 05.09.2026 mit Bildschirmfoto (v6.04)
+     --------------------------------------------------------------------
+     Loch 15, **206 m zur Fahne, Ball auf dem Fairway** — und die Karte
+     beschriftete den Schlag mit **Driver**.
+     DIE REGEL GIBT ES SEIT v5.32: Driver nur vom Abschlag. `tee()` setzt sie
+     über `caddyClubs(null, _amTee)` durch, `nextShot()` filtert ihn ebenfalls
+     heraus. **Nur die Beschriftung nicht:** Sie übergab `i===0` als „vom
+     Abschlag" — und das heißt „erstes Bein der Kette". Steht man mitten auf
+     der Bahn, ist das erste Bein der ZWEITE Schlag.
+     **ZWEI BEGRIFFE, DIE MEISTENS DASSELBE BEDEUTEN, SIND DER GEFÄHRLICHSTE
+     FALL:** Am Abschlag stimmen sie überein, und genau dort schaut man hin.
+     Erst auf der Bahn fällt es auf — und dort steht man ohne Tee.
+     `amTee` LAG IM SELBEN GÜLTIGKEITSBEREICH und wurde wenige Zeilen weiter
+     oben schon benutzt. **Es war kein Aufwand, es war ein falsches Wort.** */
+  ok("die Beschriftung fragt nach dem Abschlag, nicht nach dem Bein",
+     /_aimClub\(clubs,dSpielt,\(i===0 && amTee\)\)/.test(src));
+
+  /* ---- Und der Nachweis am Verhalten ---- */
+  if (typeof AC === "function" && typeof CC === "function") {
+    const clubs = CC() || [];
+    if (clubs.length) {
+      const vomTee = AC(clubs, 206, true);
+      const vomBoden = AC(clubs, 206, false);
+      ok("vom Abschlag darf der Driver dabei sein", !!vomTee, vomTee ? vomTee.name : "keiner");
+      ok("vom Boden nicht",
+         !!vomBoden && !/driver/i.test(vomBoden.name || ""),
+         vomBoden ? vomBoden.name : "keiner");
+      /* UND ES KOMMT TROTZDEM EIN SCHLÄGER: Ausschließen heißt nicht
+         schweigen — wer 206 m vor sich hat, braucht eine Antwort. */
+      ok("und trotzdem ein Vorschlag", !!vomBoden);
+    }
+  }
+  /* Die anderen beiden Wege setzen die Regel weiterhin durch — sonst hätte
+     ich die falsche Stelle gehärtet. */
+  ok("tee() prüft die Position", /caddyClubs\(null, _amTee\)/.test(src));
+  ok("nextShot() filtert den Driver heraus",
+     /const wo=clubs\.filter\(c=>!\/driver\|1er\|1\[-\\s\]\?holz\/i\.test\(c\.name\|\|""\)\)/.test(src));
+}
+
 /* ============ 24ha. Start an Tee 1 oder Tee 10 ============ */
 group("Spielmodus — dieselben achtzehn Löcher, andere Reihenfolge");
 {
@@ -14533,14 +14711,37 @@ group("Caddy — was · weil · statt");
        deshalb ein Eisen, sah man nur das Ergebnis. */
     ok("ein Baum in der Linie wird genannt",
        /Baum in der Linie/.test(wz(mitBz({ pen: 0, sand: 0, rough: 0.02, blk: 0.30 }))));
-    /* RESTLÄNGE UND WEDGE-ZONE erklären die häufigste Rückfrage: warum der
+    /* RESTLÄNGE UND WUNSCHREST erklären die häufigste Rückfrage: warum der
        Caddy kürzer spielt, als man selbst würde. */
     ok("die Restlänge wird genannt",
        /lässt 190 m übrig/.test(wz(mitBz({ pen: 0, sand: 0, rough: 0, advance: 0.18 },
          { restNach: 190 }), { pen: 0, sand: 0, rough: 0 })));
-    ok("und die Wedge-Zone",
-       /volle Wedge/.test(wz(mitBz({ pen: 0, sand: 0, rough: 0, wedge: -0.12 }),
+    /* UMBENANNT v6.08: „Wedge-Zone" hieß in der App ZWEI VERSCHIEDENE Dinge —
+       im Rundenmodell 20–80 m (`WEDGE_Z`, Kostenkategorie), im Caddy 85–125 m
+       (Layup-Ziel). **Die beiden Bereiche überschneiden sich nicht einmal.**
+       Praktisch hieß das: Ein volles PW (111 m) verbuchte die
+       Fehlerkosten-Analyse als „Approach", während der Caddy denselben Schlag
+       als „volle Wedge-Zahl" belohnte.
+       DIE GRENZEN DES RUNDENMODELLS BLEIBEN — sie stammen aus dem geprüften
+       Excel-Modell und stecken in 114 erfassten Approaches. Geändert wurde das
+       WORT im Caddy: **„Wunschrest" sagt, was seit v6.05 gemeint ist** — ein
+       voller Schwung statt eines Teilschwungs, nicht eine Entfernung. */
+    ok("und der Wunschrest",
+       /Wunschrest/.test(wz(mitBz({ pen: 0, sand: 0, rough: 0, wedge: -0.12 }),
          { pen: 0, sand: 0, rough: 0 })));
+    /* EIN WORT FÜR EINE SACHE: Die alte Formulierung darf nirgends mehr
+       sichtbar sein, sonst stehen beide Begriffe nebeneinander. */
+    {
+      const _q = fs.readFileSync(FILE, "utf8");
+      const sichtbar = _q.slice(_q.lastIndexOf("<script>"))
+        .replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/[^\n]*/g, "");
+      ok("keine alte Wedge-Formulierung mehr sichtbar",
+         !/Volle Wedge|volle Wedge|Wedge-Zahl/.test(sichtbar));
+      /* Und das Rundenmodell behält seine Kategorie — sie ist eine ANDERE
+         Sache, nicht dieselbe unter anderem Namen. */
+      ok("die Kostenkategorie Wedge bleibt",
+         /const WEDGE_Z=new Set\(\["50–80","20–50"\]\)/.test(sichtbar));
+    }
     /* MIT EIGENEM BINDEWORT: „bei Rough 46 %" liest sich richtig, „bei lässt
        190 m übrig" nicht. */
     ok("Satzteile bekommen kein „bei“",
