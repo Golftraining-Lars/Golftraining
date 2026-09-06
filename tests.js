@@ -10562,6 +10562,112 @@ group("Schlag-GPS — Ausreißer sehen und loswerden");
   }
 }
 
+/* ============ 24he. Shortsided — wie viel Grün liegt dazwischen ============ */
+group("Caddy — ein Ball neben der Fahne ist nicht gleich ein Ball neben der Fahne");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+  const S = G("STRAT"), DB0 = live("DB"), PL = live("PLAY");
+
+  /* ====================================================================
+     GEFRAGT am 05.09.2026 (v6.09)
+     --------------------------------------------------------------------
+     „Berechnet der Caddy beim Approach auch die Gefahr ein, dass ich
+     shortsided bin? Geht ja jetzt mit der Fahnenposition."
+     BIS HIER TAT ER ES NICHT: Ein Fehlschlag wurde nach Lage und Entfernung
+     bewertet — **ein Ball acht Meter neben der Fahne im Rough zählte gleich,
+     egal ob zwanzig Meter Grün davor lagen oder gar keins.**
+     GOLFERISCH SIND DAS ZWEI VÖLLIG VERSCHIEDENE SCHLÄGE. Mit Grün davor
+     läuft der Ball zur Fahne; ohne Grün muss er in der Luft stehenbleiben —
+     der schwerste Schlag im kurzen Spiel.
+     **MESSBAR IST ES ERST SEIT v5.95:** Vorher war die Fahne immer die
+     Grünmitte, und zur Mitte ist man nie kurzseitig. Erst mit vorn/hinten
+     wandert sie an den Rand. Die Frage war also richtig gestellt — die
+     Fahnenposition macht diese Rechnung überhaupt erst sinnvoll. */
+  ok("es gibt eine Grün-dazwischen-Messung", /_gruenDazwischen\(g,lat,lng,flag\)\{/.test(src));
+
+  /* ================================================================
+     UND ES WIRD AUCH GESAGT (v6.10)
+     ----------------------------------------------------------------
+     GEFRAGT: „Wird Shortsided auch in der Caddy-Ansicht erklärt bzw. als
+     Grund angegeben?"
+     **NEIN — v6.09 rechnete es, sagte es aber nicht.** Der Zuschlag floss in
+     den Erwartungswert und verschwand darin; die Begründung sagte weiter nur
+     „bester Erwartungswert".
+     **EIN GRUND, DEN MAN NICHT NENNT, IST KEINE BEGRÜNDUNG** — die Lehre aus
+     v5.20. Genau hier greift sie: Der Caddy zielt bei Fahne vorn 22 m kürzer,
+     und ohne dieses Wort sieht das nach Vorsicht ohne Anlass aus. */
+  ok("shotEV zählt die kurzseitigen Fehler", /ks:ks\/N/.test(src));
+  /* IM SELBEN DURCHGANG, in dem `pointESTo` sie ohnehin bewertet — eine
+     zweite Schleife über hundert Streupunkte wäre Rechenzeit für eine Zahl,
+     die schon entsteht. */
+  ok("ohne zweite Schleife",
+     /if\(_r<=30 && this\._gruenDazwischen\(g,la,lo,flag\)<0\.5\) ks\+\+;/.test(src));
+  ok("der Caddy nennt es als Grund", /trotz \$\{_ks\} % kurzseitiger Fehler/.test(src));
+  ok("und weist es im Streubild aus", /kurzseitig \$\{_ks\} %/.test(src));
+  /* DIE REIHENFOLGE IST DIE RANGFOLGE: Strafrisiko schlägt Kurzseitigkeit
+     schlägt Bunker — wer alles nennt, betont nichts. */
+  {
+    /* NUR IM CODE-BLOCK, nicht im ganzen Quelltext: Changelog und Doku
+       nennen dieselben Worte in anderer Reihenfolge — eine Prüfung, die
+       Prosa mitliest, misst die falsche Sache (wie schon v5.83). */
+    const wi = src.indexOf("const _apWarum=`<div class=\"cd-z\">");
+    const we = src.indexOf("</span></div>`;", wi);
+    const wblk = wi >= 0 && we > wi ? src.slice(wi, we) : "";
+    ok("Strafrisiko steht vor kurzseitig, das vor Bunker",
+       wblk.indexOf("bei Strafrisiko") >= 0
+       && wblk.indexOf("bei Strafrisiko") < wblk.indexOf("kurzseitiger Fehler")
+       && wblk.indexOf("kurzseitiger Fehler") < wblk.indexOf("bei Bunker"));
+  }
+  /* AB 8 %: Ein einzelner kurzseitiger Streupunkt sind schon 1 %. */
+  ok("erst ab 8 Prozent", (src.match(/_ks>=8/g) || []).length >= 2,
+     String((src.match(/_ks>=8/g) || []).length));
+  if (S && typeof S.shotEV === "function") {
+    /* Und das Feld kommt wirklich aus der Bewertung des gewählten Ziels. */
+    ok("der Anteil stammt aus ap.best", /const _ks=Math\.round\(\(\(b&&b\.ev&&b\.ev\.ks\)\|\|0\)\*100\)/.test(src));
+  }
+  /* NUR IM KURZSPIEL-ABSTAND: Weiter draußen spielt man ohnehin einen vollen
+     Schlag, und die Frage stellt sich nicht. */
+  ok("nur bis 30 m", /if\(rest<=30 && g\.greenCells\)\{/.test(src));
+  /* GEDECKELT UND STETIG: Eine Schwelle würde Ziele zufällig über sie
+     schieben. */
+  ok("der Zuschlag ist gedeckelt und stetig",
+     /Math\.min\(0\.4, \(1-anteil\)\*0\.4\)/.test(src));
+  /* IM ZWEIFEL KEIN ZUSCHLAG — lieber zu milde als falsch bestraft. */
+  ok("bei Fehlern kein Zuschlag", /\}catch\(e\)\{ return 1; \}/.test(src));
+
+  if (S && DB0 && PL && typeof S._gruenDazwischen === "function") {
+    const c = (DB0.courses || []).find(x => x && /Nordplatz/.test(x.name) && x.geo);
+    const HR = G("holeRef"), PP = G("pinPunkt");
+    if (c && HR && PP) {
+      const alt = PL.pins;
+      try {
+        const hr = HR(c.geo, 14);
+        const g = S.grid(c.geo, c.name, 14);
+        if (hr && hr.green && g) {
+          const mLat = 110540, mLng = 111320 * Math.cos(hr.green[0] * Math.PI / 180);
+          PL.pins = { 14: "front" };
+          const F = PP(c.geo, 14) || hr.green;
+          const kurz = [F[0] - 12 / mLat, F[1]];
+          const lang = [F[0] + 12 / mLat, F[1]];
+          const aK = S._gruenDazwischen(g, kurz[0], kurz[1], F);
+          const aL = S._gruenDazwischen(g, lang[0], lang[1], F);
+          /* BEI FAHNE VORN liegt hinter der Fahne mehr Grün als davor. */
+          ok("kurz und lang unterscheiden sich", Math.abs(aK - aL) > 0.2,
+             Math.round(aK * 100) + "% gegen " + Math.round(aL * 100) + "%");
+          const esK = S.pointESTo(g, kurz[0], kurz[1], F, 20);
+          const esL = S.pointESTo(g, lang[0], lang[1], F, 20);
+          /* GLEICHER ABSTAND, VERSCHIEDENER WERT — genau darum ging es. */
+          ok("die kurzseitige Lage ist teurer", esK > esL,
+             esK.toFixed(2) + " gegen " + esL.toFixed(2));
+          /* ABER NICHT BELIEBIG TEURER: der Deckel hält. */
+          ok("und der Aufschlag bleibt unter einem halben Schlag",
+             esK - esL < 1.0, (esK - esL).toFixed(2));
+        }
+      } finally { PL.pins = alt; }
+    }
+  }
+}
+
 /* ============ 24hd. Dasselbe Feld heißt überall gleich ============ */
 group("Eingabe — ein Feld, eine Beschriftung");
 {

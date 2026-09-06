@@ -13,6 +13,46 @@
 
 ---
 
+- **v5.65.0 · 2026-09-02** — **„Auf Loch 3 wird nichts angezeigt, auf allen anderen schon" — ein
+  einziges Objekt sprengte den Kartenrahmen.**
+  **Gemessen:** Der Rahmen für Loch 3 spannte **66 × 116 Kilometer** statt rund 900 Meter. Der Zoom
+  fiel um sieben Stufen, eine Kachel wurde **39 km breit statt 306 m** — das Luftbild zeigte
+  Ostholstein aus der Vogelperspektive, also praktisch nichts.
+  **Die Ursache war ein einziges Element:** `other` mit **8249 Punkten**, das **88 km** weit reicht —
+  die Küstenlinie Fehmarns aus OpenStreetMap. Sie berührt den Korridor von Loch 3 und zählte damit
+  als „gehört zur Bahn". Ihre Bounding-Box ist die halbe Ostsee.
+  **Die Korridorprüfung fragt „berührt es die Bahn?", nicht „passt es zur Bahn?"** — und für den
+  Ausschnitt ist die zweite Frage die richtige. Ein Objekt, das ein Vielfaches größer ist als das
+  Loch, gehört nicht dazu, auch wenn es die Bahn streift. Grenze: das **Doppelte** der Lochlänge.
+  **Drei Anläufe, drei Lehren.** Das Zwanzigfache war zu großzügig — es fing die Küstenlinie, ließ
+  aber `other`-Flächen mit 741 und 1027 m stehen. Die **Platzgrenze** musste ausdrücklich raus: Sie
+  umschließt den ganzen Platz und berührt fast jeden Korridor. Und mein erster Filter sah nur
+  `f.ring` — **das 133-km-Objekt ist aber eine Linie. Wer nur die halbe Datenform prüft, prüft
+  nichts.**
+  **Ergebnis über alle Plätze:** Kachelbreite jetzt durchweg **153–306 m**, vorher auf Fehmarn Loch 3
+  **39.136 m**. Neue Sperrklinke: Kein Loch darf über 700 m je Kachel hinaus — darüber sieht man den
+  Platz nicht mehr. Gezeichnet wird alles weiterhin; die großen Objekte bestimmen nur nicht mehr den
+  Ausschnitt.
+
+- **v5.64.0 · 2026-09-02** — **„Höhenraster geladen" und drei Sekunden später „ohne Höhendaten" —
+  beides zugleich kann nicht stimmen.** Und man konnte es nicht auseinanderhalten, weil die Meldung
+  nur sagte „DGM/Höhe nicht verfügbar".
+  **Hinter diesem einen Satz stecken drei Zustände:** (1) gar kein Raster geladen, (2) Raster da, aber
+  an *dieser* Stelle eine Lücke, (3) Lücke **und** keine Online-Höhen als Rückfall — etwa weil beim
+  Vorladen das Netz weg war. Im selben Protokoll steht `Sync: eigene Quelle nicht erreichbar`, der
+  dritte Fall ist also nicht theoretisch.
+  **Die drei brauchen verschiedene Antworten:** Beim ersten fehlt der Abruf, beim zweiten ist die
+  Quelle lückenhaft (da hilft nichts), beim dritten genügt ein Nachladen mit Netz. **Ein Satz, der
+  drei Zustände zusammenfasst, kostet die Fehlersuche mehr Zeit, als er spart** — das ist diese Woche
+  zweimal passiert: bei der Endzeit im Kalender und beim milchigen Luftbild. Beide Male war die
+  Meldung nicht falsch, nur zu unbestimmt.
+  **Und „Loch ?" ist jetzt eine Lochnummer.** Die Ursache: `grid()` führte die Nummer nicht mit,
+  obwohl sie als Parameter direkt daneben stand. Eine Meldung, die nicht sagt **wo**, zwingt zum
+  Suchen.
+  **Vom Prüfstand gefangen:** Die Wache-Prüfung zählte **jede** Protokollzeile statt nur die des
+  Caddy-Wachhunds — mit den nun je Loch getrennten Höhen-Hinweisen wurde sie rot. **Eine Prüfung, die
+  alles zählt, misst nicht, was sie behauptet.**
+
 - **v5.63.0 · 2026-09-02** — **„Takt gedrosselt · 198 s statt 2 s" — erkannt, gemeldet, und dann
   nichts.** Aus dem Protokoll vom 02.09., und zwar bei **Bildschirm an**.
   **Die Drosselung selbst ist nicht zu verhindern** — der Browser entscheidet das, gerade beim
