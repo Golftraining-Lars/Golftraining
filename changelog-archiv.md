@@ -13,6 +13,24 @@
 
 ---
 
+- **v5.69.0 · 2026-09-02** — **Baumreihen wurden gezeichnet, aber nicht gerechnet.** Gemeldet zu
+  Loch 2 Fehmarn: Der Caddy legt das Ziel mitten in eine Baumreihe — auf dem Luftbild deutlich
+  sichtbar — und meldet weder schlechte Lage noch „Baum in der Linie".
+  **Die Ursache:** `treerow` und `hedge` tauchten in der Lagerechnung überhaupt nicht auf. Die
+  Recovery-Flächen kennen `wood`, `building` und `scrub`, die Einzelbäume kommen als Punkte — **eine
+  Baumreihe ist aber weder Fläche noch Punkt, sondern eine Linie.** Und Linien wurden bisher nur für
+  OB und Wasser in Flächen verwandelt.
+  **Auf Fehmarn sind das 34 Baumreihen** — keine Randerscheinung, sondern die häufigste
+  Bepflanzungsform des Platzes. Loch 2 hat dadurch jetzt **253 statt 208** Recovery-Zellen, über alle
+  18 Löcher **5303**.
+  **Ein Objekt, das man zeichnet, aber nicht rechnet, ist eine Falle:** Der Spieler *sieht* die Bäume
+  auf der Karte und bekommt trotzdem ein Ziel mittendrin — und traut danach der Empfehlung nicht
+  mehr.
+  Sie blockieren jetzt auch die **Sichtlinie**: Wer nicht durch eine Baumreihe spielen kann, kann
+  auch nicht über sie hinweg planen. Dabei wird **jeder** Stützpunkt abgetastet statt wie bei Flächen
+  nur jeder zwölfte — bei einer Linie sind die Lücken zwischen den Tastpunkten genau das, was man
+  fälschlich für eine Gasse hält.
+
 - **v5.68.0 · 2026-09-02** — **Drei fehlende Gründe — und die Auswahl nach Schwellen war falsch.**
   Gefragt: „Sollten neben Strafrisiko, Bunker, Rough und Hanglage noch weitere Gründe aufgenommen
   werden?" Ja, drei — und eine davon ist die größte von allen.

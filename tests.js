@@ -347,6 +347,7 @@ try {
                  "draftPushAus",
                  "editDraftAll","editDraftGet","editDraftSave","editDraftClear",
                  "editDraftPrune","editDraftZeit",
+                 "wertung","setWertung","stblKontext",
                  "fremderZeigerZaehlt","istRundenStat","poolQuote","teilAnteil",
                  "geoAbspecken","geoBudget","_punkteDuennen","_koordRunden",
                  "GEO_PUNKTE_MAX","GEO_OTHER_MAX","thinRing",
@@ -3617,8 +3618,8 @@ group("STRAT.tee — vertauschte Tee/Grün-Punkte und Modus-Reaktion");
      Der Fehler war nur auf Löchern mit `swap` sichtbar. Deshalb betraf er
      Loch 1 des Nordplatzes und sonst nichts, und deshalb war er so schwer zu
      finden. */
-  const teeFn=src.slice(src.indexOf("  tee(geo,courseName,holeNo,mode,hcp,von,nurClub){"),
-                        src.indexOf("  tee(geo,courseName,holeNo,mode,hcp,von,nurClub){")+1400);
+  const teeFn=src.slice(src.indexOf("  tee(geo,courseName,holeNo,mode,hcp,von,nurClub,stbl){"),
+                        src.indexOf("  tee(geo,courseName,holeNo,mode,hcp,von,nurClub,stbl){")+1400);
   ok("STRAT.tee nutzt holeRef", /holeRef\(geo,holeNo\)/.test(teeFn));
   ok("und bevorzugt dessen Tee-Punkt", /\(hr&&hr\.tee\)/.test(teeFn));
   ok("Begründung dokumentiert", /swap/.test(teeFn));
@@ -4218,7 +4219,7 @@ group("sigmaHang — die eigene Lage, nicht das Ziel");
     ok("und den Aufschlag als Fläche um das Ziel",
        /this\.neigungUmZiel\(from, brg, carry, sgH\.sigD, g\)/.test(src));
     ok("gestreut wird mit der angepassten Streuung",
-       /S\[i\]\[1\]\*sgH\.sigD, side=sgH\.biasL\+S\[i\]\[0\]\*sgH\.sigL/.test(src));
+       /S\[i\]\[1\]\*sgH\.sigD, side=sgH\.biasL\+drift\+S\[i\]\[0\]\*sgH\.sigL/.test(src));
     ok("der Abschlag bleibt außen vor — vom Tee steht man eben",
        !/tee[\s\S]{0,4000}?sigmaHang/.test(src.slice(src.indexOf("  tee(g,"), src.indexOf("  nextShot("))));
   }
@@ -9108,7 +9109,7 @@ group("Caddy — immer von hier, nie vom gespeicherten Tee");
   /* Der gespeicherte Abschlag ist EIN Tee, meist das gelbe. Wer von Weiß oder
      Blau spielt, steht 20–40 m dahinter — die Rechnung unterschlug diese Meter
      und empfahl für ein kürzeres Loch. Bei 30 m kippt die Schlägerwahl. */
-  ok("tee() nimmt einen Startpunkt", /tee\(geo,courseName,holeNo,mode,hcp,von(?:,nurClub)?\)\{/.test(src));
+  ok("tee() nimmt einen Startpunkt", /tee\(geo,courseName,holeNo,mode,hcp,von,nurClub,stbl\)\{/.test(src));
   ok("ohne Angabe wie bisher der gespeicherte", /const teeP = von \|\| teeGespeichert;/.test(src));
   /* Seit v3.18 ist die Position ein PARAMETER (`caddyFuerPunkt`) — die
      Caddy-Zeile ruft sie mit der eigenen, der Live-Zeiger mit der der Uhr. */
@@ -9118,7 +9119,7 @@ group("Caddy — immer von hier, nie vom gespeicherten Tee");
   /* Der aufgeklappte Caddy rechnet ebenfalls fuer die eigene Position — seit
      v3.57 zusaetzlich MIT Handicap (siehe „Detailansicht rechnet mit
      Handicap"), deshalb hier nur die Position pruefen. */
-  ok("aufgeklappter Caddy ebenso", /STRAT\.tee\(geo,PLAY\.course,h\.hole,caddyMode\(\),STRAT\.esHcp\(\),_caddyVon\(\)\)/.test(src));
+  ok("aufgeklappter Caddy ebenso", /STRAT\.tee\(geo,PLAY\.course,h\.hole,caddyMode\(\),STRAT\.esHcp\(\),_caddyVon\(\),undefined,_stblHier\(h,true\)\)/.test(src));
 
   /* Der Zwischenspeicher MUSS die Position enthalten — sonst bliebe die erste
      Rechnung für immer stehen. Aber gerundet, sonst rechnet jedes GPS-Zucken
@@ -9687,7 +9688,7 @@ group("Caddy befragen — „warum nicht X?“ mit echten Zahlen");
      Ein zweiter, eigener Rechenweg wäre schnell gebaut und lieferte Zahlen, die
      man nicht vergleichen kann. Deshalb ein Parameter, keine zweite Funktion. */
   ok("ein Parameter statt zweiter Funktion",
-    /tee\(geo,courseName,holeNo,mode,hcp,von,nurClub\)\{/.test(src));
+    /tee\(geo,courseName,holeNo,mode,hcp,von,nurClub,stbl\)\{/.test(src));
   /* v5.32: `_amTee` statt hart `true` — „vom Abschlag" gilt nur am Abschlag.
      Auch beim gezielten Vergleich („warum nicht der?") muss dieselbe Lage
      gelten, sonst antwortet die Erklärung für eine andere Situation als die,
@@ -9714,7 +9715,7 @@ group("Caddy befragen — „warum nicht X?“ mit echten Zahlen");
      aber unbefriedigend — am zweiten Schlag stellt man die Frage häufiger als
      am Tee. Beide Seiten des Vergleichs entstehen mit DERSELBEN Rechnung; ein
      Vergleich zwischen zwei Verfahren wäre wertlos. */
-  ok("nextShot kennt nurClub", /nextShot\(geo,courseName,holeNo,from,mode,hcp,nurClub\)/.test(src));
+  ok("nextShot kennt nurClub", /nextShot\(geo,courseName,holeNo,from,mode,hcp,nurClub,stbl\)/.test(src));
   /* DIE FRAGE „zählt der Folgeschlag mit?" hat zwei Antworten. Erstens: `es`
      ist die erwartete Zahl der Schläge BIS INS LOCH ab dem Landepunkt — der
      ganze Rest steckt drin, generisch aus der Tabelle. Zweitens: Am Abschlag
@@ -21197,6 +21198,140 @@ group("Karteneditor — durch den Wald hindurchsehen");
   ok("nicht in DB.ui", /function geoEdVegSicht\(v\)\{ GEOED\.vegSicht=v/.test(src));
 }
 
+/* ============ 24bn. Caddy-Durchsicht (v6.14) ============ */
+group("Caddy — Wind, Streuform, Lage, Stableford");
+{
+  const S = G("STRAT"), src = fs.readFileSync(FILE, "utf8");
+
+  /* ---------- (3) Seitenwind ---------- */
+  if (S && typeof S.windDrift === "function") {
+    /* `WEATHER` ist eine `let`-Bindung: `sandbox.WEATHER=` schreibt daneben,
+       und `G("WEATHER")` ist eine Momentaufnahme. Gesetzt wird ueber
+       `wetterSetzen` — dieselbe Tuer, die die App benutzt. */
+    const setzW = G("wetterSetzen"), sichW = G("WEATHER");
+    /* Ohne Wetter kein Versatz — der Caddy darf nichts erfinden. */
+    G("wetterSetzen")(null);
+    eq("ohne Wetter kein Seitenversatz", S.windDrift(200, 0), 0);
+    try {
+      setzW({ windMs: 5, windDir: 270, temp: 15 });   // Wind AUS Westen
+      /* Ziel nach Norden: Der Wind kommt von links und schiebt nach rechts.
+         `side` ist in `_off` nach rechts positiv. */
+      const d = S.windDrift(200, 0);
+      ok("Querwind versetzt", Math.abs(d) > 5, String(d));
+      ok("von links heißt nach rechts", d > 0, String(d));
+      /* Gegenprobe: dieselbe Stärke aus der anderen Richtung, andere Seite. */
+      setzW({ windMs: 5, windDir: 90, temp: 15 });
+      ok("von rechts heißt nach links", S.windDrift(200, 0) < 0);
+      /* Und reiner Gegenwind versetzt NICHT zur Seite — das erledigt
+         `playsLike` über die Traglänge, nicht der Versatz. */
+      setzW({ windMs: 6, windDir: 0, temp: 15 });
+      ok("Gegenwind versetzt nicht seitlich", Math.abs(S.windDrift(200, 0)) < 0.5);
+      /* Der Versatz wächst mit der Strecke: länger unterwegs, länger im Wind. */
+      setzW({ windMs: 5, windDir: 270, temp: 15 });
+      ok("weiter heißt mehr Versatz", S.windDrift(230, 0) > S.windDrift(120, 0));
+    } finally { setzW(sichW); }
+    /* Und er muss in ALLEN drei Samplern ankommen — einer ohne wäre wieder
+       zwei Wahrheiten. */
+    ok("tee() versetzt", /const drift=this\.windDrift\(carry, brg\);/.test(code)
+      && /const side=sg\.biasL\+drift\+S\[i\]\[0\]\*sg\.sigL;/.test(code));
+    ok("nextShot() versetzt", /side=sgH\.biasL\+drift/.test(code));
+    ok("shotEV() versetzt", /side=sg\.biasL\+drift\+S\[i\]\[0\]/.test(code));
+  }
+
+  /* ---------- (4) Form der Streuung ---------- */
+  if (S && typeof S.samples === "function") {
+    S._samples = null;                       // der Zwischenspeicher hält die alte Form
+    const sm = S.samples();
+    eq("150 Streupunkte wie bisher", sm.length, 150);
+    const mq = sm.reduce((a, x) => a + x[0], 0) / sm.length;
+    const ml = sm.reduce((a, x) => a + x[1], 0) / sm.length;
+    /* MITTELWERTTREU: `carry` ist die GELERNTE mittlere Länge. Verschiebt die
+       Streuform den Mittelwert, sind alle Schlägerlängen still entwertet. */
+    ok("quer bleibt mittig", Math.abs(mq) < 0.12, String(mq));
+    ok("längs bleibt mittelwerttreu", Math.abs(ml) < 0.12, String(ml));
+    /* SCHIEF NACH KURZ: Die kurze Seite reicht weiter als die lange — so
+       streut ein Golfschlag, und nur so wird Wasser HINTER dem Grün richtig
+       bewertet. */
+    const lmin = Math.min(...sm.map(x => x[1])), lmax = Math.max(...sm.map(x => x[1]));
+    ok("die kurze Seite reicht weiter", Math.abs(lmin) > lmax + 0.3,
+      lmin.toFixed(2) + " gegen " + lmax.toFixed(2));
+    /* Die dicken Ränder sind gebaut und ausgesetzt — der Mechanismus muss
+       stehen bleiben, damit eine Messung ihn einschalten kann. */
+    ok("der Fehlschlag-Mechanismus steht", /this\._halton\(i,5\) < F\.fehlP/.test(code));
+    eq("und ist ausgesetzt", S.STREU_FORM.fehlP, 0);
+    ok("mit Begründung am Code", /GEBAUT, GEMESSEN, AUSGESETZT/.test(src));
+  }
+
+  /* ---------- (5) Versatz nur dort, wo er gemessen wurde ---------- */
+  ok("der Abschlags-Versatz gilt nur für Abschlagsschläger",
+    /const _teeFam=\(fam==="driver"\|\|fam==="wood"\|\|fam==="hybrid"\);/.test(code));
+  ok("und wird auch nur dort angewandt", /\(miss\.dir&&_teeFam\)\?/.test(code));
+
+  /* ---------- (2) approach() kennt die Lage ---------- */
+  {
+    const ap = code.slice(code.indexOf("  approach(geo,courseName,holeNo,from,remaining,mode,hcp,flag)"),
+                          code.indexOf("  planCourse("));
+    ok("die Ballage streut mit", /this\.sigmaLage\(_sg0, _lieVon\)/.test(ap));
+    ok("die Standlage auch", /this\.sigmaHang\(this\.sigmaFor\(cl\), _hangVon, carry\)/.test(ap));
+    ok("die Traglänge schrumpft", /this\.lageFaktor\(g, from\)/.test(ap));
+    /* DIE VORAUSWAHL MUSS MIT: Wer aus dem Bunker ein Viertel verliert,
+       braucht einen anderen Schläger — nach roher Länge gesucht, stünde der
+       passende nicht zur Wahl. */
+    ok("und die Schlägervorauswahl rechnet damit",
+      /caddyClubs\(\)\.filter\(c=>Math\.abs\(\(c\.carry\|\|c\.dist\)\*_lageF-need\)/.test(ap));
+    ok("auch die Obergrenze", /const _total=\(cl\.dist!=null\?cl\.dist\*_lageF:carry\);/.test(ap));
+  }
+
+  /* ---------- (6) Stableford ---------- */
+  if (S && typeof S.punkteEV === "function") {
+    /* Netto-Par 4: Bei genau 4 erwarteten Schlägen sind es rund 2 Punkte. */
+    const p4 = S.punkteEV(4, 4);
+    ok("Par netto ≈ 2 Punkte", Math.abs(p4.punkte - 2) < 0.25, String(p4.punkte));
+    /* DER KERN: Der Erwartungswert eines GEDECKELTEN Ausdrucks ist nicht der
+       gedeckelte Erwartungswert. Bei sechs erwarteten Schlägen auf netto Par 4
+       wäre `max(0, 6-6)` genau 0 — der Erwartungswert ist es NICHT, weil die
+       gute Hälfte der Verteilung noch Punkte bringt. */
+    const p6 = S.punkteEV(6, 4);
+    ok("am Nullpunkt bleibt ein Erwartungswert", p6.punkte > 0.3, String(p6.punkte));
+    ok("mehr Schläge, weniger Punkte", S.punkteEV(5, 4).punkte < p4.punkte);
+    ok("ein Vorgabeschlag bringt Punkte", S.punkteEV(5, 5).punkte > S.punkteEV(5, 4).punkte);
+    /* `lebendig` ist die Wahrscheinlichkeit, dass das Loch noch zählt — und
+       damit der Umrechnungskurs von Schlägen in Punkte. Auf einem verlorenen
+       Loch geht sie gegen null: Dort ist jedes Risiko gratis. */
+    ok("lebendig fällt mit der Schlagzahl", S.punkteEV(8, 4).lebendig < S.punkteEV(4, 4).lebendig);
+    ok("und wird nie negativ", S.punkteEV(12, 4).lebendig >= 0);
+    ok("Φ ist auf 0,5 zentriert", Math.abs(S._Phi(0) - 0.5) < 1e-6);
+    ok("und läuft gegen 1", S._Phi(4) > 0.999 && S._Phi(-4) < 0.001);
+    /* Im Zählspiel darf sich NICHTS ändern: ohne `stbl` bleibt die Rechnung
+       in Schlägen. */
+    ok("ohne stbl wird in Schlägen gerechnet", /\} else score = es \+ _ri;/.test(code));
+    ok("mit stbl in Punkten", /score = -pe\.punkte \+ pe\.lebendig\*_ri;/.test(code));
+    ok("beide Motoren gleich", (code.match(/pktF=pe\.lebendig; score = -pe\.punkte/g) || []).length === 2);
+  }
+  /* Der Schalter, nicht die Heuristik — und Zählspiel als Voreinstellung. */
+  if (typeof G("wertung") === "function") {
+    const DB0 = live("DB"), sich = DB0.profile;
+    try {
+      DB0.profile = {};
+      eq("Voreinstellung ist Zählspiel", G("wertung")(), "zaehl");
+      eq("ohne Stableford kein Kontext", G("stblKontext")(4, 0), null);
+      DB0.profile = { wertung: "stbl" };
+      /* Ohne Schlagzahl kein Kontext: Eine falsch gesetzte Punktekurve ist
+         schlechter als keine. */
+      eq("ohne bekannte Schlagzahl kein Kontext", G("stblKontext")(4, null), null);
+    } finally { DB0.profile = sich; }
+    ok("der Schalter steht in der Caddy-Ansicht", /id="caddyWertung"/.test(src));
+  }
+
+  /* ---------- (8) feiner Fächer · (9) die letzten Meter ---------- */
+  ok("der grobe Fächer bleibt der Rahmen", /for\(let dl=-12; dl<=12; dl\+=4\) cands\.push\(bewerte\(/.test(code));
+  ok("und ein feiner Durchgang folgt", /for\(let d=-3; d<=3; d\+\+\)/.test(code));
+  ok("er bleibt im Rahmen", /if\(Math\.abs\(dlF\)>15\) continue;/.test(code));
+  /* `blocked` darf die Landung nicht mehr auslassen — dort ist der Ball tief. */
+  ok("blocked() lässt nur den eigenen Stand aus", /if\(t<25\/L \|\| t>1\) continue;/.test(code));
+  ok("die alte Ausnahme ist weg", !/t>1-20\/L/.test(code));
+}
+
 /* ============ 24bm. Strafschläge im Verlauf (v6.13) ============ */
 group("SG-Verlauf — die Kategorie heißt straf");
 {
@@ -21975,7 +22110,7 @@ group("Caddy — zweiter Zug und die Gewichte, die ihn tragen");
        Hangterm um die Richtungsprüfung wuchs. Der siebte Fall dieser Art;
        die Regel steht im Kopf dieser Datei und gilt auch für den Prüfstand
        selbst. */
-    const _ti = src.indexOf("  tee(geo,courseName,holeNo,mode,hcp,von,nurClub)");
+    const _ti = src.indexOf("  tee(geo,courseName,holeNo,mode,hcp,von,nurClub,stbl)");
     const _te2 = src.indexOf("\n  nextShot(", _ti);
     const te = src.slice(_ti, _te2 > _ti ? _te2 : _ti + 40000);
     ok("zweite Ebene nur für die Spitze", /Math\.min\(5,cands\.length\)/.test(te));
@@ -21985,6 +22120,13 @@ group("Caddy — zweiter Zug und die Gewichte, die ihn tragen");
     /* Der zweite Zug darf die erste Ebene nicht ersetzen: ohne Bewertung
        bleibt der Einzug-Wert stehen, sonst fiele ein Kandidat komplett aus. */
     ok("ohne zweite Ebene bleibt der Einzug-Wert", /c\.score2=c\.score;/.test(te));
+    /* v6.14: Der zweite Zug ist eine Funktion (`zweiterZug`), damit ihn auch
+       der feine Fächer aufrufen kann — sonst gäbe es zwei Rechnungen. */
+    ok("und ist als Funktion aufrufbar", /const zweiterZug=\(c\)=>\{/.test(te));
+    ok("der feine Fächer nutzt dieselbe Bewertung",
+      /const c=bewerte\(best\.club, best\.sg,/.test(te));
+    ok("und die Sicherheitswahl läuft zuletzt",
+      te.indexOf("this.sicherheitsWahl(spitze") > te.indexOf("spitze.forEach(zweiterZug)"));
 
     /* --- (c) σ-Deckel: gelernte Werte werden an die Schlaglänge gebunden --- */
     const merk = DB => DB;
