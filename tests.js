@@ -348,6 +348,7 @@ try {
                  "editDraftAll","editDraftGet","editDraftSave","editDraftClear",
                  "editDraftPrune","editDraftZeit",
                  "wertung","setWertung","stblKontext",
+                 "wedgeZone","caddyLayupHtml",
                  "fremderZeigerZaehlt","istRundenStat","poolQuote","teilAnteil",
                  "geoAbspecken","geoBudget","_punkteDuennen","_koordRunden",
                  "GEO_PUNKTE_MAX","GEO_OTHER_MAX","thinRing",
@@ -4219,7 +4220,7 @@ group("sigmaHang — die eigene Lage, nicht das Ziel");
     ok("und den Aufschlag als Fläche um das Ziel",
        /this\.neigungUmZiel\(from, brg, carry, sgH\.sigD, g\)/.test(src));
     ok("gestreut wird mit der angepassten Streuung",
-       /S\[i\]\[1\]\*sgH\.sigD, side=sgH\.biasL\+drift\+S\[i\]\[0\]\*sgH\.sigL/.test(src));
+       /S\[i\]\[1\]\*sgB\.sigD, side=sgB\.biasL\+drift\+S\[i\]\[0\]\*sgB\.sigL/.test(src));
     ok("der Abschlag bleibt außen vor — vom Tee steht man eben",
        !/tee[\s\S]{0,4000}?sigmaHang/.test(src.slice(src.indexOf("  tee(g,"), src.indexOf("  nextShot("))));
   }
@@ -12750,7 +12751,10 @@ group("Höhendaten — ein Satz für drei Zustände war zu wenig");
   /* Die Ursache der Fragezeichen: `grid()` führte die Lochnummer nicht mit,
      obwohl sie als Parameter direkt daneben stand. */
   ok("das Raster führt seine Lochnummer",
-     /greenCells:gz,\s*\n\s*holeNo\}/.test(src));
+     /greenCells:gz,/.test(src) && /\n\s*holeNo\};/.test(src));
+  /* v6.15: Der Abschlag gehört ins Raster — `gruenSeite()` braucht die
+     Spiellinie, und ihn dort nachzuschlagen wäre eine zweite Quelle. */
+  ok("und den Abschlag", /tee:hh\.tee\|\|null,/.test(src));
   if (S && typeof S.grid === "function" && DB0) {
     const c = (DB0.courses || []).find(x => x && x.geo && x.geo.holes);
     if (c) {
@@ -21198,6 +21202,153 @@ group("Karteneditor — durch den Wald hindurchsehen");
   ok("nicht in DB.ui", /function geoEdVegSicht\(v\)\{ GEOED\.vegSicht=v/.test(src));
 }
 
+/* ============ 24bo. Caddy-Durchsicht, zweite Runde (v6.15) ============ */
+group("Caddy — Böen, Auslauf, Wedge-Band, Layup");
+{
+  const S = G("STRAT"), src = fs.readFileSync(FILE, "utf8");
+
+  /* ---------- (3) Böen verbreitern, statt zu verschieben ---------- */
+  if (S && typeof S.windSigma === "function") {
+    const setzW = G("wetterSetzen"), sichW = G("WEATHER");
+    const sg = { sigL: 20, sigD: 15, biasL: 0, src: "Test" };
+    try {
+      setzW(null);
+      eq("ohne Wetter unverändert", S.windSigma(sg, 200), sg);
+      /* Stetiger Wind ist keine Böe: Spanne 0 heißt keine Zusatzstreuung —
+         das Verschieben erledigt `windDrift`. */
+      setzW({ windMs: 6, gustMs: 6, windDir: 270 });
+      eq("stetiger Wind verbreitert nicht", S.windSigma(sg, 200), sg);
+      setzW({ windMs: 4, gustMs: 12, windDir: 270 });
+      const b = S.windSigma(sg, 200);
+      ok("Böen verbreitern quer", b.sigL > sg.sigL, String(b.sigL));
+      ok("und längs", b.sigD > sg.sigD, String(b.sigD));
+      /* IN QUADRATUR: Zwei unabhängige Unsicherheiten addieren sich in den
+         Varianzen. Wer sie aufaddiert, zählt den Fehler doppelt — die neue
+         Streuung muss also kleiner sein als die Summe. */
+      const zu = 0.5 * 8 * 200 * S.BOE_K;
+      ok("in Quadratur, nicht addiert", b.sigL < sg.sigL + zu,
+        b.sigL.toFixed(1) + " gegen " + (sg.sigL + zu).toFixed(1));
+      ok("und genau in Quadratur", Math.abs(b.sigL - Math.hypot(sg.sigL, zu)) < 1e-9);
+      ok("die Herkunft steht dabei", /Böen/.test(b.src || ""));
+      /* Weiter fliegen heißt länger im Wind. */
+      ok("weiter heißt unsicherer", S.windSigma(sg, 230).sigL > S.windSigma(sg, 120).sigL);
+    } finally { setzW(sichW); }
+    ok("alle drei Sampler nutzen es",
+      (code.match(/this\.windSigma\(/g) || []).length >= 3);
+  }
+
+  /* ---------- (4) Auslauf am Gefälle ---------- */
+  if (S && typeof S.rollHang === "function") {
+    /* Ohne Höhendaten bleibt es beim Faktor 1 — nichts erfinden. */
+    eq("ohne Gelände neutral", S.rollHang(null, [54, 10], 0, 200), 1);
+    /* Und der Faktor kommt von AUSSEN in `applyRoll` — 150 Höhenabfragen je
+       Kandidat wären der teuerste Weg zur selben Zahl. */
+    ok("applyRoll nimmt den Faktor entgegen", /applyRoll\(g,la,lo,brg,roll,hangF\)\{/.test(code));
+    ok("und wendet ihn an", /roll\*f\*\(\(hangF>0\)\?hangF:1\)/.test(code));
+    ok("berechnet wird er je Kandidat", (code.match(/this\.rollHang\(/g) || []).length >= 3);
+    /* Bergab muss MEHR rollen als bergauf — das ist die ganze Aussage. */
+    const K = S.ROLL_HANG;
+    ok("bergab rollt weiter", 1 - (-0.05) * K > 1);
+    ok("bergauf kürzer", 1 - (0.05) * K < 1);
+  }
+
+  /* ---------- (7) Gefahrenseite statt Handarbeit ---------- */
+  if (S && typeof S.gruenSeite === "function") {
+    eq("ohne Raster keine Aussage", S.gruenSeite(null), null);
+    ok("der gesetzte favor hat Vorrang",
+      /let _fav=\(holeTrouble\(courseName,holeNo\)\|\|\{\}\)\.favor\|\|null;/.test(code));
+    ok("und die Ableitung greift nur ohne ihn",
+      /if\(!_fav\)\{ const gs=this\.gruenSeite\(g\); if\(gs\)\{ _fav=gs\.seite;/.test(code));
+    /* Gefahr links heißt rechts anspielen — und umgekehrt. Ein Vorzeichen-
+       dreher hier wäre die schlimmste Art Fehler: plausibel und falsch. */
+    ok("Gefahr links → rechts anspielen", /if\(links>rechts\*1\.3\) return \{seite:"R"/.test(code));
+    ok("Gefahr rechts → links anspielen", /if\(rechts>links\*1\.3\) return \{seite:"L"/.test(code));
+    /* Die Begründung, warum es NICHT aus der Fahne kommt, muss stehen
+       bleiben — sonst versucht es der nächste wieder. */
+    ok("und warum die Fahne dafür nicht taugt", /pinPunkt\(\)` schiebt/.test(src));
+  }
+
+  /* ---------- (6) Wedge-Band aus dem Beutel ---------- */
+  if (typeof G("wedgeZone") === "function") {
+    const wz = G("wedgeZone"), inZ = G("inWedgeZone"), DB0 = live("DB");
+    const sich = DB0.clubDistances;
+    try {
+      /* Ein Beutel MIT LÜCKE: Sandwedge 78, Pitching 112 — kein Gap Wedge.
+         Genau der Fall, um den es geht: 95 m liegt mitten im Band und ist von
+         beiden Schlägern 17 m weit weg. Ein „voller Wedge" ist das nicht. */
+      DB0.clubDistances = [
+        { club: "Pitching Wedge", carry: 112, reach: 116 },
+        { club: "Sand Wedge 54°", carry: 78, reach: 80 },
+        { club: "7 Iron", carry: 145, reach: 150 }
+      ];
+      const z = wz();
+      ok("das Band kommt aus dem Beutel", z.carries && z.carries.length === 2,
+        JSON.stringify(z.carries));
+      eq("von der kürzesten Traglänge", z.von, 73);
+      eq("bis zur längsten", z.bis, 117);
+      ok("eine echte Wedge-Länge zählt", inZ(78) && inZ(112));
+      ok("knapp daneben auch noch", inZ(86));
+      /* DER KERN: Die LÜCKE zählt nicht — sonst belohnt der Bonus einen Rest,
+         für den es keinen vollen Schläger gibt. Nach der alten festen Tabelle
+         (85–125) wäre 95 m ein Geschenk gewesen. */
+      ok("die Lücke zwischen zwei Wedges nicht", !inZ(95), "95 m");
+      ok("und die alte Tabelle hätte sie belohnt",
+        95 >= G("WEDGE_ZONE").von && 95 <= G("WEDGE_ZONE").bis);
+      ok("außerhalb des Bandes ohnehin nicht", !inZ(140));
+      /* Aus einem Schläger lässt sich kein Band ableiten — dann die alte
+         Tabelle, nicht ein geratenes Band. */
+      DB0.clubDistances = [{ club: "Sand Wedge 54°", carry: 80, reach: 82 }];
+      const z1 = wz();
+      eq("ein Wedge allein: Rückfall", z1.carries, null);
+      eq("und zwar auf die kalibrierte Tabelle", z1.von, G("WEDGE_ZONE").von);
+    } finally { DB0.clubDistances = sich; }
+  }
+
+  /* ---------- (5) Layup im Spiel ---------- */
+  if (typeof G("caddyLayupHtml") === "function") {
+    /* Ohne Daten kein Text — und kein Absturz. */
+    eq("ohne Runde kein Layup-Text", G("caddyLayupHtml")(null, null, null, null), "");
+    ok("nextShot gibt die Spitze mit heraus", /return \{best, _top:cands\.slice\(0,6\)/.test(code));
+    ok("erst ab 150 m Rest", /if\(!\(rest>=150\)\) return "";/.test(code));
+    /* Nur ein echter Layup zählt: „irgendwie kürzer" ist keiner. */
+    ok("und nur in das volle Wedge-Band", /inWedgeZone\(c\.restNach\)/.test(code));
+    /* Die Zahl steht immer da — ein Vergleich, den man nur zeigt, wenn er die
+       Empfehlung ändert, ist eine Empfehlung in Verkleidung. */
+    ok("der Angriff wird auch benannt", /➤ Angriff besser/.test(src));
+    ok("und der Vergleich hängt an der Annäherung",
+      /\$\{caddyLayupHtml\(geo, h, PLAY\.here, ap\)\}/.test(src));
+  }
+
+  /* ---------- (2) „vom Abschlag" gilt auf Par 3 nicht ---------- */
+  ok("der Vergleich kennt das Par-Kriterium",
+    /const amTee=\(!von \|\| geoDist\(von,hr\.tee\|\|hr\.green\)<30\) && \(h\.par==null \|\| h\.par>=4\);/.test(code));
+  /* Und der Rückfall für kurze Löcher muss greifen, wenn die Liste LEER ist —
+     vorher hing er an `clubs.length` und griff nur, wenn er nicht gebraucht
+     wurde. Auf kurzen Par 3 gab `tee()` deshalb null. */
+  ok("kurze Löcher bekommen Kandidaten", /else \{[\s\S]{0,60}?EIN KURZES LOCH/.test(code)
+    || /clubs=alleT\.slice\(0,4\);/.test(code));
+  ok("und der alte Fehler ist weg", !/if\(kurz && clubs\.length\) clubs\.push\(kurz\);/.test(code));
+
+  /* ---------- (8) Die Begründung spricht die Einheit der Entscheidung ---------- */
+  ok("die Einheit kommt aus der Rechnung", /einheit:_stbl\?"Punkte":"Schläge"/.test(code));
+  /* DER FALL, DER ERKLÄRT WERDEN MUSS: in Schlägen wäre die Alternative
+     besser, in Punkten nicht. Ohne diesen Satz sieht die Empfehlung wie ein
+     Fehler aus — dieselbe Lehre wie v5.92. */
+  ok("der Widerspruch wird erkannt",
+    /_konflikt=_stbl && A\.es!=null && B\.es!=null && \(B\.es < A\.es - 0\.02\) && diff > 0\.02/.test(code));
+  ok("und ausgesprochen", /In Schlägen wäre er besser/.test(src));
+  ok("der Kipppunkt nennt die Einheit", /const e=a\.einheit\|\|"Schläge";/.test(code));
+  ok("und die weil-Zeile auch", /beste Punkterwartung \(Stableford\)/.test(code));
+
+  /* ---------- (1) Wetter in der Annäherung ---------- */
+  {
+    const ap = code.slice(code.indexOf("  approach(geo,courseName,holeNo,from,remaining,mode,hcp,flag)"),
+                          code.indexOf("  planCourse("));
+    ok("die Annäherung rechnet mit Wetter und Höhe", /this\.wetterCarry\(/.test(ap));
+    ok("und die Vorauswahl mit derselben Größe", /const eff=c=>this\.wetterCarry\(/.test(ap));
+  }
+}
+
 /* ============ 24bn. Caddy-Durchsicht (v6.14) ============ */
 group("Caddy — Wind, Streuform, Lage, Stableford");
 {
@@ -21233,9 +21384,9 @@ group("Caddy — Wind, Streuform, Lage, Stableford");
     /* Und er muss in ALLEN drei Samplern ankommen — einer ohne wäre wieder
        zwei Wahrheiten. */
     ok("tee() versetzt", /const drift=this\.windDrift\(carry, brg\);/.test(code)
-      && /const side=sg\.biasL\+drift\+S\[i\]\[0\]\*sg\.sigL;/.test(code));
-    ok("nextShot() versetzt", /side=sgH\.biasL\+drift/.test(code));
-    ok("shotEV() versetzt", /side=sg\.biasL\+drift\+S\[i\]\[0\]/.test(code));
+      && /const side=sgW\.biasL\+drift\+S\[i\]\[0\]\*sgW\.sigL;/.test(code));
+    ok("nextShot() versetzt", /side=sgB\.biasL\+drift/.test(code));
+    ok("shotEV() versetzt", /side=sgW\.biasL\+drift\+S\[i\]\[0\]/.test(code));
   }
 
   /* ---------- (4) Form der Streuung ---------- */
@@ -21277,9 +21428,11 @@ group("Caddy — Wind, Streuform, Lage, Stableford");
     /* DIE VORAUSWAHL MUSS MIT: Wer aus dem Bunker ein Viertel verliert,
        braucht einen anderen Schläger — nach roher Länge gesucht, stünde der
        passende nicht zur Wahl. */
+    /* v6.15: Die Vorauswahl rechnet jetzt über `eff()` — Wetter auf den Flug,
+       Lage auf den Treffer, in einer Größe. */
     ok("und die Schlägervorauswahl rechnet damit",
-      /caddyClubs\(\)\.filter\(c=>Math\.abs\(\(c\.carry\|\|c\.dist\)\*_lageF-need\)/.test(ap));
-    ok("auch die Obergrenze", /const _total=\(cl\.dist!=null\?cl\.dist\*_lageF:carry\);/.test(ap));
+      /caddyClubs\(\)\.filter\(c=>Math\.abs\(eff\(c\)-need\)<=18\)/.test(ap));
+    ok("auch die Obergrenze", /const _total=\(cl\.dist!=null\?cl\.dist\*_lageF\*_wq:carry\);/.test(ap));
   }
 
   /* ---------- (6) Stableford ---------- */

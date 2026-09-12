@@ -13,6 +13,25 @@
 
 ---
 
+- **v5.70.0 · 2026-09-02** — **Der Lochplan alterte still — sein Abdruck kannte die Rechnung nicht.**
+  Gemeldet: „Im Caddy scheint es zu funktionieren. Im Gameplan bin ich mir aber unsicher — das wirkt
+  nicht wie die sichere Spielweise." **Und es stimmte:** Der Lochplan legte den Driver in dieselbe
+  Baumreihe, die der Caddy seit v5.69 meidet.
+  **Der Plan ist zwischengespeichert**, und sein Abdruck kannte Platzdaten, Schläger und Vorgabe —
+  **aber nicht die Rechnung selbst**. Ändert sich der Code, bleibt der alte Plan liegen: Er ist ja
+  nach allen Kriterien, die der Abdruck kennt, noch aktuell.
+  **Ein Zwischenspeicher muss alles kennen, was sein Ergebnis bestimmt** — und dazu gehört der Code,
+  nicht nur die Daten. Derselbe Fehler wie beim Höhenraster (v5.19, Schlüssel ohne DGM-Zustand) und
+  beim Kalender (v5.57, Schlüssel ohne Datenform); diesmal fehlte die Fassung. **Dreimal dieselbe
+  Klasse in zwei Wochen** — das ist kein Zufall mehr, sondern ein Muster, das in die Prüfliste
+  gehört.
+  **Warum das besonders teuer ist:** Der Gameplan ist die Ansicht, der man **vor** der Runde
+  vertraut. Ein Caddy, der sich während der Runde korrigiert, fällt auf. **Ein Plan, der still
+  veraltet, nicht** — man merkt es erst, wenn beide dasselbe Loch verschieden beantworten. Genau so
+  ist es hier aufgefallen.
+  `APP_VERSION` geht jetzt in den Abdruck ein. Das kostet höchstens einen überflüssigen Neuaufbau je
+  Fassung — **und der ist billiger als ein falscher Plan.**
+
 - **v5.69.0 · 2026-09-02** — **Baumreihen wurden gezeichnet, aber nicht gerechnet.** Gemeldet zu
   Loch 2 Fehmarn: Der Caddy legt das Ziel mitten in eine Baumreihe — auf dem Luftbild deutlich
   sichtbar — und meldet weder schlechte Lage noch „Baum in der Linie".
