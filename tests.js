@@ -223,7 +223,7 @@ const ABDECKUNG_DECKEL = { funcs: 202, strat: 6 };
    pruefen kostet mehr, als es bringt — sie sind gruen, und zwar zu Recht.
    Gefaehrlich ist der ZUWACHS, denn je weiter hinten eine Gruppe steht, desto
    wahrscheinlicher hat vorher jemand `DB=merged` gerufen. */
-const STALE_DECKEL = { db: 80, play: 20 };
+const STALE_DECKEL = { db: 79, play: 19 };
 
 /* ==========================================================================
    DECKEL GEGEN GROSSE ZEICHENFENSTER (29.08.2026)
@@ -345,6 +345,8 @@ try {
                  "kalibrierBericht","kalibrierText","_kalibMedian","_kalibMad","_kalibTauglich",
                  "_playKey","playMarkEnded","playClearEnded","watchLiveDarfOeffnen","playDefaults",
                  "draftPushAus",
+                 "editDraftAll","editDraftGet","editDraftSave","editDraftClear",
+                 "editDraftPrune","editDraftZeit",
                  "fremderZeigerZaehlt","istRundenStat","poolQuote","teilAnteil",
                  "geoAbspecken","geoBudget","_punkteDuennen","_koordRunden",
                  "GEO_PUNKTE_MAX","GEO_OTHER_MAX","thinRing",
@@ -1230,7 +1232,13 @@ group("Strokes Gained — die Kennzahl, die sagt WO Schläge verlorengehen");
     if (typeof sgSummary === "function") {
       const sum = sgSummary([runde], 20);
       ok("Zusammenfassung liefert Mittelwerte", sum && sum.runden === 1);
-      ok("auf 18 Löcher hochgerechnet", Math.abs(sum.avg.total) > Math.abs(rr.sg.total));
+      /* SEIT v6.12 KEINE HOCHRECHNUNG AUS ZWEI LÖCHERN. Vorher stand hier, der
+         Wert müsse größer sein als die Rundensumme — mal 9 gerechnet. Das war
+         die Prüfung des Verstärkers, nicht seiner Grenze: Zwei Löcher ergeben
+         keine Aussage über 18, egal wie sauber multipliziert wird. Dieselbe
+         Haltung wie beim Score Differential aus drei Löchern (v4.96). */
+      eq("zwei Löcher tragen keine Hochrechnung", sum.avg.total, null);
+      eq("die Grundlage wird trotzdem genannt", sum.loecher.total, 2);
       ok("ohne Runden → null", sgSummary([], 20) === null);
     }
     if (typeof weak === "function") {
@@ -21187,6 +21195,320 @@ group("Karteneditor — durch den Wald hindurchsehen");
   ok("nur dezent zeichnet Umrisse", /vegFaint: vs==="dezent"/.test(src));
   /* Arbeitseinstellung der Sitzung, kein synchronisierter Geschmack. */
   ok("nicht in DB.ui", /function geoEdVegSicht\(v\)\{ GEOED\.vegSicht=v/.test(src));
+}
+
+/* ============ 24bm. Strafschläge im Verlauf (v6.13) ============ */
+group("SG-Verlauf — die Kategorie heißt straf");
+{
+  /* EIN TIPPFEHLER IN EINEM SCHLÜSSEL MELDET SICH NIE VON SELBST. `strafe`
+     statt `straf` ergab `undefined`, wurde weggefiltert und hinterließ ein
+     stilles `null` — kein Absturz, keine Lücke im Bild. Deshalb hier eine
+     Prüfung auf den Namen und eine auf das Ergebnis. */
+  ok("der falsche Schlüssel ist weg", !/"strafe"/.test(ktOhneKommentar(code)));
+  ok("und der richtige steht da",
+    /\["lang","app","kurz","putt","total","straf"\]\.forEach/.test(code));
+  ok("Strafschläge stehen in der Entwicklung",
+    /kat\.concat\(\[\["straf","Strafschläge"\]\]\)\.map/.test(code));
+  /* Und die Gegenprobe am Datenfluss: Trägt eine Runde Strafschläge, muss der
+     Verlaufspunkt sie führen — vorher war dieses Feld immer null. */
+  const SV = G("sgVerlauf"), DB0 = live("DB");
+  if (typeof SV === "function" && DB0) {
+    const alt = DB0.rounds;
+    try {
+      DB0.rounds = Array.from({ length: 8 }, (_, i) => ({
+        id: "s" + i, date: "2026-08-" + String(10 + i).padStart(2, "0"),
+        holes: Array.from({ length: 18 }, (_, j) => ({
+          hole: j + 1, par: 4, len: 350, score: 6, putts: 2, penN: j === 0 ? 1 : 0,
+          appr: "110–140", lie: "Fairway", distToPin: 8, firstPutt: "2m"
+        }))
+      }));
+      if (typeof G("crCacheClear") === "function") G("crCacheClear")();
+      const p = SV(5);
+      ok("es entstehen Verlaufspunkte", p.length > 0, "Punkte: " + p.length);
+      if (p.length) {
+        const letzt = p[p.length - 1];
+        ok("und sie führen die Strafschläge", letzt.avg.straf != null,
+          String(letzt.avg.straf));
+        ok("negativ, wie es sich für Strafschläge gehört", letzt.avg.straf < 0,
+          String(letzt.avg.straf));
+      }
+    } finally { DB0.rounds = alt;
+      if (typeof G("crCacheClear") === "function") G("crCacheClear")(); }
+  }
+}
+
+/* ============ 24bl. Drei Rechenfehler der Auswertung (v6.12) ============ */
+group("Auswertung — Nenner, Lage, Maßstab");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+  const sgHole = G("sgHole"), sgSummary = G("sgSummary"), S = G("STRAT");
+
+  /* ================= (1) der Nenner in sgSummary ================= */
+  if (typeof sgSummary === "function") {
+    /* Eine Runde, in der PUTTEN schlechter erfasst ist als der Rest: 12 Löcher
+       mit Putts, 6 ohne. Vorher wurde die Putt-Kategorie dadurch um den Faktor
+       12/18 gegen null gestaucht — und die Schwäche hing an der Erfassung. */
+    const loch = (n, mitPutts) => ({
+      hole: n, par: 4, len: 350, score: 6, putts: mitPutts ? 3 : null,
+      appr: "110–140", lie: "Fairway", distToPin: 8, firstPutt: "8m", girDirect: "Nein"
+    });
+    const holes = [];
+    for (let i = 1; i <= 12; i++) holes.push(loch(i, true));
+    for (let i = 13; i <= 18; i++) holes.push(loch(i, false));
+    const sum = sgSummary([{ holes }], 20);
+    ok("die Runde ist auswertbar", !!sum);
+    if (sum) {
+      eq("Score liegt für 18 Löcher vor", sum.loecher.total, 18);
+      eq("Putten nur für 12", sum.loecher.putt, 12);
+      /* DER KERN: Der Putt-Wert muss der Schnitt der ZWÖLF erfassten Löcher
+         sein, hochgerechnet auf 18 — nicht durch 18 geteilt. Nachgerechnet
+         aus den Einzellöchern, damit die Prüfung nicht dieselbe Formel
+         wiederholt wie der Code. */
+      const einzeln = holes.filter(h => h.putts != null)
+        .map(h => sgHole(h, 20)).filter(r => r && r.putt != null);
+      eq("zwölf Einzelwerte", einzeln.length, 12);
+      const erwartet = einzeln.reduce((a, r) => a + r.putt, 0) / 12 * 18;
+      ok("Putten wird mit seinem eigenen Nenner hochgerechnet",
+        Math.abs(sum.avg.putt - erwartet) < 1e-9,
+        sum.avg.putt + " statt " + erwartet);
+      /* Die Gegenprobe zum alten Fehler: mit n.total gerechnet käme genau
+         zwei Drittel davon heraus. Dieser Wert darf NICHT herauskommen. */
+      ok("und nicht mit dem Nenner der Score-Löcher",
+        Math.abs(sum.avg.putt - erwartet * 12 / 18) > 1e-6);
+    }
+
+    /* Eine Kategorie unter der Untergrenze liefert null statt einer Zahl —
+       18/n[x] ist ein Verstärker, und Rauschen mal neun sieht aus wie ein
+       Befund. Hier: nur 3 von 18 Löchern mit Putts. */
+    const duenn = [];
+    for (let i = 1; i <= 3; i++) duenn.push(loch(i, true));
+    for (let i = 4; i <= 18; i++) duenn.push(loch(i, false));
+    const sd = sgSummary([{ holes: duenn }], 20);
+    if (sd) {
+      eq("drei Putt-Löcher tragen keine Hochrechnung", sd.avg.putt, null);
+      eq("die Grundlage steht trotzdem da", sd.loecher.putt, 3);
+      ok("der Gesamtwert bleibt", sd.avg.total != null);
+    }
+
+    /* Neun- und Achtzehn-Loch-Runden im selben Fenster: gepoolt zählt die
+       halbe Runde mit ihren neun Löchern, nicht als volle Stimme. */
+    const neun = holes.slice(0, 9).map(h => Object.assign({}, h, { putts: 3 }));
+    const beide = sgSummary([{ holes }, { holes: neun }], 20);
+    if (beide) eq("die 9-Loch-Runde geht mit neun Löchern ein",
+      beide.loecher.total, 27);
+    ok("leere Runden zählen weiterhin nicht mit",
+      /if\(r\.n\[x\]>0\)\{ sum\[x\]\+=/.test(code));
+  }
+
+  /* ================= (2) die Lage nach dem Approach ================= */
+  if (typeof sgHole === "function") {
+    /* Zwei identische Löcher, ein einziger Unterschied: Greenside-Bunker.
+       Der Sand muss teurer sein — sonst rechnet die Zerlegung ihn als Rough. */
+    const basis = { hole: 1, par: 4, len: 350, score: 5, putts: 2, appr: "110–140",
+                    lie: "Fairway", distToPin: 10, firstPutt: "2m", girDirect: "Nein" };
+    const ohne = sgHole(basis, 20);
+    const mit  = sgHole(Object.assign({}, basis, { b1: "Green Side", bunkerN: 1 }), 20);
+    ok("beide Löcher sind rechenbar", !!ohne && !!mit && ohne.app != null && mit.app != null);
+    if (ohne && mit) {
+      /* ES_B höher heißt: die Annäherung hat WENIGER geleistet, das kurze
+         Spiel MEHR. Beides muss sich bewegen, und zwar gegenläufig. */
+      ok("aus dem Bunker gewinnt die Annäherung weniger", mit.app < ohne.app);
+      ok("und das kurze Spiel bekommt es gutgeschrieben", mit.kurz > ohne.kurz);
+      /* Und die zentrale Eigenschaft darf dabei nicht brechen: Die Kategorien
+         teleskopieren weiterhin exakt zum Gesamtwert. */
+      const s2 = ["lang", "app", "kurz", "putt", "straf"].reduce((a, k) => a + (mit[k] || 0), 0);
+      ok("die Zerlegung teleskopiert weiterhin exakt", Math.abs(s2 - mit.total) < 1e-9);
+    }
+    /* Ein FAIRWAY-Bunker liegt vor dem Approach und darf Position B nicht
+       anfassen — sonst wandert eine Lage in die falsche Phase. */
+    const fw = sgHole(Object.assign({}, basis, { b1: "Fairway Bunker", bunkerN: 1 }), 20);
+    if (ohne && fw) ok("ein Fairwaybunker ändert Position B nicht",
+      Math.abs(fw.app - ohne.app) < 1e-9);
+    /* Getroffenes Grün bleibt Grün, auch mit Bunker auf dem Loch. */
+    const girH = sgHole(Object.assign({}, basis, { girDirect: "Ja", b1: "Green Side" }), 20);
+    ok("bei getroffenem Grün zählt weiter die Grün-Kurve",
+      /const bLie = gir \? "green" :/.test(code));
+    ok("und der Fairwaybunker ist ausgeschlossen",
+      /gside \? "sand" : "rough"/.test(code) && /b1==="Green Side"/.test(code));
+  }
+
+  /* ================= (3) der Maßstab: playingLevel ================= */
+  if (S && typeof S.playingLevel === "function") {
+    const DB0 = live("DB");
+    const altR = DB0.rounds, altC = S._esPlayCache, altCo = DB0.courses;
+    try {
+      /* ZWEI PLÄTZE, DIESELBEN SCHLÄGE. Der schwere Platz (CR 74, Slope 140)
+         muss ein NIEDRIGERES Niveau ergeben als der leichte (CR 68, Slope 113)
+         — vorher waren beide „+23", weil nur Score − Par zählte. */
+      const bahnen = par => Array.from({ length: 18 }, (_, i) =>
+        ({ hole: i + 1, par: 4, si: i + 1, len: 350 }));
+      DB0.courses = [
+        { name: "Schwer", tees: { Gelb: { cr18: 74, slope18: 140, par18: 72, holes: bahnen() } } },
+        { name: "Leicht", tees: { Gelb: { cr18: 68, slope18: 113, par18: 72, holes: bahnen() } } }
+      ];
+      const runden = (platz) => Array.from({ length: 8 }, (_, i) => ({
+        id: platz + i, date: "2026-08-" + String(10 + i).padStart(2, "0"),
+        course: platz, tee: "Gelb", side: "18 Loch", hi: 20,
+        holes: Array.from({ length: 18 }, (_, j) => ({ hole: j + 1, score: 5, putts: 2 }))
+      }));
+      if (typeof G("crCacheClear") === "function") G("crCacheClear")();
+      DB0.rounds = runden("Schwer"); S._esPlayCache = null;
+      const schwer = S.playingLevel();
+      if (typeof G("crCacheClear") === "function") G("crCacheClear")();
+      DB0.rounds = runden("Leicht"); S._esPlayCache = null;
+      const leicht = S.playingLevel();
+      const zahl = v => v != null && isFinite(v);
+      ok("beide Plätze liefern ein Niveau", zahl(schwer) && zahl(leicht),
+        schwer + " / " + leicht);
+      if (zahl(schwer) && zahl(leicht))
+        ok("derselbe Score ist auf dem schweren Platz das bessere Spiel",
+          schwer < leicht, schwer.toFixed(1) + " gegen " + leicht.toFixed(1));
+
+      /* Ohne CR und Slope gibt es kein Differential — dann greift der alte
+         Weg, und zwar GESCHLOSSEN. Zwei Skalen in einem Median wären keine
+         von beiden. */
+      if (typeof G("crCacheClear") === "function") G("crCacheClear")();
+      DB0.courses = []; S._esPlayCache = null;
+      DB0.rounds = Array.from({ length: 8 }, (_, i) => ({
+        id: "x" + i, date: "2026-08-" + String(10 + i).padStart(2, "0"),
+        holes: Array.from({ length: 18 }, () => ({ par: 4, score: 5 }))
+      }));
+      const rueck = S.playingLevel();
+      ok("ohne CR/Slope trägt der Rückfall",
+        rueck != null && isFinite(rueck) && Math.abs(rueck - 18) < 6, String(rueck));
+      ok("Differentials und Score-zu-Par werden nie gemischt",
+        /const vals=\(diffs\.length>=5\)\?diffs:roh;/.test(code));
+      ok("und der Rückfall bleibt an die Mindestlochzahl gebunden",
+        /if\(hs\.length<9\) continue;/.test(code));
+    } finally { DB0.rounds = altR; DB0.courses = altCo; S._esPlayCache = altC;
+      if (typeof G("crCacheClear") === "function") G("crCacheClear")(); }
+  }
+}
+
+/* ============ 24bk. Zwischenstand beim Bearbeiten einer Runde ============ */
+group("Runde bearbeiten — der Zwischenstand");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+  const save = G("editDraftSave"), get = G("editDraftGet"),
+        clr = G("editDraftClear"), prune = G("editDraftPrune"),
+        zeit = G("editDraftZeit");
+
+  ok("die Helfer gibt es", [save, get, clr, prune, zeit].every(f => typeof f === "function"));
+
+  /* ---- Verhalten: hinlegen, wiederfinden, einlösen ---- */
+  if (typeof save === "function") {
+    const rd = { id: "R1", date: "2026-09-11", holes: [{ hole: 1, score: 4, putts: 2 }] };
+    save("R1", rd, { an: true, name: "Clubmeisterschaft" });
+    const zw = get("R1");
+    ok("gesicherter Stand kommt zurück", !!zw && !!zw.round);
+    eq("und zwar unverändert", zw && zw.round.holes[0].score, 4);
+    eq("der Turnier-Haken reist mit", zw && zw.tn && zw.tn.an, true);
+    eq("samt Name", zw && zw.tn && zw.tn.name, "Clubmeisterschaft");
+    ok("mit Zeitstempel", !!(zw && zw.ts));
+
+    /* Gespeichert heisst eingelöst — sonst zeigt das Band beim nächsten
+       Öffnen einen Stand, den die Runde längst enthält. */
+    clr("R1");
+    eq("nach dem Einlösen ist er weg", get("R1"), null);
+    eq("unbekannte Runde: kein Stand", get("R2"), null);
+    eq("ohne id: kein Stand", get(null), null);
+
+    /* Der Deckel. Bewusst mit VORGEGEBENEN Zeitstempeln statt neun Aufrufen
+       hintereinander: Die lägen in derselben Millisekunde, und eine Prüfung,
+       die von der Uhr abhängt, ist mal grün und mal rot. */
+    const vorrat = {};
+    for (let i = 1; i <= 8; i++)
+      vorrat["A" + i] = { round: { id: "A" + i }, ts: "2026-09-0" + i + "T08:00:00.000Z" };
+    sandbox.localStorage.setItem("golfdb_editRounds", JSON.stringify(vorrat));
+    save("A9", { id: "A9" }, null);
+    const alle = JSON.parse(sandbox.localStorage.getItem("golfdb_editRounds"));
+    eq("nie mehr als EDIT_MAX Stände", Object.keys(alle).length, 8);
+    ok("der neueste ist dabei", !!alle["A9"]);
+    ok("der älteste fiel raus", !alle["A1"]);
+    sandbox.localStorage.setItem("golfdb_editRounds", JSON.stringify({}));
+  }
+
+  /* ---- Aufräumen, aber nicht beim leeren Start ---- */
+  if (typeof prune === "function") {
+    const DBx = live("DB"), sich = DBx.rounds;
+    try {
+      sandbox.localStorage.setItem("golfdb_editRounds",
+        JSON.stringify({ DA: { round: { id: "DA" }, ts: "2026-09-01T08:00:00.000Z" } }));
+      /* VOR `idbHydrate()` ist `DB.rounds` kurz leer. Wer dann aufräumt,
+         löscht jeden Zwischenstand — genau dann, wenn er gebraucht wird. */
+      DBx.rounds = [];
+      prune();
+      ok("leere Rundenliste räumt NICHTS", !!get("DA"));
+      DBx.rounds = [{ id: "DB1" }];
+      prune();
+      eq("zu einer gelöschten Runde bleibt nichts liegen", get("DA"), null);
+      sandbox.localStorage.setItem("golfdb_editRounds", JSON.stringify({}));
+    } finally { DBx.rounds = sich; }
+  }
+
+  /* ---- Zeitangabe: heute die Uhrzeit, sonst mit Datum ---- */
+  if (typeof zeit === "function") {
+    const jetzt = new Date();
+    ok("heute nur die Uhrzeit", /^\d{2}:\d{2}$/.test(zeit({ ts: jetzt.toISOString() })));
+    const alt = new Date(jetzt.getTime() - 3 * 24 * 3600 * 1000);
+    ok("älter mit Datum davor", /\d{2}\.\d{2}\. · \d{2}:\d{2}/.test(zeit({ ts: alt.toISOString() })));
+    eq("kaputter Stempel bleibt stumm", zeit({ ts: "kein Datum" }), "");
+  }
+
+  /* ---- Zwei Speicher, die sich nicht vermischen ---- */
+  const hSave = blockVon(code, "function editDraftSave(");
+  ok("die Bearbeitung hat einen EIGENEN Schlüssel", /const EDIT_KEY="golfdb_editRounds"/.test(code));
+  ok("und rührt den Rundenentwurf nicht an", !/DRAFT_KEY|_draftRound|draftPush/.test(hSave));
+  /* `_draftRound` ist der teuerste Datensatz der App — die laufende Runde, an
+     der zwei Geräte hängen. Ein gemeinsamer Schlüssel hätte ihn gefährdet. */
+
+  /* ---- Gesichert wird bei jeder Eingabe, aber nicht beim Öffnen ---- */
+  const liveB = code.slice(code.indexOf("  function live(){"), code.indexOf("  courseSel.onchange="));
+  ok("beim Bearbeiten wird zwischengespeichert", /editDraftSave\(ed\.id, r,/.test(liveB));
+  /* Der erste Lauf kommt aus `buildHoles()`. Würde er schon sichern, hätte
+     jedes nur geöffnete Blatt danach „nicht gespeicherte Änderungen". */
+  ok("der erste Lauf setzt nur den Ausgangsstand",
+    /if\(basisAbdruck===null\) basisAbdruck=a;/.test(liveB));
+  ok("verglichen wird gegen ihn", /a!==basisAbdruck/.test(liveB));
+  /* Ein wiederaufgenommener Stand darf nicht am Vergleich sterben: Dort IST
+     der Ausgangsstand schon die Bearbeitung. */
+  ok("ein wiederaufgenommener Stand wird nie automatisch gelöscht",
+    /else if\(zwi \|\| a!==basisAbdruck\)/.test(liveB));
+  ok("zurückgenommene Änderung räumt auf", /editDraftClear\(ed\.id\)/.test(liveB));
+  /* Der Abdruck darf NUR aus Getipptem bestehen — `weather` kommt aus
+     `weatherSnapshot()` und ändert sich von selbst. */
+  const abd = code.slice(code.indexOf("  const abdruck=r=>"), code.indexOf("  let basisAbdruck=null;"));
+  ok("der Abdruck kennt kein Wetter", !/weather|conditions/.test(abd));
+  ok("und keine id", !/r\.id/.test(abd));
+
+  /* ---- Der Umweg über die Karte schreibt nichts fest ---- */
+  const stB = src.slice(src.indexOf("window.__openShotTrack=function(n){"),
+                        src.indexOf("    renderShotTrack(n, reopen, cn);"));
+  ok("Schläge bearbeiten sichert in den Zwischenstand", /editDraftSave\(ed\.id, collect\(\)/.test(stB));
+  /* Vorher stand hier `DB.rounds[i]=r; persist();` — mitten in einer
+     Bearbeitung, die laut Unterzeile „erst mit Speichern" gilt. */
+  ok("und schreibt NICHT in die Runde", !/DB\.rounds\[i\]=r;/.test(ktOhneKommentar(stB)));
+  ok("auch nicht über persist()", !/persist\(\)/.test(ktOhneKommentar(stB)));
+
+  /* ---- Einlösen und Aufräumen an allen Ausgängen ---- */
+  const saveB = code.slice(code.indexOf('$("#saveRound").onclick='), code.indexOf('if(ed) $("#delRound").onclick='));
+  ok("Speichern löst den Zwischenstand ein",
+    (saveB.match(/editDraftClear\(ed\.id\)/g) || []).length >= 2);   // Turnier-Zweig UND Normalfall
+  ok("Löschen räumt ihn mit weg", /editDraftClear\(ed\.id\);\n    \(tombAdd\("rounds", ed\.id\)/.test(code));
+  ok("auch aus der Rundenansicht heraus", /editDraftClear\(id\);\n    \(tombAdd\("rounds", id\)/.test(code));
+
+  /* ---- Sichtbarkeit: ein Stand, den man nicht findet, ist keine Sicherung ---- */
+  ok("Band in der Eingabemaske", /id="r_zwi"/.test(src));
+  ok("mit Zeitpunkt", /Unterbrochene Bearbeitung · \$\{esc\(editDraftZeit\(zwi\)\)\}/.test(src));
+  ok("Ausweg vorhanden", /id="r_zwiWeg"/.test(src));
+  ok("und er fragt nach", /Zwischenstand verwerfen\?/.test(src));
+  ok("Marke in der Rundenliste", /nicht gespeicherte Änderungen/.test(src));
+  ok("Hinweis in der Rundenansicht", /Bearbeiten — Zwischenstand fortsetzen/.test(src));
+  /* Die Zeile versprach beim Bearbeiten eine Sicherung, die es nicht gab —
+     das war der eigentliche Fehler von v6.10. */
+  ok("die Zusage stimmt jetzt für beide Fälle",
+    /ed\?"Änderungen werden zwischengespeichert":"Eingaben werden automatisch gesichert"/.test(src));
+  ok("Aufräumen hängt an der Rundenliste", /editDraftPrune\(\);/.test(code));
 }
 
 /* ============ 24bj. Karteneditor: Ansicht, Rückgängig, Bildmenü ============ */

@@ -13,6 +13,63 @@
 
 ---
 
+- **v5.68.0 · 2026-09-02** — **Drei fehlende Gründe — und die Auswahl nach Schwellen war falsch.**
+  Gefragt: „Sollten neben Strafrisiko, Bunker, Rough und Hanglage noch weitere Gründe aufgenommen
+  werden?" Ja, drei — und eine davon ist die größte von allen.
+  · **Sichtlinie:** bis **0,55 Schläge**, mehr als Bunker und Rough zusammen — und bisher
+    **vollständig unsichtbar**. Stand ein Baum in der Linie und der Caddy nahm deshalb ein Eisen, sah
+    man nur das Ergebnis. Jetzt: „Baum in der Linie".
+  · **Restlänge und Wedge-Zone:** dieselbe Sache aus zwei Richtungen. Sie erklären die häufigste
+    Rückfrage — warum der Caddy kürzer spielt, als man selbst würde. Jetzt: „lässt 190 m übrig" bzw.
+    „lässt dir eine volle Wedge".
+  · **Leitplanken:** nur, wo sie einen Schläger ausschließen. Das ist eine Regel, keine Abwägung.
+  **Und die Auswahl selbst war falsch.** Feste Schwellen — Strafrisiko ab 8 %, Bunker ab 15 %, Rough
+  ab 45 % — waren mit vier Termen vertretbar und sind mit sieben nicht mehr haltbar. **Sie fragen
+  nicht, was die Wahl gekippt hat, sondern ob eine Zahl groß aussieht.** Ein Rough-Anteil von 46 %
+  kann folgenlos sein, während eine blockierte Linie mit 0,3 Schlägen die Entscheidung allein trägt.
+  Jetzt zählt der **tatsächliche Beitrag** zum Abzug, und nur ab 0,05 Schlägen. **Ein Grund, der 0,02
+  Schläge ausmacht, ist keiner** — und wenn dort immer etwas steht, liest man es nach dem dritten
+  Loch nicht mehr. Die Zahl bleibt dabei, wo es eine gibt; sie macht den Grund prüfbar.
+
+- **v5.67.0 · 2026-09-02** — **Der Caddy sagt jetzt, dass er die Hanglage vermeidet.** Gewünscht:
+  „Wichtig ist mir, dass der Caddy auch sagt, dass er den Schläger wählt, um Hanglage zu vermeiden."
+  **Seit v5.66 rechnet er damit** — bergab wiegt anderthalbfach, bergauf halb. **Aber in der
+  Begründung stand weiter nur „beste Rechnung über zwei Schläge".** Der Spieler sah das Ergebnis,
+  nicht den Grund. **Eine Rechnung, die man nicht nachvollziehen kann, ist eine Behauptung** — genau
+  dafür gibt es die drei Zeilen, und genau deshalb muss ein Term, der die Wahl **kippt**, dort
+  auftauchen.
+  **Zwei verschiedene Aussagen, und die Unterscheidung ist der eigentliche Wert:**
+  · Die Alternative läge am Hang, der gewählte Schläger nicht → *„vermeidet die bergab-Lage der
+    Alternative"* — der Fall, nach dem gefragt war.
+  · Der gewählte Schläger landet **selbst** am Hang → *„trotz bergab-Lage"*: Etwas anderes war noch
+    schlechter, und das ist eine andere Auskunft.
+  Auch die **„statt"-Zeile** sagt es jetzt (*„läge bergab"*) — sie erklärt, warum die Alternative
+  verliert, und die Hanglage ist oft genau der Grund. Ohne sie steht dort nur eine Zahl, und **Zahlen
+  überzeugen niemanden auf der Bahn.**
+  **Schwelle 3 %:** Darunter bleibt es unerwähnt — das ist Messrauschen, kein Hang. **Was man
+  erwähnt, sollte man auch spüren.** Ohne Höhendaten wird kein Grund erfunden.
+
+- **v5.66.0 · 2026-09-02** — **„Ich würde mit dem 6 Iron auf einem Downslope liegen" — und die
+  Rechnung sah das wirklich nicht.** Gemeldet zu Loch 1 Nordplatz.
+  **Der Hangterm benutzte nur den BETRAG der Neigung.** Ein Landepunkt am Abhang und einer am
+  Anstieg bekamen denselben Abzug.
+  **Das ist golferisch falsch.** Bergauf hilft: Der Hang stellt den Schläger auf, der Ball steigt
+  leichter, der Stand ist stabil. Bergab schadet: Der Schläger wird effektiv flacher, der Ball fliegt
+  niedriger und weiter als gedacht, und dünne Treffer sind die häufigste Folge. **Dieselbe Neigung
+  ist in der einen Richtung ein Vorteil und in der anderen ein Problem.**
+  **Die Information lag die ganze Zeit vor:** `neigungUmZiel` liefert `laengs` seit je, und die
+  Streuungsrechnung nutzt das Vorzeichen bereits (`streuLaengsAb`). Nur die **Schlägerwahl** hat
+  nicht hingesehen — sie warf die Richtung weg und behielt den Betrag. **Eine Zahl, die man auf ihren
+  Betrag reduziert, verliert genau das, was sie interessant macht.**
+  Jetzt zählt bergab **anderthalbfach**, bergauf **halb** — bei gleicher Neigung ein dreifacher
+  Unterschied im Abzug. An **beiden** Stellen (Abschlag und Kettenschritt): Ein Term, den man an einer
+  Stelle richtigstellt und an der anderen nicht, ist nicht richtiggestellt. Unter einem Prozent bleibt
+  es neutral — das ist Messrauschen, kein Hang. Der **Querhang** bleibt unangetastet: Seitenhang ist
+  in beide Richtungen unangenehm, da gibt es keine gute Seite.
+  **Die Faktoren sind gesetzt, nicht gemessen** — sie stehen im Code, damit man sie diskutieren kann.
+  **Vom Prüfstand gefangen:** Ein Ausschnitt von 13.500 Zeichen in `tests.js`, zweimal vergrößert und
+  beim dritten Mal gerissen. Siebter Fall dieser Art — die Regel gilt auch für den Prüfstand selbst.
+
 - **v5.65.0 · 2026-09-02** — **„Auf Loch 3 wird nichts angezeigt, auf allen anderen schon" — ein
   einziges Objekt sprengte den Kartenrahmen.**
   **Gemessen:** Der Rahmen für Loch 3 spannte **66 × 116 Kilometer** statt rund 900 Meter. Der Zoom
