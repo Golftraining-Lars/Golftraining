@@ -13,6 +13,28 @@
 
 ---
 
+- **v5.71.0 · 2026-09-03** — **Vierte Stelle derselben Fehlerklasse — jetzt mit Sperrklinke für
+  alle.** Gemeldet: „Lochplan · sicher" zeigt trotzdem Driver.
+  **Nachgerechnet: Die Rechnung ist richtig.** `STRAT.tee(…,"safe")` liefert auf diesem Loch **2
+  Iron** mit **55 % Fairway und 0 % Strafrisiko**; Driver kommt nur bei „bal" und „aggr" heraus —
+  dort mit 34 % und 5 %. Auch die Verdrahtung stimmt: Die Knöpfe geben `safe`/`bal`/`aggr` weiter,
+  und der Zwischenspeicher der Zielkette enthält den Modus.
+  **Was er nicht enthielt, ist die Fassung.** Ändert sich die Rechnung — Baumreihen (v5.69),
+  Hangrichtung (v5.66), Sichtlinie —, liefert er weiter das alte Ergebnis, solange Platz, Loch, Modus
+  und Position gleich bleiben. **Genau das passiert während einer Runde:** Man steht auf demselben
+  Abschlag, lädt die neue Fassung, und bekommt die Antwort von vorher.
+  **Die vierte Stelle derselben Art:**
+  | | Speicher | fehlte im Schlüssel |
+  |---|---|---|
+  | v5.19 | Höhenraster | DGM-Zustand |
+  | v5.57 | Kalender | Datenform |
+  | v5.70 | Lochplan | Fassung |
+  | **v5.71** | **Zielkette** | **Fassung** |
+  **Viermal ist kein Zufall, sondern ein Muster.** Deshalb prüft der Prüfstand jetzt **alle**
+  ergebnisabhängigen Schlüssel auf die Fassung, nicht nur den zuletzt gefundenen — wer einen neuen
+  anlegt, muss dort vorbeikommen. **Ein Zwischenspeicher muss alles kennen, was sein Ergebnis
+  bestimmt, und der Code gehört dazu.**
+
 - **v5.70.0 · 2026-09-02** — **Der Lochplan alterte still — sein Abdruck kannte die Rechnung nicht.**
   Gemeldet: „Im Caddy scheint es zu funktionieren. Im Gameplan bin ich mir aber unsicher — das wirkt
   nicht wie die sichere Spielweise." **Und es stimmte:** Der Lochplan legte den Driver in dieselbe

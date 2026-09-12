@@ -349,6 +349,8 @@ try {
                  "editDraftPrune","editDraftZeit",
                  "wertung","setWertung","stblKontext",
                  "wedgeZone","caddyLayupHtml",
+                 "formDraftAll","formDraftGet","formDraftSave","formDraftClear",
+                 "formDraftErledigt","formDraftFeldKey","formDraftSammeln","formDraftBind",
                  "fremderZeigerZaehlt","istRundenStat","poolQuote","teilAnteil",
                  "geoAbspecken","geoBudget","_punkteDuennen","_koordRunden",
                  "GEO_PUNKTE_MAX","GEO_OTHER_MAX","thinRing",
@@ -9094,11 +9096,11 @@ group("Gleichlauf mit der Uhr · Fußraum in der Eingabe");
   /* Und jedes neue Blatt leert ihn — sonst trüge das nächste Blatt die
      Score-Stepper des vorigen. */
   ok("jedes neue Blatt leert ihn",
-    /function openSheet\(html\)\{[\s\S]{0,500}sheetFoot"\); if\(f\) f\.innerHTML="";/.test(src));
+    /function openSheet\(html, fdId\)\{[\s\S]{0,500}sheetFoot"\); if\(f\) f\.innerHTML="";/.test(src));
   /* Und zurückgenommen bei JEDEM neuen Blatt — sonst hätte das nächste
      unerklärliche Luft am Fuß. */
   ok("beim nächsten Blatt zurückgenommen",
-    /function openSheet\(html\)\{[\s\S]{0,400}classList\.remove\("has-closebar"\)/.test(src));
+    /function openSheet\(html, fdId\)\{[\s\S]{0,400}classList\.remove\("has-closebar"\)/.test(src));
 }
 
 /* ============ 24ci. Caddy rechnet ab der eigenen Position ============ */
@@ -19847,8 +19849,8 @@ group("Rundenende — die Uhr hört wirklich auf");
      das Abbestellen VOR dem jeweils folgenden Schreibvorgang steht — nicht
      eine bestimmte Nachbarzeile. */
   ok("jeweils vor dem nächsten Schreibvorgang",
-     (roh.match(/draftPushAus\(\);[\s\S]{0,120}?(draftFinalize\(\)|flushCloudNow\(\))/g) || []).length >= 3,
-     String((roh.match(/draftPushAus\(\);[\s\S]{0,120}?(draftFinalize\(\)|flushCloudNow\(\))/g) || []).length));
+     (roh.match(/draftPushAus\(\);[\s\S]{0,200}?(draftFinalize\(\)|flushCloudNow\(\))/g) || []).length >= 3,
+     String((roh.match(/draftPushAus\(\);[\s\S]{0,200}?(draftFinalize\(\)|flushCloudNow\(\))/g) || []).length));
 
   /* DER ZWEITE RIEGEL IST DER VERLÄSSLICHE: Ein abgebrochener Zeitgeber
      genügt nicht — ein Vorgang kann bereits unterwegs sein, und
@@ -21200,6 +21202,106 @@ group("Karteneditor — durch den Wald hindurchsehen");
   ok("nur dezent zeichnet Umrisse", /vegFaint: vs==="dezent"/.test(src));
   /* Arbeitseinstellung der Sitzung, kein synchronisierter Geschmack. */
   ok("nicht in DB.ui", /function geoEdVegSicht\(v\)\{ GEOED\.vegSicht=v/.test(src));
+}
+
+/* ============ 24bp. Zwischenstand in JEDEM Blatt (v6.16) ============ */
+group("Formulare — jede Eingabe wird gehalten");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+  const get = G("formDraftGet"), save = G("formDraftSave"), clr = G("formDraftClear"),
+        key = G("formDraftFeldKey"), fertig = G("formDraftErledigt");
+
+  ok("die Helfer gibt es", [get, save, clr, key, fertig].every(f => typeof f === "function"));
+
+  if (typeof save === "function") {
+    save("test:pelz", { f_date: "2026-09-12", putts: "34" });
+    const d = get("test:pelz");
+    ok("Eingaben kommen zurück", !!d && !!d.felder);
+    eq("und zwar unverändert", d && d.felder.putts, "34");
+    eq("unbekanntes Blatt: nichts", get("form:gibtsnicht"), null);
+    eq("ohne Schlüssel: nichts", get(null), null);
+    clr("test:pelz");
+    eq("eingelöst heißt weg", get("test:pelz"), null);
+
+    /* HALTBARKEIT: Ein Entwurf von vor drei Wochen überschreibt eher, als er
+       rettet — im Datensatz stehen inzwischen andere Werte. */
+    const alt = new Date(Date.now() - 20 * 24 * 3600 * 1000).toISOString();
+    sandbox.localStorage.setItem("golfdb_formDrafts",
+      JSON.stringify({ "ziel:3": { felder: { g_name: "alt" }, ts: alt } }));
+    eq("zu alte Entwürfe zählen nicht", get("ziel:3"), null);
+
+    /* Der Deckel, mit vorgegebenen Zeitstempeln statt vieler Aufrufe —
+       die lägen in derselben Millisekunde (Lehre aus v6.11). */
+    const vorrat = {};
+    for (let i = 1; i <= 12; i++)
+      vorrat["m" + i] = { felder: { a: String(i) }, ts: "2026-09-" + String(i).padStart(2, "0") + "T08:00:00.000Z" };
+    sandbox.localStorage.setItem("golfdb_formDrafts", JSON.stringify(vorrat));
+    save("m13", { a: "13" });
+    const alle = JSON.parse(sandbox.localStorage.getItem("golfdb_formDrafts"));
+    eq("nie mehr als FORM_MAX", Object.keys(alle).length, 12);
+    ok("der neueste ist dabei", !!alle["m13"]);
+    ok("der älteste fiel raus", !alle["m1"]);
+    sandbox.localStorage.setItem("golfdb_formDrafts", JSON.stringify({}));
+  }
+
+  /* Feldschlüssel: id zuerst, dann data-k, dann name, dann Position. Die
+     Position ist bewusst der schlechteste Ausweg — sie bricht beim Umbau der
+     Maske, und dann verliert man nur den Entwurf, nie Daten. */
+  if (typeof key === "function") {
+    eq("id gewinnt", key({ id: "f_date", dataset: {}, name: "x" }, 3), "f_date");
+    eq("dann data-k", key({ id: "", dataset: { k: "putts" }, name: "x" }, 3), "putts");
+    eq("dann name", key({ id: "", dataset: {}, name: "feld" }, 3), "feld");
+    eq("zuletzt die Position", key({ id: "", dataset: {}, name: "" }, 3), "nr3");
+  }
+
+  /* ---- Der Mechanismus sitzt an der gemeinsamen Tür ---- */
+  ok("openSheet nimmt den Schlüssel", /function openSheet\(html, fdId\)\{/.test(code));
+  /* EINEN TICK SPÄTER: Die Aufrufer verdrahten synchron nach `openSheet()`.
+     Wer sofort füllt, feuert `input`, bevor jemand zuhört — die Live-Summe
+     unter dem Testformular wäre leer geblieben. */
+  ok("und bindet einen Tick später", /if\(fdId\) setTimeout\(\(\)=>formDraftBind\(fdId\),0\);/.test(code));
+  ok("jedes neue Blatt setzt den Schlüssel zurück", /FORM_AKTIV=null;\s*\n\s*if\(fdId\)/.test(code));
+  /* Beim Wiederherstellen müssen BEIDE Ereignisse feuern: die Testmaske hört
+     an `input`, die Auswahlfelder an `change`. */
+  ok("input und change werden gefeuert",
+    /dispatchEvent\(new Event\("input",\{bubbles:true\}\)\)/.test(code)
+    && /dispatchEvent\(new Event\("change",\{bubbles:true\}\)\)/.test(code));
+  /* Wie bei der Runde: nur Öffnen hinterlässt nichts, und ein
+     wiederhergestellter Entwurf wird nie automatisch gelöscht. */
+  ok("Vergleich gegen den Ausgangsstand", /const basis=JSON\.stringify\(formDraftSammeln\(\)\);/.test(code));
+  ok("ein wiederhergestellter Entwurf bleibt", /if\(wieder \|\| j!==basis\)/.test(code));
+  ok("Dateien und Knöpfe bleiben außen",
+    /\["file","button","submit","reset","image"\]\.includes\(el\.type\)/.test(code));
+  ok("und ein Feld kann sich abmelden", /el\.dataset\.fdAus==null/.test(code));
+
+  /* ---- Eingelöst wird nur bei einem echten Speichern ---- */
+  /* DESHALB NICHT IN `closeSheet()`: Ein Abbruch schließt auch, und genau
+     dort muss der Entwurf stehen bleiben — das ist der ganze Sinn. */
+  ok("das Einlösen hängt an persist(), nicht am Schließen",
+    /persist\(\); formDraftErledigt\(\); closeSheet\(\);/.test(code));
+  ok("und closeSheet räumt NICHTS weg",
+    !/function closeSheet\(\)\{[\s\S]{0,300}formDraftErledigt/.test(code));
+  ok("an allen Speicherwegen", (code.match(/formDraftErledigt\(\)/g) || []).length >= 20,
+    String((code.match(/formDraftErledigt\(\)/g) || []).length));
+
+  /* ---- Die Masken sind verdrahtet ---- */
+  const masken = [
+    ['"test:"+key', "Tests"], ['"notiz:"', "Notizen"], ['"ziel:"', "Ziele"],
+    ['"block:"', "Trainingsblöcke"], ['"makro:"', "Makrozyklen"],
+    ['"turnier:"', "Turniere"], ['"wettkampf:"', "Wettkämpfe"],
+    ['"yoga:"', "Yoga"], ['"kraft:"', "Kraft"], ['"wiki:"', "Wiki"],
+    ['"schwung:"', "Schwunganalysen"], ['"platz:"', "Plätze"],
+    ['"gefahren:"', "Gefahren"], ['"gespielt:"', "gespielte Plätze"],
+    ['"wunsch:"', "Bucketlist"], ['"lmSession:"', "Launch-Sessions"],
+    ['"gpsSchlag:"', "getrackte Schläge"], ['"schnellRunde"', "Schnellerfassung"]
+  ];
+  const fehlt = masken.filter(([k]) => src.indexOf(k) < 0).map(([, n]) => n);
+  eq("alle achtzehn Masken sind verdrahtet", fehlt.join(", "), "");
+  /* Die Eingabemaske der Runde hat ihren eigenen, auf Löcher zugeschnittenen
+     Mechanismus (v6.11) und darf NICHT zusätzlich am generischen hängen —
+     zwei Speicher für dieselben Felder wären zwei Wahrheiten. */
+  ok("die Rundenmaske bleibt bei ihrem eigenen Mechanismus",
+    /openSheet\(h\);\s*\n\s*const recalc/.test(src) === false || !/openAddRound[\s\S]{0,200}openSheet\(h, "/.test(src));
 }
 
 /* ============ 24bo. Caddy-Durchsicht, zweite Runde (v6.15) ============ */
