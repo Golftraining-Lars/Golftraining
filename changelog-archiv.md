@@ -13,6 +13,22 @@
 
 ---
 
+- **v5.74.0 · 2026-09-03** — **Fünfte Stelle — und diesmal habe ich sie in v5.71 selbst übersehen.**
+  Gemeldet: Nach dem Wechsel auf v5.73 steht „8 Pläne als veraltet markiert" im Protokoll, und die
+  Karte zeigt trotzdem unverändert „Driver 237 m" bei Spielweise **sicher**.
+  **Die Kette kommt gar nicht aus dem Lochplan.** Sie wird von `playAimChain()` gebaut und in
+  `PLAY.aimChain` gehalten, mit `PLAY.aimChainKey` als Schlüssel — der kennt Loch, Tee, Modus,
+  Standort und gezogene Punkte. **Nicht aber die Fassung.**
+  **Und `PLAY` überlebt den Neustart**, weil es aus dem Rundenentwurf wiederhergestellt wird. Also
+  überlebt auch die fertige Kette — mitsamt ihrem Schlüssel, der weiterhin passt. Die App lädt die
+  neue Rechnung und zeigt weiter das alte Ergebnis. Alle Korrekturen seit v5.66 waren da, sie kamen
+  nur nicht an.
+  **In v5.71 habe ich die Bewertung nachgezogen und das Ergebnis übersehen.** Das ist der eigentliche
+  Fehler: **Wer einen Schlüssel ergänzt, muss alle Schlüssel desselben Weges ergänzen** — sonst
+  behebt man die Hälfte und glaubt, es sei ganz. Ein zweiter, `"N|"`, fehlte ebenfalls.
+  Die Sperrklinke prüft deshalb jetzt **das Muster statt einer Liste**: Jeder Schlüssel der Form
+  `const k="X|"+…` muss mit `APP_VERSION` beginnen. **Eine Liste vergisst man, ein Muster nicht.**
+
 - **v5.73.0 · 2026-09-03** — **Der Lochplan rechnet sich jetzt selbst nach — je Loch, nicht je
   Platz.** Gemeldet: „Der Gameplan aktualisiert sich weiterhin nicht."
   **Warum er es nie tat:** `gpAutoRefresh` läuft **stündlich**, nur bei sichtbarer Seite, in einer

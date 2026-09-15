@@ -353,6 +353,7 @@ try {
                  "wedgeMatrixHtml","WEDGE_SEED","wedgeSwings","clubLoft","wedgeMigrate",
                  "wedgeLoft","wedgeIstVoll","wedgeBagRow","wedgeTotal","wedgeMessung",
                  "wedgeKollisionen","grpCacheClear","clubMeasured",
+                 "bagMode","setBagMode","bagVollZeile","bagTeilZeile",
                  "formDraftAll","formDraftGet","formDraftSave","formDraftClear",
                  "formDraftErledigt","formDraftFeldKey","formDraftSammeln","formDraftBind",
                  "fremderZeigerZaehlt","istRundenStat","poolQuote","teilAnteil",
@@ -21218,6 +21219,110 @@ group("Karteneditor — durch den Wald hindurchsehen");
   ok("nicht in DB.ui", /function geoEdVegSicht\(v\)\{ GEOED\.vegSicht=v/.test(src));
 }
 
+/* ============ 24bs. Ein Reiter, zwei Ordnungen (v6.19) ============ */
+group("Schläger — Inventar und Leiter");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+  const DB0 = live("DB");
+  const mode = G("bagMode"), setMode = G("setBagMode"),
+        vollZ = G("bagVollZeile"), teilZ = G("bagTeilZeile");
+
+  /* ---- Der Modus ist eine Einstellung, keine Vermutung ---- */
+  if (typeof mode === "function") {
+    const sich = DB0.profile;
+    try {
+      DB0.profile = {};
+      /* INVENTAR ist die Voreinstellung: Wer den Reiter öffnet, will meistens
+         wissen, was im Bag liegt — die Leiter braucht man auf der Bahn, und
+         dort ist der Caddy zuständig. */
+      eq("Voreinstellung ist nach Schläger", mode(), "club");
+      DB0.profile = { bagMode: "laenge" };
+      eq("und die Leiter lässt sich merken", mode(), "laenge");
+      DB0.profile = { bagMode: "quatsch" };
+      eq("ein unbekannter Wert fällt zurück", mode(), "club");
+    } finally { DB0.profile = sich; }
+  }
+
+  /* ---- DERSELBE ZEILENBAU IN BEIDEN MODI ----
+     Das ist der Kern: gleiche Felder, gleiche `data-f`-Merkmale, also greift
+     dieselbe Verdrahtung. Ein zweiter Bearbeitungsweg wäre ein zweiter Ort
+     für Fehler. */
+  if (typeof vollZ === "function") {
+    const z = vollZ({ id: "C1", club: "Sand Wedge 54°", carry: 80, total: 84 });
+    ok("die Schlägerzeile trägt ihre Kennung", /data-id="C1"/.test(z));
+    ok("und die Felder sind editierbar",
+      /data-f="club"/.test(z) && /data-f="carry"/.test(z) && /data-f="total"/.test(z));
+    /* Das × nimmt einen Schläger aus Bag, Caddy und Uhr — es muss anders
+       heißen als alles, was nur eine Notiz löscht. */
+    ok("das Kreuz sagt, was es tut", /title="Schläger entfernen"/.test(z));
+    ok("der Längen-Modus nutzt dieselbe Zeile",
+      (code.match(/h\+=bagVollZeile\(/g) || []).length >= 2);
+  }
+
+  /* ---- Die Teilschlag-Zeile ist bewusst anders ---- */
+  if (typeof teilZ === "function") {
+    const sichCD = DB0.clubDistances, sichG = DB0.gpsShots, sichL = DB0.lmSessions;
+    try {
+      DB0.clubDistances = [{ club: "Sand Wedge 54°", carry: 80, total: 84 }];
+      DB0.gpsShots = []; DB0.lmSessions = []; G("grpCacheClear")();
+      const r = { id: "W1", club: "Sand Wedge 54°", swing: "Halb", grip: "Mitte",
+                  von: 65, bis: 65, total: 67 };
+      const ohne = teilZ(r, false), mit = teilZ(r, true);
+      ok("sie führt ins Blatt", /openWedgeEditor\('W1'\)/.test(ohne));
+      /* KEIN LÖSCHKREUZ: Zwei Kreuze, die gleich aussehen und Verschiedenes
+         tun, sind ein Unfall mit Anlauf. Gelöscht wird im Blatt, mit
+         Rückfrage. */
+      ok("aber trägt kein Löschkreuz", !/bagdel/.test(ohne));
+      ok("Schwung und Griff stehen da", /Halb/.test(ohne) && /Griff Mitte/.test(ohne));
+      ok("und die Länge", /65 m/.test(ohne));
+      ok("die Gesamtlänge als Zusatz", /Gesamt 67 m/.test(ohne));
+      /* Unter dem Schläger braucht es den Namen nicht — in der Leiter schon,
+         sonst weiß man nicht, wovon die Rede ist. */
+      ok("unter dem Schläger ohne Namen", !/bt-cl/.test(ohne));
+      ok("in der Leiter mit Namen", /bt-cl/.test(mit));
+    } finally { DB0.clubDistances = sichCD; DB0.gpsShots = sichG; DB0.lmSessions = sichL;
+      G("grpCacheClear")(); }
+  }
+
+  /* ---- Teilschläge für JEDEN Schläger ---- */
+  /* Die Auswahl im Blatt bietet Wedges zuerst, danach alle übrigen — oben,
+     weil sie der häufigste Fall sind, nicht weil sie der einzige wären. */
+  ok("die Auswahl kennt auch die übrigen Schläger",
+    /const rest=bagAlle\.filter\(n=>wedges\.indexOf\(n\)<0\);/.test(code)
+    && /\$\{rest\.map\(opt\)\.join\(""\)\}/.test(src));
+  /* UND DIE FOLGE DAVON, die leicht zu übersehen wäre: Das Wedge-Band darf
+     keine Eisen-Teilschläge einsammeln, sonst belohnt der Layup-Bonus einen
+     3/4-Eisen-Rest auf 150 m als „Wunschrest". */
+  ok("das Wedge-Band filtert auf Wedges",
+    /return f==="wedge" \|\| f===null;/.test(code));
+  {
+    const sichCD = DB0.clubDistances, sichWM = DB0.wedgeMatrix;
+    try {
+      DB0.clubDistances = [
+        { club: "Pitching Wedge", carry: 112 }, { club: "Sand Wedge 54°", carry: 78 },
+        { club: "7 Eisen", carry: 145 }
+      ];
+      DB0.wedgeMatrix = [
+        { id: "w1", club: "Sand Wedge 54°", swing: "Halb", grip: "Mitte", von: 90, bis: 90 },
+        { id: "w2", club: "Pitching Wedge", swing: "3/4", grip: "Mitte", von: 100, bis: 100 },
+        { id: "e1", club: "7 Eisen", swing: "3/4", grip: "Mitte", von: 110, bis: 110 }
+      ];
+      const inZ = G("inWedgeZone");
+      ok("ein Wedge-Teilschlag zählt fürs Band", inZ(90) && inZ(100));
+      /* 110 m liegt im Band (73–117), ist aber ein EISEN-Teilschlag. */
+      ok("ein Eisen-Teilschlag nicht", !inZ(110), "110 m");
+    } finally { DB0.clubDistances = sichCD; DB0.wedgeMatrix = sichWM; }
+  }
+
+  /* ---- Der Umschalter und seine Beschriftung ---- */
+  ok("der Umschalter ist da", /id="bagModeSeg"/.test(src));
+  ok("und beide Ordnungen sind benannt",
+    /\["club","nach Schläger"\],\["laenge","nach Länge"\]/.test(src));
+  /* Der Caddy-Hinweis heißt neutral, weil er nicht mehr nur Wedges betrifft. */
+  ok("der Caddy-Hinweis heißt neutral", /Dein Schlag dafür/.test(src));
+  ok("und nicht mehr nach einer Schlägerfamilie", !/🎯 Wedge-Matrix ·/.test(src));
+}
+
 /* ============ 24br. Ein Besitzer je Tatsache (v6.18) ============ */
 group("Wedge-Matrix — Beutel und Matrix, eine Wahrheit");
 {
@@ -21370,8 +21475,11 @@ group("Wedge-Matrix — Beutel und Matrix, eine Wahrheit");
   ok("beim Umtaggen wird der Zwischenspeicher geleert",
     /s\.swing=\$\("#lm_swing"\)\.value\|\|"Voll";/.test(code)
     && /if\(typeof grpCacheClear==="function"\) grpCacheClear\(\);/.test(code));
-  ok("der Beutel zeigt auf die Teilschläge", /Teilschläge in der Wedge-Matrix →/.test(src));
-  ok("und die Matrix auf den Beutel", /Im Reiter „Schläger" öffnen/.test(src));
+  /* Die Teilschläge stehen jetzt DIREKT unter ihrem Schläger statt hinter
+     einem Verweis in einen anderen Reiter (v6.19). */
+  ok("Teilschläge stehen unter ihrem Schläger", /<div class="bagteile">/.test(src));
+  ok("und sind von dort anzulegen", /＋ Teilschlag/.test(src));
+  ok("die Voll-Zeile führt weiter in den Beutel", /Im Reiter „Schläger" öffnen/.test(src));
   ok("volle Zeilen sind dort nicht editierbar", /id="wm_von" \$\{voll\?"disabled":""\}/.test(src));
   ok("der Caddy vergleicht über echte Namen",
     /clubNorm\(r\.club\)===clubNorm\(engineClub\)/.test(code));
@@ -21474,11 +21582,20 @@ group("Wedge-Matrix");
 
       /* ---- Lücken: eine Tafel zeigt auch, wo nichts steht ---- */
       if (typeof luecken === "function") {
+        /* v6.19: Lücken werden nur noch im WEDGE-BEREICH gemeldet — seit
+           Teilschläge für jeden Schläger möglich sind, wäre eine „Lücke"
+           zwischen einem 3/4-Eisen und einem Wedge keine Aussage über den
+           Layup. Das Band braucht dafür Wedge-Traglängen im Beutel. */
+        const sichCD3 = DB0.clubDistances;
+        DB0.clubDistances = [
+          { club: "Pitching Wedge", carry: 112 }, { club: "Sand Wedge 54°", carry: 48 }
+        ];
         const l = luecken();
         ok("die Lücke zwischen 55 und 85 wird gefunden",
           l.some(x => x[0] === 55 && x[1] === 85), JSON.stringify(l));
-        ok("zwischen 90 und 100 ist keine (10 m … knapp drüber)",
-          l.some(x => x[0] === 90 && x[1] === 100));
+        ok("und die zwischen 90 und 100 auch",
+          l.some(x => x[0] === 90 && x[1] === 100), JSON.stringify(l));
+        DB0.clubDistances = sichCD3;
       }
 
       /* ---- Die zweite Verbindung: das Wedge-Band kommt aus der Matrix ---- */
@@ -21517,9 +21634,13 @@ group("Wedge-Matrix");
   }
 
   /* ---- Ansicht, Editor, Abgleich ---- */
-  ok("die Ansicht hängt in der Navigation", /\["wedge","Wedge-Matrix"\]/.test(src));
-  ok("und hat einen Abschnitt", /id="v-wedge"/.test(src));
-  ok("und eine Render-Funktion", /wedge:renderWedgeMatrix/.test(code));
+  /* v6.19: Der eigene Reiter ist weg — alles steht im Beutel, in zwei
+     Ordnungen. Geprüft wird jetzt, dass er WIRKLICH weg ist und dass alte
+     Verweise nicht ins Leere laufen: `$("#v-wedge")` wäre null und damit ein
+     Absturz statt einer Umleitung. */
+  ok("es gibt keinen eigenen Reiter mehr", !/\["wedge","Wedge-Matrix"\]/.test(src));
+  ok("und keinen Abschnitt", !/id="v-wedge"/.test(src));
+  ok("alte Verweise werden umgebogen", /if\(v==="wedge"\) v="bag";/.test(code));
   /* Der Editor hängt am Zwischenspeicher aus v6.16 — eine halb getippte Zeile
      darf beim Verlassen der App nicht verloren gehen. */
   ok("der Editor sichert zwischen", /openSheet\(h, "wedge:"\+\(isNew\?"neu":id\)\)/.test(code));
