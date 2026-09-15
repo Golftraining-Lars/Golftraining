@@ -348,7 +348,9 @@ try {
                  "editDraftAll","editDraftGet","editDraftSave","editDraftClear",
                  "editDraftPrune","editDraftZeit",
                  "wertung","setWertung","stblKontext",
-                 "wedgeZone","caddyLayupHtml",
+                 "wedgeZone","caddyLayupHtml","ensureWedgeMatrix","wedgeRows","wedgeMitte",
+                 "wedgeSpanne","wedgeText","wedgeLuecken","wedgeKuerzel","wedgeMatrixFor",
+                 "wedgeMatrixHtml","WEDGE_SEED",
                  "formDraftAll","formDraftGet","formDraftSave","formDraftClear",
                  "formDraftErledigt","formDraftFeldKey","formDraftSammeln","formDraftBind",
                  "fremderZeigerZaehlt","istRundenStat","poolQuote","teilAnteil",
@@ -3553,9 +3555,19 @@ group("SPIELWEISE — Caddy und Ziellinie können nicht mehr auseinanderlaufen")
        /left>=85&&left<=125/.test(fs.readFileSync(FILE,"utf8")));
   }
   if (typeof inWZ === "function" && WZ) {
-    ok("volle Wedge-Zone erkannt", inWZ(100)===true && inWZ(85)===true && inWZ(125)===true);
-    ok("außerhalb nicht", inWZ(70)===false && inWZ(140)===false);
-    ok("Zone deckt die üblichen Wedge-Längen ab", WZ.von<=90 && WZ.bis>=120);
+    /* SEIT v6.17 KOMMT DAS BAND AUS DER WEDGE-MATRIX, sonst aus dem Beutel,
+       sonst aus dieser festen Tabelle. Geprüft wird hier die TABELLE — dafür
+       müssen Matrix und Beutel aus dem Weg, sonst prüft dieser Fall etwas
+       anderes, als er behauptet. */
+    const DBz = live("DB"), sichWM = DBz.wedgeMatrix, sichCD = DBz.clubDistances;
+    try {
+      DBz.wedgeMatrix = []; DBz.clubDistances = [];
+      ok("volle Wedge-Zone erkannt", inWZ(100)===true && inWZ(85)===true && inWZ(125)===true);
+      ok("außerhalb nicht", inWZ(70)===false && inWZ(140)===false);
+      const WZ2 = G("wedgeZone")();
+      ok("Zone deckt die üblichen Wedge-Längen ab", WZ2.von<=90 && WZ2.bis>=120);
+      eq("und stammt dann aus der festen Tabelle", WZ2.quelle, "tabelle");
+    } finally { DBz.wedgeMatrix = sichWM; DBz.clubDistances = sichCD; }
   }
   /* ALLE DREI Bewertungen müssen aus der Tabelle lesen — das ist der Kern:
      Wer eine Zeile ändert, ändert Caddy UND Gameplan zugleich. */
@@ -21204,6 +21216,151 @@ group("Karteneditor — durch den Wald hindurchsehen");
   ok("nicht in DB.ui", /function geoEdVegSicht\(v\)\{ GEOED\.vegSicht=v/.test(src));
 }
 
+/* ============ 24bq. Wedge-Matrix und ihre Verbindung zum Caddy (v6.17) ============ */
+group("Wedge-Matrix");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+  const DB0 = live("DB");
+  const rows = G("wedgeRows"), fuer = G("wedgeMatrixFor"), html = G("wedgeMatrixHtml"),
+        kurz = G("wedgeKuerzel"), text = G("wedgeText"), mitte = G("wedgeMitte"),
+        spanne = G("wedgeSpanne"), luecken = G("wedgeLuecken"), seed = G("WEDGE_SEED");
+
+  /* ---- Die Vorlage ist vollständig übernommen ---- */
+  ok("die Vorlage steht in der Datei", Array.isArray(seed) && seed.length === 15,
+    seed ? String(seed.length) : "fehlt");
+  if (Array.isArray(seed)) {
+    const s113 = seed.find(r => r.von === 113);
+    eq("113 m ist der volle PW", s113 && s113.club + "/" + s113.swing + "/" + s113.grip,
+      "PW/Voll/Oben");
+    const s85 = seed.find(r => r.von === 85);
+    eq("85–90 m ist ein Bereich", s85 && s85.bis, 90);
+    const s15 = seed.find(r => r.von === 15);
+    eq("die kürzeste Zeile ist der 1/4-LW", s15 && s15.club + "/" + s15.swing, "LW/1/4");
+    /* DER WIDERSPRUCH DER VORLAGE bleibt sichtbar statt still begradigt:
+       SW 1/2 steht mit 65 UND 35 m da. Wer ihn wegrechnet, nimmt Lars die
+       Chance, die richtige Zahl einzutragen. */
+    const sw = seed.filter(r => r.club === "SW" && r.swing === "1/2").map(r => r.von).sort();
+    eq("SW 1/2 steht zweimal da", sw.join(","), "35,65");
+    ok("und die kürzere Zeile trägt den Hinweis",
+      seed.filter(r => r.von === 35)[0].notiz.length > 10);
+  }
+
+  /* ---- Distanz, Bereich, Mitte ---- */
+  if (typeof text === "function") {
+    eq("eine Zahl bleibt eine Zahl", text({ von: 80, bis: 80 }), "80 m");
+    eq("ein Bereich wird als Bereich gezeigt", text({ von: 85, bis: 90 }), "85–90 m");
+    eq("die Mitte eines Bereichs", mitte({ von: 85, bis: 90 }), 87.5);
+    eq("die Spanne kommt sortiert", spanne({ von: 90, bis: 85 }).join("-"), "85-90");
+  }
+
+  /* ---- Der Treffer: gegen die Spanne, nicht gegen die Mitte ---- */
+  if (typeof fuer === "function") {
+    const sichWM = DB0.wedgeMatrix;
+    try {
+      DB0.wedgeMatrix = [
+        { id: "a", von: 100, bis: 100, club: "GW", loft: "50°", swing: "Voll", grip: "Oben" },
+        { id: "b", von: 85, bis: 90, club: "PW", loft: "44,5°", swing: "1/2", grip: "Mitte" },
+        { id: "c", von: 50, bis: 55, club: "LW", loft: "58°", swing: "1/2", grip: "Mitte" }
+      ];
+      eq("genau auf der Zeile", fuer(100).row.id, "a");
+      eq("und mitten im Bereich", fuer(88).row.id, "b");
+      eq("am Rand des Bereichs auch", fuer(85).row.id, "b");
+      eq("dabei ist der Abstand null", fuer(88).ab, 0);
+      /* Knapp daneben zählt, mit ausgewiesenem Abstand — 3 m unter 85. */
+      const nah = fuer(82);
+      eq("knapp daneben trifft noch", nah && nah.row.id, "b");
+      eq("der Abstand steht dabei", nah && nah.ab, 3);
+      /* OHNE TREFFER STEHT NICHTS DA. Die nächstbeste Zeile zu nennen wäre
+         schlechter als Schweigen: Wer bei 70 m „PW 1/2 für 85–90" liest,
+         spielt den Schlag 15 m zu weit. */
+      eq("zu weit weg: keine Zeile", fuer(70), null);
+      eq("über der längsten Zeile auch nicht", fuer(130), null);
+      eq("ohne Zahl nichts", fuer(null), null);
+      /* Die Toleranz ist einstellbar — 60 m liegt 5 m über der 50–55-Zeile. */
+      eq("die Toleranz ist einstellbar", fuer(60, 10).row.id, "c");
+      eq("mit der Standardtoleranz nicht", fuer(60), null);
+
+      /* ---- Der Hinweistext im Caddy ---- */
+      if (typeof html === "function") {
+        const h1 = html(88, "Pitching Wedge 44.5°");
+        ok("der Hinweis nennt Schläger, Schwung und Griff",
+          /PW/.test(h1) && /1\/2/.test(h1) && /Mitte/.test(h1));
+        ok("und die Zeile, aus der er stammt", /85–90 m/.test(h1));
+        /* KEIN WIDERSPRUCH, ALSO KEIN WARNSATZ. */
+        ok("bei gleichem Schläger kein Zusatz", !/Die Rechnung nimmt/.test(h1));
+        /* WIDERSPRUCH: Die Rechnung nimmt SW, die Matrix PW. Beide müssen
+           dastehen — verstecken wäre der Fehler. */
+        const h2 = html(88, "Sand Wedge 54°");
+        ok("abweichender Schläger wird genannt", /Die Rechnung nimmt/.test(h2));
+        ok("und beide Angaben stehen da", /PW/.test(h2) && /Sand/.test(h2));
+        eq("ohne Treffer kein Kasten", html(70, "Gap Wedge"), "");
+        eq("ohne Zahl auch nicht", html(null, "Gap Wedge"), "");
+      }
+
+      /* ---- Lücken: eine Tafel zeigt auch, wo nichts steht ---- */
+      if (typeof luecken === "function") {
+        const l = luecken();
+        ok("die Lücke zwischen 55 und 85 wird gefunden",
+          l.some(x => x[0] === 55 && x[1] === 85), JSON.stringify(l));
+        ok("zwischen 90 und 100 ist keine (10 m … knapp drüber)",
+          l.some(x => x[0] === 90 && x[1] === 100));
+      }
+
+      /* ---- Die zweite Verbindung: das Wedge-Band kommt aus der Matrix ---- */
+      /* DIE MATRIX FÜLLT DAS BAND, SIE DEHNT ES NICHT. Die Grenzen kommen
+         weiter aus den Wedge-Traglängen — sonst bekäme ein Layup auf 25 m
+         denselben Bonus wie einer auf 95 m, und genau daran ist mein erster
+         Anlauf gescheitert (Prüffall „Leitplanken über den ganzen Platz"). */
+      const sichCD2 = DB0.clubDistances;
+      DB0.clubDistances = [
+        { club: "Pitching Wedge", carry: 112, reach: 116 },
+        { club: "Sand Wedge 54°", carry: 78, reach: 80 }
+      ];
+      const wz = G("wedgeZone")(), inZ = G("inWedgeZone");
+      eq("was im Band zählt, sagt die Matrix", wz.quelle, "matrix");
+      eq("wie weit es reicht, sagt der Beutel", wz.von + "–" + wz.bis, "73–117");
+      ok("eine eingespielte Länge im Band zählt", inZ(88) && inZ(100));
+      /* DER KERN, wie schon in v6.15: Die Lücke zählt nicht — sonst belohnt
+         der Wedge-Bonus einen Rest, für den es keinen Schlag gibt. */
+      ok("die Lücke dazwischen nicht", !inZ(95), "95 m");
+      /* Und eine Matrix-Zeile UNTERHALB des Bandes zählt auch nicht: 52 m
+         kann er spielen, wünschen soll man sie sich trotzdem nicht. */
+      ok("unterhalb des Bandes nicht", !inZ(52), "52 m");
+      ok("außerhalb ohnehin nicht", !inZ(130));
+      DB0.clubDistances = sichCD2;
+    } finally { DB0.wedgeMatrix = sichWM; }
+  }
+
+  /* ---- Kürzel nur für den Vergleich ---- */
+  if (typeof kurz === "function") {
+    eq("Pitching Wedge → PW", kurz("Pitching Wedge 44.5°"), "PW");
+    eq("Gap Wedge → GW", kurz("Gap Wedge"), "GW");
+    eq("Sand Wedge → SW", kurz("Sand Wedge 54°"), "SW");
+    eq("Lob Wedge → LW", kurz("Lob Wedge 58°"), "LW");
+    eq("ein Eisen ist kein Wedge", kurz("7 Iron"), null);
+    eq("nichts bleibt nichts", kurz(null), null);
+  }
+
+  /* ---- Ansicht, Editor, Abgleich ---- */
+  ok("die Ansicht hängt in der Navigation", /\["wedge","Wedge-Matrix"\]/.test(src));
+  ok("und hat einen Abschnitt", /id="v-wedge"/.test(src));
+  ok("und eine Render-Funktion", /wedge:renderWedgeMatrix/.test(code));
+  /* Der Editor hängt am Zwischenspeicher aus v6.16 — eine halb getippte Zeile
+     darf beim Verlassen der App nicht verloren gehen. */
+  ok("der Editor sichert zwischen", /openSheet\(h, "wedge:"\+\(isNew\?"neu":id\)\)/.test(code));
+  ok("die Matrix wird abgeglichen", /out\.wedgeMatrix = _mergeArr/.test(code));
+  ok("und gestempelt", /"notesTrash","wedgeMatrix"\]/.test(code));
+  /* Ohne Grabstein käme eine gelöschte Zeile beim nächsten Abgleich zurück. */
+  ok("Löschen hinterlässt einen Grabstein", /tombAdd\("wedgeMatrix", id\)/.test(code));
+  /* Gemessen wird gegen „spielt wie" — nicht gegen die Luftlinie. */
+  ok("der Caddy misst gegen die spielt-wie-Länge",
+    /wedgeMatrixHtml\(_sw!=null\?_sw:mid, b\.club&&b\.club\.name\)/.test(src));
+  /* Eine leere Liste ist eine Entscheidung des Nutzers und wird nicht
+     überschrieben — nur eine FEHLENDE Liste bekommt die Vorlage. */
+  ok("nur eine fehlende Liste wird gefüllt",
+    /if\(!Array\.isArray\(DB\.wedgeMatrix\)\)\{/.test(code));
+}
+
 /* ============ 24bp. Zwischenstand in JEDEM Blatt (v6.16) ============ */
 group("Formulare — jede Eingabe wird gehalten");
 {
@@ -21373,8 +21530,11 @@ group("Caddy — Böen, Auslauf, Wedge-Band, Layup");
   /* ---------- (6) Wedge-Band aus dem Beutel ---------- */
   if (typeof G("wedgeZone") === "function") {
     const wz = G("wedgeZone"), inZ = G("inWedgeZone"), DB0 = live("DB");
-    const sich = DB0.clubDistances;
+    const sich = DB0.clubDistances, sichWM2 = DB0.wedgeMatrix;
     try {
+      /* v6.17: Die Matrix hätte Vorrang — hier geht es um den BEUTEL-Zweig,
+         also muss sie aus dem Weg. Der Matrix-Zweig hat seinen eigenen Fall. */
+      DB0.wedgeMatrix = [];
       /* Ein Beutel MIT LÜCKE: Sandwedge 78, Pitching 112 — kein Gap Wedge.
          Genau der Fall, um den es geht: 95 m liegt mitten im Band und ist von
          beiden Schlägern 17 m weit weg. Ein „voller Wedge" ist das nicht. */
@@ -21403,7 +21563,7 @@ group("Caddy — Böen, Auslauf, Wedge-Band, Layup");
       const z1 = wz();
       eq("ein Wedge allein: Rückfall", z1.carries, null);
       eq("und zwar auf die kalibrierte Tabelle", z1.von, G("WEDGE_ZONE").von);
-    } finally { DB0.clubDistances = sich; }
+    } finally { DB0.clubDistances = sich; DB0.wedgeMatrix = sichWM2; }
   }
 
   /* ---------- (5) Layup im Spiel ---------- */

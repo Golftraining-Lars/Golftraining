@@ -13,6 +13,27 @@
 
 ---
 
+- **v5.72.0 · 2026-09-03** — **27 Minuten Stillstand: Der Sperrgriff war weg, und niemand fragte
+  nach.** Aus dem Protokoll: „Takt gedrosselt · **1635 s** statt 2 s · im Browser-Tab · Bildschirm
+  AN", dazu „Durchlauf hing 1635 s — Wächter hat freigegeben".
+  **Der Bildschirm war an** — also hat kein Sichtbarkeitswechsel stattgefunden, und genau daran hing
+  bisher das Zurückholen des Wachhalte-Sperrgriffs. Das System gibt ihn aber auch **ohne**
+  Sichtbarkeitswechsel frei: bei Akkusparen, bei Anrufen, beim Abdunkeln. Der Rückruf setzte dann nur
+  `_wake=null` — **und niemand fragte je wieder nach.**
+  `_wakeGruende` sagte weiter „Runde läuft", aber der Griff war weg. **Ein Zustand, den man führt,
+  ohne ihn durchzusetzen, ist eine Behauptung.** Ohne Sperrgriff drosselt der Browser den Takt — und
+  das ist exakt die Meldung im Protokoll.
+  Jetzt holt der Rückruf ihn zurück, solange ein Grund besteht — **einmal und mit Abstand**, nicht in
+  einer Schleife: Verweigert das System dauerhaft, wäre ein Dauerversuch schlimmer als der Verlust.
+  **Und die Meldung sagt jetzt, welcher Zustand vorliegt.** Bisher stand da nur „Bildschirm an" — und
+  genau das hat die Suche in die falsche Richtung geschickt: Der Bildschirm *war* an, also schien der
+  Sperrgriff zu wirken. **Zwei Zustände, die man nicht verwechseln darf:** „Bildschirm an"
+  beschreibt, was man sieht; „Sperrgriff" beschreibt, ob der Browser uns weiterrechnen lässt. Der
+  zweite erklärt die Drosselung, der erste nicht. Neu steht dort „· Sperrgriff hält" oder „·
+  SPERRGRIFF WEG — deshalb gedrosselt".
+  Der Wächter, der einen hängenden Durchlauf nach 30 s freigibt, bleibt: zweite Verteidigungslinie,
+  wenn der Griff doch verlorengeht.
+
 - **v5.71.0 · 2026-09-03** — **Vierte Stelle derselben Fehlerklasse — jetzt mit Sperrklinke für
   alle.** Gemeldet: „Lochplan · sicher" zeigt trotzdem Driver.
   **Nachgerechnet: Die Rechnung ist richtig.** `STRAT.tee(…,"safe")` liefert auf diesem Loch **2
