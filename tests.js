@@ -350,7 +350,9 @@ try {
                  "wertung","setWertung","stblKontext",
                  "wedgeZone","caddyLayupHtml","ensureWedgeMatrix","wedgeRows","wedgeMitte",
                  "wedgeSpanne","wedgeText","wedgeLuecken","wedgeKuerzel","wedgeMatrixFor",
-                 "wedgeMatrixHtml","WEDGE_SEED",
+                 "wedgeMatrixHtml","WEDGE_SEED","wedgeSwings","clubLoft","wedgeMigrate",
+                 "wedgeLoft","wedgeIstVoll","wedgeBagRow","wedgeTotal","wedgeMessung",
+                 "wedgeKollisionen","grpCacheClear","clubMeasured",
                  "formDraftAll","formDraftGet","formDraftSave","formDraftClear",
                  "formDraftErledigt","formDraftFeldKey","formDraftSammeln","formDraftBind",
                  "fremderZeigerZaehlt","istRundenStat","poolQuote","teilAnteil",
@@ -21216,6 +21218,170 @@ group("Karteneditor — durch den Wald hindurchsehen");
   ok("nicht in DB.ui", /function geoEdVegSicht\(v\)\{ GEOED\.vegSicht=v/.test(src));
 }
 
+/* ============ 24br. Ein Besitzer je Tatsache (v6.18) ============ */
+group("Wedge-Matrix — Beutel und Matrix, eine Wahrheit");
+{
+  const src = fs.readFileSync(FILE, "utf8");
+  const DB0 = live("DB");
+  const loft = G("clubLoft"), istVoll = G("wedgeIstVoll"), bagRow = G("wedgeBagRow"),
+        spanne = G("wedgeSpanne"), total = G("wedgeTotal"), migr = G("wedgeMigrate"),
+        mess = G("wedgeMessung"), koll = G("wedgeKollisionen"), leer = G("grpCacheClear");
+
+  /* ---- Der Loft steht im Namen, nicht in einem eigenen Feld ---- */
+  if (typeof loft === "function") {
+    eq("Grad aus dem Namen", loft("Sand Wedge 54°"), "54°");
+    eq("auch mit Komma", loft("Driver 10,5°"), "10,5°");
+    eq("und mit Punkt, normalisiert", loft("Pitching Wedge 44.5°"), "44,5°");
+    /* Ohne Grad steht NICHTS da — eine erfundene Zahl wäre schlechter als
+       eine leere Spalte. */
+    eq("ohne Grad nichts", loft("7 Eisen"), null);
+    eq("ohne Namen nichts", loft(null), null);
+  }
+
+  /* ---- EIN BESITZER: die Voll-Zeile liest, sie kopiert nicht ---- */
+  if (typeof spanne === "function" && typeof bagRow === "function") {
+    const sichCD = DB0.clubDistances, sichWM = DB0.wedgeMatrix;
+    try {
+      DB0.clubDistances = [{ club: "Sand Wedge 54°", carry: 80, total: 84 }];
+      const voll = { id: "v", club: "Sand Wedge 54°", swing: "Voll", grip: "Oben",
+                     von: 999, bis: 999, total: 999 };
+      ok("eine Voll-Zeile ist als solche erkannt", istVoll(voll));
+      ok("und findet ihre Beutelzeile", !!bagRow(voll));
+      /* DER KERN: Die eigenen Zahlen der Zeile (999) werden IGNORIERT. Wer im
+         Beutel korrigiert, müsste die Matrix sonst nachziehen — und beim
+         zweiten Mal denkt niemand daran. */
+      eq("die Länge kommt aus dem Beutel", spanne(voll).join("-"), "80-80");
+      eq("die Gesamtlänge auch", total(voll), 84);
+      /* Ändert sich der Beutel, ändert sich die Zeile — ohne Zutun. */
+      DB0.clubDistances = [{ club: "Sand Wedge 54°", carry: 83, total: 88 }];
+      eq("eine Korrektur im Beutel wirkt sofort", spanne(voll)[0], 83);
+      /* Ein Teilschlag hat dagegen seine EIGENEN Zahlen — dafür gibt es im
+         Beutel keinen Platz. */
+      const halb = { id: "h", club: "Sand Wedge 54°", swing: "Halb", grip: "Mitte",
+                     von: 65, bis: 65, total: 67 };
+      ok("ein Teilschlag ist nicht voll", !istVoll(halb));
+      eq("und behält seine eigene Länge", spanne(halb).join("-"), "65-65");
+      eq("samt Gesamtlänge", total(halb), 67);
+      /* Ohne Verknüpfung fällt die Voll-Zeile auf ihre eigenen Zahlen zurück —
+         sonst wäre sie nach der Migration unsichtbar. */
+      DB0.clubDistances = [];
+      eq("ohne Beutel die eigenen Zahlen", spanne(voll).join("-"), "999-999");
+    } finally { DB0.clubDistances = sichCD; DB0.wedgeMatrix = sichWM; }
+  }
+
+  /* ---- Migration: Vokabular, Verknüpfung, Loft ---- */
+  if (typeof migr === "function") {
+    const sichCD = DB0.clubDistances, sichWM = DB0.wedgeMatrix;
+    try {
+      DB0.clubDistances = [
+        { club: "Sand Wedge 54°", carry: 80 }, { club: "Lob Wedge 58°", carry: 62 }
+      ];
+      DB0.wedgeMatrix = [
+        { id: "a", club: "SW", swing: "1/2", grip: "Mitte", von: 65, bis: 65, loft: "54°" },
+        { id: "b", club: "LW", swing: "1/4", grip: "Mitte", von: 17, bis: 20 },
+        { id: "c", club: "XX", swing: "Halb", grip: "Mitte", von: 40, bis: 40, loft: "60°" }
+      ];
+      migr();
+      const a = DB0.wedgeMatrix[0], b = DB0.wedgeMatrix[1], c = DB0.wedgeMatrix[2];
+      eq("1/2 wird Halb", a.swing, "Halb");
+      eq("1/4 wird Viertel", b.swing, "Viertel");
+      eq("das Kürzel wird zum echten Namen", a.club, "Sand Wedge 54°");
+      /* NUR BEI GENAU EINEM TREFFER. Raten wäre schlimmer als nichts tun: Eine
+         falsch verknüpfte Zeile zöge stillschweigend fremde Messwerte. */
+      eq("ohne Treffer bleibt das Kürzel stehen", c.club, "XX");
+      eq("der Loft weicht dem Namen", a.loft, undefined);
+      ok("und bleibt, wo der Name keinen trägt", c.loft === "60°");
+      eq("die Gesamtlänge wird angelegt", a.total, null);
+    } finally { DB0.clubDistances = sichCD; DB0.wedgeMatrix = sichWM; }
+  }
+
+  /* ---- Messwerte: eine Rechnung für volle Schwünge, eine neue für Teile ---- */
+  if (typeof mess === "function") {
+    const sichCD = DB0.clubDistances, sichG = DB0.gpsShots, sichL = DB0.lmSessions;
+    try {
+      DB0.clubDistances = [{ club: "Sand Wedge 54°", carry: 80, total: 84 }];
+      const ts = new Date(Date.now() - 86400000).toISOString();
+      const schlag = (d, sw) => ({ id: "g" + d + sw, club: "Sand Wedge 54°", dist: d,
+                                   swing: sw, ts, accA: 5, accB: 5 });
+      /* Acht volle und acht halbe Schläge desselben Schlägers. */
+      DB0.gpsShots = [];
+      for (let i = 0; i < 8; i++) DB0.gpsShots.push(schlag(84 + (i % 3), "Voll"));
+      for (let i = 0; i < 8; i++) DB0.gpsShots.push(schlag(66 + (i % 3), "Halb"));
+      DB0.lmSessions = [];
+      leer();
+      const mv = mess("Sand Wedge 54°", "Voll"), mh = mess("Sand Wedge 54°", "Halb");
+      /* VOLLE SCHWÜNGE LAUFEN DURCH `clubMeasured` — Beutel und Matrix müssen
+         für denselben Schlag dieselbe Zahl zeigen, sonst sind wir wieder bei
+         zwei Wahrheiten. */
+      const cm = G("clubMeasured")("Sand Wedge 54°");
+      eq("die Voll-Zeile zeigt die Zahl des Beutels", mv.total, cm.total);
+      /* DER FUND: Halbschläge lagen seit v1.98 in den Daten und wurden an
+         jeder Lernstelle weggeworfen. Jetzt kommen sie an. */
+      ok("der Halbschlag hat jetzt einen Messwert", mh.total != null, String(mh.total));
+      ok("und zwar seinen eigenen", mh.total !== mv.total,
+        mh.total + " gegen " + mv.total);
+      ok("mit der Anzahl dabei", mh.nTotal >= 5, String(mh.nTotal));
+      /* Und die gelernte Schlägerlänge bleibt davon unberührt — genau dafür
+         gibt es den `voll()`-Filter seit v1.98. */
+      ok("die gelernte Schlägerlänge bleibt voll", cm.total >= 83 && cm.total <= 87,
+        String(cm.total));
+
+      /* R10 je Sitzung (v6.18, Variante b): Eine als „Halb" markierte Sitzung
+         darf NICHT in die Schlägergruppierung — sonst vergiftet sie genau die
+         Längen, die der GPS-Filter schützt. */
+      const sh = n => Array.from({ length: n }, () => ({ club: "Sand Wedge 54°", carry: 60 }));
+      DB0.lmSessions = [{ id: "L1", date: "2026-09-01", swing: "Halb", shots: sh(8) }];
+      leer();
+      const cm2 = G("clubMeasured")("Sand Wedge 54°");
+      eq("eine Halb-Sitzung zählt nicht für den Schläger", cm2.carry, null);
+      const mh2 = mess("Sand Wedge 54°", "Halb");
+      eq("sie landet bei der Halb-Zeile", mh2.carry, 60);
+      /* Ohne Angabe gilt voll — so waren alle Altdaten gemeint. */
+      DB0.lmSessions = [{ id: "L2", date: "2026-09-01", shots: sh(8) }];
+      leer();
+      eq("ohne Angabe gilt die Sitzung als voll", G("clubMeasured")("Sand Wedge 54°").carry, 60);
+    } finally { DB0.clubDistances = sichCD; DB0.gpsShots = sichG; DB0.lmSessions = sichL; leer(); }
+  }
+
+  /* ---- Kollisionen: zwei Zeilen, dieselbe Identität ---- */
+  if (typeof koll === "function") {
+    const sichWM = DB0.wedgeMatrix;
+    try {
+      DB0.wedgeMatrix = [
+        { id: "a", club: "SW", swing: "Halb", grip: "Mitte", von: 65, bis: 65 },
+        { id: "b", club: "SW", swing: "Halb", grip: "Mitte", von: 35, bis: 35 },
+        { id: "c", club: "SW", swing: "Halb", grip: "Unten", von: 35, bis: 35 }
+      ];
+      const k = koll();
+      eq("eine Kollision gefunden", k.length, 1);
+      eq("und sie nennt beide Längen", k[0].dists.join("/"), "65/35");
+      /* Die Griffhöhe gehört zur Identität — tief gegriffen verkürzt deutlich,
+         also ist „SW Halb Unten" ein anderer Schlag. */
+      ok("die Griffhöhe unterscheidet", /Griff Unten/.test(JSON.stringify(k)) === false);
+    } finally { DB0.wedgeMatrix = sichWM; }
+  }
+
+  /* ---- Verdrahtung ---- */
+  ok("zwei Gruppierungen aus einem Durchlauf", /const g=\{gps:\{\}, lm:\{\}, tGps:\{\}, tLm:\{\}\};/.test(code));
+  ok("die Sitzung trägt die Schwunglänge", /const sw=se\.swing\|\|"Voll";/.test(code));
+  ok("und Teil-Sitzungen bleiben aus der Schlägergruppierung", /if\(sw!=="Voll"\) return;/.test(code));
+  /* Der Zwischenspeicher kennt nur die ANZAHL der Sitzungen — ohne Leeren
+     bliebe ein Umtaggen bis zum Neustart unsichtbar. */
+  ok("beim Umtaggen wird der Zwischenspeicher geleert",
+    /s\.swing=\$\("#lm_swing"\)\.value\|\|"Voll";/.test(code)
+    && /if\(typeof grpCacheClear==="function"\) grpCacheClear\(\);/.test(code));
+  ok("der Beutel zeigt auf die Teilschläge", /Teilschläge in der Wedge-Matrix →/.test(src));
+  ok("und die Matrix auf den Beutel", /Im Reiter „Schläger" öffnen/.test(src));
+  ok("volle Zeilen sind dort nicht editierbar", /id="wm_von" \$\{voll\?"disabled":""\}/.test(src));
+  ok("der Caddy vergleicht über echte Namen",
+    /clubNorm\(r\.club\)===clubNorm\(engineClub\)/.test(code));
+  /* Der Gameplan nannte seit je „nach Wedge-Matrix spielen" — ein Verweis auf
+     Daten, die es nicht gab. Jetzt steht die Zeile da. */
+  ok("der Teilschlag im Gameplan nennt die Zeile",
+    /Teilschlag aus der Wedge-Matrix \(\$\{wedgeText\(wm\.row\)\}\)/.test(code));
+  ok("und sagt es, wenn keine passt", /keine passende Zeile in der Wedge-Matrix/.test(code));
+}
+
 /* ============ 24bq. Wedge-Matrix und ihre Verbindung zum Caddy (v6.17) ============ */
 group("Wedge-Matrix");
 {
@@ -21235,12 +21401,21 @@ group("Wedge-Matrix");
     const s85 = seed.find(r => r.von === 85);
     eq("85–90 m ist ein Bereich", s85 && s85.bis, 90);
     const s15 = seed.find(r => r.von === 15);
-    eq("die kürzeste Zeile ist der 1/4-LW", s15 && s15.club + "/" + s15.swing, "LW/1/4");
+    /* v6.18: EIN Vokabular — die Matrix nimmt `DB.swingTypes` („Halb",
+       „Viertel"), nicht die eigene Erfindung aus v6.17. Sonst fände ein als
+       „Halb" getaggter GPS-Schlag nie zu einer Zeile „1/2". */
+    eq("die kürzeste Zeile ist der Viertel-LW", s15 && s15.club + "/" + s15.swing, "LW/Viertel");
+    ok("kein 1/2 oder 1/4 mehr in der Vorlage",
+      !seed.some(r => /^1\/[24]$/.test(r.swing || "")));
+    ok("und die Auswahl kommt aus DB.swingTypes",
+      /const t=\(DB&&Array\.isArray\(DB\.swingTypes\)/.test(code));
+    /* Der Loft ist raus: Er steht im Schlägernamen und wird von dort gelesen. */
+    ok("die Vorlage trägt keinen eigenen Loft mehr", !seed.some(r => r.loft != null));
     /* DER WIDERSPRUCH DER VORLAGE bleibt sichtbar statt still begradigt:
        SW 1/2 steht mit 65 UND 35 m da. Wer ihn wegrechnet, nimmt Lars die
        Chance, die richtige Zahl einzutragen. */
-    const sw = seed.filter(r => r.club === "SW" && r.swing === "1/2").map(r => r.von).sort();
-    eq("SW 1/2 steht zweimal da", sw.join(","), "35,65");
+    const sw = seed.filter(r => r.club === "SW" && r.swing === "Halb").map(r => r.von).sort();
+    eq("SW Halb steht zweimal da", sw.join(","), "35,65");
     ok("und die kürzere Zeile trägt den Hinweis",
       seed.filter(r => r.von === 35)[0].notiz.length > 10);
   }

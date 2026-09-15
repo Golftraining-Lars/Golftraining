@@ -13,6 +13,27 @@
 
 ---
 
+- **v5.73.0 · 2026-09-03** — **Der Lochplan rechnet sich jetzt selbst nach — je Loch, nicht je
+  Platz.** Gemeldet: „Der Gameplan aktualisiert sich weiterhin nicht."
+  **Warum er es nie tat:** `gpAutoRefresh` läuft **stündlich**, nur bei sichtbarer Seite, in einer
+  Leerlaufpause — und **nie während einer Runde**. Die letzte Sperre ist richtig: 850 ms Rechnung auf
+  der Bahn wären ein Einfrieren. Aber zusammen bedeuten sie: **Wer viel spielt und oft neu lädt,
+  erlebt den Erneuerer praktisch nie.**
+  Seit v5.70 **erkennt** der Abdruck den Fassungswechsel — aber **Erkennen ist nicht Handeln**.
+  Dieselbe Lücke wie bei der Drosselung (v5.63) und beim Sendetakt der Uhr (58): dreimal derselbe
+  Gedankenfehler.
+  **Gemessen — und die Messung entscheidet die Bauart:** ganzer Platz **850 ms** kalt, ein einzelnes
+  Loch **6 ms**. Das ist der Unterschied zwischen „geht auf der Bahn nicht" und „fällt nicht auf".
+  **Konzept A:** Wird der Lochplan gezeigt und ist der Abdruck alt, rechnet sich **nur das aktuelle
+  Loch** nach. Die anderen siebzehn bleiben, bis sie an der Reihe sind — nach einer Runde ist der
+  Plan von selbst vollständig. Die Marke bleibt so lange alt: Sonst hielte sich der Plan für aktuell,
+  während siebzehn Löcher es nicht sind.
+  **Konzept C:** Beim **Fassungswechsel** werden alle Pläne als veraltet markiert — **verworfen,
+  nicht neu gerechnet**, denn 850 ms je Platz gehören nicht in den Startpfad. **Pläne veralten fast
+  immer durch neue Rechnung, nicht durch neue Daten**; der Fassungswechsel ist der richtige Anlass
+  und der einzige, den man sicher kennt.
+  Nachgemessen an Loch 2 Nordplatz: **Driver → 2 Iron**, in 6 ms.
+
 - **v5.72.0 · 2026-09-03** — **27 Minuten Stillstand: Der Sperrgriff war weg, und niemand fragte
   nach.** Aus dem Protokoll: „Takt gedrosselt · **1635 s** statt 2 s · im Browser-Tab · Bildschirm
   AN", dazu „Durchlauf hing 1635 s — Wächter hat freigegeben".
