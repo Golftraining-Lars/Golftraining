@@ -21274,12 +21274,55 @@ group("Schläger — Inventar und Leiter");
          Rückfrage. */
       ok("aber trägt kein Löschkreuz", !/bagdel/.test(ohne));
       ok("Schwung und Griff stehen da", /Halb/.test(ohne) && /Griff Mitte/.test(ohne));
-      ok("und die Länge", /65 m/.test(ohne));
-      ok("die Gesamtlänge als Zusatz", /Gesamt 67 m/.test(ohne));
-      /* Unter dem Schläger braucht es den Namen nicht — in der Leiter schon,
-         sonst weiß man nicht, wovon die Rede ist. */
-      ok("unter dem Schläger ohne Namen", !/bt-cl/.test(ohne));
-      ok("in der Leiter mit Namen", /bt-cl/.test(mit));
+      ok("und die Länge in ihrer Spalte", /class="bt-d tnum">65</.test(ohne));
+      /* Die Gesamtlänge hat seit v6.20 eine eigene Spalte statt einer Fußnote —
+         sie ist die Bezugsgröße der GPS-Messung daneben. */
+      ok("die Gesamtlänge in ihrer Spalte", /class="bt-t tnum">67</.test(ohne));
+      /* DER KERN VON v6.20: Die Messspalten stehen IMMER da. Ohne Messung ein
+         Strich — „wie weit bin ich noch von einer belastbaren Zahl entfernt?"
+         ist die Frage, die eine fehlende Spalte nicht beantwortet. */
+      eq("beide Messspalten sind da, auch ohne Daten",
+        (ohne.match(/width:50px/g) || []).length, 2);
+      ok("und zeigen einen Strich", /noch keine Messungen/.test(ohne));
+      /* Unter dem Schläger steht der Name nicht — in der Leiter schon, sonst
+         weiß man nicht, wovon die Rede ist. */
+      ok("unter dem Schläger ohne Namen", !/Sand Wedge|SW /.test(ohne));
+      ok("in der Leiter mit Namen", mit.length > ohne.length && /bt-cl/.test(mit));
+    } finally { DB0.clubDistances = sichCD; DB0.gpsShots = sichG; DB0.lmSessions = sichL;
+      G("grpCacheClear")(); }
+  }
+
+  /* ---- Die Anzahl unterhalb der Schwelle (v6.20) ---- */
+  {
+    const sichCD = DB0.clubDistances, sichG = DB0.gpsShots, sichL = DB0.lmSessions;
+    try {
+      DB0.clubDistances = [{ club: "Sand Wedge 54°", carry: 80, total: 84 }];
+      const ts = new Date(Date.now() - 86400000).toISOString();
+      /* Drei Schläge — unter der Schwelle von acht. */
+      DB0.gpsShots = [0, 1, 2].map(i => ({ id: "x" + i, club: "Sand Wedge 54°", dist: 84 + i,
+        swing: "Voll", ts, accA: 5, accB: 5 }));
+      DB0.lmSessions = []; G("grpCacheClear")();
+      const m = G("clubMeasured")("Sand Wedge 54°");
+      /* Drei genaue Schläge ergeben neun gewichtete Einträge (v2.44) und damit
+         bereits einen Mittelwert — die Schwelle zählt Einträge, nicht Schläge.
+         Das ist so gewollt; die ANZEIGE darf es nur nicht als neun Messungen
+         ausgeben. */
+      ok("aus drei genauen Schlägen entsteht schon ein Mittelwert", m.total != null);
+      /* HIER LAG TOTER CODE: `tl?tl.n:0` gab unterhalb der Schwelle immer 0,
+         also zeigte `bagMessSpalte` einen Strich statt „n3" — obwohl der Kopf
+         der Ansicht die Anzahl ausdrücklich verspricht. */
+      eq("die Anzahl nennt die Schläge", m.nTotal, 3);
+      /* Und sie zählt SCHLÄGE, nicht Einträge: Die GPS-Liste wird nach
+         Messgenauigkeit mehrfach genannt (v2.44). */
+      ok("nicht die dreifach genannten Einträge", m.nTotal < 9, String(m.nTotal));
+      /* Und unterhalb jeder Schwelle bleibt sie stehen, statt auf 0 zu fallen —
+         genau der tote Zweig, den `bagMessSpalte` nie zu sehen bekam. */
+      DB0.gpsShots = [{ id: "e", club: "Sand Wedge 54°", dist: 84, swing: "Voll",
+        ts, accA: 40, accB: 40 }];
+      G("grpCacheClear")();
+      eq("eine einzelne ungenaue Messung zählt trotzdem",
+        G("clubMeasured")("Sand Wedge 54°").nTotal, 1);
+      ok("die Spalte zeigt sie auch", /n\$\{n\}|>n\$/.test(code) || /font-size:10px">n\$\{n\}/.test(code));
     } finally { DB0.clubDistances = sichCD; DB0.gpsShots = sichG; DB0.lmSessions = sichL;
       G("grpCacheClear")(); }
   }

@@ -13,6 +13,27 @@
 
 ---
 
+- **v5.75.0 · 2026-09-03** — **Es lag nicht am Speichern, sondern an den Daten — und die App wusste
+  es besser.** „Sicher" empfahl weiterhin den Driver. Vier vermutete Zwischenspeicher später habe ich
+  aufgehört zu raten und die Streuung selbst gemessen.
+  **Zwei Befunde, beide derselben Art — ein Wert liegt vor und kommt nicht an:**
+  **(1) Namensfalle.** `DB.strat.dispersion` führt einen gelernten Eintrag unter **„Driver Aerojet"**
+  (σL **27 m**, aus echten Runden). Die Bag führt den Schläger als **„Driver 10,5°"**. Die Suche ging
+  über den exakten Namen und fand nichts. **Wer mit Namen schlüsselt, die Menschen vergeben, muss sie
+  normieren** — sonst hängt eine Rechnung davon ab, ob jemand sein Schlägermodell mit eingetragen
+  hat. `clubNorm` bildet beide auf „driver" ab; er wurde hier nur nie benutzt.
+  **(2) Feldfalle.** Der Zweig für gelernte Werte verlangt `n>=20` — das ist die Zahl der GPS-Schläge
+  für die **Längs**streuung. Der Seiten-Lerner schreibt aber `nL`. Ein Eintrag mit gelernter σL und
+  ohne σD fiel damit **komplett** durch. **Und σL ist für die Zielwahl die wichtigere der beiden
+  Zahlen** — Hindernisse liegen seitlich. Sie wegzuwerfen, weil die Längsstreuung fehlt, ist genau
+  verkehrt herum.
+  **Die 27 m sind die richtigen:** Sie passen zur Messung vom 31.08. — **38 % Fairwaytreffer gemessen
+  gegen 54 % vorhergesagt**. Die App hatte den richtigen Wert die ganze Zeit, nur unter einem Namen,
+  unter dem niemand nachsah. Gerechnet wurde stattdessen mit 21 m aus der Heuristik — also mit einem
+  Driver, der treffsicherer aussah, als er ist.
+  **Wirkung auf Loch 2 Nordplatz:** vorher überall Driver; jetzt wählen **sicher und normal das
+  2 Iron** (55 % Fairway statt 34 %), nur **offensiv** den Driver.
+
 - **v5.74.0 · 2026-09-03** — **Fünfte Stelle — und diesmal habe ich sie in v5.71 selbst übersehen.**
   Gemeldet: Nach dem Wechsel auf v5.73 steht „8 Pläne als veraltet markiert" im Protokoll, und die
   Karte zeigt trotzdem unverändert „Driver 237 m" bei Spielweise **sicher**.
