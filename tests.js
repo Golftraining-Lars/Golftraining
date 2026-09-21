@@ -354,6 +354,10 @@ try {
                  "wedgeLoft","wedgeIstVoll","wedgeBagRow","wedgeTotal","wedgeMessung",
                  "wedgeKollisionen","grpCacheClear","clubMeasured",
                  "bagMode","setBagMode","bagVollZeile","bagTeilZeile",
+                 "clubSeitMap","messungGilt","clubWechsel","clubRename","dispersionFor",
+                 "_aimKeyBasis","_aimTeeEv","_aimNextEv","_aimApproachEv",
+                 "SWING_TYPES","wedgeHandVorlage","lmDatum","lmSitzungsDatum","watchPayload",
+                 "LEITPLANKEN","leitplanken",
                  "formDraftAll","formDraftGet","formDraftSave","formDraftClear",
                  "formDraftErledigt","formDraftFeldKey","formDraftSammeln","formDraftBind",
                  "fremderZeigerZaehlt","istRundenStat","poolQuote","teilAnteil",
@@ -3665,7 +3669,7 @@ group("STRAT.tee — vertauschte Tee/Grün-Punkte und Modus-Reaktion");
   /* v5.71: zusätzlich über die FASSUNG — siehe unten, vierte Stelle
      derselben Art. */
   ok("und über die gerundete Position",
-     /const k="T\|"\+APP_VERSION\+"\|"\+PLAY\.course\+"\|"\+PLAY\.tee\+"\|"\+h\.hole\+"\|"\+caddyMode\(\)\+pk/.test(src));
+     /const k="T\|"\+APP_VERSION\+"\|"\+_aimKeyBasis\(\)\+"\|"\+PLAY\.course\+"\|"\+PLAY\.tee\+"\|"\+h\.hole\+"\|"\+caddyMode\(\)\+pk/.test(src));
   ok("Kettenschlüssel ebenso",
      /_aimChainKey[\s\S]{0,300}caddyMode\(\)/.test(src));
 }
@@ -7428,7 +7432,7 @@ group("Live-Zeiger — beide Geräte, dieselbe Regel");
        zusaetzlich, dass der Changelog einen Eintrag fuer GENAU diese Kennung
        hat — beides zusammen faengt „Code geaendert, Fassung vergessen" und
        „Fassung gezogen, Changelog vergessen". */
-    ok("und die Kennung ist aktuell", /WATCH_APP = "2026-09-03 \(59\)"/.test(kt));
+    ok("und die Kennung ist aktuell", /WATCH_APP = "2026-09-20 \(60\)"/.test(kt));
     ok("das Handy zeigt sie", /function watchFassung\(\)/.test(src));
 
     /* --- STARTBILDSCHIRM (2026-08-25 (20)) ---
@@ -10353,7 +10357,10 @@ group("Löschen — jede Benutzer-Löschung setzt einen Grabstein");
     const _i = src.lastIndexOf("<script>");
     const code = src.slice(_i, src.indexOf("</script>", _i)).replace(/\/\*[\s\S]*?\*\//g, " ");
     const re = /DB\.(\w+)\s*=\s*(?:DB\.)?\1\.filter\(/g;
-    const erlaubt = ["tests", "notesTrash"];   // Aufräumroutinen, kein Benutzer-Löschen
+    /* `swingTypes` (v6.23): eine KONFIGURATIONSliste, die `mergeDB` nicht
+       vereinigt, sondern als Ganzes übernimmt (lokal gewinnt) — ein Grabstein
+       hätte dort keine Bedeutung. Entfernt wird nur „Viertel", auf Wunsch. */
+    const erlaubt = ["tests", "notesTrash", "swingTypes"];   // Aufräumroutinen, kein Benutzer-Löschen
     const offen = []; let m2;
     while ((m2 = re.exec(code))) {
       const um = code.slice(Math.max(0, m2.index - 300), m2.index + 40);
@@ -12233,7 +12240,9 @@ group("Streuung — die App wusste es besser, unter einem anderen Namen");
   ok("und die Schläger-Ansicht ebenso",
      /const d=\(typeof dispersionFor==="function"\)\?dispersionFor\(c\.club\):null;/.test(src));
   /* EXAKTER TREFFER HAT VORRANG: Wer beide Namen führt, meint den genauen. */
-  ok("der exakte Treffer hat Vorrang", /if\(D\[name\]\) return D\[name\];/.test(src));
+  /* v6.23: Der exakte Treffer hat weiter Vorrang — aber nur, wenn er nicht
+     vor dem Stichtag seines Typs gelernt wurde (N1). */
+  ok("der exakte Treffer hat Vorrang", /if\(D\[name\] && _gilt\(name, D\[name\]\)\) return D\[name\];/.test(src));
   {
     const DF = G("dispersionFor"), DB1 = live("DB");
     if (typeof DF === "function" && DB1) {
@@ -16133,8 +16142,9 @@ group("Caddy — Ziel ist wieder die Grünmitte");
   ok("der Cache-Schlüssel führt sie nicht mehr",
      !/caddyMode\(\)\+"\|"\+pinFuer/.test(roh));
   /* ZIEL IST DIE GRÜNMITTE: `approach()` ohne Fahnen-Argument nimmt sie. */
+  /* v6.22: Die Wertung reist jetzt mit (K5) — die Fahne weiterhin nicht. */
   ok("approach bekommt keine Fahne mehr",
-     /STRAT\.approach\(geo,PLAY\.course,h\.hole,from,rest,caddyMode\(\),STRAT\.esHcp\(\)\)/.test(roh));
+     /STRAT\.approach\(geo,PLAY\.course,h\.hole,from,rest,caddyMode\(\),STRAT\.esHcp\(\),undefined,/.test(roh));
 
   /* ABER DER PARAMETER BLEIBT. Für `pointESTo` und `shotEV` ist die Fahne der
      Bezugspunkt jeder Erwartungsrechnung — dort ist sie keine Einstellung,
@@ -21219,6 +21229,469 @@ group("Karteneditor — durch den Wald hindurchsehen");
   ok("nicht in DB.ui", /function geoEdVegSicht\(v\)\{ GEOED\.vegSicht=v/.test(src));
 }
 
+/* ============ 24bw. Audit-Behebungen K4, K7, K8, K11 (v6.24) ============ */
+group("Caddy-Audit — Waldkanten, Bunker, zweiter Zug");
+{
+  const S = G("STRAT"), DB0 = live("DB"), P0 = live("PLAY");
+  const mLat = 111320, mLng = 65500, at = (n, e = 0) => [54.0 + n / mLat, 10.0 + e / mLng];
+  const box = (a, b, hb, e0 = 0) => [at(a, e0 - hb), at(a, e0 + hb), at(b, e0 + hb), at(b, e0 - hb), at(a, e0 - hb)];
+  const sich = { cd: DB0.clubDistances, co: DB0.courses, wm: DB0.wedgeMatrix, g: DB0.gpsShots,
+                 l: DB0.lmSessions, pc: P0.course, ph: P0.holes, pi: P0.idx };
+  try {
+    DB0.clubDistances = [["Driver",215,232],["3 Wood",195,206],["5 Wood",180,190],["Hybrid 4",170,178],
+      ["4 Iron",160,166],["6 Iron",148,154],["7 Iron",138,143],["8 Iron",128,132],["9 Iron",118,121],
+      ["Pitching Wedge",108,111],["Gap Wedge",96,98]].map((c, i) => ({ id: "c" + i, club: c[0], carry: c[1], total: c[2] }));
+    DB0.wedgeMatrix = []; DB0.gpsShots = []; DB0.lmSessions = [];
+    let nr = 0;
+    const loch = f => { const nm = "K" + (nr++);
+      const geo = { holes: { 1: { tee: at(0), green: at(380) } }, features: f };
+      DB0.courses = [{ name: nm, geo }]; P0.course = nm; P0.holes = [{ hole: 1, par: 4, len: 380, si: 5 }]; P0.idx = 0;
+      return { geo, nm }; };
+    const gr = { kind: "green", ring: box(366, 394, 14) };
+    const i8 = { name: "8 Iron", carry: 128, dist: 132 };
+
+    /* ---------- K4 ---------- */
+    {
+      const W = loch([{ kind: "fairway", ring: box(100, 370, 30) }, gr, { kind: "wood", ring: box(350, 358, 40) }]);
+      const g = S.grid(W.geo, W.nm, 1);
+      /* DER BEFUND ALS PRÜFFALL: Vorher fünf Eckpunkte, `blocked()` = 0. */
+      ok("die Waldkante ist dicht abgetastet", g.blockers.length > 10, String(g.blockers.length));
+      ok("und blockiert die Linie", S.blocked(g, at(250), at(378), i8) > 0);
+      /* Gebüsch: schlechte Lage ja, Wand nein. */
+      const B = loch([{ kind: "fairway", ring: box(100, 370, 30) }, gr, { kind: "scrub", ring: box(350, 358, 40) }]);
+      const gb = S.grid(B.geo, B.nm, 1);
+      eq("Gebüsch ist kein Linienhindernis", S.blocked(gb, at(250), at(378), i8), 0);
+      /* Der Deckel hält auch eine riesige Fläche klein. */
+      const R = loch([gr, { kind: "wood", ring: box(-2000, 2000, 2000, 3000) }]);
+      ok("höchstens 400 Punkte je Fläche", S.grid(R.geo, R.nm, 1).blockers.length <= 400);
+    }
+
+    /* ---------- K7 ---------- */
+    {
+      const LP = G("LEITPLANKEN"), lp = G("leitplanken");
+      ok("die Leitplanke gibt es", LP.some(r => r.id === "ausDemBunker" && r.wirkung === "aus"));
+      const ks = DB0.clubDistances.map(c => ({ name: c.club }));
+      const raus = lp(ks, { vomTee: false, ausSand: true }).gestrichen.map(x => x.club);
+      ok("aus dem Sand kein Holz", raus.indexOf("3 Wood") >= 0 && raus.indexOf("5 Wood") >= 0);
+      ok("Hybride und Eisen bleiben", raus.indexOf("Hybrid 4") < 0 && raus.indexOf("4 Iron") < 0);
+      ok("vom Fairway bleibt das Holz", lp(ks, { vomTee: false, ausSand: false }).gestrichen
+        .every(x => x.club !== "5 Wood"));
+      /* Alle drei Wege: Kein Weg darf aus dem Bunker ein Holz empfehlen. */
+      const L = loch([{ kind: "fairway", ring: box(100, 370, 30) }, { kind: "bunker", ring: box(222, 238, 10) }, gr]);
+      const ap = S.approach(L.geo, L.nm, 1, at(230), 150, "bal", 20, null);
+      const ns = S.nextShot(L.geo, L.nm, 1, at(230), "bal", 20);
+      const holz = n => /wood|holz/i.test(n || "");
+      ok("die Annäherung empfiehlt kein Holz", !(ap && ap.best && holz(ap.best.club.name)),
+        ap && ap.best ? ap.best.club.name : "steigt aus");
+      ok("der Folgeschlag auch nicht", !(ns && ns.best && holz(ns.best.club.name)),
+        ns && ns.best ? ns.best.club.name : "null");
+      ok("approach wendet die harten Leitplanken an", /const _hart=leitplanken\(caddyClubs\(\)/.test(code));
+      ok("die Heuristik auch", /leitplanken\(\[c\], \{vomTee:false, ausSand: lie==="bunker"\}\)/.test(code));
+      /* Nur die Streichungen, nicht der Wedge-Aufschlag — der handelt vom
+         Vorlegen, und die Annäherung zielt aufs Grün. */
+      ok("approach nimmt nur die Streichungen", /ausSand:_lieVon===this\.LIE\.sand\}\)\.clubs;/.test(code));
+    }
+
+    /* ---------- K8 ---------- */
+    {
+      const L = loch([{ kind: "fairway", ring: box(100, 370, 25) }, gr]);
+      const g = S.grid(L.geo, L.nm, 1);
+      const fw = S._ply2(g, at(200, 0), 20, "bal", 40), ro = S._ply2(g, at(200, 45), 20, "bal", 40);
+      /* Aus dem Rough ist der zweite Schlag schwerer — vorher rechnete er wie
+         vom Fairway, und die Korrektur gegen die Tabelle wurde negativ. */
+      ok("aus dem Rough rechnet der zweite Zug schwerer", fw && ro && ro.sc > fw.sc,
+        fw && ro ? fw.sc.toFixed(3) + " / " + ro.sc.toFixed(3) : "null");
+      const p2 = S._ply2.toString();
+      ok("mit Wetter auf dem Carry", /this\.wetterCarry\(/.test(p2));
+      ok("mit der Lage am Landepunkt", /this\.sigmaLage\(_sg0, _lieV\)/.test(p2) && /this\.lageFaktor\(g, from\)/.test(p2));
+      ok("und wählt über dieselbe Reichweite", /const nach=t=>alle\.reduce\(\(b,c\)=>Math\.abs\(eff\(c\)-t\)/.test(p2));
+    }
+
+    /* ---------- K11 ---------- */
+    ok("kein ungelesenes fein mehr", !/fein:!!best\.fein/.test(code) && !/c\.fein=true/.test(code));
+  } finally {
+    DB0.clubDistances = sich.cd; DB0.courses = sich.co; DB0.wedgeMatrix = sich.wm;
+    DB0.gpsShots = sich.g; DB0.lmSessions = sich.l; P0.course = sich.pc; P0.holes = sich.ph; P0.idx = sich.pi;
+  }
+}
+
+/* ============ 24bv. Audit-Behebungen N1–N3, K6, ohne Viertel (v6.23) ============ */
+group("Caddy-Audit — Sync, Uhr, Handposition, R10-Datum");
+{
+  const DB0 = live("DB"), kt = fs.existsSync(path.join(__dirname, "MainActivity.kt"))
+    ? fs.readFileSync(path.join(__dirname, "MainActivity.kt"), "utf8") : "";
+
+  /* ---------- „Viertel" ist überall weg ---------- */
+  ok("die Vorgabe kennt keinen Viertel", G("SWING_TYPES").indexOf("Viertel") < 0);
+  ok("Chip, Flop, Bunker sind da",
+    ["Chip", "Flop", "Bunker"].every(x => G("SWING_TYPES").indexOf(x) >= 0));
+  {
+    const sich = DB0.swingTypes;
+    try {
+      /* Auch eine schon gespeicherte Liste darf ihn nicht mehr anbieten. */
+      DB0.swingTypes = ["Voll", "3/4", "Halb", "Viertel", "Punch"];
+      ok("eine alte Liste wird beim Lesen bereinigt", G("wedgeSwings")().indexOf("Viertel") < 0);
+    } finally { DB0.swingTypes = sich; }
+  }
+
+  /* ---------- N2: eine Liste für Handy und Uhr ---------- */
+  {
+    const p = G("watchPayload")();
+    ok("watch.json trägt die Schwunglängen", Array.isArray(p.swingTypes) && p.swingTypes.length >= 5);
+    ok("bereinigt, ohne Viertel", p.swingTypes.indexOf("Viertel") < 0);
+  }
+  if (kt) {
+    /* Die Uhr liest sie — als LETZTES Feld in `Options`, weil Options
+       positionell konstruiert wird (eine Liste in der Mitte verschöbe alle
+       folgenden still). */
+    ok("die Uhr führt swingTypes als letztes Options-Feld", (() => {
+      const i = kt.indexOf("data class Options("), j = kt.indexOf("\n)", i);
+      const blk = i >= 0 && j > i ? kt.slice(i, j) : "";
+      return blk.lastIndexOf("val swingTypes: List<String>") > blk.lastIndexOf("val kurzseitigOpts");
+    })());
+    ok("und liest es aus watch.json", /"swingTypes",\s*\n\s*listOf\(/.test(kt));
+    ok("der Tipp-Kreis baut sich daraus", /val arten = \(opts\?\.swingTypes \?: listOf\(/.test(kt));
+    ok("Voll bleibt null im Schlag", /val folge = listOf<String\?>\(null\) \+ arten/.test(kt));
+    ok("die feste Liste ist weg", !/listOf\(null, "3\/4", "Halb", "Punch"\)/.test(kt));
+    ok("kein Viertel auf der Uhr", !/"Viertel"/.test(kt.replace(/\/\*[\s\S]*?\*\//g, "")));
+  }
+
+  /* ---------- N1: gelernte Streuung und Stichtag, auch nach einem Sync ---------- */
+  {
+    const sich = { cd: DB0.clubDistances, st: DB0.strat };
+    try {
+      DB0.clubDistances = [{ id: "C1", club: "SW 5", carry: 80, total: 82 }];
+      const alt = "2026-08-01T10:00:00.000Z";
+      DB0.strat = Object.assign({}, DB0.strat || {},
+        { dispersion: { "SW 5": { sigD: 9, sigL: 11, n: 30, at: alt } } });
+      const repo = JSON.parse(JSON.stringify(DB0));
+      G("clubWechsel")("SW 5", { neuName: "Sand Wedge 54° Vokey", seit: "2026-09-20" });
+      /* DER BEFUND ALS PRÜFFALL: Ein Abgleich mit dem alten Repo-Stand bringt
+         den Schlüssel zurück — `mergeDB` ist für die Streuung additiv. */
+      const m = G("mergeDB")(JSON.parse(JSON.stringify(DB0)), repo);
+      ok("der Abgleich bringt den alten Wert zurück (so ist mergeDB)",
+        !!(m.strat && m.strat.dispersion["SW 5"]));
+      DB0.strat = m.strat;
+      /* …aber er wirkt nicht mehr: vor dem Stichtag gelernt = altes Exemplar. */
+      eq("das neue Wedge bekommt die alte Streuung nicht", G("dispersionFor")("Sand Wedge 54° Vokey"), null);
+      /* Ein nach dem Stichtag gelernter Wert zählt selbstverständlich. */
+      DB0.strat.dispersion["Sand Wedge 54° Vokey"] = { sigD: 6, n: 12, at: "2026-09-25T10:00:00.000Z" };
+      eq("ein neuer Wert zählt", G("dispersionFor")("Sand Wedge 54° Vokey").sigD, 6);
+      /* Ohne `at` lässt sich nicht beweisen, dass er neu ist. */
+      DB0.strat.dispersion["Sand Wedge 54° Vokey"] = { sigD: 5, n: 12 };
+      eq("ohne Zeitstempel gilt er bei Stichtag als alt", G("dispersionFor")("Sand Wedge 54° Vokey"), null);
+      /* Andere Schläger ohne Stichtag bleiben unberührt. */
+      DB0.clubDistances.push({ id: "C2", club: "7 Eisen", carry: 145 });
+      DB0.strat.dispersion["7 Eisen"] = { sigD: 8 };
+      eq("ohne Stichtag unverändert", G("dispersionFor")("7 Eisen").sigD, 8);
+    } finally { DB0.clubDistances = sich.cd; DB0.strat = sich.st; }
+  }
+
+  /* ---------- N3: Handposition ---------- */
+  {
+    const hv = G("wedgeHandVorlage");
+    eq("35 m SW Halb ist weich", hv({ club: "Sand Wedge 54°", swing: "Halb", von: 35 }), "Mitte (weich)");
+    eq("65 m SW Halb ist normal", hv({ club: "SW", swing: "Halb", von: 65 }), "Mitte");
+    eq("unbekannte Zeile: keine Vorgabe", hv({ club: "SW", swing: "Halb", von: 47 }), null);
+    const sich = { cd: DB0.clubDistances, wm: DB0.wedgeMatrix };
+    try {
+      DB0.clubDistances = [{ club: "Sand Wedge 54°", carry: 80 }];
+      DB0.wedgeMatrix = [
+        { id: "a", club: "SW", swing: "Halb", grip: "Mitte", von: 65, bis: 65 },
+        { id: "b", club: "SW", swing: "Halb", grip: "Unten", von: 35, bis: 35,
+          notiz: "aus der zweiten Tabelle der Vorlage — widerspricht SW Halb = 65 m" },
+        { id: "c", club: "SW", swing: "Halb", grip: "Mitte", von: 30, bis: 30, notiz: "Mit Gefühl" },
+        { id: "d", club: "LW", swing: "Viertel", grip: "Mitte", von: 15, bis: 20 }
+      ];
+      G("wedgeMigrate")();
+      const r = id => DB0.wedgeMatrix.find(x => x.id === id);
+      eq("die Handposition wird ergänzt", r("b").hand, "Mitte (weich)");
+      /* Was Lars selbst geändert hat, bleibt: die Griffhöhe „Unten". */
+      eq("eigene Änderungen bleiben", r("b").grip, "Unten");
+      eq("mein alter Widerspruchs-Hinweis verschwindet", r("b").notiz, "");
+      eq("ein eigener Hinweis bleibt", r("c").notiz, "Mit Gefühl");
+      ok("die Viertel-Zeile ist entfernt", !r("d"));
+      /* Mit der Handposition in der Identität ist SW Halb 65/35 kein
+         Widerspruch mehr — genau der Fehlalarm, den die fehlende Spalte
+         erzeugt hätte. */
+      eq("keine Kollision mehr", G("wedgeKollisionen")().length, 0);
+      /* Und die Warnung ist wieder sichtbar — sie ging in v6.19 mit
+         `renderWedgeMatrix` verloren. */
+      ok("die Kollisionswarnung wird wieder aufgerufen",
+        /const koll=wedgeKollisionen\(\); if\(!koll\.length\) return "";/.test(code));
+    } finally { DB0.clubDistances = sich.cd; DB0.wedgeMatrix = sich.wm; }
+  }
+
+  /* ---------- K6: das Datum kommt aus der Datei ---------- */
+  {
+    const d = G("lmDatum"), sd = G("lmSitzungsDatum");
+    eq("ISO", d("2026-09-14 10:22:05"), "2026-09-14");
+    eq("deutsch", d("14.09.2026"), "2026-09-14");
+    eq("deutsch, zweistellig", d("14.09.26"), "2026-09-14");
+    /* US-Format der Garmin-App, Monat zuerst — eine dokumentierte Annahme. */
+    eq("US-Format, Monat zuerst", d("09/14/26 10:22"), "2026-09-14");
+    eq("Unlesbares ergibt nichts", d("gestern"), null);
+    eq("die Sitzung nimmt das früheste Datum",
+      sd([{ date: "2026-09-15 00:10" }, { date: "2026-09-14 23:50" }, { date: "" }]), "2026-09-14");
+    eq("ohne Datum in der Datei: nichts", sd([{ carry: 80 }]), null);
+    ok("der Import benutzt es", /date:dDatei\|\|todayISO\(\), datumQuelle:dDatei\?"datei":"import"/.test(code));
+    ok("und warnt, wenn ein Stichtag betroffen ist", /lmDatumWarnung=true/.test(code));
+  }
+}
+
+/* ============ 24bu. Audit-Behebungen K1–K3, K5 (v6.22) ============ */
+group("Caddy-Audit — Längsziel, Speicher, Bäume, Stableford");
+{
+  const S = G("STRAT"), DB0 = live("DB"), P0 = live("PLAY"), setW = G("wetterSetzen");
+  const mLat = 111320, mLng = 65500, at = (n, e = 0) => [54.0 + n / mLat, 10.0 + e / mLng];
+  const box = (a, b, hb, e0 = 0) => [at(a, e0 - hb), at(a, e0 + hb), at(b, e0 + hb), at(b, e0 - hb), at(a, e0 - hb)];
+  const sich = { cd: DB0.clubDistances, co: DB0.courses, wm: DB0.wedgeMatrix, g: DB0.gpsShots,
+                 l: DB0.lmSessions, pc: P0.course, ph: P0.holes, pi: P0.idx, w: G("WEATHER"), pr: DB0.profile };
+  try {
+    DB0.clubDistances = [["7 Iron",138,143],["8 Iron",128,132],["9 Iron",118,121],
+      ["Pitching Wedge",108,111],["Gap Wedge",96,98]].map((c, i) => ({ id: "c" + i, club: c[0], carry: c[1], total: c[2] }));
+    DB0.wedgeMatrix = []; DB0.gpsShots = []; DB0.lmSessions = [];
+    let nr = 0;
+    const loch = feats => { const nm = "AUD" + (nr++);
+      const geo = { holes: { 1: { tee: at(0), green: at(380) } }, features: feats };
+      DB0.courses = [{ name: nm, geo }]; P0.course = nm; P0.holes = [{ hole: 1, par: 4, len: 380, si: 5 }]; P0.idx = 0;
+      return { geo, nm }; };
+    const gruen = { kind: "green", ring: box(366, 394, 14) };
+    const von = at(250);
+    setW(null);
+
+    /* ---------- K1: kein fiktives Längsziel ---------- */
+    /* DER BEFUND ALS PRÜFFALL: Das Längsziel hat den Landepunkt nie bewegt.
+       Solange `shotEV` den vollen Carry fliegt, darf die Anzeige kein
+       Längsziel nennen — sonst steht eine Anweisung da, die die Rechnung nie
+       getroffen hat. */
+    for (const [n, extra] of [["ohne Wasser", []], ["Wasser vor dem Grün", [{ kind: "water", ring: box(340, 364, 30) }]]]) {
+      const L = loch([{ kind: "fairway", ring: box(100, 338, 30) }, gruen].concat(extra));
+      const ap = S.approach(L.geo, L.nm, 1, von, 130, "bal", 20, null);
+      ok(n + ": ein Ergebnis", !!(ap && ap.best));
+      if (ap && ap.best) {
+        eq(n + ": kein Längsziel", ap.best.l, 0);
+        ok(n + ": die Beschreibung nennt keins", !/kurz|lang/.test(ap.desc), ap.desc);
+        /* Stattdessen: wo der Ball wirklich landet — aus demselben Carry. */
+        eq(n + ": Landung aus dem Carry der Rechnung",
+          ap.landung, Math.round(ap.best.carry) - Math.round(G("geoDist")(von, ap.flag)));
+      }
+    }
+    ok("der Gameplan nennt die Landung statt eines Zielversatzes",
+      /landet im Mittel \$\{Math\.abs\(ap\.landung\)\} m/.test(code)
+      && !/m kürzer angespielt/.test(ktOhneKommentar(code)));
+
+    /* ---------- K3: Bäume auf der Linie ---------- */
+    {
+      const baeume = [-9, -6, -3, 0, 3, 6, 9].map(e => ({ kind: "tree", pt: at(363, e) }));
+      const L0 = loch([{ kind: "fairway", ring: box(100, 370, 30) }, gruen]);
+      const a0 = S.approach(L0.geo, L0.nm, 1, von, 130, "bal", 20, null);
+      const L1 = loch([{ kind: "fairway", ring: box(100, 370, 30) }, gruen].concat(baeume));
+      const a1 = S.approach(L1.geo, L1.nm, 1, von, 130, "bal", 20, null);
+      /* 15 m vor dem Landepunkt ist der Ball tief — dieselbe Reihe, die
+         `blocked()` mit 0,35 bestraft, muss die Annäherung jetzt spüren. */
+      ok("Bäume vor der Landung verteuern die Annäherung",
+        a1 && a0 && (a1.best.score > a0.best.score + 0.05 || a1.best.q !== 0),
+        a0 && a1 ? a0.best.score.toFixed(3) + " -> " + a1.best.score.toFixed(3) + " q=" + a1.best.q : "null");
+      ok("und der Zuschlag steht am Kandidaten", a1 && a1.best && a1.best.blk != null);
+    }
+
+    /* ---------- K5: Stableford erreicht die Annäherung ---------- */
+    {
+      const L = loch([{ kind: "fairway", ring: box(100, 370, 30) }, gruen]);
+      const z = S.approach(L.geo, L.nm, 1, von, 130, "bal", 20, null);
+      const p = S.approach(L.geo, L.nm, 1, von, 130, "bal", 20, null, { netto: 4, bisher: 1 });
+      eq("ohne Wertung rechnet sie in Schlägen", z.best.pktF, null);
+      ok("mit Wertung in Punkten", p.best.pktF != null && p.best.score < 0,
+        String(p.best.score));
+    }
+
+    /* ---------- K2: der Schlüssel kennt, was das Ergebnis bestimmt ---------- */
+    {
+      const basis = G("_aimKeyBasis");
+      DB0.profile = Object.assign({}, DB0.profile || {}, { wertung: "zaehl" });
+      const b0 = basis();
+      DB0.profile.wertung = "stbl";
+      ok("die Wertung ändert den Schlüssel", basis() !== b0);
+      DB0.profile.wertung = "zaehl";
+      setW({ windMs: 6, windDir: 270, gustMs: 9, temp: 15 });
+      const b1 = basis();
+      ok("das Wetter ändert ihn", b1 !== b0);
+      /* Aber nicht jedes Zucken: 0,3 m/s mehr Wind ist keine andere Wahl. */
+      setW({ windMs: 6.3, windDir: 272, gustMs: 9.2, temp: 15.2 });
+      eq("gerundet — ein Zucken ändert ihn nicht", basis(), b1);
+      setW(null);
+      const b2 = basis();
+      DB0.clubDistances[1].carry = 131;
+      ok("eine Carry-Korrektur ändert ihn", basis() !== b2);
+      DB0.clubDistances[1].carry = 128;
+      DB0.clubDistances[1].seit = "2026-09-20";
+      ok("ein Stichtag auch", basis() !== b2);
+      delete DB0.clubDistances[1].seit;
+      /* ALLE DREI Schlüssel benutzen dieselbe Basis — wer eine Eingangsgröße
+         ergänzt, ergänzt sie an einer Stelle. */
+      for (const f of ["_aimTeeEv", "_aimNextEv", "_aimApproachEv"])
+        ok(f + " nutzt die gemeinsame Basis", /_aimKeyBasis\(\)/.test(G(f).toString()));
+    }
+  } finally {
+    DB0.clubDistances = sich.cd; DB0.courses = sich.co; DB0.wedgeMatrix = sich.wm;
+    DB0.gpsShots = sich.g; DB0.lmSessions = sich.l; DB0.profile = sich.pr;
+    P0.course = sich.pc; P0.holes = sich.ph; P0.idx = sich.pi; setW(sich.w);
+  }
+}
+
+/* ============ 24bt. Schlägerwechsel mit Stichtag (v6.21) ============ */
+group("Schlägerwechsel — die Zeit trennt, was der Name nicht trennt");
+{
+  const DB0 = live("DB");
+  const seitMap = G("clubSeitMap"), gilt = G("messungGilt"), wechsel = G("clubWechsel"),
+        rename = G("clubRename"), gemessen = G("clubMeasured"), leer = G("grpCacheClear");
+
+  /* ---- Das Problem, festgehalten: der Typ ist die Identität ---- */
+  eq("altes und neues Sandwedge sind für die App derselbe Typ",
+    G("clubNorm")("SW 5"), G("clubNorm")("Sand Wedge 54° Vokey"));
+
+  /* ---- Der Stichtag ---- */
+  if (typeof gilt === "function") {
+    const m = { wedges: "2026-09-15" };
+    ok("vor dem Stichtag zählt nicht", !gilt("SW 5", "2026-09-10T10:00:00Z", m));
+    ok("am Stichtag zählt", gilt("Sand Wedge 54° Vokey", "2026-09-15T08:00:00Z", m));
+    ok("danach sowieso", gilt("SW 54°", "2026-10-01", m));
+    /* Gilt für den TYP — egal, unter welchem Namen die alte Messung liegt. */
+    ok("auch unter dem alten Namen", !gilt("Sand Wedge", "2026-09-01", m));
+    ok("andere Schläger bleiben unberührt", gilt("7 Eisen", "2020-01-01", m));
+    ok("ohne Stichtag gilt alles", gilt("SW 5", "2020-01-01", {}));
+  }
+
+  /* ---- Der Wechsel als Ganzes, an einem vollständigen Bestand ---- */
+  if (typeof wechsel === "function") {
+    const sich = { cd: DB0.clubDistances, g: DB0.gpsShots, l: DB0.lmSessions,
+                   wm: DB0.wedgeMatrix, st: DB0.strat };
+    try {
+      const alt = new Date(Date.now() - 30 * 86400000).toISOString();
+      const jetzt = new Date(Date.now() - 3600000).toISOString();
+      DB0.clubDistances = [{ id: "C1", club: "SW 5", carry: 80, total: 82 },
+                           { id: "C2", club: "7 Eisen", carry: 145, total: 150 }];
+      /* Zehn alte Schläge des alten Wedges — genug für einen Mittelwert. */
+      DB0.gpsShots = Array.from({ length: 10 }, (_, i) => ({ id: "a" + i, club: "SW 5",
+        dist: 82 + (i % 3), swing: "Voll", ts: alt, accA: 5, accB: 5 }));
+      DB0.lmSessions = [];
+      DB0.wedgeMatrix = [
+        { id: "t1", club: "SW 5", swing: "Halb", grip: "Mitte", von: 65, bis: 65 },
+        { id: "v1", club: "SW 5", swing: "Voll", grip: "Oben", von: 80, bis: 80 }
+      ];
+      DB0.strat = Object.assign({}, DB0.strat || {}, {
+        dispersion: { "SW 5": { sigD: 9, n: 30, src: "gps" }, "Sand Wedge": { sigD: 8, n: 12 } } });
+      leer();
+      ok("vor dem Wechsel sieht das Wedge die alten Messungen", gemessen("SW 5").total != null);
+
+      const heute = new Date().toISOString().slice(0, 10);
+      const r = wechsel("SW 5", { neuName: "Sand Wedge 54° Vokey", seit: heute,
+                                  carry: 82, teil: "uebernehmen" });
+      ok("der Wechsel gelingt", r && r.ok, JSON.stringify(r));
+      const c = DB0.clubDistances.find(x => x.id === "C1");
+      /* DER PLATZ IM BAG BLEIBT — an ihm hängen Uhr, Reihenfolge und Matrix. */
+      eq("derselbe Bag-Eintrag trägt den neuen Namen", c.club, "Sand Wedge 54° Vokey");
+      eq("mit Stichtag", c.seit, heute);
+      eq("und Vorgänger", c.vorgaenger, "SW 5");
+      eq("die neue Länge ist eingetragen", c.carry, 82);
+      eq("die leer gelassene bleibt", c.total, 82);
+      eq("der andere Schläger bleibt unberührt", DB0.clubDistances[1].seit, undefined);
+
+      /* DER KERN: Das neue Wedge sieht die alten Messungen NICHT mehr. */
+      leer();
+      const m = gemessen("Sand Wedge 54° Vokey");
+      eq("keine gemittelte Länge aus dem alten Exemplar", m.total, null);
+      eq("und auch keine Anzahl", m.nTotal, 0);
+      /* GELÖSCHT WIRD NICHTS: Die alten Schläge bleiben Historie. */
+      eq("die alten Schläge sind noch da", DB0.gpsShots.length, 10);
+      eq("unter ihrem alten Namen", DB0.gpsShots[0].club, "SW 5");
+
+      /* Eine neue Messung zählt sofort. */
+      DB0.gpsShots.push(...Array.from({ length: 3 }, (_, i) => ({ id: "n" + i,
+        club: "Sand Wedge 54° Vokey", dist: 86, swing: "Voll", ts: jetzt, accA: 5, accB: 5 })));
+      leer();
+      eq("neue Messungen des neuen Exemplars zählen", gemessen("Sand Wedge 54° Vokey").nTotal, 3);
+
+      /* DIE STREUUNG IST ZURÜCKGESETZT — unter JEDEM Namen desselben Typs.
+         Bliebe „Sand Wedge" stehen, fände `dispersionFor` ihn über clubNorm
+         und die alte Streuung käme durch die Hintertür zurück. */
+      eq("unter dem alten Namen weg", DB0.strat.dispersion["SW 5"], undefined);
+      eq("und unter jedem anderen desselben Typs", DB0.strat.dispersion["Sand Wedge"], undefined);
+
+      /* Teilschläge als Startwerte: umgehängt und sichtbar markiert. */
+      const t1 = DB0.wedgeMatrix.find(x => x.id === "t1");
+      eq("der Teilschlag hängt am neuen Schläger", t1.club, "Sand Wedge 54° Vokey");
+      ok("und ist als vorläufig markiert", t1.vorlaeufig === true);
+      eq("mit Hinweis auf den Vorgänger", t1.vorgaenger, "SW 5");
+      /* Die Voll-Zeile ist keine Vermutung — ihre Länge liest sie ohnehin aus
+         dem Beutel. Sie wandert mit, bleibt aber unmarkiert. */
+      const v1 = DB0.wedgeMatrix.find(x => x.id === "v1");
+      ok("die Voll-Zeile wandert mit, ohne Markierung",
+        v1.club === "Sand Wedge 54° Vokey" && !v1.vorlaeufig);
+      eq("die Zahl der übernommenen Teilschläge wird gemeldet", r.teile, 1);
+
+      /* Ein Name, den es schon gibt, wird abgelehnt — der Name ist der
+         Merge-Schlüssel, zwei gleiche verschmölzen beim Abgleich. */
+      const nein = wechsel("7 Eisen", { neuName: "Sand Wedge 54° Vokey" });
+      ok("ein belegter Name wird abgelehnt", nein && !nein.ok);
+      eq("und nichts ist passiert", DB0.clubDistances[1].club, "7 Eisen");
+    } finally {
+      DB0.clubDistances = sich.cd; DB0.gpsShots = sich.g; DB0.lmSessions = sich.l;
+      DB0.wedgeMatrix = sich.wm; DB0.strat = sich.st; leer();
+    }
+  }
+
+  /* ---- Verwerfen statt übernehmen ---- */
+  if (typeof wechsel === "function") {
+    const sich = { cd: DB0.clubDistances, wm: DB0.wedgeMatrix };
+    try {
+      DB0.clubDistances = [{ id: "C1", club: "LW 5", carry: 68 }];
+      DB0.wedgeMatrix = [{ id: "t9", club: "LW 5", swing: "Halb", grip: "Mitte", von: 50, bis: 55 }];
+      const r = wechsel("LW 5", { neuName: "Lob Wedge 58° Vokey", teil: "verwerfen" });
+      ok("verworfen heißt weg", r.ok && !DB0.wedgeMatrix.some(x => x.id === "t9"));
+      ok("mit Grabstein, sonst kommt er beim Abgleich zurück",
+        /tombAdd\("wedgeMatrix", r\.id\)/.test(code));
+    } finally { DB0.clubDistances = sich.cd; DB0.wedgeMatrix = sich.wm; }
+  }
+
+  /* ---- Umbenennen zieht jetzt auch Teilschläge und Streuung mit ---- */
+  if (typeof rename === "function") {
+    const sich = { wm: DB0.wedgeMatrix, st: DB0.strat };
+    try {
+      DB0.wedgeMatrix = [{ id: "x", club: "GW 50°", swing: "Halb", grip: "Mitte", von: 70, bis: 70 }];
+      DB0.strat = Object.assign({}, DB0.strat || {}, { dispersion: { "GW 50°": { sigD: 7 } } });
+      rename("GW 50°", "Gap Wedge 50°");
+      /* `clubRename` war älter als die Matrix — Umbenennen ließ die
+         Teilschläge unverknüpft zurück. */
+      eq("der Teilschlag zieht mit", DB0.wedgeMatrix[0].club, "Gap Wedge 50°");
+      ok("die Streuung auch", !!DB0.strat.dispersion["Gap Wedge 50°"]
+        && !DB0.strat.dispersion["GW 50°"]);
+    } finally { DB0.wedgeMatrix = sich.wm; DB0.strat = sich.st; }
+  }
+
+  /* ---- Alle vier Lernstellen respektieren den Stichtag ----
+     Eine vergessene reicht: Der Streuungslerner hätte unter dem ALTEN Namen
+     weitergelernt, und die alte Streuung wäre über clubNorm zurückgekommen. */
+  ok("Messspalten", /if\(!messungGilt\(x\.club, x\.ts, _seit\)\) return;/.test(code));
+  ok("R10-Sitzungen", /if\(!messungGilt\(sh\.club, se\.date, _seit\)\) return;/.test(code));
+  ok("clubSigma", /s\.club===name && messungGilt\(s\.club, s\.ts, _sm\)/.test(code));
+  ok("Streuungslerner", /if\(!messungGilt\(sh\.club, sh\.ts, _sm\)\) return;/.test(code));
+  ok("Seitenlerner", /if\(h && h\.club && !messungGilt\(h\.club, r\.date, _sm\)\) return;/.test(code));
+  /* Der Stichtag gehört in den Schlüssel des Zwischenspeichers — sonst bliebe
+     die alte Gruppierung stehen, bis zufällig ein neuer Schlag dazukommt. */
+  ok("der Stichtag steht im Zwischenspeicher-Schlüssel", /JSON\.stringify\(_seit\);/.test(code));
+
+  /* ---- Sichtbar ---- */
+  const src = fs.readFileSync(FILE, "utf8");
+  ok("der Knopf ist da", /⇄ Schläger gewechselt …/.test(src));
+  ok("der Stichtag steht unter der Zeile", /Messungen davor zählen nicht/.test(src));
+  ok("übernommene Teilschläge sind markiert", /übernommen — nachmessen/.test(src));
+  /* Einmal bewusst speichern löst die Markierung ein. */
+  ok("Speichern im Blatt löst sie ein",
+    /notiz:\$\("#wm_notiz"\)\.value\.trim\(\), vorlaeufig:false\};/.test(code));
+}
+
 /* ============ 24bs. Ein Reiter, zwei Ordnungen (v6.19) ============ */
 group("Schläger — Inventar und Leiter");
 {
@@ -21430,9 +21903,11 @@ group("Wedge-Matrix — Beutel und Matrix, eine Wahrheit");
         { id: "c", club: "XX", swing: "Halb", grip: "Mitte", von: 40, bis: 40, loft: "60°" }
       ];
       migr();
-      const a = DB0.wedgeMatrix[0], b = DB0.wedgeMatrix[1], c = DB0.wedgeMatrix[2];
+      const a = DB0.wedgeMatrix.find(x => x.id === "a"), c = DB0.wedgeMatrix.find(x => x.id === "c");
       eq("1/2 wird Halb", a.swing, "Halb");
-      eq("1/4 wird Viertel", b.swing, "Viertel");
+      /* v6.23: „Viertel" ist auf Wunsch entfernt — eine 1/4-Zeile wird nicht
+         mehr umbenannt, sondern verschwindet (mit Grabstein). */
+      ok("eine 1/4-Zeile wird entfernt", !DB0.wedgeMatrix.some(x => x.id === "b"));
       eq("das Kürzel wird zum echten Namen", a.club, "Sand Wedge 54°");
       /* NUR BEI GENAU EINEM TREFFER. Raten wäre schlimmer als nichts tun: Eine
          falsch verknüpfte Zeile zöge stillschweigend fremde Messwerte. */
@@ -21543,7 +22018,8 @@ group("Wedge-Matrix");
         spanne = G("wedgeSpanne"), luecken = G("wedgeLuecken"), seed = G("WEDGE_SEED");
 
   /* ---- Die Vorlage ist vollständig übernommen ---- */
-  ok("die Vorlage steht in der Datei", Array.isArray(seed) && seed.length === 15,
+  /* v6.23: 14 Zeilen — die Viertel-Zeile ist auf Wunsch entfernt. */
+  ok("die Vorlage steht in der Datei", Array.isArray(seed) && seed.length === 14,
     seed ? String(seed.length) : "fehlt");
   if (Array.isArray(seed)) {
     const s113 = seed.find(r => r.von === 113);
@@ -21551,24 +22027,26 @@ group("Wedge-Matrix");
       "PW/Voll/Oben");
     const s85 = seed.find(r => r.von === 85);
     eq("85–90 m ist ein Bereich", s85 && s85.bis, 90);
-    const s15 = seed.find(r => r.von === 15);
-    /* v6.18: EIN Vokabular — die Matrix nimmt `DB.swingTypes` („Halb",
-       „Viertel"), nicht die eigene Erfindung aus v6.17. Sonst fände ein als
-       „Halb" getaggter GPS-Schlag nie zu einer Zeile „1/2". */
-    eq("die kürzeste Zeile ist der Viertel-LW", s15 && s15.club + "/" + s15.swing, "LW/Viertel");
+    /* v6.23: Die kürzeste Zeile ist jetzt der 25-m-LW; „Viertel" gibt es nicht
+       mehr („den spiele ich nie"). */
+    const kurz = seed.slice().sort((a, b) => a.von - b.von)[0];
+    eq("die kürzeste Zeile ist der 25-m-LW", kurz && kurz.von + "/" + kurz.club + "/" + kurz.swing, "25/LW/Halb");
+    ok("kein Viertel mehr in der Vorlage", !seed.some(r => r.swing === "Viertel"));
     ok("kein 1/2 oder 1/4 mehr in der Vorlage",
       !seed.some(r => /^1\/[24]$/.test(r.swing || "")));
     ok("und die Auswahl kommt aus DB.swingTypes",
       /const t=\(DB&&Array\.isArray\(DB\.swingTypes\)/.test(code));
     /* Der Loft ist raus: Er steht im Schlägernamen und wird von dort gelesen. */
     ok("die Vorlage trägt keinen eigenen Loft mehr", !seed.some(r => r.loft != null));
-    /* DER WIDERSPRUCH DER VORLAGE bleibt sichtbar statt still begradigt:
-       SW 1/2 steht mit 65 UND 35 m da. Wer ihn wegrechnet, nimmt Lars die
-       Chance, die richtige Zahl einzutragen. */
+    /* v6.23: DER „WIDERSPRUCH" WAR KEINER. SW Halb steht mit 65 und 35 m da —
+       der 35-m-Schlag ist „weich" gespielt. Die Spalte, die das sagt
+       (Handposition), stand im Wissensartikel und fehlte im Import. */
     const sw = seed.filter(r => r.club === "SW" && r.swing === "Halb").map(r => r.von).sort();
     eq("SW Halb steht zweimal da", sw.join(","), "35,65");
-    ok("und die kürzere Zeile trägt den Hinweis",
-      seed.filter(r => r.von === 35)[0].notiz.length > 10);
+    const h35 = seed.find(r => r.von === 35), h65 = seed.find(r => r.von === 65);
+    ok("und unterscheidet sich in der Handposition", h35.hand !== h65.hand,
+      h35.hand + " / " + h65.hand);
+    eq("die alten Widerspruchs-Hinweise sind weg", h35.notiz, "");
   }
 
   /* ---- Distanz, Bereich, Mitte ---- */
@@ -21943,7 +22421,7 @@ group("Caddy — Böen, Auslauf, Wedge-Band, Layup");
 
   /* ---------- (1) Wetter in der Annäherung ---------- */
   {
-    const ap = code.slice(code.indexOf("  approach(geo,courseName,holeNo,from,remaining,mode,hcp,flag)"),
+    const ap = code.slice(code.indexOf("  approach(geo,courseName,holeNo,from,remaining,mode,hcp,flag,stbl)"),
                           code.indexOf("  planCourse("));
     ok("die Annäherung rechnet mit Wetter und Höhe", /this\.wetterCarry\(/.test(ap));
     ok("und die Vorauswahl mit derselben Größe", /const eff=c=>this\.wetterCarry\(/.test(ap));
@@ -22021,7 +22499,7 @@ group("Caddy — Wind, Streuform, Lage, Stableford");
 
   /* ---------- (2) approach() kennt die Lage ---------- */
   {
-    const ap = code.slice(code.indexOf("  approach(geo,courseName,holeNo,from,remaining,mode,hcp,flag)"),
+    const ap = code.slice(code.indexOf("  approach(geo,courseName,holeNo,from,remaining,mode,hcp,flag,stbl)"),
                           code.indexOf("  planCourse("));
     ok("die Ballage streut mit", /this\.sigmaLage\(_sg0, _lieVon\)/.test(ap));
     ok("die Standlage auch", /this\.sigmaHang\(this\.sigmaFor\(cl\), _hangVon, carry\)/.test(ap));
@@ -22032,7 +22510,7 @@ group("Caddy — Wind, Streuform, Lage, Stableford");
     /* v6.15: Die Vorauswahl rechnet jetzt über `eff()` — Wetter auf den Flug,
        Lage auf den Treffer, in einer Größe. */
     ok("und die Schlägervorauswahl rechnet damit",
-      /caddyClubs\(\)\.filter\(c=>Math\.abs\(eff\(c\)-need\)<=18\)/.test(ap));
+      /_hart\.filter\(c=>Math\.abs\(eff\(c\)-need\)<=18\)/.test(ap));   // v6.24: erst die harten Leitplanken
     ok("auch die Obergrenze", /const _total=\(cl\.dist!=null\?cl\.dist\*_lageF\*_wq:carry\);/.test(ap));
   }
 
@@ -22060,7 +22538,8 @@ group("Caddy — Wind, Streuform, Lage, Stableford");
        in Schlägen. */
     ok("ohne stbl wird in Schlägen gerechnet", /\} else score = es \+ _ri;/.test(code));
     ok("mit stbl in Punkten", /score = -pe\.punkte \+ pe\.lebendig\*_ri;/.test(code));
-    ok("beide Motoren gleich", (code.match(/pktF=pe\.lebendig; score = -pe\.punkte/g) || []).length === 2);
+    /* v6.22: seit K5 rechnen DREI Motoren in Punkten — tee, nextShot und approach. */
+    ok("alle drei Motoren gleich", (code.match(/pktF=pe\.lebendig; score = -pe\.punkte/g) || []).length === 3);
   }
   /* Der Schalter, nicht die Heuristik — und Zählspiel als Voreinstellung. */
   if (typeof G("wertung") === "function") {
@@ -22707,7 +23186,9 @@ group("Blatt schließen und Schläge nachtragen");
   const rs = src.slice(src.indexOf("function renderShotTrack("),
                        src.indexOf("function renderShotTrack(") + 3000);
   ok("Schlagart-Auswahl je Schlag", /class="strk-swing/.test(rs));
-  ok("Liste kommt aus DB.swingTypes", /DB\.swingTypes/.test(rs));
+  /* v6.23: über `wedgeSwings()` — die liest `DB.swingTypes` und filtert
+     entfernte Arten heraus. Eine Liste für alle Stellen. */
+  ok("Liste kommt aus DB.swingTypes", /wedgeSwings\(\)/.test(rs) && /DB\.swingTypes/.test(G("wedgeSwings").toString()));
   /* Der LETZTE Punkt ist die Ruhelage, kein Schlag — dort wären Schläger und
      Schlagart sinnlos und würden zu Geisterdaten führen. */
   ok("Ruhelage bekommt keine Schlagart", /istSchlag\?`<select class="strk-swing/.test(rs));

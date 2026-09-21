@@ -13,6 +13,75 @@
 
 ---
 
+- **v5.79.0 / Uhr 2026-09-03 (59) · 2026-09-03** — **Übersetzungsfehler aus (57): Ein neuer Parameter stand in der Mitte.**
+  Android Studio meldet vier Fehler: zweimal „Function1<Int, Unit> but Int was expected", zweimal
+  „No value passed for parameter onSet".
+  **Meine Ursache:** In Fassung (57) habe ich `ab: Int = 1` als **dritten** Parameter von
+  `TurnierZeile` eingefügt — vor den Rückruf. Zwei der drei Aufrufe geben ihren Rückruf aber
+  **positionell** an dritter Stelle: `TurnierZeile("Ich · Schläge", entry.score, onScore)`. Damit
+  landete die Funktion `onScore` in einem `Int`.
+  **Ein neuer Parameter mit Vorgabewert gehört ans Ende.** In der Mitte verschiebt er jede
+  positionelle Übergabe dahinter — und genau die hatten die beiden alten Aufrufe. Der Putts-Aufruf
+  übergibt `ab` jetzt **benannt**: Benannte Übergabe überlebt jede weitere Umstellung, positionelle
+  nicht.
+  **Warum der Prüfstand das nicht fangen konnte:** Er liest `MainActivity.kt` als Zeichenkette und
+  prüft Muster; ein **Typfehler** fällt erst dem Übersetzer auf. Diese Grenze ist bekannt — die
+  Fassungen 54 und 55 hatten denselben Fall. Neue Sperrklinke: `ab` **muss** der letzte Parameter
+  sein, geprüft über die Position in der Signatur statt über ein Muster.
+
+- **v5.78.0 · 2026-09-03** — **Nachgesehen statt behauptet: Doku ja, Quelltext-Prüfung ja — die
+  Datenprüfung nicht.** Nachgefragt, ob Doku, Fehlerprotokoll und Selbstprüfung auf dem Stand sind.
+  **Doku vollständig:** Alle achtzehn seit v5.28 hinzugekommenen Funktionen stehen im
+  Referenzabschnitt. **Quelltext-Prüfung grün:** 15 Punkte, 0 Befunde.
+  **Aber die Datenprüfung kannte die gelernte Streuung überhaupt nicht** — genau den Wert, der
+  monatelang unter „Driver Aerojet" lag, während die Bag „Driver 10,5°" führt und die Rechnung mit
+  der Heuristik weiterlief. **Das war der teuerste Befund dieser Woche:** drei Tage Suche, vier
+  falsche Vermutungen. Eine Prüfung, die ihn in einer Zeile gemeldet hätte, gab es nicht.
+  Sie stellt jetzt drei Fragen: Liegt ein gelernter Wert unter einem Namen, den die Bag nicht kennt?
+  Gibt es verwaiste Einträge für ausgemusterte Schläger? Fehlt die gelernte Streuung ganz? Am eigenen
+  Bestand meldet sie sofort *„Driver Aerojet → Driver 10,5°"*.
+  **Und das Fehlerprotokoll bekommt die Zeile, die gefehlt hat.** Die Zuordnung über den normierten
+  Namen funktioniert — aber sie ist ein **Rückfall, kein Normalzustand**. Dass sie greift, heißt: In
+  den Daten stehen zwei Namen für denselben Schläger. **Genau das blieb Monate unsichtbar, weil es
+  nirgends stand.** Jetzt einmal je Schläger, nicht bei jedem Aufruf — ein Ereignis, das immer
+  eintritt, ist keine Nachricht.
+
+- **v5.77.0 · 2026-09-03** — **Die Karte beschriftete den Schläger selbst — und widersprach dem
+  Caddy.** Endlich die richtige Stelle: Nicht die Rechnung war falsch, sondern das **Etikett**.
+  **Nachgestellt:** Die Zielkette beschriftete Bein 1 mit **3 Wood**, wo `STRAT.tee(…,"safe")` das
+  **2 Iron** gewählt hatte — in `safe` und `bal`, nur in `aggr` stimmten beide überein.
+  **Die Ursache:** Die Beschriftung prüft, ob der vom Caddy gewählte Schläger die Distanz überhaupt
+  trägt — richtig und nötig. Sie verglich aber gegen den **Carry**, während der Zielpunkt bei **Carry
+  plus Auslauf** liegt.
+  **In Zahlen:** 2 Iron carry 187, total 200, Ziel bei 197 m. Das Fenster war 159–196 — **der eigene
+  Schläger des Caddy fiel um einen Meter durch seine eigene Prüfung**, und die Beschriftung nahm den
+  nächstlängeren.
+  **Auf dem Platz hieß das:** Der Caddy entscheidet sich für das Eisen, und die Karte schreibt Driver
+  darüber. **Wer der Karte glaubt, spielt den falschen Schläger.**
+  **Eine Prüfung, die den eigenen Vorschlag systematisch verwirft, ist keine Prüfung, sondern ein
+  zweiter Entscheider** — und zwei Entscheider für dieselbe Frage widersprechen sich. Jetzt liegt die
+  untere Grenze am Carry (so weit muss er mindestens fliegen), die obere am Gesamt mit Auslauf.
+  **Nachgewiesen am Ergebnis:** In allen drei Spielweisen sagen Kette und Caddy jetzt dasselbe.
+
+- **v5.76.0 · 2026-09-03** — **„Haben auch andere Schläger dieses Namenproblem?" — ja, breit. Und
+  die Doku hatte recht, der Code nicht.**
+  **Gemessen, wie breit:** Von den Schlägernamen in den **Runden** stehen **11 von 11** nicht so in
+  der Bag (9 über `clubNorm` zuordenbar, 2 sind ausgemusterte Schläger — „5w Aerojet", „4 Eisen
+  G410"). Beim **Launch Monitor 13 von 13**. Nur die **GPS-Schläge** passen exakt.
+  **Ob es schadet, hängt am Leser.** Die meisten Zugriffe über einen Schlägernamen verwenden Namen
+  aus **derselben** Quelle — dort kann nichts auseinanderlaufen. Genau **zwei** Stellen lasen quer:
+  die Rechnung (`sigmaFor`, in v5.75 behoben) und die **Anzeige** in der Schläger-Ansicht.
+  **Die zweite erklärt, warum es so lange unsichtbar blieb:** In der Bag stand beim Driver nichts von
+  „gelernt", weil auch dort der Rohname gesucht wurde. Der Wert war da, die Rechnung nutzte ihn
+  nicht, **und die Anzeige verriet es auch nicht.**
+  **Zur Doku:** Sie ist aktuell und war es auch vorher — sie nennt die Regel ausdrücklich („Namen
+  werden zum Zuordnen vereinheitlicht, `clubNorm`", seit v2.17) und erwähnt `clubNorm` an acht
+  Stellen. **Nicht die Doku war falsch, sondern der Code hat seine eigene dokumentierte Regel an zwei
+  Stellen gebrochen.** Der Referenzabschnitt trägt jetzt zusätzlich `dispersionFor` mit der Messung.
+  **Zwei Fallrückgriffe sind einer zu viel:** Statt die Normierung an jeder Lesestelle zu wiederholen,
+  gibt es jetzt **eine** Suche (`dispersionFor`), die beide benutzen. Wer sie umgeht, hat wieder zwei
+  Wahrheiten — und genau das war der Fehler.
+
 - **v5.75.0 · 2026-09-03** — **Es lag nicht am Speichern, sondern an den Daten — und die App wusste
   es besser.** „Sicher" empfahl weiterhin den Driver. Vier vermutete Zwischenspeicher später habe ich
   aufgehört zu raten und die Streuung selbst gemessen.

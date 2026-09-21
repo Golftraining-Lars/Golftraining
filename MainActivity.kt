@@ -391,6 +391,24 @@ import kotlin.math.sqrt
  *  ------------------------------------------------------------------------
  *  CHANGELOG (neueste zuerst — bei JEDER Änderung ergänzen: Datum · was · wo)
  *  ------------------------------------------------------------------------
+ *  2026-09-20 (60) · SCHWUNGLAENGEN KOMMEN VOM HANDY (Options.swingTypes).
+ *     Der Tipp-Kreis am Aufnahmeband stand fest im Code: Voll -> 3/4 ->
+ *     Halb -> Punch. Die PWA fuehrt ihre Liste in `DB.swingTypes` — beide
+ *     liefen auseinander: Chip, Flop und Bunker gab es nur am Handy, und
+ *     „Viertel" war dort waehlbar, auf der Uhr nicht. Fuer die Wedge-Matrix
+ *     der PWA (v6.17 ff.) ist das kein Schoenheitsfehler: Sie ordnet
+ *     Messwerte ueber genau dieses Wort zu, und ein Schlag, den die Uhr
+ *     nicht taggen kann, bekommt nie einen Messwert.
+ *     JETZT: `watch.json` traegt `swingTypes` auf oberster Ebene (wie alle
+ *     anderen Listen), `strList` liest sie, `onShotSwing` baut den Kreis
+ *     daraus. „Voll" bleibt `null` im Schlag, so wie bisher. Rueckfall ohne
+ *     Datei: Voll · 3/4 · Halb · Punch · Flop · Chip · Bunker — dieselbe
+ *     Vorgabe wie die PWA. „Viertel" ist auf Wunsch ueberall entfernt.
+ *     Die neue Liste steht in `Options` AM ENDE: Options wird positionell
+ *     konstruiert, eine Liste in der Mitte verschoebe alle folgenden still.
+ *     GRENZE: Sieben Arten sind im Tipp-Kreis bis zu sechs Tipps. Das ist
+ *     der Preis dafuer, dass beide Geraete dieselbe Liste haben.
+ *
  *  2026-08-30 (57) · SENDESTAU MESSEN, BEVOR MAN IHN BEHEBT.
  *     BEFUND AUS DEM PROTOKOLL DER RUNDE VOM 30.08.:
  *       „Bilanz: 20 Aktionen · Verzoegerung 682–2096 s (Median 1438 s)"
@@ -3295,7 +3313,7 @@ import kotlin.math.sqrt
 /* Fassungskennung der Uhr-App — steht im Kopplungstest neben der der PWA.
    Bei JEDER Aenderung hier mitziehen; sonst vergleicht man zwei Staende und
    glaubt, sie seien gleich (2026-08-15 (13)). */
-private const val WATCH_APP = "2026-09-03 (59)"
+private const val WATCH_APP = "2026-09-20 (60)"
 /* ==========================================================================
    WAS HAT DIESE FASSUNG GEAENDERT? (2026-08-25 (22))
    --------------------------------------------------------------------------
@@ -3413,7 +3431,13 @@ data class Options(
     val puttMissOpts: List<String>,
     val puttRestOpts: List<String>,
     /* ANS ENDE — Options wird POSITIONELL konstruiert. */
-    val kurzseitigOpts: List<String>
+    val kurzseitigOpts: List<String>,
+    /* SCHWUNGLAENGEN VOM HANDY (2026-09-20 (60)) — wieder ANS ENDE, aus
+       demselben Grund. Bisher stand die Liste fest im Code (`onShotSwing`)
+       und lief gegen `DB.swingTypes` der PWA auseinander: „Viertel" gab es
+       nur dort, Chip/Flop/Bunker nur dort. Jetzt ist das Handy die einzige
+       Quelle, wie bei allen anderen Auswahllisten. */
+    val swingTypes: List<String>
 )
 
 // Schlägerlänge aus DB.clubDistances (carry/total in Metern)
@@ -4444,6 +4468,23 @@ private object Net {
                     "Grün getroffen",
                     "Viel Platz zur Fahne",
                     "Wenig Platz — Fahne nah am Rand"
+                )
+            ),
+            /* (60) Schwunglaengen aus `watch.json` — der Rueckfall ist
+               dieselbe Liste wie die Vorgabe der PWA (`SWING_TYPES`), damit
+               eine Uhr ohne frische Datei nichts anderes anbietet als das
+               Handy. */
+            strList(
+                db,
+                "swingTypes",
+                listOf(
+                    "Voll",
+                    "3/4",
+                    "Halb",
+                    "Punch",
+                    "Flop",
+                    "Chip",
+                    "Bunker"
                 )
             )
         )
@@ -10131,11 +10172,17 @@ fun GolfWatchApp(
                                 }
                         },
 
-                        /* Ein Tipp schaltet die Schwunglaenge weiter:
-                           Voll -> 3/4 -> Halb -> Punch -> Voll. Kein Menue —
-                           man steht beim Ball und will weiterspielen. */
+                        /* Ein Tipp schaltet die Schwunglaenge weiter. Kein
+                           Menue — man steht beim Ball und will weiterspielen.
+                           (60): Die Reihenfolge kommt vom HANDY
+                           (`opts.swingTypes`), nicht mehr aus dieser Zeile.
+                           „Voll" ist `null` — so steht es seit je im Schlag,
+                           und die PWA liest fehlende Angaben als voll. */
                         onShotSwing = {
-                            val folge = listOf(null, "3/4", "Halb", "Punch")
+                            val arten = (opts?.swingTypes ?: listOf(
+                                "Voll", "3/4", "Halb", "Punch", "Flop", "Chip", "Bunker"
+                            )).filter { it.isNotBlank() && it != "Voll" }
+                            val folge = listOf<String?>(null) + arten
                             val jetzt = folge.indexOf(rec?.swing)
                             recSwing(folge[(if (jetzt < 0) 0 else jetzt + 1) % folge.size])
                         },
