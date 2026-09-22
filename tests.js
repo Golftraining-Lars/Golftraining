@@ -357,7 +357,7 @@ try {
                  "clubSeitMap","messungGilt","clubWechsel","clubRename","dispersionFor",
                  "_aimKeyBasis","_aimTeeEv","_aimNextEv","_aimApproachEv",
                  "SWING_TYPES","wedgeHandVorlage","lmDatum","lmSitzungsDatum","watchPayload",
-                 "LEITPLANKEN","leitplanken",
+                 "LEITPLANKEN","leitplanken","bagTypKollision","bagAlsWechsel","bagFreiName",
                  "formDraftAll","formDraftGet","formDraftSave","formDraftClear",
                  "formDraftErledigt","formDraftFeldKey","formDraftSammeln","formDraftBind",
                  "fremderZeigerZaehlt","istRundenStat","poolQuote","teilAnteil",
@@ -21227,6 +21227,42 @@ group("Karteneditor — durch den Wald hindurchsehen");
   ok("nur dezent zeichnet Umrisse", /vegFaint: vs==="dezent"/.test(src));
   /* Arbeitseinstellung der Sitzung, kein synchronisierter Geschmack. */
   ok("nicht in DB.ui", /function geoEdVegSicht\(v\)\{ GEOED\.vegSicht=v/.test(src));
+}
+
+/* ============ 24bx. Neuer Schläger desselben Typs (v6.25) ============ */
+group("Schläger anlegen — Ersatz oder zweites Exemplar");
+{
+  const DB0 = live("DB"), kol = G("bagTypKollision"), alsW = G("bagAlsWechsel");
+  const sich = { cd: DB0.clubDistances, wm: DB0.wedgeMatrix, st: DB0.strat };
+  try {
+    DB0.clubDistances = [{ id: "C1", club: "SW 5", carry: 80, total: 82 },
+                         { id: "C2", club: "7 Iron", carry: 138, total: 143 }];
+    DB0.wedgeMatrix = [{ id: "t1", club: "SW 5", swing: "Halb", grip: "Mitte", hand: "Mitte", von: 65, bis: 65 }];
+    const platz = { id: "CN", club: G("bagFreiName")(), carry: null, total: null };
+    DB0.clubDistances.push(platz);
+    eq("der Platzhalter hat einen freien Namen", platz.club, "Neuer Schläger");
+    /* DIE FALLE ALS PRÜFFALL: Derselbe Typ wird erkannt, ein anderer nicht. */
+    eq("Sand Wedge 54° ist derselbe Typ wie SW 5", (kol(platz, "Sand Wedge 54° Vokey") || {}).club, "SW 5");
+    eq("ein Lob Wedge ist es nicht", kol(platz, "Lob Wedge 58°"), null);
+    eq("ein unbekannter Name auch nicht", kol(platz, "Chipper"), null);
+    /* Der Eintrag selbst zählt nicht als Kollision mit sich. */
+    eq("kein Treffer auf sich selbst", kol(DB0.clubDistances[0], "SW 5"), null);
+
+    /* Ersetzen läuft über `clubWechsel` — EIN Weg für den Wechsel. */
+    const r = alsW(platz, DB0.clubDistances[0], "Sand Wedge 54° Vokey");
+    ok("der Wechsel gelingt", r && r.ok, JSON.stringify(r));
+    ok("der Platzhalter ist weg", !DB0.clubDistances.some(x => x.id === "CN"));
+    const neu = DB0.clubDistances.find(x => x.id === "C1");
+    eq("der Platz im Bag bleibt und trägt den neuen Namen", neu.club, "Sand Wedge 54° Vokey");
+    ok("mit Stichtag", !!neu.seit);
+    eq("der Teilschlag hängt am neuen, vorläufig", DB0.wedgeMatrix[0].club + "/" + DB0.wedgeMatrix[0].vorlaeufig,
+      "Sand Wedge 54° Vokey/true");
+    eq("der andere Schläger bleibt", DB0.clubDistances.filter(x => x.club === "7 Iron").length, 1);
+  } finally { DB0.clubDistances = sich.cd; DB0.wedgeMatrix = sich.wm; DB0.strat = sich.st; }
+  const src = fs.readFileSync(FILE, "utf8");
+  ok("die Frage kommt beim Benennen", /const typ=bagTypKollision\(obj, neu\);/.test(src));
+  ok("der neue Eintrag wird gezeigt und fokussiert",
+    /z\.scrollIntoView\(\{block:"center", behavior:"smooth"\}\)/.test(src) && /inp\.focus\(\); inp\.select\(\);/.test(src));
 }
 
 /* ============ 24bw. Audit-Behebungen K4, K7, K8, K11 (v6.24) ============ */

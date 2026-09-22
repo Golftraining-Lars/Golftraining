@@ -13,6 +13,32 @@
 
 ---
 
+- **v5.80.0 · 2026-09-03** — **Befund 1 umgesetzt — und eine eigene Hypothese widerlegt.**
+  **Die Lage kommt jetzt aus dem Raster.** Von 342 gespielten Löchern trugen nur **111** eine
+  Approach-Lage (32 %) — das schlechteste aller Felder, und Strokes Gained, Scrambling sowie die
+  gelernte Streuung rechnen darauf.
+  **Die richtige Antwort ist nicht „mehr eintippen", sondern „weniger fragen":** Der zweite Punkt
+  eines gemessenen Schlages **ist** der Landepunkt, und `lieCode` sagt für jeden Punkt, was dort
+  liegt. Die Auskunft war da — sie war nur nie mit dem Eingabefeld verbunden. Am eigenen Bestand
+  greift der Vorschlag **23-mal**.
+  **Es ist ein Vorschlag, keine Eintragung:** Der Wert erscheint im Auswahlfeld als „· aus GPS", die
+  Handeingabe gewinnt immer. **Eine automatisch gesetzte Lage, die man nicht erkennt, wäre schlimmer
+  als gar keine** — sie sähe aus wie eine Beobachtung. Ohne gemessenen Schlag, ohne Raster oder bei
+  GPS-Ungenauigkeit über 15 m gibt es keinen Vorschlag: lieber leer als geraten.
+  **Und der zweite Punkt: „Eisen 5 über das lange Waldstück".** Nachgerechnet zielt der Caddy 9,1°
+  rechts an der Baumreihe vorbei und landet auf Fairway (71 %); die Linie streift den Bestand bei
+  75 m mit **7,2 m Luft**.
+  **Ich hatte daraus eine abgestufte Strafe gebaut und wieder entfernt** — die Messung widerlegte
+  meine Annahme: Der Prüffall aus v3.74, den der Prüfstand ausdrücklich als frei erklärt (Driver über
+  einen 12-m-Baum bei 60 m), hat mit **3,8 m weniger** Luft als der beanstandete Schlag. Eine
+  Abstufung hätte nicht den gemeldeten Fall getroffen, sondern alles gleichmäßig teurer gemacht — und
+  eine bewusste frühere Entscheidung ohne Beleg umgestoßen. **Wer eine Regel ändert, muss zeigen,
+  dass sie den Fall trifft, der ihn stört.**
+  **Was offen bleibt:** Die Baumhöhe von 15 m ist geraten — OSM liefert fast nie eine, ausgewachsene
+  Bäume stehen oft bei 20–25 m. Mit 20 m hätte das Eisen nur 2,2 m Luft. **Das ist die Zahl, die man
+  messen müsste, nicht die Formel drumherum.** `flugLuft(club, dist, höhe)` liefert die Reserve in
+  Metern und steht für genau diese Untersuchung bereit.
+
 - **v5.79.0 / Uhr 2026-09-03 (59) · 2026-09-03** — **Übersetzungsfehler aus (57): Ein neuer Parameter stand in der Mitte.**
   Android Studio meldet vier Fehler: zweimal „Function1<Int, Unit> but Int was expected", zweimal
   „No value passed for parameter onSet".
