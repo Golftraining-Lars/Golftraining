@@ -358,6 +358,8 @@ try {
                  "_aimKeyBasis","_aimTeeEv","_aimNextEv","_aimApproachEv",
                  "SWING_TYPES","wedgeHandVorlage","lmDatum","lmSitzungsDatum","watchPayload",
                  "LEITPLANKEN","leitplanken","bagTypKollision","bagAlsWechsel","bagFreiName",
+                 "clubArchivAll","clubArchivieren","tagVor","equipFuerClub","clubFuerEquip",
+                 "equipArchivieren","eqAbgleichFaelle","equipSet","equipAll","bagArchivHtml",
                  "formDraftAll","formDraftGet","formDraftSave","formDraftClear",
                  "formDraftErledigt","formDraftFeldKey","formDraftSammeln","formDraftBind",
                  "fremderZeigerZaehlt","istRundenStat","poolQuote","teilAnteil",
@@ -21229,6 +21231,93 @@ group("Karteneditor — durch den Wald hindurchsehen");
   ok("nicht in DB.ui", /function geoEdVegSicht\(v\)\{ GEOED\.vegSicht=v/.test(src));
 }
 
+/* ============ 24by. Archiv, Ausrüstungshistorie, Kopplung (v6.26) ============ */
+group("Archiv — nichts verschwindet, alles ist zu finden");
+{
+  const DB0 = live("DB");
+  const sich = { cd: DB0.clubDistances, wm: DB0.wedgeMatrix, st: DB0.strat, eq: DB0.equipment,
+                 ca: DB0.clubArchiv, g: DB0.gpsShots, l: DB0.lmSessions, ui: DB0.ui };
+  try {
+    eq("der Tag davor", G("tagVor")("2026-09-13"), "2026-09-12");
+    eq("über den Monatswechsel", G("tagVor")("2026-10-01"), "2026-09-30");
+
+    DB0.clubDistances = [{ id: "C1", club: "SW 5", carry: 80, total: 82 },
+                         { id: "C2", club: "Pitching Wedge", carry: 108, total: 111 }];
+    DB0.wedgeMatrix = []; DB0.clubArchiv = []; DB0.lmSessions = [];
+    const ts = new Date(Date.now() - 20 * 86400000).toISOString();
+    DB0.gpsShots = Array.from({ length: 6 }, (_, i) => ({ id: "g" + i, club: "SW 5", dist: 82 + (i % 2),
+      swing: "Voll", ts, accA: 5, accB: 5 }));
+    G("grpCacheClear")();
+    DB0.equipment = { sw: { text: "Ping G410", seit: "2021-02-01" }, pw: { text: "Ping G410", seit: "2021-02-01" } };
+
+    /* ---- Zuordnung über den Typ ---- */
+    eq("Sand Wedge (Ausrüstung) findet SW 5 (Bag)", (G("clubFuerEquip")("sw") || {}).club, "SW 5");
+    eq("und umgekehrt", (G("equipFuerClub")("SW 5") || {}).key, "sw");
+    eq("Trolley hat keinen Schläger", G("clubFuerEquip")("trolley"), null);
+
+    /* ---- Wechsel im Bag: Archiv mit Momentaufnahme, Ausrüstung zieht mit ---- */
+    const heute = new Date().toISOString().slice(0, 10);
+    const r = G("clubWechsel")("SW 5", { neuName: "Sand Wedge 54° Zip", seit: heute });
+    ok("der Wechsel gelingt", r && r.ok);
+    const a = DB0.clubArchiv[0];
+    ok("der alte Schläger steht im Archiv", !!a && a.club === "SW 5");
+    eq("mit Nachfolger", a && a.nachfolger, "Sand Wedge 54° Zip");
+    eq("bis zum Tag vor dem Stichtag", a && a.bis, G("tagVor")(heute));
+    /* DIE MOMENTAUFNAHME: die Zahlen des ALTEN, bevor der Stichtag sie
+       wegzählt — sonst wäre das Archiv leer. */
+    eq("mit der Anzahl seiner Messungen", a && a.mess.nTotal, 6);
+    eq("und seinem Modell aus der Ausrüstung", a && a.modell, "Ping G410");
+    /* Die Ausrüstung zieht mit: altes Modell in die Historie, neues eingetragen. */
+    eq("die Ausrüstung trägt das neue", DB0.equipment.sw.text, "Sand Wedge 54° Zip");
+    eq("seit dem Stichtag", DB0.equipment.sw.seit, heute);
+    eq("das alte steht in ihrer Historie", (DB0.equipment.sw.hist || [])[0].text, "Ping G410");
+    eq("andere Plätze bleiben", DB0.equipment.pw.text, "Ping G410");
+
+    /* ---- Ausrüstung: Korrektur behält das Datum, neues Modell archiviert ---- */
+    DB0.equipment.pw = { text: "Ping G41O", seit: "2021-02-01" };
+    G("equipSet")("pw", "text", "Ping G410", "korrektur");
+    eq("eine Korrektur behält das Datum", DB0.equipment.pw.seit, "2021-02-01");
+    ok("und legt keine Historie an", !(DB0.equipment.pw.hist || []).length);
+    G("equipSet")("pw", "text", "Cleveland CBX Zip PW", "neu");
+    eq("ein neues Modell setzt heute", DB0.equipment.pw.seit, heute);
+    eq("und archiviert das alte", DB0.equipment.pw.hist[0].text, "Ping G410");
+
+    /* ---- Abgleich: Ausrüstung neuer als der Bag ---- */
+    DB0.clubDistances = [{ id: "C3", club: "LW 5", carry: 68, total: 70 },
+                         { id: "C4", club: "Gap Wedge", carry: 96, total: 98 }];
+    DB0.equipment = { lw: { text: "Cleveland CBX Zip", seit: "2026-09-13" },
+                      gw: { text: "Ping G410", seit: "2021-02-01" } };
+    DB0.ui = Object.assign({}, DB0.ui || {}, { eqAbgleichNein: {} });
+    const fa = G("eqAbgleichFaelle")();
+    ok("der ungekoppelte Wechsel wird gefunden", fa.some(f => f.key === "lw" && f.club === "LW 5"));
+    /* Ein Datum außerhalb des Messfensters kann nichts aufteilen — es würde
+       nur die gelernte Streuung zurücksetzen. */
+    ok("ein uraltes Datum nicht", !fa.some(f => f.key === "gw"));
+    DB0.ui.eqAbgleichNein = { lw: "2026-09-13" };
+    ok("Nein gilt für genau dieses Datum", !G("eqAbgleichFaelle")().some(f => f.key === "lw"));
+    /* Übernimmt man den Abgleich, ist das alte Modell unbekannt — die
+       Ausrüstung trägt schon das neue. Es dem alten Schläger ins Archiv zu
+       schreiben, hieße, ihm den Namen seines Nachfolgers zu geben. */
+    DB0.ui.eqAbgleichNein = {}; DB0.clubArchiv = [];
+    G("clubWechsel")("LW 5", { neuName: "LW 5", seit: "2026-09-13", ohneAusruestung: true });
+    eq("das Archiv nennt dann kein falsches Modell", DB0.clubArchiv[0].modell, null);
+    DB0.clubDistances[0].seit = "2026-09-13";
+    ok("mit Stichtag im Bag ist nichts mehr offen", !G("eqAbgleichFaelle")().some(f => f.key === "lw"));
+
+    /* ---- Das Archiv ist sichtbar, auch leer ---- */
+    DB0.clubArchiv = [];
+    ok("leer sagt es, dass es leer ist", /Noch keiner ausgemustert/.test(G("bagArchivHtml")()));
+  } finally {
+    DB0.clubDistances = sich.cd; DB0.wedgeMatrix = sich.wm; DB0.strat = sich.st; DB0.equipment = sich.eq;
+    DB0.clubArchiv = sich.ca; DB0.gpsShots = sich.g; DB0.lmSessions = sich.l; DB0.ui = sich.ui;
+    G("grpCacheClear")();
+  }
+  ok("das Archiv hängt am Schläger-Reiter", /\$\("#v-bag"\)\.innerHTML=h\+bagBewertungHtml\(\)\+bagArchivHtml\(\);/.test(code));
+  ok("das × archiviert", /clubArchivieren\(w, \{bis:todayISO\(\), grund:"entfernt"\}\)/.test(code));
+  ok("das Archiv wird abgeglichen", /out\.clubArchiv = _mergeArr/.test(code));
+  ok("der Wechsel von der Ausrüstung koppelt nicht zurück", /ohneAusruestung:true/.test(code));
+}
+
 /* ============ 24bx. Neuer Schläger desselben Typs (v6.25) ============ */
 group("Schläger anlegen — Ersatz oder zweites Exemplar");
 {
@@ -22202,7 +22291,7 @@ group("Wedge-Matrix");
      darf beim Verlassen der App nicht verloren gehen. */
   ok("der Editor sichert zwischen", /openSheet\(h, "wedge:"\+\(isNew\?"neu":id\)\)/.test(code));
   ok("die Matrix wird abgeglichen", /out\.wedgeMatrix = _mergeArr/.test(code));
-  ok("und gestempelt", /"notesTrash","wedgeMatrix"\]/.test(code));
+  ok("und gestempelt", /"notesTrash","wedgeMatrix"(,"clubArchiv")?\]/.test(code));   // v6.26: Archiv dahinter
   /* Ohne Grabstein käme eine gelöschte Zeile beim nächsten Abgleich zurück. */
   ok("Löschen hinterlässt einen Grabstein", /tombAdd\("wedgeMatrix", id\)/.test(code));
   /* Gemessen wird gegen „spielt wie" — nicht gegen die Luftlinie. */

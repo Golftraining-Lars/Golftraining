@@ -13,6 +13,30 @@
 
 ---
 
+- **v5.81.0 · 2026-09-03** — **Zwei echte Befunde behoben, zwei eigene Messfehler eingestanden.**
+  **(2) Wer abgeglichen wird, muss gestempelt werden.** `testDefs` und `clubDistances` werden in
+  `mergeDB` abgeglichen, standen aber nicht in `STAMP_LISTEN`. Ohne `updated` kann `_mergeArr` nicht
+  entscheiden, welche Seite jünger ist — **es entscheidet dann der Zufall der Reihenfolge.** Derselbe
+  Fehler wie in v5.39; damals habe ich die betroffene Liste ergänzt, **weil ich eine Liste gepflegt
+  habe statt die Regel zu prüfen.** Die Schlägerliste ist der teuerste Fall: Verliert man dort eine
+  Änderung, rechnet der Caddy mit alten Längen, und niemand merkt es. Neue Sperrklinke prüft die
+  **Regel**: jede von `mergeDB` abgeglichene Liste muss gestempelt sein.
+  **(1) 39 falsche Grüns, jetzt in einem Durchgang.** Südplatz **18/18**, Brodauer Mühle **18/18**,
+  Fehmarn 3 — auf zwei kompletten Plätzen stimmt kein einziges Loch. **Ein Knopf je Loch im
+  Spielmodus reichte dafür nicht:** 39-mal auf die Bahn gehen, um eine Datenkorrektur zu bestätigen,
+  macht niemand. Der Befund war seit v5.58 bekannt und bis heute nicht behoben — **nicht weil die
+  Korrektur fehlte, sondern weil der Weg dahin zu lang war.** Über den Platzbericht erreichbar,
+  einzeln oder gesammelt, mit Rückfrage. Löcher **ohne** Vorschlag werden benannt statt verschwiegen.
+  **(3) Was man aufschreibt, muss man auch lesen** — hier war mein Befund allerdings falsch: Alle 25
+  Schläge tragen längst einen Neutralwert, ich hatte auf ein Feld geprüft, das es nicht gibt
+  (`neutral` statt `distNeutral`). **Der Nebenbefund bleibt gültig:** Das Nachziehen las das am Schlag
+  gespeicherte Wetter (`wx`, seit v4.88) nicht und scheiterte deshalb an der Drei-Stunden-Frist des
+  aktuellen Wetters. Behoben; nur 6 der 25 Schläge tragen dieses Wetter, und das Protokoll sagt jetzt
+  ehrlich, für wie viele nichts nachzuholen ist.
+  **(5) Toter Code — gab es keinen.** Meine Suche zählte nur direkte Aufrufe; alle zwölf „toten"
+  Funktionen werden über `onclick` oder den Prüfstand gerufen. **Eine Messung, die die halbe
+  Aufrufform nicht kennt, misst nichts.**
+
 - **v5.80.0 · 2026-09-03** — **Befund 1 umgesetzt — und eine eigene Hypothese widerlegt.**
   **Die Lage kommt jetzt aus dem Raster.** Von 342 gespielten Löchern trugen nur **111** eine
   Approach-Lage (32 %) — das schlechteste aller Felder, und Strokes Gained, Scrambling sowie die
