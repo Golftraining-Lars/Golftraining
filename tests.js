@@ -2274,6 +2274,176 @@ group("Zielkette bleibt vernünftig, egal wie weit man weg ist");
   }
 }
 
+/* ============ 24w2. Das erste Bein folgt dem Standort ============ */
+group("Zielkette — gemessen wird da, wo man steht (v6.27)");
+{
+  /* ====================================================================
+     GEMELDET am 10.10.2026 mit zwei Bildschirmfotos: „Irgendwie gibt der
+     Caddy mir sehr eigenartige Empfehlungen."
+       Loch 16: oben „119 m", darunter „spielt wie 126 m · bergab 3,0 m ·
+                Gegenwind 2 m/s" — bergab UND sieben Meter länger.
+       Loch 17: oben „170 m", darunter „spielt wie 174 m · bergab 6,8 m".
+     URSACHE: `_aimChainKey()` rundet den Standort auf Zellen von rund
+     15 × 15 m. Innerhalb einer Zelle wurde die Kette nicht neu gebaut —
+     Ursprung, Länge, „spielt wie" und SCHLÄGER blieben auf dem Stand des
+     Zelleneintritts. Die große Zahl oben misst dagegen live. Oben stand, wo
+     er ist; darunter rechnete der Caddy von dort, wo er war.
+     Die Prüffälle hier sichern beides ab: dass die Zahlen dem Standort
+     folgen, und dass die teure Bewertung trotzdem gespeichert bleibt. */
+  const chain=G("playAimChain"), gd=G("geoDist"), plike=G("playsLike");
+  const P=live("PLAY"), DB=live("DB");
+  if (typeof chain === "function" && P && DB) {
+    const sich={ c:DB.courses, cd:DB.clubDistances, here:P.here, co:P.course,
+                 h:P.holes, idx:P.idx, aim:P.aim, ck:P.aimChainKey, ch:P.aimChain };
+    try{
+      const mLat=111320, mLng=65500;
+      const at=(n,e=0)=>[54.0+n/mLat, 10.0+e/mLng];
+      /* DIE BEIDEN STANDORTE LIEGEN BEWUSST IN DERSELBEN RASTERZELLE des
+         Kettenschlüssels (`Math.round(lat*7400)` — auf 54° N 15,0 m). Nur so
+         prüft dieser Fall, was er prüfen soll: Der Zwischenspeicher greift,
+         und trotzdem stimmen die Zahlen. Grün bei 306 m, damit die Reste
+         genau die 124 und 119 aus dem Bildschirmfoto sind. */
+      DB.courses=[{name:"REANKER", geo:{holes:{16:{tee:at(0), green:at(306)}}}}];
+      DB.clubDistances=[{club:"Driver",carry:200,reach:215},{club:"3 Wood",carry:174,reach:182},
+        {club:"8 Iron",carry:124,reach:128},{club:"PW",carry:100,reach:103}];
+      P.course="REANKER"; P.tee="Gelb"; P.holes=[{hole:16,par:4,len:306,si:14}];
+      P.idx=0; P.aim={}; P.aimChain=null; P.aimChainKey=null;
+
+      /* 124 m vor dem Grün — dort wurde die Kette im gemeldeten Fall gebaut. */
+      P.here=at(306-124);
+      const gebaut=chain(true);
+      const d0=gebaut&&gebaut.legs&&gebaut.legs[0] ? Math.round(gebaut.legs[0].dist) : null;
+      ok("die Kette entsteht an der Bauposition", d0===124, "Bein 0: "+d0+" m");
+
+      /* Fünf Meter weitergegangen — dieselbe Rasterzelle, KEIN force, KEIN
+         Zurücksetzen des Schlüssels. Genau die Lage aus dem Bildschirmfoto. */
+      P.here=at(306-119);
+      const gelesen=chain();
+      ok("derselbe Zwischenspeicher, kein Neubau", gelesen===gebaut);
+      const L0=gelesen&&gelesen.legs?gelesen.legs[0]:null;
+      ok("der Ursprung ist der neue Standort",
+         !!L0 && Math.round(gd(L0.from, P.here))===0,
+         L0?Math.round(gd(L0.from,P.here))+" m daneben":"kein Bein");
+      ok("die Länge folgt mit: 119 statt 124",
+         !!L0 && Math.round(L0.dist)===119, L0?Math.round(L0.dist)+" m":"–");
+      ok("„spielt wie“ folgt mit",
+         !!L0 && Math.abs(L0.spielt-119)<=1, L0?L0.spielt+" m":"–");
+      ok("auch der Kettenpunkt 0 wandert mit",
+         !!gelesen && Math.round(gd(gelesen.pts[0], P.here))===0);
+      /* DIE BEWERTUNG BLEIBT GESPEICHERT — sonst liefe bei jedem GPS-Tick
+         eine Monte-Carlo-Runde, und genau das sollte das grobe Raster
+         verhindern. Das Ziel ist Strategie und darf sich NICHT bewegen. */
+      ok("das Ziel bleibt, wo es war",
+         !!L0 && Math.round(gd(L0.to, at(306)))===Math.round(gd(gebaut.legs[0].to, at(306))));
+
+      /* Der Schläger gehört zur Messung, nicht zum Zwischenspeicher: Seit
+         v4.16 nimmt die Kopfzeile ihn von hier. Blieb er stehen, klubte man
+         für 126 m, wo 121 zu spielen waren. */
+      ok("das Bein merkt sich den Vorschlag der Bewertung",
+         !!L0 && ("evClub" in L0));
+
+      /* GEGENPROBE: Wer wirklich weit weg ist, plant bewusst AB TEE (v3.42).
+         Dann darf der Wohnzimmersessel die Kette nicht an sich ziehen. */
+      P.here=at(-3000); P.aimChain=null; P.aimChainKey=null;
+      const fern=chain(true);
+      if(fern && fern.legs && fern.legs.length){
+        const abTee=Math.round(gd(fern.legs[0].from, at(0)))<5;
+        P.here=at(-2995);
+        const fern2=chain();
+        ok("von weit weg bleibt der Ursprung am Abschlag",
+           !abTee || Math.round(gd(fern2.legs[0].from, at(0)))<5,
+           "Ursprung "+Math.round(gd(fern2.legs[0].from, at(0)))+" m vom Tee");
+      }
+    } finally {
+      DB.courses=sich.c; DB.clubDistances=sich.cd; P.here=sich.here; P.course=sich.co;
+      P.holes=sich.h; P.idx=sich.idx; P.aim=sich.aim; P.aimChainKey=sich.ck; P.aimChain=sich.ch;
+    }
+  }
+
+  /* ---- Die Rechnung aus den Bildschirmfotos, als Zahlenbeleg ----
+     Sie zeigt, dass die angezeigten 126 und 174 NICHT aus 119 und 170 kommen
+     können — die Differenz ist kein Wetter, sondern ein anderer Ursprung. */
+  if (typeof plike === "function") {
+    /* 17 °C, 2 m/s Gegenwind (windDir === bearing === 0 heißt: von vorn). */
+    const pl=(d,el)=>plike(d,17,2,0,0,el);
+    ok("Loch 16: 119 m bergab spielen sich wie 121 m, nicht wie 126",
+       pl(119,-3.0)===121, "ergibt "+pl(119,-3.0));
+    ok("die angezeigten 126 m gehören zu 124 m", pl(124,-3.0)===126, "ergibt "+pl(124,-3.0));
+    ok("Loch 17: 170 m bergab spielen sich wie 171 m, nicht wie 174",
+       pl(170,-6.8)===171, "ergibt "+pl(170,-6.8));
+    ok("die angezeigten 174 m gehören zu 173 m", pl(173,-6.8)===174, "ergibt "+pl(173,-6.8));
+    /* UND DIE RICHTUNG STIMMT: bergab verkürzt, sonst wäre schon die
+       Grundrechnung falsch und nicht nur der Bezugspunkt. */
+    ok("bergab spielt sich kürzer als eben", pl(170,-6.8) < pl(170,0));
+  }
+
+  /* ---- Der Weg im Quelltext ---- */
+  {
+    const src=fs.readFileSync(FILE,"utf8");
+    const code=codeOhneDoku(src);
+    ok("der Zwischenspeicher gibt nichts Unvermessenes heraus",
+       /PLAY\.aimChainKey===key\) return _aimReanker\(PLAY\.aimChain\)/.test(code));
+    ok("das Bein trägt den Vorschlag der Bewertung mit",
+       /evClub: evClub\?evClub\.name:null/.test(code));
+    /* BLOCKGRENZE STATT FENSTER — die Regel im Kopf dieser Datei: Ein
+       Zeichenfenster reißt beim nächsten Absatz Begründung. */
+    const _ri=code.indexOf("function _aimReanker");
+    const _re=code.indexOf("\nfunction playAimChain", _ri);
+    const rk=(_ri>=0 && _re>_ri) ? code.slice(_ri,_re) : "";
+    /* OHNE STANDORT ODER ZU WEIT WEG: nicht anfassen — sonst zieht ein Handy
+       auf dem Küchentisch die Kette zu sich. */
+    ok("ohne Standort wird nicht verankert",
+       rk.length>0 && rk.indexOf("if(ch.amTee) return ch;")>=0 && rk.indexOf("!PLAY.here) return ch;")>=0);
+    ok("und nicht, wenn man gar nicht am Platz ist",
+       rk.indexOf("playTooFar()!=null) return ch;")>=0);
+    /* DIE TEURE RECHNUNG BLEIBT DRAUSSEN. Stünde hier ein `approach(` oder
+       `nextShot(`, liefe die Streurechnung wieder bei jedem GPS-Tick — und
+       das grobe Raster wäre umsonst. */
+    ok("der Reanker rechnet keine Streuung nach",
+       rk.length>0 && !/STRAT\.(approach|nextShot|tee|shotEV)\(/.test(rk));
+    ok("er misst dafür selbst", /geoDist\(von, L\.to\)/.test(rk) && /playsLike\(d,/.test(rk));
+  }
+
+  /* ---- Die Wache, die seit v5.25 blind war ---- */
+  {
+    const src=fs.readFileSync(FILE,"utf8");
+    const code=codeOhneDoku(src);
+    /* Sie verglich `spieltWie` gegen `cw.plays` — zwei Zahlen aus derselben
+       Kette, also per Konstruktion gleich. Jetzt wird die Größe geprüft, die
+       wirklich auseinanderlaufen kann: Kettenursprung gegen Standort. */
+    ok("der Versatz zum Standort wird gemeldet",
+       /geoDist\(_ch0\.from, pos\)/.test(code) && /Kette rechnet "\+versatz\+" m neben dem Standort/.test(code));
+  }
+}
+
+/* ============ 24w3. Kalendertage rechnet man in UTC ============ */
+group("Anmeldefrist — 21 Tage sind 21 Tage, auch östlich von Greenwich");
+{
+  /* GEFUNDEN, WEIL DER PRÜFSTAND DIESMAL UNTER `TZ=Europe/Berlin` LIEF:
+     `anmeldeFaellig` baute die Grenze lokal (`T00:00:00`) und schnitt sie in
+     UTC (`toISOString`). In Deutschland ist lokale Mitternacht in UTC noch
+     der Vortag — die Grenze fiel um einen Tag zurück, die Erinnerung kam bei
+     20 statt 21 Tagen. Unter `TZ=UTC` ist das unsichtbar. */
+  const F=G("anmeldeFaellig");
+  const src=fs.readFileSync(FILE,"utf8");
+  ok("die Grenze wird in UTC gebaut",
+     /new Date\(heute\+"T00:00:00Z"\)/.test(src) && /grenze\.setUTCDate\(grenze\.getUTCDate\(\)\+ANMELDE_TAGE\)/.test(src));
+  ok("und die Tagesdifferenz ebenso",
+     /new Date\(x\.date\+"T00:00:00Z"\) - new Date\(heute\+"T00:00:00Z"\)/.test(src));
+  if (typeof F === "function") {
+    const t=d=>[{id:"x", name:"R", date:d, status:"geplant"}];
+    /* Beide Ränder, und zwar in JEDER Zeitzone gleich — das ist der Punkt. */
+    ok("21 Tage sind drin, unabhängig von der Zeitzone", F(t("2026-09-22"),"2026-09-01").length===1);
+    ok("22 nicht mehr", F(t("2026-09-23"),"2026-09-01").length===0);
+    /* Über die Sommerzeitgrenze: Ende Oktober springt die lokale Uhr, die
+       Zahl der Kalendertage nicht. */
+    ok("auch über die Zeitumstellung", F(t("2026-11-11"),"2026-10-21").length===1,
+       "21 Tage über den letzten Oktobersonntag");
+    const r=F(t("2026-09-22"),"2026-09-01");
+    ok("und die Tageszahl stimmt", r.length===1 && r[0].tage===21, r.length?String(r[0].tage):"–");
+  }
+}
+
 /* ============ 24x. Blatt schließen ≠ Zurück-Taste ============ */
 group("_popEigen — eigenes history.back() vom Nutzer unterscheiden");
 {
@@ -7222,9 +7392,15 @@ group("Gleichlauf Uhr ↔ App — dieselbe Frage, dieselbe Antwort");
        bedeutet. */
     ok("Caddy-Warnungen nur in Platznähe", /const _nahGenug=function\(\)/.test(src));
     ok("gebunden an playTooFar", /playTooFar==="function"\) \? !playTooFar\(\)/.test(src));
-    ok("beide Meldungen sind gebunden",
-       (src.match(/_nahGenug\(\)/g) || []).length === 2,
-       (src.match(/_nahGenug\(\)/g) || []).length + " Aufrufe (Schläger + spielt-wie)");
+    /* v6.27: eine dritte Meldung ist dazugekommen — der Versatz zwischen dem
+       Ursprung der Zielkette und dem eigenen Standort. Sie gehört aus
+       demselben Grund hinter `_nahGenug()` wie die beiden anderen: Liegt das
+       Handy 2,5 km weg, ist ein Versatz keine Meldung wert, sondern der
+       Normalfall. Die Zahl hier ist eine SPERRKLINKE — wer eine Caddy-Warnung
+       ergänzt, ohne sie zu binden, lässt diesen Prüffall rot werden. */
+    ok("alle drei Meldungen sind gebunden",
+       (src.match(/_nahGenug\(\)/g) || []).length === 3,
+       (src.match(/_nahGenug\(\)/g) || []).length + " Aufrufe (Schläger + spielt-wie + Versatz)");
     ok("sie wird bei jedem Sendevorgang geschrieben",
        /syncVerlauf = \(listOf[\s\S]{0,220}?pulsSchreiben\(\)/.test(kt));
 
@@ -15443,8 +15619,16 @@ group("Caddy — eine Kette, ein Aufruf");
   ok("die Zielkette wird nur EINMAL gerufen",
      (code.match(/playAimChain\(\)/g) || []).length === 1,
      String((code.match(/playAimChain\(\)/g) || []).length) + " Aufrufe");
+  /* v6.27: `L0` kommt weiterhin aus DEMSELBEN Kettenaufruf wie `zielPt` — nur
+     noch unter der Bedingung, dass die Kette überhaupt von diesem Punkt
+     handelt. `_phoneLive` lässt das Handy für die Position der UHR rechnen
+     (v3.18); dort beschreibt die Kette einen anderen Ball, und ihr Schläger
+     wäre die falsche Antwort auf die richtige Frage. Die Invariante, die
+     v5.11 gesichert hat, bleibt: EIN Aufruf, EIN Ergebnis. */
   ok("Ziel und Schläger stammen aus demselben Ergebnis",
-     /const L0=_ch0;/.test(code) && /const zielPt=\(_ch0&&_ch0\.to\)/.test(code));
+     /const L0=_chPasst\?_ch0:null;/.test(code) && /const zielPt=\(_ch0&&_ch0\.to\)/.test(code));
+  ok("und die Kette gilt nur für ihren eigenen Punkt",
+     /const _chPasst = !!\(_ch0 && _ch0\.from && geoDist\(_ch0\.from, pos\) < 2\);/.test(code));
   /* `condFaktor` muss gegen genau dieses Ziel rechnen — sonst vergleicht die
      Kopfzeile wieder einen anderen Punkt als die Kette. */
   /* v5.25: Nicht nur dasselbe ZIEL, auch derselbe URSPRUNG. `condFaktor` maß
@@ -15454,7 +15638,7 @@ group("Caddy — eine Kette, ein Aufruf");
   ok("condFaktor rechnet gegen dasselbe Ziel",
      /condFaktor\(cwVon, zielPt\)/.test(code));
   ok("und ab demselben Ursprung",
-     /const cwVon = \(_ch0 && _ch0\.from\) \? _ch0\.from : pos;/.test(code));
+     /const cwVon = _chPasst \? _ch0\.from : pos;/.test(code));
   /* Der Wachhund bleibt: Er hat den Fehler gefunden und soll den nächsten
      finden. Eine Meldung abzuschalten, weil sie unbequem ist, wäre der
      falsche Schluss aus dieser Woche. */

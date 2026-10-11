@@ -13,6 +13,20 @@
 
 ---
 
+- **v5.82.0 · 2026-09-03** — **Kartendaten und Grün-Korrektur ziehen in den Platzeditor.** Gewünscht:
+  „Entferne diese Korrektur und Hinweise aus dem Platzbericht und integriere sie dort, wo die Plätze
+  bearbeitet werden."
+  **Und das ist der richtige Ort.** Der Platzbericht beantwortet eine **Spielerfrage** — welche Löcher
+  kosten mich historisch am meisten? Man liest ihn vor einer Runde, um sich vorzubereiten. Kartendaten
+  und ihre Korrektur sind eine **Wartungsfrage** und gehören dorthin, wo man den Platz auch sonst
+  pflegt.
+  **Eine Ansicht, die zwei Fragen beantwortet, beantwortet beide schlechter:** Wer sich auf eine Runde
+  vorbereitet, will nicht über Grün-Zuordnungen nachdenken — und wer Kartendaten repariert, sucht sie
+  nicht unter „Platzbericht".
+  Neuer Weg: **Plätze → Platz bearbeiten → 🗺️ Platz-Karte & OSM-Geodaten.** Dort steht die Tafel
+  direkt unter der Karte, die sie beschreibt — mit Deckung je Element, den Löchern ohne Daten und dem
+  Knopf für die Grün-Korrektur. Inhalt unverändert, nur am richtigen Platz.
+
 - **v5.81.0 · 2026-09-03** — **Zwei echte Befunde behoben, zwei eigene Messfehler eingestanden.**
   **(2) Wer abgeglichen wird, muss gestempelt werden.** `testDefs` und `clubDistances` werden in
   `mergeDB` abgeglichen, standen aber nicht in `STAMP_LISTEN`. Ohne `updated` kann `_mergeArr` nicht
